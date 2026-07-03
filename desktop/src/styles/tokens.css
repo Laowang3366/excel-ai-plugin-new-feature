@@ -1,0 +1,127 @@
+/**
+ * 全局样式 — Excel AI 桌面端
+ *
+ * 设计语言：对齐 WPS/Office 桌面端风格
+ * 主色：Indigo #4f46e5
+ * 输入框：Pill composer（圆角 24，阴影）
+ * 按钮：pill / circle 风格
+ */
+
+/* ============================================================
+   设计令牌
+   ============================================================ */
+
+:root {
+  /* ---- 主色 Indigo ---- */
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-light: #eef2ff;
+  --primary-border: #c7d2fe;
+  --primary-lighter-border: #dbe4ff;
+  --primary-bg-tint: #f8fbff;
+
+  /* ---- 文字 ---- */
+  --text-primary: #111827;
+  --text-secondary: #1f2937;
+  --text-muted: #475569;
+  --text-faint: #64748b;
+  --text-white: #ffffff;
+
+  /* ---- 背景 ---- */
+  --bg-primary: #ffffff;
+  --bg-page: #f8fafc;
+  --bg-main-panel: #ffffff;
+  --bg-tint: #f3f4f6;
+  --bg-blue-tint: #f8fbff;
+
+  /* ---- 边框 ---- */
+  --border-default: #e5e7eb;
+  --border-card: #e2e8f0;
+  --border-input: #dbe4ff;
+
+  /* ---- 语义色 ---- */
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --danger-text: #991b1b;
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --success-text: #166534;
+  --warning: #d97706;
+  --warning-bg: #fef3c7;
+  --warning-text: #92400e;
+
+  /* ---- 特殊气泡 ---- */
+  --reasoning-bg: #fef9c3;
+  --reasoning-border: #facc15;
+  --resume-bg: #dbeafe;
+  --resume-border: #3b82f6;
+  --compaction-bg: #f3e8ff;
+  --compaction-border: #a855f7;
+
+  /* ---- 侧边栏 ---- */
+  --sidebar-bg: #eef5fb;
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 52px;
+  --titlebar-height: 36px;
+  --chat-content-max-width: 760px;
+  --chat-user-message-max-width: 560px;
+
+  /* ---- 阴影 ---- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 28px rgba(15,23,42,0.08);
+  --shadow-primary: 0 10px 24px rgba(79,70,229,0.28);
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 24px;
+  --radius-full: 9999px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --primary: #8b8cf6;
+  --primary-hover: #a5b4fc;
+  --primary-light: rgba(139, 140, 246, 0.14);
+  --primary-border: #6366f1;
+  --primary-lighter-border: #384152;
+  --primary-bg-tint: #111827;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #e5e7eb;
+  --text-muted: #cbd5e1;
+  --text-faint: #94a3b8;
+  --text-white: #ffffff;
+
+  --bg-primary: #111827;
+  --bg-page: #0f172a;
+  --bg-main-panel: #111827;
+  --bg-tint: #1f2937;
+  --bg-blue-tint: #172033;
+
+  --border-default: #293548;
+  --border-card: #334155;
+  --border-input: #3b465a;
+
+  --danger-bg: rgba(220, 38, 38, 0.16);
+  --danger-text: #fecaca;
+  --success-bg: rgba(22, 163, 74, 0.16);
+  --success-text: #bbf7d0;
+  --warning-bg: rgba(217, 119, 6, 0.16);
+  --warning-text: #fde68a;
+
+  --reasoning-bg: rgba(113, 92, 13, 0.28);
+  --reasoning-border: #a16207;
+  --resume-bg: rgba(30, 64, 175, 0.22);
+  --resume-border: #3b82f6;
+  --compaction-bg: rgba(88, 28, 135, 0.25);
+  --compaction-border: #a855f7;
+
+  --sidebar-bg: #0b1220;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.32);
+  --shadow-lg: 0 10px 28px rgba(0,0,0,0.32);
+  --shadow-primary: 0 10px 24px rgba(99,102,241,0.25);
+}

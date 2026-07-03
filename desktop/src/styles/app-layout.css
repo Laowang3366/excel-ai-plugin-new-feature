@@ -1,0 +1,193 @@
+/* ============================================================
+   App 布局
+   ============================================================ */
+
+.app {
+  height: calc(100vh - var(--titlebar-height));
+  display: flex;
+  flex-direction: row;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 10px 10px 0 0;
+  background: var(--sidebar-bg);
+}
+
+.app-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+}
+
+.app-shell.compact-mode {
+  background: var(--bg-main-panel);
+}
+
+.app-titlebar {
+  position: relative;
+  height: var(--titlebar-height);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--sidebar-bg);
+  -webkit-app-region: drag;
+}
+
+.app-titlebar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--border-default);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.titlebar-sidebar-toggle {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-sidebar-toggle:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+.titlebar-window-mode-toggle {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-window-mode-toggle:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+.titlebar-window-mode-toggle.active {
+  border-color: var(--primary-border);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.titlebar-pin-toggle {
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  margin-right: 138px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-pin-toggle svg {
+  transform: rotate(-35deg);
+}
+
+.titlebar-pin-toggle.active {
+  border-color: var(--primary-border);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.titlebar-pin-toggle.active svg {
+  fill: currentColor;
+}
+
+.titlebar-pin-toggle:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+.titlebar-pin-toggle.active:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.compact-mode .titlebar-sidebar-toggle {
+  display: none;
+}
+
+.compact-mode .app {
+  border-radius: 0;
+  background: var(--bg-main-panel);
+}
+
+.compact-mode .app-main,
+.compact-mode .settings-main {
+  border-top-left-radius: 0;
+  box-shadow: none;
+}
+
+.compact-mode .settings-shell,
+.compact-mode .app-view {
+  background: var(--bg-main-panel);
+}
+
+.compact-mode .settings-main {
+  padding: 16px;
+}
+
+.compact-mode .settings-section-content {
+  max-width: 100%;
+}
+
+.app-view {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-main-panel);
+  border-top-left-radius: 14px;
+  box-shadow: -1px 0 0 var(--border-default);
+}
+
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--text-faint);
+}

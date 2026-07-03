@@ -1,0 +1,53 @@
+/**
+ * 全局样式入口 — Excel AI 桌面端
+ *
+ * 各模块样式已拆分到独立文件，此处仅做 @import 聚合。
+ * 加载顺序：令牌 → 基础 → 动画 → 通用 → 布局 → 组件
+ */
+
+/* 设计令牌（CSS 变量 + 暗色主题） */
+@import "./tokens.css";
+/* 全局重置 + body + 滚动条 */
+@import "./base.css";
+/* 关键帧动画 + .spin */
+@import "./animations.css";
+/* 通用按钮（Primary / Secondary / Danger） */
+@import "./buttons.css";
+/* App 壳层 + 标题栏 + 布局 */
+@import "./app-layout.css";
+/* 侧边栏 */
+@import "./sidebar.css";
+/* 聊天页面 + 文件夹徽章 + 文件弹窗 */
+@import "./chat.css";
+/* 消息气泡 */
+@import "./message-bubble.css";
+/* 图片附件预览 */
+@import "./attachment-preview.css";
+/* 推理气泡 */
+@import "./reasoning.css";
+/* 工具调用气泡 */
+@import "./tool-call.css";
+/* 流式输出 */
+@import "./streaming.css";
+/* 恢复提示 */
+@import "./resume-hint.css";
+/* 压缩通知 */
+@import "./compaction.css";
+/* 错误 + ErrorBoundary */
+@import "./error.css";
+/* 工具确认弹窗 */
+@import "./tool-confirm.css";
+/* 模型快速切换 */
+@import "./model-quick-switch.css";
+/* Pill Composer 输入框 */
+@import "./composer.css";
+/* 任务编排面板 */
+@import "./task-panel.css";
+/* 设置页面 */
+@import "./settings.css";
+/* 模型配置 + 供应商卡片 + 模板选择 */
+@import "./model-config.css";
+/* 对话框系统 */
+@import "./dialog.css";
+/* LoadingSpinner */
+@import "./loading-spinner.css";

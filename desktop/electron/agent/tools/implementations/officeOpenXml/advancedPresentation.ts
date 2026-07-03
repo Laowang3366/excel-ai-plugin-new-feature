@@ -1,0 +1,489 @@
+/**
+ * PowerPoint Open XML 高级操作
+ *
+ * 关联模块：
+ * - officeCore/officeActionAdapter.ts: 将统一 Office action 路由到本模块。
+ * - tableStyler.ts: 表格美化仍由既有通用表格样式器处理。
+ */
+
+import { readFile, writeFile } from "fs/promises";
+import path from "path";
+import JSZip from "jszip";
+import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
+import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
+import { createBasicPresentationPackage } from "./presentationTemplate";
+
+export interface PresentationAdvancedActionInput {
+  operation: string;
+  filePath: string;
+  outputPath?: string;
+  target?: string;
+  action?: OfficeActionKind;
+  params?: Record<string, unknown>;
+}
+
+const PRESENTATION_SLIDE_RE = /^ppt\/slides\/slide\d+\.xml$/;
+const PRESENTATION_PART = "ppt/presentation.xml";
+const PRESENTATION_RELS_PART = "ppt/_rels/presentation.xml.rels";
+const CONTENT_TYPES_PART = "[Content_Types].xml";
+const SLIDE_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
+const SLIDE_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml";
+const ADD_SLIDE_OPERATIONS = new Set(["addSlide", "addSlides", "appendSlide", "appendSlides", "addSlideContent"]);
+
+export async function applyPresentationAdvancedAction(
+  input: PresentationAdvancedActionInput
+): Promise<OfficeActionResult> {
+  try {
+    if (input.operation === "createPresentation") {
+      return await createPresentation(input);
+    }
+    if (input.operation === "applyTheme") {
+      return await applyTheme(input);
+    }
+    if (input.operation === "deleteSlides") {
+      return await deleteSlides(input);
+    }
+    if (ADD_SLIDE_OPERATIONS.has(input.operation)) {
+      return await addSlides(input);
+    }
+    if (
+      input.operation === "normalizeLayouts" ||
+      input.operation === "alignShapes" ||
+      input.operation === "insertChart" ||
+      input.operation === "replacePictureSlot"
+    ) {
+      return needsComResult({
+        app: "presentation",
+        action: input.action || "edit",
+        operation: input.operation,
+        filePath: input.filePath,
+        outputPath: input.outputPath,
+        target: input.target,
+        summary: `${input.operation} 需要完整坐标、关系图或媒体包维护，需显式 COM 兜底`,
+      });
+    }
+
+    return unsupportedResult({
+      app: "presentation",
+      action: input.action || "edit",
+      operation: input.operation,
+      filePath: input.filePath,
+      outputPath: input.outputPath,
+      target: input.target,
+      summary: `暂不支持 PPT Open XML 高级操作: ${input.operation}`,
+    });
+  } catch (error) {
+    return failedResult({
+      app: "presentation",
+      action: input.action || "edit",
+      operation: input.operation,
+      filePath: input.filePath,
+      outputPath: input.outputPath,
+      target: input.target,
+    }, error);
+  }
+}
+
+async function createPresentation(input: PresentationAdvancedActionInput): Promise<OfficeActionResult> {
+  const outputPath = input.outputPath || input.filePath;
+  const title = stringParam(input.params, "title") || "新建演示文稿";
+  const subtitle = stringParam(input.params, "subtitle") || "";
+  const zip = createBasicPresentationPackage(title, subtitle);
+
+  await writeFile(outputPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return presentationDone(input, outputPath, ["ppt/presentation.xml", "ppt/slides/slide1.xml"], "已创建基础 PPTX 演示文稿");
+}
+
+async function applyTheme(input: PresentationAdvancedActionInput): Promise<OfficeActionResult> {
+  const zip = await JSZip.loadAsync(await readFile(input.filePath));
+  const accentColor = normalizeColor(input.params?.accentColor);
+  const changedParts: string[] = [];
+  const slidePartNames = Object.keys(zip.files).filter((name) => PRESENTATION_SLIDE_RE.test(name)).sort();
+
+  for (const partName of slidePartNames) {
+    const part = zip.file(partName);
+    if (!part) continue;
+    const xml = await part.async("text");
+    const nextXml = applyRunColor(xml, accentColor);
+    if (nextXml !== xml) {
+      zip.file(partName, nextXml);
+      changedParts.push(partName);
+    }
+  }
+
+  const outputPath = input.outputPath || defaultOutputPath(input.filePath);
+  await writeFile(outputPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return presentationDone(input, outputPath, changedParts, "已应用 PPT 主题强调色");
+}
+
+async function deleteSlides(input: PresentationAdvancedActionInput): Promise<OfficeActionResult> {
+  const zip = await JSZip.loadAsync(await readFile(input.filePath));
+  const presentationPart = zip.file(PRESENTATION_PART);
+  const relsPart = zip.file(PRESENTATION_RELS_PART);
+  if (!presentationPart) throw new Error(`找不到 PPT 主部件: ${PRESENTATION_PART}`);
+  if (!relsPart) throw new Error(`找不到 PPT 关系部件: ${PRESENTATION_RELS_PART}`);
+
+  const presentationXml = await presentationPart.async("text");
+  const relsXml = await relsPart.async("text");
+  const slideEntries = collectSlideEntries(presentationXml, relsXml);
+  const indexes = resolveDeleteSlideIndexes(input, slideEntries.length);
+  const deleteIndexSet = new Set(indexes);
+  const deleteRelIds = new Set<string>();
+  const deletedParts: string[] = [];
+
+  for (const entry of slideEntries) {
+    if (!deleteIndexSet.has(entry.index)) continue;
+    deleteRelIds.add(entry.relId);
+    if (entry.partName) {
+      zip.remove(entry.partName);
+      deletedParts.push(entry.partName);
+    }
+  }
+
+  const nextPresentationXml = presentationXml.replace(/<p:sldId\b[^>]*(?:\/>|><\/p:sldId>)/g, (slideIdXml) => {
+    const relId = getXmlAttr(slideIdXml, "r:id");
+    return relId && deleteRelIds.has(relId) ? "" : slideIdXml;
+  });
+  const nextRelsXml = relsXml.replace(/<Relationship\b[^>]*(?:\/>|><\/Relationship>)/g, (relationshipXml) => {
+    const relId = getXmlAttr(relationshipXml, "Id");
+    return relId && deleteRelIds.has(relId) ? "" : relationshipXml;
+  });
+  const nextContentTypesXml = await removeSlideContentTypeOverrides(zip, deletedParts);
+
+  zip.file(PRESENTATION_PART, nextPresentationXml);
+  zip.file(PRESENTATION_RELS_PART, nextRelsXml);
+  if (nextContentTypesXml) zip.file("[Content_Types].xml", nextContentTypesXml);
+
+  const outputPath = input.outputPath || defaultOutputPath(input.filePath);
+  await writeFile(outputPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return presentationDone(input, outputPath, deletedParts, `已删除 ${deletedParts.length} 张幻灯片`);
+}
+
+interface SlideInput {
+  title: string;
+  body: string;
+  layout?: string;
+}
+
+async function addSlides(input: PresentationAdvancedActionInput): Promise<OfficeActionResult> {
+  const zip = await JSZip.loadAsync(await readFile(input.filePath));
+  const presentationPart = zip.file(PRESENTATION_PART);
+  const relsPart = zip.file(PRESENTATION_RELS_PART);
+  if (!presentationPart) throw new Error(`找不到 PPT 主部件: ${PRESENTATION_PART}`);
+  if (!relsPart) throw new Error(`找不到 PPT 关系部件: ${PRESENTATION_RELS_PART}`);
+
+  const slides = normalizeSlidesParam(input.params);
+  if (slides.length === 0) {
+    throw new Error("addSlide 需要 params.title/body 或 params.slides");
+  }
+
+  let presentationXml = await presentationPart.async("text");
+  let relsXml = await relsPart.async("text");
+  let contentTypesXml = await contentTypesXmlOrDefault(zip);
+  let nextSlideNumber = nextSlidePartNumber(zip);
+  let nextSlideId = nextPresentationSlideId(presentationXml);
+  let nextRelNumber = nextRelationshipNumber(relsXml);
+  const changedParts = [PRESENTATION_PART, PRESENTATION_RELS_PART, CONTENT_TYPES_PART];
+
+  for (const slide of slides) {
+    const slidePartName = `ppt/slides/slide${nextSlideNumber}.xml`;
+    const relId = `rId${nextRelNumber}`;
+    zip.file(slidePartName, contentSlideXml(slide.title, slide.body, slide.layout));
+    zip.file(`ppt/slides/_rels/slide${nextSlideNumber}.xml.rels`, emptySlideRelsXml());
+    presentationXml = insertSlideId(presentationXml, nextSlideId, relId);
+    relsXml = insertPresentationRelationship(relsXml, relId, `slides/slide${nextSlideNumber}.xml`);
+    contentTypesXml = ensureSlideContentType(contentTypesXml, slidePartName);
+    changedParts.push(slidePartName);
+    nextSlideNumber++;
+    nextSlideId++;
+    nextRelNumber++;
+  }
+
+  zip.file(PRESENTATION_PART, presentationXml);
+  zip.file(PRESENTATION_RELS_PART, relsXml);
+  zip.file(CONTENT_TYPES_PART, contentTypesXml);
+
+  const outputPath = input.outputPath || input.filePath;
+  await writeFile(outputPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return presentationDone(input, outputPath, changedParts, `已添加 ${slides.length} 张幻灯片`);
+}
+
+function applyRunColor(xml: string, color: string): string {
+  return xml.replace(/<a:r\b[\s\S]*?<\/a:r>/g, (runXml) => {
+    const fillXml = `<a:solidFill><a:srgbClr val="${color}" /></a:solidFill>`;
+    if (/<a:rPr\b[\s\S]*?<\/a:rPr>/.test(runXml)) {
+      return runXml.replace(/<a:rPr\b[^>]*>/, (tag) => `${tag}${fillXml}`);
+    }
+    return runXml.replace(/<a:r\b[^>]*>/, (tag) => `${tag}<a:rPr>${fillXml}</a:rPr>`);
+  });
+}
+
+interface SlideEntry {
+  index: number;
+  relId: string;
+  partName?: string;
+}
+
+function collectSlideEntries(presentationXml: string, relsXml: string): SlideEntry[] {
+  const relationshipTargets = new Map<string, string>();
+  for (const match of relsXml.matchAll(/<Relationship\b[^>]*(?:\/>|><\/Relationship>)/g)) {
+    const relId = getXmlAttr(match[0], "Id");
+    const target = getXmlAttr(match[0], "Target");
+    if (relId && target) relationshipTargets.set(relId, normalizeSlidePartName(target));
+  }
+
+  const entries: SlideEntry[] = [];
+  for (const match of presentationXml.matchAll(/<p:sldId\b[^>]*(?:\/>|><\/p:sldId>)/g)) {
+    const relId = getXmlAttr(match[0], "r:id");
+    if (!relId) continue;
+    entries.push({
+      index: entries.length + 1,
+      relId,
+      partName: relationshipTargets.get(relId),
+    });
+  }
+  return entries;
+}
+
+function nextSlidePartNumber(zip: JSZip): number {
+  const used = Object.keys(zip.files)
+    .map((name) => /^ppt\/slides\/slide(\d+)\.xml$/.exec(name)?.[1])
+    .filter((value): value is string => Boolean(value))
+    .map(Number);
+  return Math.max(0, ...used) + 1;
+}
+
+function nextPresentationSlideId(presentationXml: string): number {
+  const ids = [...presentationXml.matchAll(/<p:sldId\b[^>]*\bid=["'](\d+)["']/g)]
+    .map((match) => Number(match[1]))
+    .filter((value) => Number.isFinite(value));
+  return Math.max(255, ...ids) + 1;
+}
+
+function nextRelationshipNumber(relsXml: string): number {
+  const ids = [...relsXml.matchAll(/\bId=["']rId(\d+)["']/g)]
+    .map((match) => Number(match[1]))
+    .filter((value) => Number.isFinite(value));
+  return Math.max(0, ...ids) + 1;
+}
+
+function insertSlideId(presentationXml: string, slideId: number, relId: string): string {
+  const slideXml = `<p:sldId id="${slideId}" r:id="${relId}"/>`;
+  if (presentationXml.includes("</p:sldIdLst>")) {
+    return presentationXml.replace("</p:sldIdLst>", `${slideXml}</p:sldIdLst>`);
+  }
+  const slideListXml = `<p:sldIdLst>${slideXml}</p:sldIdLst>`;
+  return presentationXml.includes("<p:sldSz")
+    ? presentationXml.replace("<p:sldSz", `${slideListXml}<p:sldSz`)
+    : presentationXml.replace("</p:presentation>", `${slideListXml}</p:presentation>`);
+}
+
+function insertPresentationRelationship(relsXml: string, relId: string, target: string): string {
+  const relXml = `<Relationship Id="${relId}" Type="${SLIDE_REL_TYPE}" Target="${target}"/>`;
+  return relsXml.includes("</Relationships>")
+    ? relsXml.replace("</Relationships>", `${relXml}</Relationships>`)
+    : `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relXml}</Relationships>`;
+}
+
+async function contentTypesXmlOrDefault(zip: JSZip): Promise<string> {
+  const part = zip.file(CONTENT_TYPES_PART);
+  if (part) return part.async("text");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>`;
+}
+
+function ensureSlideContentType(contentTypesXml: string, slidePartName: string): string {
+  const partName = `/${slidePartName}`;
+  if (contentTypesXml.includes(`PartName="${partName}"`) || contentTypesXml.includes(`PartName='${partName}'`)) {
+    return contentTypesXml;
+  }
+  const overrideXml = `<Override PartName="${partName}" ContentType="${SLIDE_CONTENT_TYPE}"/>`;
+  return contentTypesXml.includes("</Types>")
+    ? contentTypesXml.replace("</Types>", `${overrideXml}</Types>`)
+    : `${contentTypesXml}${overrideXml}`;
+}
+
+function resolveDeleteSlideIndexes(input: PresentationAdvancedActionInput, slideCount: number): number[] {
+  const explicitSlides = arrayNumberParam(input.params?.slides);
+  const range = explicitSlides.length > 0
+    ? explicitSlides
+    : rangeFromParams(input.params) || rangeFromTarget(input.target);
+  if (!range || range.length === 0) {
+    throw new Error("deleteSlides 需要 params.slides、params.from/to 或 target: slide:2-6");
+  }
+
+  const indexes = [...new Set(range.map((value) => Math.floor(value)).filter((value) => value >= 1))].sort((a, b) => a - b);
+  if (indexes.length === 0) throw new Error("deleteSlides 未解析到有效幻灯片序号");
+  const overflow = indexes.find((index) => index > slideCount);
+  if (overflow) throw new Error(`幻灯片序号超出范围: ${overflow}`);
+  if (indexes.length >= slideCount) throw new Error("deleteSlides 至少需要保留一张幻灯片");
+  return indexes;
+}
+
+function rangeFromParams(params?: Record<string, unknown>): number[] | undefined {
+  const from = numberParam(params, "from") ?? numberParam(params, "start");
+  const to = numberParam(params, "to") ?? numberParam(params, "end") ?? from;
+  return from && to ? buildNumberRange(from, to) : undefined;
+}
+
+function rangeFromTarget(target?: string): number[] | undefined {
+  if (!target) return undefined;
+  const match = target.match(/^slides?:\s*(\d+)(?:\s*-\s*(\d+))?$/i);
+  if (!match) return undefined;
+  const from = Number(match[1]);
+  const to = Number(match[2] || match[1]);
+  return buildNumberRange(from, to);
+}
+
+function buildNumberRange(from: number, to: number): number[] {
+  const start = Math.floor(Math.min(from, to));
+  const end = Math.floor(Math.max(from, to));
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+function arrayNumberParam(value: unknown): number[] {
+  return Array.isArray(value)
+    ? value.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+    : [];
+}
+
+function normalizeSlidesParam(params?: Record<string, unknown>): SlideInput[] {
+  const rawSlides = params?.slides;
+  if (Array.isArray(rawSlides)) {
+    return rawSlides.map(normalizeSlideInput).filter((slide): slide is SlideInput => Boolean(slide));
+  }
+
+  const title = stringParam(params, "title") || stringParam(params, "heading") || "";
+  const body = bodyParam(params);
+  if (!title && !body) return [];
+  return [{ title, body, layout: stringParam(params, "layout") }];
+}
+
+function normalizeSlideInput(value: unknown): SlideInput | undefined {
+  if (typeof value === "string") return { title: value, body: "" };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const title = stringParam(record, "title") || stringParam(record, "heading") || "";
+  const body = bodyParam(record);
+  if (!title && !body) return undefined;
+  return { title, body, layout: stringParam(record, "layout") };
+}
+
+function bodyParam(params?: Record<string, unknown>): string {
+  if (!params) return "";
+  const body = stringParam(params, "body") || stringParam(params, "content") || stringParam(params, "text");
+  if (body) return body;
+  const bullets = params.bullets ?? params.items ?? params.points;
+  if (Array.isArray(bullets)) {
+    return bullets.map((item) => String(item)).filter(Boolean).join("\n");
+  }
+  return "";
+}
+
+function contentSlideXml(title: string, body: string, layout?: string): string {
+  const isBlank = layout === "blank" && !title && !body;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${isBlank ? "" : `${slideTextShapeXml(2, "标题", title, 685800, 457200, 10820400, 777240, 3000)}${slideTextShapeXml(3, "正文", body, 914400, 1508760, 10363200, 4648200, 1800)}`}</p:spTree></p:cSld>
+  <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sld>`;
+}
+
+function slideTextShapeXml(
+  id: number,
+  name: string,
+  text: string,
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  fontSize: number
+): string {
+  const paragraphs = text
+    ? text.split(/\r?\n/).map((line) => textParagraphXml(line, fontSize)).join("")
+    : textParagraphXml("", fontSize);
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${escapeXml(name)}"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+}
+
+function textParagraphXml(text: string, fontSize: number): string {
+  return `<a:p><a:r><a:rPr lang="zh-CN" sz="${fontSize}"/><a:t>${escapeXml(text)}</a:t></a:r><a:endParaRPr lang="zh-CN" sz="${fontSize}"/></a:p>`;
+}
+
+function emptySlideRelsXml(): string {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
+}
+
+function numberParam(params: Record<string, unknown> | undefined, key: string): number | undefined {
+  const value = params?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function getXmlAttr(xml: string, attrName: string): string | undefined {
+  const escapedName = attrName.replace(/:/g, "\\:");
+  const match = xml.match(new RegExp(`\\b${escapedName}=["']([^"']+)["']`));
+  return match?.[1];
+}
+
+function normalizeSlidePartName(target: string): string {
+  const normalized = target.replace(/^\/+/, "");
+  return normalized.startsWith("ppt/") ? normalized : `ppt/${normalized}`;
+}
+
+async function removeSlideContentTypeOverrides(zip: JSZip, deletedParts: string[]): Promise<string | undefined> {
+  const contentTypesPart = zip.file("[Content_Types].xml");
+  if (!contentTypesPart || deletedParts.length === 0) return undefined;
+  const deletedNames = new Set(deletedParts.map((partName) => `/${partName}`));
+  const xml = await contentTypesPart.async("text");
+  return xml.replace(/<Override\b[^>]*(?:\/>|><\/Override>)/g, (overrideXml) => {
+    const partName = getXmlAttr(overrideXml, "PartName");
+    return partName && deletedNames.has(partName) ? "" : overrideXml;
+  });
+}
+
+function presentationDone(
+  input: PresentationAdvancedActionInput,
+  outputPath: string,
+  changedParts: string[],
+  summary: string
+): OfficeActionResult {
+  return doneResult({
+    engine: "openxml",
+    app: "presentation",
+    action: input.action || "edit",
+    operation: input.operation,
+    filePath: input.filePath,
+    outputPath,
+    target: input.target,
+    summary,
+    validation: {
+      ok: true,
+      checks: [{ name: "output-file", ok: true, message: "已生成输出文件" }],
+    },
+    changes: changedParts.map((partName) => ({
+      kind: "openxml-part",
+      target: partName,
+      detail: `已更新 ${partName}`,
+    })),
+  });
+}
+
+function normalizeColor(value: unknown): string {
+  return typeof value === "string" && /^[0-9a-fA-F]{6}$/.test(value) ? value.toUpperCase() : "1F4E79";
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function stringParam(params: Record<string, unknown> | undefined, key: string): string | undefined {
+  return typeof params?.[key] === "string" ? params[key] : undefined;
+}
+
+function defaultOutputPath(filePath: string): string {
+  const ext = path.extname(filePath);
+  return path.join(path.dirname(filePath), `${path.basename(filePath, ext)}-advanced${ext}`);
+}

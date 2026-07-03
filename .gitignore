@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+.venv/
+venv/
+.local/
+dist/
+*.egg
+*.db
+
+# Embedded Python (downloaded by setup script, not committed)
+desktop/python/*
+!desktop/python/README.md
+!desktop/python/setup-python-embed.ps1
+
+# Node
+node_modules/
+dist/
+dist-electron/
+release/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+.env.local
+
+# Local build/workspace output
+.worktrees/
+worktrees/
+.superpowers/
+
+# Local one-off probes
+.certs/
+run-logs/
+artifacts/
+dump.rdb
+
+# Marketing assets (kept out of the main repo; manage as a separate project)
+# Contains large binaries (8GB mp4 render) and vendored ffmpeg/node_modules.
+/marketing/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop/nul
+desktop/src/nul
+codex-reference/
+desktop/.vite/

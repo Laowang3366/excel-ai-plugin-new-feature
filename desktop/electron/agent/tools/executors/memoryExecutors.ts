@@ -1,0 +1,128 @@
+import type { ToolExecutor } from "../../shared/types";
+import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
+import {
+  isToolWritableMemoryKind,
+  TOOL_WRITABLE_MEMORY_KINDS,
+  type ToolWritableMemoryKind,
+} from "../../memory/longTerm/memoryTypes";
+import { validateArgs } from "./validation";
+
+export interface MemoryExecutorDeps {
+  memoryStore?: LongTermMemoryStore;
+}
+
+export function addMemoryExecutors(
+  target: Map<string, ToolExecutor>,
+  deps: MemoryExecutorDeps,
+): void {
+  target.set("memory.write", {
+    name: "memory.write",
+    execute: async (args: Record<string, unknown>) => {
+      if (!deps.memoryStore) return { success: false, error: "长期记忆尚未初始化" };
+      const err = validateArgs(args, { kind: "string", content: "string" });
+      if (err) return { success: false, error: err };
+      const kind = args.kind as string;
+      if (!isToolWritableMemoryKind(kind)) {
+        return { success: false, error: invalidKindError(kind) };
+      }
+      const optionalErr = validateOptionalMemoryArgs(args, ["namespace", "summary", "confidence"]);
+      if (optionalErr) return { success: false, error: optionalErr };
+      try {
+        const record = await deps.memoryStore.write({
+          kind,
+          namespace: typeof args.namespace === "string" ? args.namespace : undefined,
+          content: args.content as string,
+          summary: typeof args.summary === "string" ? args.summary : undefined,
+          confidence: typeof args.confidence === "number" ? args.confidence : undefined,
+          source: "tool",
+        });
+        return { success: true, data: record };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  });
+
+  target.set("memory.search", {
+    name: "memory.search",
+    execute: async (args: Record<string, unknown>) => {
+      if (!deps.memoryStore) return { success: false, error: "长期记忆尚未初始化" };
+      const err = validateArgs(args, { query: "string" });
+      if (err) return { success: false, error: err };
+      const optionalErr = validateOptionalMemoryArgs(args, ["namespace", "kind", "limit"]);
+      if (optionalErr) return { success: false, error: optionalErr };
+      let kind: ToolWritableMemoryKind | undefined;
+      if (typeof args.kind === "string") {
+        if (!isToolWritableMemoryKind(args.kind)) {
+          return { success: false, error: invalidKindError(args.kind) };
+        }
+        kind = args.kind;
+      }
+      const data = await deps.memoryStore.search({
+        query: args.query as string,
+        namespace: typeof args.namespace === "string" ? args.namespace : undefined,
+        kind,
+        limit: typeof args.limit === "number" ? args.limit : 10,
+      });
+      return { success: true, data };
+    },
+  });
+
+  target.set("memory.list", {
+    name: "memory.list",
+    execute: async (args: Record<string, unknown>) => {
+      if (!deps.memoryStore) return { success: false, error: "长期记忆尚未初始化" };
+      const optionalErr = validateOptionalMemoryArgs(args, ["namespace"]);
+      if (optionalErr) return { success: false, error: optionalErr };
+      const data = await deps.memoryStore.list(
+        typeof args.namespace === "string" ? args.namespace : undefined,
+      );
+      return { success: true, data };
+    },
+  });
+
+  target.set("memory.delete", {
+    name: "memory.delete",
+    execute: async (args: Record<string, unknown>) => {
+      if (!deps.memoryStore) return { success: false, error: "长期记忆尚未初始化" };
+      const err = validateArgs(args, { memoryId: "string" });
+      if (err) return { success: false, error: err };
+
+      try {
+        const deleted = await deps.memoryStore.delete(args.memoryId as string);
+        if (!deleted) {
+          return { success: false, error: "未找到可删除的长期记忆" };
+        }
+        return { success: true, data: deleted };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  });
+}
+
+function validateOptionalMemoryArgs(
+  args: Record<string, unknown>,
+  keys: Array<"namespace" | "summary" | "confidence" | "kind" | "limit">,
+): string | null {
+  if (keys.includes("namespace") && args.namespace !== undefined && typeof args.namespace !== "string") {
+    return "参数 namespace 必须是 string";
+  }
+  if (keys.includes("summary") && args.summary !== undefined && typeof args.summary !== "string") {
+    return "参数 summary 必须是 string";
+  }
+  if (keys.includes("confidence") && args.confidence !== undefined && typeof args.confidence !== "number") {
+    return "参数 confidence 必须是 number";
+  }
+  if (keys.includes("kind") && args.kind !== undefined && typeof args.kind !== "string") {
+    return "参数 kind 必须是 string";
+  }
+  if (keys.includes("limit") && args.limit !== undefined && typeof args.limit !== "number") {
+    return "参数 limit 必须是 number";
+  }
+  return null;
+}
+
+function invalidKindError(kind: string): string {
+  return `参数 kind 必须是 ${TOOL_WRITABLE_MEMORY_KINDS.join("、")} 之一，收到 ${kind}`;
+}

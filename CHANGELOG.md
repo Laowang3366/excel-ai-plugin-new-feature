@@ -1,0 +1,136 @@
+# Changelog
+
+## Unreleased
+
+### 2026-06-30 文档、Office 操作与安装包
+
+- **PPT 删除页专用能力**：新增 `office.action.apply` 的 `presentation/deleteSlides` 操作，支持 `params.slides`、`params.from/to` 和 `target: "slide:2-6"`。
+  - Open XML 优先删除 `presentation.xml` 中的 slide 引用、`presentation.xml.rels` 关系和对应 `ppt/slides/slideN.xml` 部件。
+  - COM 兜底按倒序删除幻灯片，避免索引变化导致删错页。
+  - 工具注册表和系统提示词已要求模型优先使用统一 Office action，避免回退到临场 PowerShell/Python 脚本。
+- **安装包版本推进到 `0.1.2`**：重新生成 `desktop/release/Office AI 助手 Setup 0.1.2.exe`，并抽取 asar 验证版本和 `deleteSlides` 能力已入包。
+- **文档同步**：更新根 README、Agent 架构文档、工具层文档、记忆层文档和开发规范，统一描述 Office 三件套、Open XML 优先、SQLite StateRuntime、当前测试基线和打包注意事项。
+- **验证基线**：`npm run typecheck` 通过；`npm test` 通过 74 个测试文件、420 个测试。
+
+### Added
+
+- **Office / WPS 多宿主选择弹窗**：当 Microsoft Excel 和 WPS 表格同时运行时，弹出 `HostSelectionDialog` 让用户选择目标程序
+  - `excelComBridge.detectExcelProcess()` 同时检测 `EXCEL` + `et` 进程，返回 `availableHosts[]`
+  - 新增 `selectHost()` 方法，用户选择后保存 `_selectedHost` 并尝试 COM 连接
+  - 新增 IPC 通道 `excel:selectHost`，preload + ipcApi 桥接
+  - 新增 `HostSelectionDialog` 组件（dialog.css 风格），`useExcelConnection` 新增 host 选择状态
+  - 连接后验证 `$app.Name`（需确认实际返回 vs 预期），避免 ProgID 注册冲突
+- **Agent 命令执行沙箱化（阶段 0+1+4+5）**：参考 Codex `execpolicy` + `process-hardening`，对 `shell.execute` 工具加入命令语义级过滤、cwd 白名单、env 清洗与审计
+  - 新增 `electron/agent/sandbox/`：`parseCommand.ts`（命令切 token）、`execPolicy.ts`（前缀规则策略引擎，最严 `forbidden > prompt > allow`）、`defaultRules.ts`（默认规则挡 `rm -rf /` / `Remove-Item -Recurse -Force` / `format` / `Stop-Computer` / `reg delete` / `iex` 等）、`audit.ts`（JSONL 审计 `sandbox-logs/YYYY/MM/DD/audit-*.jsonl`）、`index.ts`（一站式 `evaluateCommand` + `runShellSpawn` + `killProcessTree`）
+  - `shell.execute` 改走 `-EncodedCommand`（Base64 UTF-16LE），消除明文 `-Command` 拼接注入；子进程环境只保留 USERNAME / USERPROFILE / PATH 等白名单变量
+  - 任意 `permissionMode`（含 `confirm_all` + 始终允许）下，`forbidden` 仍直接拒绝；`prompt` 覆盖 `alwaysAllowedTools` 强制审批并展示理由
+  - 越界 cwd 自动重定向到临时目录并记审计；超时 `taskkill /T /F /PID` 强杀整棵进程树
+  - 新增 IPC：`sandbox:getConfig` / `sandbox:setUserRules` / `sandbox:setWritableRoots`，可在安全策略设置页增删用户规则与可写根
+  - 新增设置页 `ExecPolicySettings.tsx`（SettingsPage 新增「安全策略」tab）
+  - `ToolConfirmDialog` 命中 prompt 规则时展示安全策略理由（`sandboxJustification`）
+  - 14 个单元测试覆盖破坏性命令拒绝、prompt 命令、cwd 重定向
+- **系统提示词按场景分支化**：修正"任何场景都无脑触发 `workbook.inspect` / `selection.get`"问题
+  - 「行动优先原则」追加第 6 条「探测要按需」
+  - 工作流程拆分为 A 纯提问 / B 读/写表格 / C 通用系统操作 / D 附件触发 四类，仅在"用户要读/写表格"时才做工作簿检查
+- **公式生成场景提示词重写**（`scenarioFormula()`）：对齐公式助手 5 个结构化字段
+  - 样例分完整/部分两种处理：完整样例 value 必须完全一致；部分样例不纠结"是否完整"
+  - #SPILL! 主动清理：探测溢出方向非空单元格 → 清空 → 告知用户清理内容
+  - 表头按需拼接：检测锚点是否含表头，含则不拼、不含则在首行拼语义标题
+  - 嵌套约束松绑：取消"嵌套不超过3层"死规矩，动态数组优先减少辅助列
+  - 动数组"否"态用"写入形态是否依赖溢出"作为判定标准，不再按函数名禁用 XLOOKUP
+  - 与 §可维护性 / §安全底线 / §结果验证的冲突经全局审计调和：覆盖公式单元格安全底线对公式助手场景放宽
+
+### Changed
+
+- `electron/main-modules/settingsManager.ts` — `DEFAULT_SETTINGS` 增加 `sandboxUserRules` / `sandboxExtraWritableRoots`
+- `electron/main.ts` — `app.whenReady` 中调 `applySandboxConfig()` 热更沙箱单例
+- `electron/preload.ts` — 暴露 `electronAPI.sandbox.*`
+- `src/electronApi.d.ts` + `src/services/ipcApi.ts` — 新增 `SandboxPrefixRule` / `SandboxConfig` 与桥接
+- `src/store/agentEventHandler.ts` + `src/store/chatStore.ts` — 透传 `sandboxJustification`
+- `src/i18n.ts` — 中英文补 `assistant.sandboxJustification` 文案
+- `src/styles/tool-confirm.css` + `src/styles/settings.css` — 沙箱 notice 与 ExecPolicy 样式
+
+### Refactored
+
+- **模块化拆分：大型文件高内聚低耦合重构**
+  - `ChatPage.tsx`：从 1,378 行降至 300 行，拆分为 `chatHelpers.tsx`、`FloatingTaskPanel.tsx`、`AssistantGroupBlock.tsx`、`ChatMessageList.tsx`、`ComposerArea.tsx`、`useComposer.ts`、`useTaskDrafts.ts` 共 7 个模块
+  - `Sidebar.tsx`：从 786 行降至 436 行，拆分为 `sidebarHelpers.ts`、`useExcelConnection.ts`、`FolderSection.tsx`、`ThreadContextMenu.tsx` 共 4 个模块
+  - `chatStore.ts`：从 645 行降至 418 行，拆分为 `agentEventHandler.ts`、`threadActions.ts` 共 2 个模块
+  - `main.ts`：从 947 行降至 124 行，拆分为 `settingsManager.ts`、`windowManager.ts`、`ipcHandlers.ts`、`eventForwarder.ts` 共 4 个模块
+  - `agentLoop.ts`：从 1,101 行降至 1,054 行，拆分为 `imageAttachmentResolver.ts`、`toolExecution.ts`、`compactionManager.ts` 共 3 个模块
+  - `agentLoop.ts` 深度拆分（Week 4）：进一步拆为 `agentLoop/` 目录 6 个子模块（agentLoop、streamCollector、toolExecutor、compactionManager、buildStreamParams、index）
+  - `toolRegistry.ts`：从 1,228 行拆为 `toolRegistry/` 目录 4 个子模块（interfaces、definitions、excelFunctions、executors）
+  - `excelBridge.ts`：拆为 `excelBridge/` 目录 5 个子模块（comBridge、vbaBridge、scriptBridge、uiBridge、index）
+  - `ProviderCard` / `AddProviderDialog` 重复逻辑提取：新增 `useTestConnection` hook、`ReasoningModeSelect` 组件、`ModelConfigList` 组件（含 useRef 替代 document.querySelector），消除 4 块重复代码及行为分叉风险
+  - 所有模块遵循 ≤ 400 行/文件、单文件单职责、React 组件 ≤ 300 行的编码规范
+- **ComposerArea Props 精简（Week 4）**：28 个 props → 7 个
+  - 将 useComposer hook 返回值整体作为 `composer` prop 传入
+- **settingsStore 增量持久化（Week 4）**：9 个 settings IPC → 仅写变更 key
+  - 新增 `savePartial(keys, get)` 函数，13 个 setter action 全部改为按 key 增量写入
+- **IPC 依赖注入抽象层（Week 4）**：新建 `src/services/ipcApi.ts`
+  - 封装 71 处 `window.electronAPI` 直接调用，已迁移 5 个核心模块
+  - `createMockIpcApi()` 辅助函数，测试时一键注入 mock
+
+### Added
+
+- **项目开发规范文档（Week 4）**：`docs/development-standards.md`
+  - 基于 4 周 18 项代码审查修复经验，按六大审查方向编写
+  - 涵盖：大文件模块拆分、Props 与接口精简、持久化优化、测试基础设施、IPC 依赖注入、Bug 修复与防御
+  - 包含 11 项提交前自查清单
+- **单元测试基础设施（Week 4）**：vitest + @vitest/coverage-v8
+  - 早期基线为 35 tests；当前基线已扩展到 74 个测试文件、420 个测试
+- **IPC Zod Schema 输入验证（Week 2）**：所有 IPC 通道新增 zod schema 运行时校验
+- **结构化日志系统（Week 2）**：`electron/agent/logger.ts`，支持 JSON 格式 + 日志级别 + 文件输出
+- **OCR Mock 标记（Week 4）**：`OCRTaskComposerPanel.tsx` 新增 `@MOCK_INTERFACE` 标记
+- **文件夹上下文感知**：对话界面显示文件夹信息 + AI 模型感知文件夹及文件列表
+  - 对话区标题新增文件夹标签（badge），显示当前会话所属文件夹名称
+  - 输入框下方新增文件夹上下文行，显示文件夹名和 Excel 文件数量
+  - `systemPrompt.ts` 新增 `FolderFileItem` 接口和 `appendFolderContext()` 函数
+  - `agentLoop.ts` 在 `runAgentLoop` 中动态注入文件夹路径和文件列表到 `systemPrompt`
+  - 新增 i18n 键 `folderFileCount`（中英双语）
+  - 新增 `.chat-folder-badge` / `.composer-folder-context` 等 CSS 样式
+- **文件夹线程组织**：会话可归属到固定文件夹，侧边栏采用合并布局统一展示
+  - `ThreadMetadata` / `SessionMeta` 新增 `folderId` 字段，关联 `pinnedFolders[].path`
+  - 文件夹分组可折叠，内含该文件夹的会话和文件列表
+  - 文件夹头部 [+] 按钮直接在该文件夹中新建会话
+  - 右键会话菜单新增"移动到文件夹"子菜单（支持移入/移出文件夹）
+  - 修复文件夹创建会话后 `activeThreadId` 未设置的问题
+  - 新增 `thread:updateMetadata` IPC 通道
+  - `AgentLoop` 新增 `pendingFolderId` 机制
+  - 侧边栏合并布局：`sidebar-content` 统一滚动区域
+  - 新增 i18n 键：`newThreadInFolder` / `moveToFolder` / `noFolder` / `addFolderFirst`（中英双语）
+- **新建会话过渡动画**：点击 [+] 新建会话时显示旋转图标 + 弹性缩放动画
+- **即时文件夹信息显示**：从文件夹创建新会话后，导航栏和输入框立即显示文件夹信息
+- **侧边栏 UI 优化**：顶部操作区 + 排序 + 文件夹交互增强
+- **CSS 模块化拆分**：`global.css` 从 4,827 行单文件拆分为 23 个独立模块文件
+
+### Changed
+
+- Removed the Web Add-in, backend API, admin console, Docker/Nginx deployment stack, server-side tests, and backend-oriented documentation.
+- Repositioned the repository as a desktop-only Electron application.
+
+### Fixed
+
+- **修复 7 项 TypeScript 编译错误**
+  - `agentLoop.ts`：`TurnItem` 联合类型上访问 `.message` 属性需先窄化为 `ErrorItem`
+  - `compactionManager.ts`：`TurnItem[] | null` 不可赋值给 `TurnItem[]` 返回类型
+  - `modelSettingsI18n.ts`：`.ts` 文件包含 JSX 语法，重命名为 `.tsx`
+  - `agentLoop.test.ts`：缺少 `beforeEach` 导入（从 vitest 补充）
+  - `settingsManager.ts`：`ElectronStore<具体类型>` 不可赋值给 `Store<Record<string, unknown>>`
+  - `ipcSchemas.ts`：Zod v4 `z.record()` 需要 key + value 两个参数
+  - `ipcApi.ts`：`setAlwaysOnTop` 返回 `void/undefined` 而非签名要求的 `boolean`
+- **修复添加供应商弹窗切回"自定义"时残留模板配置**：`AddProviderDialog.tsx` 中 `handleSelectTemplate` 的空模板分支现在重置所有表单字段（name、apiFormat、baseUrl、model、contextWindowSize、reasoningMode、modelConfigs）
+- **修复编辑聚合供应商时删除当前模型不同步清空 provider.model**：`ProviderCard.tsx` 中删除模型时检查是否为当前选中模型，若是则同步清空 `model` 字段
+- **修复对话信息显示顺序（Week 1）**：改为按 API 真实事件顺序渲染，而非按类型排序
+  - `agentLoop.ts`：流式阶段不再立即发出 `tool_call` 的 `item_started` 事件；流结束后按 `reasoning → assistant_message → tool_call` 顺序依次发出
+  - `chatStore.ts`：`item_completed` handler 简化为按事件到达顺序 `push`
+  - `ChatPage.tsx`：流式渲染顺序调整；`sortItemsByRound` 组内排序调整为 JSONL 历史恢复兜底
+  - 折叠"本轮工作时长"时，`phase=commentary` 的阶段性正文也一起折叠
+- **修复 API 400 错误（Week 1）**：assistant 消息含 `tool_calls` 但缺少对应 `tool` result 消息导致请求被拒
+  - `turnItemsToChatMessages()` 重写为三遍处理：识别孤立 `tool_call`、跳过孤立项、清理空壳 assistant 消息
+  - `buildRequestMessages()` 新增双重安全校验
+  - 孤立 `tool_call` 采用跳过策略而非合成假 result
+- **修复 Electron 类型检查错误（Week 1）**：Agent loop 和 Excel bridge 的 TypeScript 类型问题
+- **修复 AgentLoopConfig 缺少 reasoningMode（Week 1）**：从 `aiConfig.reasoningMode` 读取，支持顶层覆盖
+- **修复 UsageStats N+1 查询（Week 2）**：单次查询替代循环，减少 IPC 调用次数
+- **修复 vitest 测试 bug（Week 4）**：`toolExecutor.ts` import 路径修正 + 工具名修正（`read_range` → `range.read`）

@@ -1,0 +1,1 @@
+export const DEFAULT_PROCESS_MAX_BUFFER = 16 * 1024 * 1024;

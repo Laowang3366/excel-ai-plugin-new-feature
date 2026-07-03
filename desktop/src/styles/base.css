@@ -1,0 +1,34 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  overflow: hidden;
+  height: 100vh;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
+/* ============================================================
+   滚动条
+   ============================================================ */
+
+.chat-messages::-webkit-scrollbar,
+.settings-page::-webkit-scrollbar,
+.sidebar-content::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track,
+.settings-page::-webkit-scrollbar-track,
+.sidebar-content::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb,
+.settings-page::-webkit-scrollbar-thumb,
+.sidebar-content::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+

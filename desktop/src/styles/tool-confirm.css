@@ -1,0 +1,154 @@
+/* ============================================================
+   工具确认弹窗
+   ============================================================ */
+
+.tool-confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+.tool-confirm-dialog {
+  width: 380px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.tool-confirm-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-page);
+}
+.tool-confirm-icon { font-size: 18px; }
+.tool-confirm-title { font-size: 14px; font-weight: 700; color: var(--text-primary); flex: 1; }
+.tool-confirm-risk {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
+
+.tool-confirm-body {
+  padding: 14px 16px;
+}
+.tool-confirm-name {
+  font-size: 13px; font-weight: 700;
+  color: var(--primary);
+  font-family: monospace;
+  margin-bottom: 4px;
+}
+.tool-confirm-desc {
+  font-size: 12px; color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.tool-confirm-args {
+  background: var(--bg-tint);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.tool-confirm-args-title {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tool-confirm-arg-row {
+  display: flex; gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+.tool-confirm-arg-key {
+  color: var(--text-faint);
+  min-width: 60px;
+  font-family: monospace;
+}
+.tool-confirm-arg-value {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+/* 沙箱策略理由（命中 prompt 规则时显示） */
+.tool-confirm-sandbox-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--warning-bg, #fff7e6);
+  border: 1px solid var(--warning-border, #f5c97b);
+  border-radius: var(--radius-sm);
+}
+.tool-confirm-sandbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--warning-text, #b27400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tool-confirm-sandbox-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.tool-confirm-actions {
+  display: flex; gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-card);
+  background: var(--bg-page);
+}
+.tool-confirm-cancel {
+  padding: 8px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+}
+.tool-confirm-cancel:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+.tool-confirm-approve {
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: white;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.tool-confirm-approve:hover {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-primary);
+}
+.tool-confirm-always {
+  padding: 8px 14px;
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+}
+.tool-confirm-always:hover {
+  background: var(--primary);
+  color: white;
+}
+

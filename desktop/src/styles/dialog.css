@@ -1,0 +1,189 @@
+/* ============================================================
+   对话框（Dialog）系统
+   ============================================================ */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.15s ease;
+}
+
+.dialog {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-page);
+}
+
+.dialog-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dialog-close:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.dialog-body {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-card);
+  background: var(--bg-page);
+}
+
+/* 编辑弹窗 actions：测试按钮在左，保存/取消在右 */
+.edit-provider-dialog .dialog-actions {
+  justify-content: space-between;
+}
+
+.dialog-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- 添加供应商对话框 ---- */
+
+.add-provider-dialog {
+  width: 560px;
+  max-width: 90vw;
+}
+
+/* ---- 删除确认对话框 ---- */
+
+.delete-confirm-dialog {
+  width: 400px;
+  max-width: 90vw;
+}
+
+/* ---- 编辑供应商对话框 ---- */
+
+.edit-provider-dialog {
+  width: 560px;
+  max-width: 90vw;
+}
+
+.delete-confirm-dialog p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.delete-confirm-dialog strong {
+  color: var(--primary);
+}
+
+/* ---- 宿主选择对话框 ---- */
+
+.host-selection-dialog {
+  width: 420px;
+  max-width: 90vw;
+}
+
+.host-selection-dialog p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.host-selection-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.host-selection-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.host-selection-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.host-selection-btn:active {
+  transform: scale(0.99);
+}
+
+.host-selection-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-page);
+  color: var(--primary);
+}
+
+.host-selection-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.host-selection-label strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.host-selection-subtitle {
+  color: var(--text-faint);
+  font-size: 12px;
+}

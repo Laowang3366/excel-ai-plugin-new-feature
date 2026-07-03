@@ -1,0 +1,145 @@
+/* ============================================================
+   推理气泡
+   ============================================================ */
+
+.reasoning-bubble {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  max-width: 100%;
+  width: 100%;
+  min-width: 200px;
+  animation: fadeIn 0.2s ease;
+  padding: 14px 0 0;
+}
+.reasoning-header {
+  display: flex; align-items: center; gap: 4px;
+  padding: 0; cursor: pointer; user-select: none;
+  transition: background 0.15s;
+  font-size: 13px;
+  line-height: 18px;
+  min-height: 18px;
+}
+.reasoning-header:hover { background: transparent; }
+.reasoning-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+}
+.reasoning-icon svg {
+  display: block;
+}
+.reasoning-label {
+  font-size: inherit;
+  line-height: inherit;
+  color: #9ca3af;
+  font-weight: 400;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+}
+.reasoning-duration {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 400;
+  color: #9ca3af;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+}
+.reasoning-preview {
+  flex: 1; font-size: 13px; color: #9ca3af;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reasoning-toggle {
+  width: 14px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: inherit;
+  color: #9ca3af;
+  flex-shrink: 0;
+  opacity: 0;
+  margin-left: 2px;
+  transition: opacity 0.15s;
+}
+.reasoning-header:hover .reasoning-toggle,
+.reasoning-header:focus-within .reasoning-toggle {
+  opacity: 1;
+}
+.reasoning-toggle svg {
+  display: block;
+}
+.reasoning-content {
+  margin: 10px 0 0 10px;
+  padding: 0 10px 0 18px;
+  font-size: 13px;
+  color: #9ca3af;
+  border-top: none;
+  border-left: 1px solid var(--border-default);
+  word-break: break-word; line-height: 1.55;
+  max-height: 150px;
+  max-height: min(150px, 20vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c5cad3 transparent;
+}
+.reasoning-content::-webkit-scrollbar {
+  width: 5px;
+}
+.reasoning-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reasoning-content::-webkit-scrollbar-thumb {
+  background: #c5cad3;
+  border-radius: 999px;
+}
+.reasoning-content p { margin: 0 0 6px 0; }
+.reasoning-content p:last-child { margin-bottom: 0; }
+.reasoning-content > :last-child { margin-bottom: 0; }
+.reasoning-content ul, .reasoning-content ol { margin: 4px 0; padding-left: 20px; }
+.reasoning-content li { margin: 2px 0; }
+.reasoning-content h1, .reasoning-content h2, .reasoning-content h3, .reasoning-content h4 {
+  margin: 8px 0 4px; font-weight: 600; color: var(--text-primary);
+}
+.reasoning-content h1 { font-size: 1.15em; }
+.reasoning-content h2 { font-size: 1.08em; }
+.reasoning-content h3 { font-size: 1.02em; }
+.reasoning-content pre {
+  background: transparent; padding: 6px 0;
+  border-radius: var(--radius-sm); font-size: 12px; overflow-x: auto;
+  margin: 6px 0;
+}
+.reasoning-content code {
+  background: var(--bg-tint); padding: 1px 4px; border-radius: 3px; font-size: 12px;
+}
+.reasoning-content pre code { background: none; padding: 0; }
+.reasoning-content blockquote {
+  border-left: 3px solid var(--border-default);
+  margin: 6px 0; padding: 4px 12px;
+  color: var(--text-faint);
+}
+.reasoning-content table {
+  border-collapse: collapse; margin: 6px 0; font-size: 12px;
+}
+.reasoning-content th, .reasoning-content td {
+  border: 1px solid var(--border-default);
+  padding: 3px 6px; text-align: left;
+}
+.reasoning-content th { background: rgba(255,255,255,0.4); font-weight: 600; }
+.reasoning-content hr {
+  border: none; border-top: 1px solid var(--border-default);
+  margin: 8px 0;
+}
+.reasoning-content strong { font-weight: 600; color: var(--text-primary); }
+.reasoning-content em { font-style: italic; }
+.reasoning-content a { color: var(--primary); text-decoration: none; }
+.reasoning-content a:hover { text-decoration: underline; }
