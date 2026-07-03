@@ -20,7 +20,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { AgentLoop } from "../agent/core/agentLoop";
 import type { AgentLoopManager } from "../agent/runtime/agentRuntime";
-import { createAIClient, type ChatMessage, type ContentPart } from "../agent/providers/aiClient";
+import { createAIClient } from "../agent/providers/aiClient";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
@@ -676,14 +676,14 @@ function registerOcrIpcHandler(): void {
 
   ipcMain.handle("ocr:recognize", async (_event, mode: unknown, filePaths: unknown) => {
     try {
-      return await recognizeWithMineruOrVision(mode, filePaths);
+      return await recognizeWithOcrFallbacks(mode, filePaths);
     } catch (err: any) {
       return emptyOcrResult(normalizeOcrMode(mode), [err?.message || "OCR 识别失败"]);
     }
   });
 }
 
-async function recognizeWithMineruOrVision(
+async function recognizeWithOcrFallbacks(
   rawMode: unknown,
   rawFilePaths: unknown,
 ): Promise<OcrVisionResult> {
@@ -759,70 +759,6 @@ function formatParsedDocumentErrors(documents: Array<{ filename: string; error?:
     .map((document) => `${document.filename}: ${document.error}`);
 }
 
-async function recognizeWithVisionModel(
-  rawMode: unknown,
-  rawFilePaths: unknown,
-): Promise<OcrVisionResult> {
-  const mode = normalizeOcrMode(rawMode);
-  return await recognizeWithVisionModelForPaths(mode, normalizeOcrFilePaths(rawFilePaths));
-}
-
-async function recognizeWithVisionModelForPaths(
-  mode: "image" | "invoice",
-  filePaths: string[],
-): Promise<OcrVisionResult> {
-  if (filePaths.length === 0) {
-    throw new Error("请先选择要识别的图片或 PDF");
-  }
-
-  const contentParts: ContentPart[] = [
-    {
-      type: "text",
-      text: buildOcrPrompt(mode, filePaths.map((filePath) => path.basename(filePath))),
-    },
-  ];
-
-  for (const filePath of filePaths) {
-    const mimeType = getVisionMimeType(filePath);
-    const buffer = await fs.promises.readFile(filePath);
-    const fileData = `data:${mimeType};base64,${buffer.toString("base64")}`;
-    if (mimeType === "application/pdf") {
-      contentParts.push({
-        type: "file",
-        file: {
-          filename: path.basename(filePath),
-          mime_type: mimeType,
-          file_data: fileData,
-        },
-      });
-    } else {
-      contentParts.push({
-        type: "image_url",
-        image_url: {
-          url: fileData,
-          detail: "high",
-        },
-      });
-    }
-  }
-
-  const aiClient = createAIClient(getActiveAIConfig());
-  const messages: ChatMessage[] = [
-    {
-      role: "user",
-      content: contentParts,
-    },
-  ];
-  const result = await aiClient.chat({
-    messages,
-    maxTokens: mode === "invoice" ? 3000 : 2000,
-    temperature: 0,
-    reasoningMode: "off",
-  });
-
-  return normalizeOcrVisionResult(mode, result.content || "");
-}
-
 function normalizeOcrFilePaths(rawFilePaths: unknown): string[] {
   if (!Array.isArray(rawFilePaths)) {
     throw new Error("OCR 文件列表必须是数组");
@@ -850,27 +786,6 @@ function getConfiguredMineruToken(): string {
   const configured = store.get("mineruApiToken") || store.get("ocrMineruApiToken");
   const tokenFromSettings = typeof configured === "string" ? configured.trim() : "";
   return tokenFromSettings || (process.env.MINERU_API_TOKEN || "").trim();
-}
-
-function buildOcrPrompt(mode: "image" | "invoice", fileNames: string[]): string {
-  const base = [
-    "请使用视觉能力识别随附图片或 PDF 文件中的文字和表格。",
-    "只返回严格 JSON，不要 Markdown，不要解释。",
-    "JSON 结构必须是：",
-    "{\"kind\":\"image|invoice\",\"text\":\"完整可读文本\",\"rows\":[[\"列1\",\"列2\"]],\"fields\":{\"字段\":\"值\"},\"invoices\":[{\"filename\":\"文件名\",\"text\":\"文本\",\"fields\":{\"字段\":\"值\"},\"rows\":[[\"列1\",\"列2\"]]}],\"errors\":[]}",
-    `文件名顺序：${fileNames.join(", ")}`,
-  ];
-
-  if (mode === "invoice") {
-    base.push(
-      "当前模式是发票识别。请优先抽取发票号码、开票日期、购买方、销售方、金额、税额、价税合计等字段；多个文件时每个文件写入 invoices。",
-    );
-  } else {
-    base.push(
-      "当前模式是通用 OCR。请尽量保留文本顺序；如果文件中有表格，请把表格整理到 rows。",
-    );
-  }
-  return base.join("\n");
 }
 
 function buildMineruOcrResult(documents: MineruParsedDocument[]): OcrVisionResult {
@@ -1032,24 +947,6 @@ function formatMineruDocumentErrors(documents: MineruParsedDocument[]): string {
     .filter((document) => document.error)
     .map((document) => `${document.filename}: ${document.error}`)
     .join("\n");
-}
-
-function getVisionMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeMap: Record<string, string> = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".bmp": "image/bmp",
-    ".gif": "image/gif",
-    ".pdf": "application/pdf",
-  };
-  const mimeType = mimeMap[ext];
-  if (!mimeType) {
-    throw new Error(`不支持的 OCR 文件类型: ${ext || "未知"}`);
-  }
-  return mimeType;
 }
 
 export function normalizeOcrVisionResult(mode: "image" | "invoice", content: string): OcrVisionResult {

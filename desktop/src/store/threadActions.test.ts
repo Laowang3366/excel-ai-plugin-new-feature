@@ -144,20 +144,32 @@ describe("threadActions", () => {
     });
   });
 
-  test("creates a new thread without interrupting a running conversation", async () => {
+  test("blocks creating a new thread while a conversation is running", async () => {
     mocks.interrupt.mockImplementation(neverSettles);
     mocks.newThread.mockResolvedValue({ success: true });
 
     const result = await createNewThread(undefined, true);
 
     expect(mocks.interrupt).not.toHaveBeenCalled();
-    expect(mocks.newThread).toHaveBeenCalledWith(undefined);
+    expect(mocks.newThread).not.toHaveBeenCalled();
+    expect(result.patches).toEqual([]);
+    expect(result.error).toBe("当前会话正在执行，请等待完成或停止后再新建会话");
+  });
+
+  test("creates a new empty thread when idle", async () => {
+    mocks.newThread.mockResolvedValue({ success: true });
+
+    const result = await createNewThread("D:\\work", false);
+
+    expect(mocks.newThread).toHaveBeenCalledWith("D:\\work");
+    expect(result.error).toBeUndefined();
     expect(result.patches[0]).toMatchObject({
       messages: [],
       isStreaming: false,
       activeStreamingRound: null,
       activeThreadId: null,
       turnStatus: "idle",
+      pendingFolderId: "D:\\work",
     });
   });
 });

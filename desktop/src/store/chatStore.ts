@@ -502,8 +502,9 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   },
 
   createNewThread: async (folderId?: string) => {
-    const { isStreaming } = get();
-    const result = await createNewThreadAction(folderId, isStreaming);
+    const { isStreaming, runningThreadIds } = get();
+    const hasRunningThread = isStreaming || Object.values(runningThreadIds).some(Boolean);
+    const result = await createNewThreadAction(folderId, hasRunningThread);
     if (result.error) {
       set({ error: result.error });
     } else if (result.patches.length > 0) {

@@ -39,7 +39,7 @@ import {
  * 路由规则：
  * 1. 优先使用 apiFormat 字段确定协议格式（openai / anthropic / responses）
  * 2. 对于 apiFormat="openai"，按 provider 字段进一步路由到专用子类
- * 3. 对于 apiFormat="responses"，使用 OpenAI Responses 格式（TODO: 待接入）
+ * 3. 对于 apiFormat="responses"，使用 OpenAI Responses 格式
  * 4. 未知格式回退到 OpenAICompatibleClient
  */
 export function createAIClient(config: AIClientConfig): OpenAICompatibleClient {
@@ -51,11 +51,6 @@ export function createAIClient(config: AIClientConfig): OpenAICompatibleClient {
 
     case "responses":
       return new OpenAIResponsesClient(config);
-      // TODO: 接入 OpenAI Responses 格式客户端
-      // 当前回退到 OpenAI Compatible（/chat/completions），
-      // 因为 Responses 格式的请求体结构不同（input/instructions/tools），
-      // 需要单独的客户端实现。预留此分支，待 API 正式稳定后接入。
-      return new OpenAICompatibleClient(config);
 
     case "openai":
     default:

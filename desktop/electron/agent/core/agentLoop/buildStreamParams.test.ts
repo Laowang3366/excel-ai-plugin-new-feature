@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   appendRuntimeDateContext,
+  buildEffectiveSystemPrompt,
   appendLongTermMemoryContext,
   appendRuntimeLongTermMemoryContext,
 } from "./buildStreamParams";
@@ -17,6 +18,57 @@ describe("appendRuntimeDateContext", () => {
     expect(prompt).toContain("Asia/Shanghai");
     expect(prompt).toContain("近 N 日");
     expect(prompt).toContain("不要自行补入过期年份");
+  });
+});
+
+describe("buildEffectiveSystemPrompt", () => {
+  it("keeps ordinary Q&A effective prompt under budget without long scenarios", async () => {
+    const prompt = await buildEffectiveSystemPrompt(undefined, undefined, {
+      content: "VLOOKUP 怎么用？",
+    });
+
+    expect(prompt.length).toBeLessThan(6_000);
+    expect(prompt).toContain("Office 连接预检铁律");
+    expect(prompt).toContain("## 运行时上下文");
+    expect(prompt).not.toContain('expand:"spill"');
+    expect(prompt).not.toContain('mode:"invoice"');
+    expect(prompt).not.toContain("Open XML 优先");
+    expect(prompt).not.toContain("### 数据清洗");
+  });
+
+  it("injects formula rules for formula assistant turns", async () => {
+    const prompt = await buildEffectiveSystemPrompt(undefined, undefined, {
+      content: "【功能模块：公式助手】请写入动态数组公式",
+    });
+
+    expect(prompt).toContain("场景化操作指南：公式助手");
+    expect(prompt).toContain("range.write");
+    expect(prompt).toContain('expand:"spill"');
+    expect(prompt.length).toBeLessThan(10_000);
+  });
+
+  it("injects OCR rules for invoice turns", async () => {
+    const prompt = await buildEffectiveSystemPrompt(undefined, undefined, {
+      content: "【功能模块：发票识别】识别字段并写入 Excel",
+    });
+
+    expect(prompt).toContain("场景化操作指南：OCR 与发票识别");
+    expect(prompt).toContain("ocr.parseDocument");
+    expect(prompt).toContain('mode:"invoice"');
+    expect(prompt).toContain("发票号码");
+  });
+
+  it("injects Office/Open XML rules for Office attachments", async () => {
+    const prompt = await buildEffectiveSystemPrompt(undefined, undefined, {
+      content: "帮我美化这个文件",
+      attachments: [
+        { fileName: "demo.pptx", filePath: "D:\\work\\demo.pptx", fileType: "document" },
+      ],
+    });
+
+    expect(prompt).toContain("Office 工具调用硬性边界");
+    expect(prompt).toContain("Open XML 优先");
+    expect(prompt).toContain("office.action.apply");
   });
 });
 

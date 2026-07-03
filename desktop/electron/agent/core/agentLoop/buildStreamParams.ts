@@ -8,7 +8,13 @@
 
 import { type ReasoningMode } from "../../providers/aiClient";
 import { type AIClientConfig } from "../../providers/aiClient";
-import { buildSystemPrompt, appendFolderContext, type FolderFileItem } from "../../prompts/systemPrompt";
+import {
+  buildSystemPrompt,
+  appendFolderContext,
+  buildContextualPromptSections,
+  type FolderFileItem,
+  type PromptBuildContext,
+} from "../../prompts/systemPrompt";
 import * as fs from "fs";
 import * as path from "path";
 import { type StreamParams } from "./streamCollector";
@@ -119,9 +125,17 @@ export function appendRuntimeDateContext(prompt: string, now: Date = new Date())
  */
 export async function buildEffectiveSystemPrompt(
   basePrompt: string | undefined,
-  folderId?: string
+  folderId?: string,
+  turnContext?: PromptBuildContext
 ): Promise<string> {
   let effectivePrompt = basePrompt || buildSystemPrompt();
+  const contextualPrompt = buildContextualPromptSections({
+    ...turnContext,
+    folderId,
+  });
+  if (contextualPrompt) {
+    effectivePrompt += "\n\n" + contextualPrompt;
+  }
 
   // ── 注入文件夹上下文 ──
   if (folderId) {
@@ -170,7 +184,7 @@ export async function buildEffectiveSystemPrompt(
 
   // ── 注入 Office 连接状态 ──
   effectivePrompt = effectivePrompt.replace(
-    "{{OFFICE_CONNECTION_STATUS}}",
+    /\{\{OFFICE_CONNECTION_STATUS\}\}/g,
     buildOfficeConnectionStatus()
   );
 

@@ -80,12 +80,19 @@ export async function switchThread(
 
 export async function createNewThread(
   folderId?: string,
-  _isCurrentlyStreaming?: boolean
+  isCurrentlyStreaming?: boolean
 ): Promise<{
   patches: Array<Partial<ChatState>>;
   error?: string;
 }> {
   try {
+    if (isCurrentlyStreaming) {
+      return {
+        patches: [],
+        error: "当前会话正在执行，请等待完成或停止后再新建会话",
+      };
+    }
+
     await ipcApi.thread.newThread(folderId);
 
     return {

@@ -42,6 +42,7 @@ export interface AgentIpcHandlerDeps {
 }
 
 const PARALLEL_TURN_ERROR = "当前已有会话正在执行，请等待完成或停止后再开始其他会话";
+const NEW_THREAD_RUNNING_ERROR = "当前已有会话正在执行，请等待完成或停止后再新建会话";
 
 async function resolveAgentLoop(
   deps: AgentIpcHandlerDeps,
@@ -100,6 +101,26 @@ export async function prepareAgentForStartTurn(
     await agent.startThread();
   }
   manager?.rememberLoop(agent);
+}
+
+export async function prepareNewThreadForIpc(deps: Pick<AgentIpcHandlerDeps, "agentLoopManagerRef" | "agentLoopRef">, folderId?: string) {
+  const manager = deps.agentLoopManagerRef?.();
+  if (manager) {
+    if (manager.hasRunningLoopOtherThan(null)) {
+      return { success: false, error: NEW_THREAD_RUNNING_ERROR };
+    }
+    manager.prepareNewThread(folderId);
+    return { success: true };
+  }
+
+  const agent = deps.agentLoopRef();
+  if (agent?.getIsRunning()) {
+    return { success: false, error: NEW_THREAD_RUNNING_ERROR };
+  }
+  if (agent) {
+    await agent.resetThread(folderId);
+  }
+  return { success: true };
 }
 
 export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
@@ -197,16 +218,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("thread:new", async (_event, folderId?: string) => {
-    const manager = deps.agentLoopManagerRef?.();
-    if (manager) {
-      manager.prepareNewThread(folderId);
-      return { success: true };
-    }
-    const agent = deps.agentLoopRef();
-    if (agent) {
-      await agent.resetThread(folderId);
-    }
-    return { success: true };
+    return prepareNewThreadForIpc(deps, folderId);
   });
 
   ipcMain.handle("thread:updateMetadata", async (_event, threadId: unknown, patch: unknown) => {

@@ -436,7 +436,7 @@ export class AgentLoop {
 
       // 运行 Agent 循环，传入恢复上下文（仅系统内部使用，不显示给用户）
       const resumeContext = input.isResume ? input.resumeContext : undefined;
-      await this.runAgentLoop(turn, turnCallbacks, resumeContext);
+      await this.runAgentLoop(turn, turnCallbacks, input, resumeContext);
 
       // 完成 Turn
       completeTurn(turn);
@@ -624,7 +624,12 @@ export class AgentLoop {
    * 关键：所有消息通过 item_started/item_completed 事件发出，
    * 前端只从事件获取消息，不自行创建。
    */
-  private async runAgentLoop(turn: Turn, callbacks: AgentTurnCallbacks, resumeContext?: string): Promise<void> {
+  private async runAgentLoop(
+    turn: Turn,
+    callbacks: AgentTurnCallbacks,
+    input: AgentTurnInput,
+    resumeContext?: string
+  ): Promise<void> {
     let round = 0;
 
     while (true) {
@@ -652,7 +657,11 @@ export class AgentLoop {
       // 构建系统提示词：静态基础 + 动态文件夹上下文
       let effectiveSystemPrompt = await buildEffectiveSystemPrompt(
         this.config.systemPrompt,
-        this.activeThread?.metadata.folderId
+        this.activeThread?.metadata.folderId,
+        {
+          content: input.content,
+          attachments: input.attachments,
+        }
       );
       effectiveSystemPrompt = await appendRuntimeLongTermMemoryContext(
         effectiveSystemPrompt,

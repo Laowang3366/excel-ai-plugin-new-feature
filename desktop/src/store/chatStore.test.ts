@@ -7,6 +7,7 @@ const ipcMocks = vi.hoisted(() => ({
   interrupt: vi.fn(),
   resumeThread: vi.fn(),
   listThreads: vi.fn(),
+  newThread: vi.fn(),
   onEvent: vi.fn(() => () => {}),
   onStreamDelta: vi.fn(() => () => {}),
 }));
@@ -24,6 +25,7 @@ vi.mock("../services/ipcApi", () => ({
     thread: {
       resume: ipcMocks.resumeThread,
       list: ipcMocks.listThreads,
+      newThread: ipcMocks.newThread,
     },
   },
 }));
@@ -149,5 +151,48 @@ describe("chatStore loadThreads", () => {
     await useChatStore.getState().loadThreads();
 
     expect(useChatStore.getState().runningThreadIds).toEqual({});
+  });
+});
+
+describe("chatStore createNewThread", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ipcMocks.listThreads.mockResolvedValue([]);
+    ipcMocks.newThread.mockResolvedValue({ success: true });
+    useChatStore.setState({
+      messages: [{ type: "user_message", id: "msg-1", content: "正在处理", timestamp: 1 } as any],
+      isStreaming: true,
+      turnStatus: "in_progress",
+      activeThreadId: "thread-running",
+      runningThreadIds: { "thread-running": true },
+      error: null,
+    });
+  });
+
+  it("does not clear the active conversation while a turn is streaming", async () => {
+    await useChatStore.getState().createNewThread();
+
+    expect(ipcMocks.newThread).not.toHaveBeenCalled();
+    expect(useChatStore.getState().messages).toHaveLength(1);
+    expect(useChatStore.getState().isStreaming).toBe(true);
+    expect(useChatStore.getState().turnStatus).toBe("in_progress");
+    expect(useChatStore.getState().activeThreadId).toBe("thread-running");
+    expect(useChatStore.getState().error).toBe("当前会话正在执行，请等待完成或停止后再新建会话");
+  });
+
+  it("blocks new thread creation while another thread is running in the background", async () => {
+    useChatStore.setState({
+      isStreaming: false,
+      turnStatus: "idle",
+      activeThreadId: "thread-idle",
+      runningThreadIds: { "thread-background": true },
+      error: null,
+    });
+
+    await useChatStore.getState().createNewThread();
+
+    expect(ipcMocks.newThread).not.toHaveBeenCalled();
+    expect(useChatStore.getState().activeThreadId).toBe("thread-idle");
+    expect(useChatStore.getState().error).toBe("当前会话正在执行，请等待完成或停止后再新建会话");
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { enqueueTurnForIpc, listThreadsForIpc, prepareAgentForStartTurn } from "./ipcAgentHandlers";
+import {
+  enqueueTurnForIpc,
+  listThreadsForIpc,
+  prepareAgentForStartTurn,
+  prepareNewThreadForIpc,
+} from "./ipcAgentHandlers";
 
 describe("listThreadsForIpc", () => {
   it("uses sqlite thread snapshots before falling back to JSONL session scanning", async () => {
@@ -160,5 +165,70 @@ describe("prepareAgentForStartTurn", () => {
 
     expect(agent.startThread).not.toHaveBeenCalled();
     expect(manager.rememberLoop).not.toHaveBeenCalled();
+  });
+});
+
+describe("prepareNewThreadForIpc", () => {
+  it("rejects creating a new thread while any managed loop is running", async () => {
+    const manager = {
+      hasRunningLoopOtherThan: vi.fn(() => true),
+      prepareNewThread: vi.fn(),
+    };
+
+    await expect(prepareNewThreadForIpc({
+      agentLoopManagerRef: () => manager as any,
+      agentLoopRef: () => null,
+    }, "D:\\work")).resolves.toEqual({
+      success: false,
+      error: "当前已有会话正在执行，请等待完成或停止后再新建会话",
+    });
+
+    expect(manager.hasRunningLoopOtherThan).toHaveBeenCalledWith(null);
+    expect(manager.prepareNewThread).not.toHaveBeenCalled();
+  });
+
+  it("prepares a new managed thread when no loop is running", async () => {
+    const manager = {
+      hasRunningLoopOtherThan: vi.fn(() => false),
+      prepareNewThread: vi.fn(),
+    };
+
+    await expect(prepareNewThreadForIpc({
+      agentLoopManagerRef: () => manager as any,
+      agentLoopRef: () => null,
+    }, "D:\\work")).resolves.toEqual({ success: true });
+
+    expect(manager.prepareNewThread).toHaveBeenCalledWith("D:\\work");
+  });
+
+  it("rejects legacy single-loop new thread while the loop is running", async () => {
+    const agent = {
+      getIsRunning: vi.fn(() => true),
+      resetThread: vi.fn(),
+    };
+
+    await expect(prepareNewThreadForIpc({
+      agentLoopManagerRef: () => null,
+      agentLoopRef: () => agent as any,
+    })).resolves.toMatchObject({
+      success: false,
+      error: "当前已有会话正在执行，请等待完成或停止后再新建会话",
+    });
+
+    expect(agent.resetThread).not.toHaveBeenCalled();
+  });
+
+  it("resets the legacy single loop when idle", async () => {
+    const agent = {
+      getIsRunning: vi.fn(() => false),
+      resetThread: vi.fn(async () => undefined),
+    };
+
+    await expect(prepareNewThreadForIpc({
+      agentLoopManagerRef: () => null,
+      agentLoopRef: () => agent as any,
+    }, "D:\\work")).resolves.toEqual({ success: true });
+
+    expect(agent.resetThread).toHaveBeenCalledWith("D:\\work");
   });
 });
