@@ -311,6 +311,47 @@ describe("SqliteStore", () => {
     expect(results[0].entry.id).toBe("id-1");
   });
 
+  it("should ignore vectors with mismatched dimensions", () => {
+    store.bulkInsert([
+      sampleEntry({ id: "id-1", content: "A", embedding: [1, 0, 0] }),
+      sampleEntry({ id: "id-2", content: "B", embedding: [1, 0] }),
+    ]);
+
+    const results = store.searchByVector([1, 0, 0], 10);
+    expect(results.map((result: KnowledgeResult) => result.entry.id)).toEqual(["id-1"]);
+  });
+
+  it("should filter vector search by embedding profile", () => {
+    store.bulkInsert([
+      sampleEntry({
+        id: "id-1",
+        content: "current",
+        embedding: [1, 0, 0],
+        embeddingProvider: "openai",
+        embeddingModel: "text-embedding-3-small",
+        embeddingDimensions: 3,
+      }),
+      sampleEntry({
+        id: "id-2",
+        content: "old",
+        embedding: [1, 0, 0],
+        embeddingProvider: "qwen",
+        embeddingModel: "text-embedding-v2",
+        embeddingDimensions: 3,
+      }),
+    ]);
+
+    const results = store.searchByVector([1, 0, 0], 10, {
+      embeddingProfile: {
+        provider: "openai",
+        model: "text-embedding-3-small",
+        dimensions: 3,
+      },
+    });
+
+    expect(results.map((result: KnowledgeResult) => result.entry.id)).toEqual(["id-1"]);
+  });
+
   it("should search by keyword using LIKE", () => {
     store.bulkInsert([
       sampleEntry({ id: "id-1", content: "销售数据报表" }),
@@ -630,6 +671,40 @@ describe("KnowledgeIndexer", () => {
     }
   });
 
+  it("should reindex unchanged files when embedding profile changes", async () => {
+    const tmpPath = path.join(os.tmpdir(), `test-profile-${Date.now()}.csv`);
+    fs.writeFileSync(tmpPath, "a,b\n1,2\n", "utf-8");
+
+    try {
+      const r1 = await indexer.indexFile(tmpPath);
+      expect(r1.success).toBe(true);
+      expect(r1.entryCount).toBeGreaterThan(0);
+
+      embedder.getProfile = () => ({
+        provider: "qwen",
+        model: "text-embedding-v2",
+        dimensions: 3,
+      });
+      embedder.embedBatch = vi.fn(async (texts: string[]) =>
+        texts.map(() => [0.4, 0.5, 0.6])
+      );
+
+      const r2 = await indexer.indexFile(tmpPath);
+      expect(r2.success).toBe(true);
+      expect(embedder.embedBatch).toHaveBeenCalled();
+
+      const entries = store.getEntriesBySource(tmpPath);
+      expect(entries).toHaveLength(r2.entryCount);
+      for (const entry of entries) {
+        expect(entry.embeddingProvider).toBe("qwen");
+        expect(entry.embeddingModel).toBe("text-embedding-v2");
+        expect(entry.embeddingDimensions).toBe(3);
+      }
+    } finally {
+      fs.unlinkSync(tmpPath);
+    }
+  });
+
   it("should handle non-existent files gracefully", async () => {
     const result = await indexer.indexFile("/nonexistent/file.xlsx");
     expect(result.success).toBe(false);
@@ -696,6 +771,9 @@ describe("Retriever", () => {
         content: "销售数据_2024年各月销售额统计表",
         metadata: { sheetName: "月度数据" },
         embedding: [1, 0, 0],
+        embeddingProvider: "openai",
+        embeddingModel: "text-embedding-3-small",
+        embeddingDimensions: 1536,
         indexedAt: Date.now(),
         tokenCount: 10,
       },
@@ -709,6 +787,9 @@ describe("Retriever", () => {
         content: "财务报表分析报告_2024年度",
         metadata: {},
         embedding: [0.5, 0.5, 0],
+        embeddingProvider: "openai",
+        embeddingModel: "text-embedding-3-small",
+        embeddingDimensions: 1536,
         indexedAt: Date.now(),
         tokenCount: 8,
       },
@@ -722,6 +803,9 @@ describe("Retriever", () => {
         content: "项目进度跟踪_2024年Q3",
         metadata: {},
         embedding: [0, 1, 0],
+        embeddingProvider: "openai",
+        embeddingModel: "text-embedding-3-small",
+        embeddingDimensions: 1536,
         indexedAt: Date.now(),
         tokenCount: 6,
       },

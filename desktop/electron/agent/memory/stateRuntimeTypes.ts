@@ -1,4 +1,4 @@
-import type { Database as BetterSqliteDatabase } from "better-sqlite3";
+import type { SqliteDatabase } from "../storage/nodeSqlite";
 
 import type { RolloutItem, ThreadId } from "../shared/types";
 
@@ -17,10 +17,10 @@ export interface ResolvedRuntimePaths {
 }
 
 export interface RuntimeConnections {
-  state: BetterSqliteDatabase;
-  logs: BetterSqliteDatabase;
-  goals: BetterSqliteDatabase;
-  memories: BetterSqliteDatabase;
+  state: SqliteDatabase;
+  logs: SqliteDatabase;
+  goals: SqliteDatabase;
+  memories: SqliteDatabase;
 }
 
 export interface RuntimeRecoveryReport {

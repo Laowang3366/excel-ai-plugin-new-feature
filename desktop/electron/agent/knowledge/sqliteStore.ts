@@ -1,7 +1,7 @@
 /**
- * SQLite 存储层 — 基于 better-sqlite3
+ * SQLite 存储层 — 基于 Node/Electron 内置 node:sqlite
  *
- * 使用 better-sqlite3（原生 SQLite3 绑定）管理知识条目的持久化存储。
+ * 使用 node:sqlite 管理知识条目的持久化存储。
  * 支持 WAL 模式、FTS5 等完整 SQLite 特性。
  *
  * 设计要点：
@@ -13,7 +13,6 @@
 
 import * as path from "path";
 import * as fs from "fs";
-import Database from "better-sqlite3";
 
 import type {
   KnowledgeEntry,
@@ -21,13 +20,20 @@ import type {
   KnowledgeSource,
   KnowledgeResult,
 } from "./types";
+import type { EmbeddingProfile } from "./embeddingService";
+import {
+  openSqliteDatabase,
+  runPragma,
+  runSqliteTransaction,
+} from "../storage/nodeSqlite";
+import type { SqliteDatabase } from "../storage/nodeSqlite";
 
 // ============================================================
 // SqliteStore
 // ============================================================
 
 export class SqliteStore {
-  private db!: Database.Database;
+  private db!: SqliteDatabase;
   private dbPath: string;
 
   constructor(dbPath: string) {
@@ -48,10 +54,10 @@ export class SqliteStore {
       }
     }
 
-    this.db = new Database(this.dbPath);
+    this.db = openSqliteDatabase(this.dbPath);
 
     // 启用 WAL 模式以提升并发读性能
-    this.db.pragma("journal_mode = WAL");
+    runPragma(this.db, "journal_mode = WAL");
 
     this.initTables();
   }
@@ -69,6 +75,9 @@ export class SqliteStore {
         content     TEXT NOT NULL,
         metadata    TEXT DEFAULT '{}',
         embedding   TEXT,
+        embedding_provider TEXT,
+        embedding_model TEXT,
+        embedding_dimensions INTEGER,
         indexed_at  INTEGER NOT NULL,
         token_count INTEGER DEFAULT 0
       );
@@ -79,6 +88,8 @@ export class SqliteStore {
         ON knowledge_entries(source_path);
       CREATE INDEX IF NOT EXISTS idx_entries_indexed_at
         ON knowledge_entries(indexed_at);
+      CREATE INDEX IF NOT EXISTS idx_entries_embedding_profile
+        ON knowledge_entries(embedding_provider, embedding_model, embedding_dimensions);
 
       CREATE TABLE IF NOT EXISTS knowledge_sources (
         source_path   TEXT PRIMARY KEY,
@@ -89,6 +100,29 @@ export class SqliteStore {
         last_indexed  INTEGER NOT NULL,
         file_hash     TEXT DEFAULT ''
       );
+    `);
+    this.migrateEmbeddingProfileColumns();
+  }
+
+  private migrateEmbeddingProfileColumns(): void {
+    const rows = this.db
+      .prepare("PRAGMA table_info(knowledge_entries)")
+      .all() as Array<{ name: string }>;
+    const columns = new Set(rows.map((row) => row.name));
+
+    if (!columns.has("embedding_provider")) {
+      this.db.exec("ALTER TABLE knowledge_entries ADD COLUMN embedding_provider TEXT");
+    }
+    if (!columns.has("embedding_model")) {
+      this.db.exec("ALTER TABLE knowledge_entries ADD COLUMN embedding_model TEXT");
+    }
+    if (!columns.has("embedding_dimensions")) {
+      this.db.exec("ALTER TABLE knowledge_entries ADD COLUMN embedding_dimensions INTEGER");
+    }
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_entries_embedding_profile
+        ON knowledge_entries(embedding_provider, embedding_model, embedding_dimensions);
     `);
   }
 
@@ -103,14 +137,20 @@ export class SqliteStore {
       .prepare(
         `INSERT OR REPLACE INTO knowledge_entries
           (id, source, source_path, source_name, source_type,
-           chunk_index, content, metadata, embedding, indexed_at, token_count)
+           chunk_index, content, metadata, embedding,
+           embedding_provider, embedding_model, embedding_dimensions,
+           indexed_at, token_count)
         VALUES
           (?, ?, ?, ?, ?,
-           ?, ?, ?, ?, ?, ?)`
+           ?, ?, ?, ?,
+           ?, ?, ?,
+           ?, ?)`
       )
       .run(
         row.id, row.source, row.source_path, row.source_name, row.source_type,
-        row.chunk_index, row.content, row.metadata, row.embedding, row.indexed_at, row.token_count
+        row.chunk_index, row.content, row.metadata, row.embedding,
+        row.embedding_provider, row.embedding_model, row.embedding_dimensions,
+        row.indexed_at, row.token_count
       );
   }
 
@@ -121,18 +161,24 @@ export class SqliteStore {
     const insert = this.db.prepare(
       `INSERT OR REPLACE INTO knowledge_entries
         (id, source, source_path, source_name, source_type,
-         chunk_index, content, metadata, embedding, indexed_at, token_count)
+         chunk_index, content, metadata, embedding,
+         embedding_provider, embedding_model, embedding_dimensions,
+         indexed_at, token_count)
       VALUES
         (?, ?, ?, ?, ?,
-         ?, ?, ?, ?, ?, ?)`
+         ?, ?, ?, ?,
+         ?, ?, ?,
+         ?, ?)`
     );
 
-    const batchInsert = this.db.transaction((items: KnowledgeEntry[]) => {
+    const batchInsert = (items: KnowledgeEntry[]) => runSqliteTransaction(this.db, () => {
       for (const item of items) {
         const row = this.entryToRow(item);
         insert.run(
           row.id, row.source, row.source_path, row.source_name, row.source_type,
-          row.chunk_index, row.content, row.metadata, row.embedding, row.indexed_at, row.token_count
+          row.chunk_index, row.content, row.metadata, row.embedding,
+          row.embedding_provider, row.embedding_model, row.embedding_dimensions,
+          row.indexed_at, row.token_count
         );
       }
     });
@@ -150,7 +196,7 @@ export class SqliteStore {
     const delEntries = this.db.prepare("DELETE FROM knowledge_entries WHERE source_path = ?");
     const delSource = this.db.prepare("DELETE FROM knowledge_sources WHERE source_path = ?");
 
-    const cleanup = this.db.transaction((path: string) => {
+    const cleanup = (path: string) => runSqliteTransaction(this.db, () => {
       delEntries.run(path);
       delSource.run(path);
     });
@@ -179,10 +225,16 @@ export class SqliteStore {
   searchByVector(
     queryVector: number[],
     topK: number,
-    filter?: { sourceFilter?: string[]; pathFilter?: string[] }
+    filter?: { sourceFilter?: string[]; pathFilter?: string[]; embeddingProfile?: EmbeddingProfile }
   ): KnowledgeResult[] {
     let sql = "SELECT * FROM knowledge_entries WHERE embedding IS NOT NULL";
     const params: any[] = [];
+    const expectedProfile = filter?.embeddingProfile;
+
+    if (expectedProfile) {
+      sql += " AND embedding_provider = ? AND embedding_model = ? AND embedding_dimensions = ?";
+      params.push(expectedProfile.provider, expectedProfile.model, expectedProfile.dimensions);
+    }
 
     if (filter?.sourceFilter && filter.sourceFilter.length > 0) {
       sql += ` AND source IN (${filter.sourceFilter.map(() => "?").join(",")})`;
@@ -280,6 +332,21 @@ export class SqliteStore {
     return row ? this.rowToSource(row) : null;
   }
 
+  hasSourceEmbeddingProfile(sourcePath: string, profile: EmbeddingProfile): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) as count
+         FROM knowledge_entries
+         WHERE source_path = ?
+           AND embedding_provider = ?
+           AND embedding_model = ?
+           AND embedding_dimensions = ?`
+      )
+      .get(sourcePath, profile.provider, profile.model, profile.dimensions) as { count: number } | undefined;
+
+    return (row?.count ?? 0) > 0;
+  }
+
   /** 获取指定来源的所有条目 */
   getEntriesBySource(sourcePath: string): KnowledgeEntry[] {
     const rows = this.db
@@ -337,7 +404,7 @@ export class SqliteStore {
   // ============================================================
 
   /** KnowledgeEntry → 扁平对象（用于绑定参数） */
-  private entryToRow(entry: KnowledgeEntry): Record<string, unknown> {
+  private entryToRow(entry: KnowledgeEntry): KnowledgeEntryRow {
     return {
       id: entry.id,
       source: entry.source,
@@ -348,6 +415,9 @@ export class SqliteStore {
       content: entry.content,
       metadata: JSON.stringify(entry.metadata),
       embedding: entry.embedding ? JSON.stringify(entry.embedding) : null,
+      embedding_provider: entry.embeddingProvider ?? null,
+      embedding_model: entry.embeddingModel ?? null,
+      embedding_dimensions: entry.embeddingDimensions ?? (entry.embedding ? entry.embedding.length : null),
       indexed_at: entry.indexedAt,
       token_count: entry.tokenCount,
     };
@@ -365,6 +435,9 @@ export class SqliteStore {
       content: row.content,
       metadata: JSON.parse(row.metadata || "{}"),
       embedding: row.embedding ? JSON.parse(row.embedding) : null,
+      embeddingProvider: row.embedding_provider ?? undefined,
+      embeddingModel: row.embedding_model ?? undefined,
+      embeddingDimensions: row.embedding_dimensions ?? undefined,
       indexedAt: row.indexed_at,
       tokenCount: row.token_count,
     };
@@ -385,7 +458,8 @@ export class SqliteStore {
 
   /** 余弦相似度 */
   private cosineSimilarity(a: Float64Array, b: Float64Array): number {
-    const len = Math.min(a.length, b.length);
+    if (a.length !== b.length) return 0;
+    const len = a.length;
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;

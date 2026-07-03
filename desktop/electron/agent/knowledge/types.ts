@@ -54,6 +54,9 @@ export interface KnowledgeEntry {
   metadata: Record<string, unknown>;
   /** 向量嵌入（null 表示未嵌入） */
   embedding: number[] | null;
+  embeddingProvider?: string;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
   /** 索引时间戳（ms） */
   indexedAt: number;
   /** 估算 token 数 */
@@ -141,6 +144,9 @@ export interface KnowledgeEntryRow {
   content: string;
   metadata: string;       // JSON 字符串
   embedding: string | null; // JSON 浮点数数组字符串
+  embedding_provider: string | null;
+  embedding_model: string | null;
+  embedding_dimensions: number | null;
   indexed_at: number;
   token_count: number;
 }

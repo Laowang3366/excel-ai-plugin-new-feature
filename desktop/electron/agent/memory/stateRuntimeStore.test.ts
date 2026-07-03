@@ -4,6 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 import type { ThreadMetadata } from "../shared/types";
+import { openSqliteDatabase } from "../storage/nodeSqlite";
 import { StateRuntimeStore } from "./stateRuntimeStore";
 
 function createMetadata(patch: Partial<ThreadMetadata> = {}): ThreadMetadata {
@@ -345,11 +346,10 @@ describe("StateRuntimeStore", () => {
       const dbPaths = store.getDatabasePaths();
       await store.close();
 
-      const Database = require("better-sqlite3") as typeof import("better-sqlite3");
-      const stateDb = new Database(dbPaths.state);
+      const stateDb = openSqliteDatabase(dbPaths.state);
       stateDb.prepare(`DELETE FROM thread_names`).run();
       stateDb.close();
-      const logsDb = new Database(dbPaths.logs);
+      const logsDb = openSqliteDatabase(dbPaths.logs);
       logsDb.prepare(`DELETE FROM rollout_events_fts`).run();
       logsDb.close();
 

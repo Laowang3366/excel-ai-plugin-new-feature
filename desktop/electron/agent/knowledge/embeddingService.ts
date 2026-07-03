@@ -21,6 +21,12 @@ interface EmbeddingModelConfig {
   dimensions: number;
 }
 
+export interface EmbeddingProfile {
+  provider: string;
+  model: string;
+  dimensions: number;
+}
+
 const PROVIDER_EMBEDDING_MODELS: Record<string, EmbeddingModelConfig> = {
   openai:     { model: "text-embedding-3-small", dimensions: 1536 },
   deepseek:   { model: "deepseek-embedding",     dimensions: 1024 },
@@ -113,6 +119,18 @@ export class EmbeddingService {
   /** 获取当前使用的 embedding 模型名 */
   getModelName(): string {
     return this.modelConfig.model;
+  }
+
+  getProvider(): string {
+    return this.config.provider;
+  }
+
+  getProfile(): EmbeddingProfile {
+    return {
+      provider: this.config.provider,
+      model: this.modelConfig.model,
+      dimensions: this.modelConfig.dimensions,
+    };
   }
 
   /** 获取向量维度 */

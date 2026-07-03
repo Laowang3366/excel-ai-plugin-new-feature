@@ -27,6 +27,7 @@ let knowledgeEmbedder: EmbeddingService | null = null;
 let knowledgeIndexer: KnowledgeIndexer | null = null;
 let knowledgeWriter: KnowledgeWriter | null = null;
 let knowledgeRetriever: Retriever | null = null;
+let knowledgeRuntimeSignature: string | null = null;
 
 /**
  * RAG 知识库运行时装配。
@@ -39,6 +40,11 @@ export async function initializeKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot?: string,
 ): Promise<KnowledgeRuntimeState> {
+  const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
+  if (knowledgeStore && knowledgeRuntimeSignature !== signature) {
+    resetKnowledgeRuntime();
+  }
+
   if (!knowledgeStore) {
     try {
       const dbPath = await resolveKnowledgeDbPath(dataRoot);
@@ -60,6 +66,7 @@ export async function initializeKnowledgeRuntime(
       setKnowledgeRetriever(knowledgeRetriever);
       setKnowledgeIndexer(knowledgeIndexer);
       setKnowledgeWriter(knowledgeWriter);
+      knowledgeRuntimeSignature = signature;
     } catch (e) {
       console.warn("RAG 知识库初始化失败（可在设置中配置后重试）:", e);
     }
@@ -85,6 +92,7 @@ export function resetKnowledgeRuntime(): void {
   knowledgeIndexer = null;
   knowledgeWriter = null;
   knowledgeRetriever = null;
+  knowledgeRuntimeSignature = null;
   resetKnowledgeRegistry();
 }
 
@@ -111,4 +119,14 @@ async function resolveKnowledgeDbPath(dataRoot?: string): Promise<string> {
 function getLegacyKnowledgeDbPath(): string {
   const appData = process.env.APPDATA || path.join(process.env.USERPROFILE || "C:\\", "AppData", "Roaming");
   return path.join(appData, "excel-ai-assistant", "knowledge", "knowledge.db");
+}
+
+function buildKnowledgeRuntimeSignature(aiConfig: AIClientConfig, dataRoot?: string): string {
+  return JSON.stringify({
+    dataRoot: dataRoot || "",
+    provider: aiConfig.provider,
+    baseUrl: aiConfig.baseUrl,
+    apiKey: aiConfig.apiKey,
+    customHeaders: aiConfig.customHeaders || {},
+  });
 }

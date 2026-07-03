@@ -1,21 +1,19 @@
 {
   "name": "excel-ai-assistant",
-  "version": "0.1.47",
+  "version": "0.1.48",
   "description": "Office AI 桌面助手 - 通过 AI 帮你处理表格、文档和演示文稿",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:build": "vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
-    "native:rebuild": "electron-builder install-app-deps",
+    "electron:build": "node scripts/clean-build-output.cjs && vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "npx vitest run",
     "test:watch": "npx vitest",
     "test:coverage": "npx vitest run --coverage"
   },
   "dependencies": {
-    "better-sqlite3": "^12.11.1",
     "electron-store": "^8.2.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.21.0",
@@ -27,7 +25,6 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.3",
@@ -49,8 +46,7 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "package.json",
-      "node_modules/better-sqlite3/**/*"
+      "package.json"
     ],
     "extraResources": [
       {
@@ -84,10 +80,6 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "Office AI 助手"
-    },
-    "asarUnpack": [
-      "node_modules/**/*.node",
-      "node_modules/better-sqlite3/**/*"
-    ]
+    }
   }
 }

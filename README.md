@@ -9,7 +9,7 @@
 - **Open XML 优先**：`.xlsx` / `.docx` / `.pptx` 文件级编辑不依赖 Office 进程；PPT 删除页、创建演示文稿、文本替换、表格样式、主题色、Excel 图表/条件格式/数据验证等走统一能力。
 - **COM 兜底**：动态图表、目录刷新、快照导出、当前窗口交互等需要 Office 应用对象模型的场景走 COM 桥接。
 - **多模型供应商**：支持 OpenAI 兼容协议、Anthropic、DeepSeek、Kimi、智谱、小米、阿里云百炼、腾讯云、火山方舟、讯飞星辰、百度千帆、京东云等配置。
-- **本地运行态存储**：使用 `better-sqlite3` 的四库 StateRuntime（`state.db` / `logs.db` / `goals.db` / `memories.db`），JSONL 保留为兼容审计副本。
+- **本地运行态存储**：使用 Node/Electron 内置 `node:sqlite` 管理四库 StateRuntime（`state.db` / `logs.db` / `goals.db` / `memories.db`），JSONL 保留为兼容审计副本。
 - **长期记忆**：重点记忆用户偏好、规则约束、纠正反馈、过往文件印象和工具成功率画像。
 - **权限与沙箱**：`shell.execute` 走命令策略、工作目录约束、环境变量清洗和审计日志；高风险操作仍需要用户确认。
 - **会话体验**：支持文件夹组织、会话搜索、运行中会话状态感知、输入队列、长消息窗口化渲染和侧边功能面板。
@@ -34,9 +34,6 @@ npm install
 | `npm test` | 运行单元测试 |
 | `npm run build` | 构建渲染进程 |
 | `npm run electron:build` | 构建 Windows 安装包 |
-| `npm run native:rebuild` | 为 Electron 运行时重建原生依赖 |
-
-> 注意：`better-sqlite3` 是原生模块。跑 Node/Vitest 测试前可执行 `npm rebuild better-sqlite3`；打包时 electron-builder 会为 Electron ABI 重建依赖。
 
 ## 项目结构
 

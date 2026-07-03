@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import Database from "better-sqlite3";
 
 import type {
   RolloutItem,
@@ -31,6 +30,7 @@ import {
   STATE_RUNTIME_MIGRATIONS,
 } from "./stateRuntimeSchema";
 import { openRuntimeDatabaseWithRecovery } from "./stateRuntimeRecovery";
+import { runSqliteTransaction } from "../storage/nodeSqlite";
 import type {
   RuntimeConnections,
   RuntimeDatabasePaths,
@@ -89,10 +89,10 @@ export class StateRuntimeStore {
     }
 
     this.dbs = {
-      state: openRuntimeDatabaseWithRecovery(Database, this.dbPaths.state, "state", this.recoveryReports),
-      logs: openRuntimeDatabaseWithRecovery(Database, this.dbPaths.logs, "logs", this.recoveryReports),
-      goals: openRuntimeDatabaseWithRecovery(Database, this.dbPaths.goals, "goals", this.recoveryReports),
-      memories: openRuntimeDatabaseWithRecovery(Database, this.dbPaths.memories, "memories", this.recoveryReports),
+      state: openRuntimeDatabaseWithRecovery(this.dbPaths.state, "state", this.recoveryReports),
+      logs: openRuntimeDatabaseWithRecovery(this.dbPaths.logs, "logs", this.recoveryReports),
+      goals: openRuntimeDatabaseWithRecovery(this.dbPaths.goals, "goals", this.recoveryReports),
+      memories: openRuntimeDatabaseWithRecovery(this.dbPaths.memories, "memories", this.recoveryReports),
     };
 
     for (const name of runtimeDbNames()) {
@@ -248,12 +248,12 @@ export class StateRuntimeStore {
       `INSERT INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content, item_json)
        VALUES (?, ?, ?, ?, ?, ?)`
     );
-    const write = this.getDbs().logs.transaction((rows: RolloutLine[]) => {
+    const write = (rows: RolloutLine[]) => runSqliteTransaction(this.getDbs().logs, () => {
       for (const line of rows) {
         const itemJson = JSON.stringify(line.item);
         const result = insert.run(
           threadId,
-          getRolloutTurnId(line.item),
+          getRolloutTurnId(line.item) ?? null,
           line.item.type,
           line.timestamp,
           itemJson
@@ -602,7 +602,7 @@ export class StateRuntimeStore {
       `INSERT OR IGNORE INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content, item_json)
        VALUES (?, ?, ?, ?, ?, ?)`
     );
-    const write = dbs.logs.transaction(() => {
+    const write = () => runSqliteTransaction(dbs.logs, () => {
       for (const row of missingRows) {
         if (indexedIds.has(row.id)) continue;
         let content = row.item_json;

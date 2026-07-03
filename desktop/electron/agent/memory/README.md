@@ -6,7 +6,7 @@
 
 - `sessionStore.ts`: 会话、轮次、rollout item 和元数据的兼容 JSONL 审计副本，同时把事件投影写入 `logs.db`。
 - `agentGraphStore.ts`: 线程拓扑图存储，记录父线程/子线程关系和边状态。
-- `stateRuntimeStore.ts`: StateRuntime 四库门面，使用 `better-sqlite3` 管理 `state.db`、`logs.db`、`goals.db`、`memories.db`。
+- `stateRuntimeStore.ts`: StateRuntime 四库门面，使用 Node/Electron 内置 `node:sqlite` 管理 `state.db`、`logs.db`、`goals.db`、`memories.db`。
 - `stateRuntimeSchema.ts`: 四库 schema、迁移记录和 WAL 配置。
 - `stateRuntimePaths.ts`: 四库路径解析，以及旧 `state-runtime.db` 到 `state-runtime/state.db` 的兼容迁移。
 - `stateRuntimeTypes.ts`: StateRuntime 共享类型。

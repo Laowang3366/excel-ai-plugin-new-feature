@@ -60,12 +60,12 @@ const PROJECTS: OpenSourceProject[] = [
     githubUrl: "https://github.com/colinhacks/zod",
   },
   {
-    name: "better-sqlite3",
+    name: "SQLite",
     category: "runtime",
-    purposeZh: "为知识库、会话状态和本地索引提供 SQLite 访问能力。",
-    purposeEn: "Provides SQLite access for knowledge base, session state, and local indexes.",
-    license: "MIT",
-    githubUrl: "https://github.com/WiseLibs/better-sqlite3",
+    purposeZh: "通过 Node/Electron 内置 node:sqlite 为知识库、会话状态和本地索引提供 SQLite 存储能力。",
+    purposeEn: "Provides SQLite storage for knowledge base, session state, and local indexes through Node/Electron built-in node:sqlite.",
+    license: "blessing",
+    githubUrl: "https://github.com/sqlite/sqlite",
   },
   {
     name: "electron-store",

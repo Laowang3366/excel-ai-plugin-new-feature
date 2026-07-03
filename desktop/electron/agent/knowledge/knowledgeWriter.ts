@@ -4,6 +4,7 @@ import * as path from "path";
 import { createHash, randomUUID } from "crypto";
 
 import type { KnowledgeEntry, KnowledgeSource } from "./types";
+import type { EmbeddingProfile } from "./embeddingService";
 import { TextChunker } from "./textChunker";
 
 export interface KnowledgeWriteInput {
@@ -36,6 +37,7 @@ interface KnowledgeWriteStore {
 
 interface KnowledgeWriteEmbedder {
   embedBatch(texts: string[]): Promise<number[][]>;
+  getProfile?: () => EmbeddingProfile;
 }
 
 export class KnowledgeWriter {
@@ -90,6 +92,7 @@ export class KnowledgeWriter {
     ]);
 
     const embeddings = await this.embedder.embedBatch(chunks.map((chunk) => chunk.content));
+    const embeddingProfile = this.embedder.getProfile?.();
     const entries: KnowledgeEntry[] = chunks.map((chunk, index) => ({
       id: randomUUID(),
       source: "note",
@@ -100,6 +103,9 @@ export class KnowledgeWriter {
       content: chunk.content,
       metadata: chunk.metadata,
       embedding: embeddings[index],
+      embeddingProvider: embeddingProfile?.provider,
+      embeddingModel: embeddingProfile?.model,
+      embeddingDimensions: embeddingProfile?.dimensions ?? embeddings[index]?.length,
       indexedAt: now,
       tokenCount: chunk.tokenCount,
     }));

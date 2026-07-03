@@ -1,6 +1,6 @@
-import type { Database as BetterSqliteDatabase } from "better-sqlite3";
-
+import { runPragma, runPragmaValue, runSqliteTransaction } from "../storage/nodeSqlite";
 import type { RuntimeDbName, RuntimeMigration } from "./stateRuntimeTypes";
+import type { SqliteDatabase } from "../storage/nodeSqlite";
 
 export const STATE_RUNTIME_MIGRATIONS: Record<RuntimeDbName, RuntimeMigration[]> = {
   state: [
@@ -205,14 +205,14 @@ export const STATE_RUNTIME_MIGRATIONS: Record<RuntimeDbName, RuntimeMigration[]>
   ],
 };
 
-export function configureRuntimeDatabase(db: BetterSqliteDatabase): void {
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.pragma("busy_timeout = 5000");
+export function configureRuntimeDatabase(db: SqliteDatabase): void {
+  runPragma(db, "journal_mode = WAL");
+  runPragma(db, "foreign_keys = ON");
+  runPragma(db, "busy_timeout = 5000");
 }
 
 export function applyRuntimeMigrations(
-  db: BetterSqliteDatabase,
+  db: SqliteDatabase,
   migrations: RuntimeMigration[]
 ): void {
   db.exec(`
@@ -227,24 +227,23 @@ export function applyRuntimeMigrations(
     `INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)`
   );
 
-  const run = db.transaction(() => {
+  runSqliteTransaction(db, () => {
     for (const migration of migrations) {
       if (applied.has(migration.id)) continue;
       db.exec(migration.sql);
       insert.run(migration.id, Date.now());
     }
   });
-  run();
 }
 
-export function listAppliedRuntimeMigrations(db: BetterSqliteDatabase): string[] {
+export function listAppliedRuntimeMigrations(db: SqliteDatabase): string[] {
   const rows = db.prepare(
     `SELECT id FROM schema_migrations ORDER BY id ASC`
   ).all() as Array<{ id: string }>;
   return rows.map((row) => row.id);
 }
 
-export function getRuntimeJournalMode(db: BetterSqliteDatabase): string {
-  const row = db.pragma("journal_mode", { simple: true });
+export function getRuntimeJournalMode(db: SqliteDatabase): string {
+  const row = runPragmaValue(db, "journal_mode");
   return String(row).toLowerCase();
 }

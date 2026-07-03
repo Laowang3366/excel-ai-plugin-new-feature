@@ -17,6 +17,11 @@ import type {
   FolderFileInfo,
   ThreadMetadata,
   ThreadData,
+  ThreadRuntimeSnapshot,
+  ThreadSpawnDescendant,
+  ThreadSpawnEdge,
+  ThreadSpawnStatusFilter,
+  ExcelRangeExpandMode,
   AiProviderConfig,
   TokenUsage,
   TurnItem,
@@ -56,7 +61,11 @@ export interface IIpcApi {
     selectHost: (host: "excel" | "wps") => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
     getSelection: () => Promise<{ address: string; values: unknown[][]; sheetName: string }>;
     getSelectionAddress: () => Promise<{ address: string; sheetName: string }>;
-    readRange: (sheetName: string, range: string) => Promise<{ values: unknown[][] }>;
+    readRange: (
+      sheetName: string,
+      range: string,
+      expand?: ExcelRangeExpandMode
+    ) => Promise<{ values: unknown[][]; address?: string; expanded?: boolean; expandMode?: string }>;
     inspectWorkbook: () => Promise<unknown>;
     writeRange: (sheetName: string, range: string, values: unknown[][]) => Promise<{ success: boolean; error?: string }>;
   };
@@ -98,6 +107,12 @@ export interface IIpcApi {
     newThread: (folderId?: string) => Promise<{ success: boolean }>;
     updateMetadata: (threadId: string, patch: Record<string, unknown>) => Promise<void>;
     findLatest: () => Promise<string | null>;
+    runtimeStatus: () => Promise<ThreadRuntimeSnapshot>;
+  };
+  threadGraph: {
+    upsertSpawnEdge: (parentThreadId: string, childThreadId: string, label?: string) => Promise<ThreadSpawnEdge>;
+    closeSpawnEdge: (parentThreadId: string, childThreadId: string) => Promise<ThreadSpawnEdge | null>;
+    listDescendants: (parentThreadId: string, status?: ThreadSpawnStatusFilter) => Promise<ThreadSpawnDescendant[]>;
   };
   dialog: {
     openFile: () => Promise<{ canceled: boolean; filePaths: string[] }>;
@@ -292,10 +307,10 @@ export const ipcApi: IIpcApi = {
       const selection = await raw.excel.getSelection();
       return { address: selection.address, sheetName: selection.sheetName };
     },
-    readRange: async (sheetName, range) => {
+    readRange: async (sheetName, range, expand) => {
       const raw = getRaw();
       if (!raw) return { values: [] };
-      return raw.excel.readRange(sheetName, range);
+      return raw.excel.readRange(sheetName, range, expand);
     },
     inspectWorkbook: async () => {
       const raw = getRaw();
@@ -390,6 +405,31 @@ export const ipcApi: IIpcApi = {
       const raw = getRaw();
       if (!raw) return null;
       return raw.thread.findLatest();
+    },
+    runtimeStatus: async () => {
+      const raw = getRaw();
+      if (!raw) {
+        return { status: "not_loaded", idleUnloadMs: 0 };
+      }
+      return raw.thread.runtimeStatus();
+    },
+  },
+
+  threadGraph: {
+    upsertSpawnEdge: async (parentThreadId, childThreadId, label) => {
+      const raw = getRaw();
+      if (!raw) throw new Error("IPC not available");
+      return raw.threadGraph.upsertSpawnEdge(parentThreadId, childThreadId, label);
+    },
+    closeSpawnEdge: async (parentThreadId, childThreadId) => {
+      const raw = getRaw();
+      if (!raw) return null;
+      return raw.threadGraph.closeSpawnEdge(parentThreadId, childThreadId);
+    },
+    listDescendants: async (parentThreadId, status) => {
+      const raw = getRaw();
+      if (!raw) return [];
+      return raw.threadGraph.listDescendants(parentThreadId, status);
     },
   },
 
@@ -626,6 +666,17 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       newThread: async () => ({ success: false }),
       updateMetadata: async () => {},
       findLatest: async () => null,
+      runtimeStatus: async () => ({ status: "not_loaded", idleUnloadMs: 0 }),
+    },
+    threadGraph: {
+      upsertSpawnEdge: async () => ({
+        parentThreadId: "",
+        childThreadId: "",
+        status: "open",
+        createdAt: 0,
+      }),
+      closeSpawnEdge: async () => null,
+      listDescendants: async () => [],
     },
     dialog: {
       openFile: async () => ({ canceled: true, filePaths: [] }),

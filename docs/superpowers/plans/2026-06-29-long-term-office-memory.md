@@ -6,7 +6,7 @@
 
 **Architecture:** Extend the existing four-database `StateRuntimeStore` with structured long-term memory schema and a focused `memory/longTerm` module. User-visible memories flow into `buildStreamParams` and `memory.*` tools; internal `tool_success_profile` records are consumed only by tool routing/execution code.
 
-**Tech Stack:** TypeScript, Electron agent runtime, better-sqlite3, Vitest, existing `StateRuntimeStore`, existing tool registry/executor pattern.
+**Tech Stack:** TypeScript, Electron agent runtime, SQLite via Node/Electron built-in `node:sqlite`, Vitest, existing `StateRuntimeStore`, existing tool registry/executor pattern.
 
 ---
 

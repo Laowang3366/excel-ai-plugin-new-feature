@@ -10,7 +10,7 @@ import { OfficeComActionBridge } from "../tools/implementations/office/officeCom
 import { createOfficeActionBridge } from "../tools/officeCore/officeActionAdapter";
 import { getOrCreateOfficeBridges, type OfficeBridgeRegistry } from "./bridgeRegistry";
 import { buildCompactionConfig, type SavedCompactionConfig } from "./compactionRuntime";
-import { initializeKnowledgeRuntime, type KnowledgeRuntimeState } from "./knowledgeRuntime";
+import { initializeKnowledgeRuntime, reloadKnowledgeRuntime, type KnowledgeRuntimeState } from "./knowledgeRuntime";
 
 export interface AgentRuntime {
   agentLoop: AgentLoop;
@@ -177,4 +177,15 @@ export function getAgentLoops(): AgentLoop[] {
 
 export function getAgentLoopManager(): AgentLoopManager | null {
   return runtime?.agentLoopManager ?? null;
+}
+
+export async function refreshKnowledgeRuntime(
+  aiConfig: AIClientConfig,
+  dataRoot?: string
+): Promise<KnowledgeRuntimeState> {
+  const knowledge = await reloadKnowledgeRuntime(aiConfig, dataRoot);
+  if (runtime) {
+    runtime.knowledge = knowledge;
+  }
+  return knowledge;
 }

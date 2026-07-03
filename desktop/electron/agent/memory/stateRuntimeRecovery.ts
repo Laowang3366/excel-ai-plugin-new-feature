@@ -1,20 +1,20 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import type { Database as BetterSqliteDatabase } from "better-sqlite3";
+import { openSqliteDatabase, runPragmaValue } from "../storage/nodeSqlite";
 import type { RuntimeDbName, RuntimeRecoveryReport } from "./stateRuntimeTypes";
+import type { SqliteDatabase } from "../storage/nodeSqlite";
 
 export function openRuntimeDatabaseWithRecovery(
-  Database: typeof import("better-sqlite3"),
   dbPath: string,
   dbName: RuntimeDbName,
   reports: RuntimeRecoveryReport[]
-): BetterSqliteDatabase {
-  if (dbPath === ":memory:") return new Database(dbPath);
+): SqliteDatabase {
+  if (dbPath === ":memory:") return openSqliteDatabase(dbPath);
 
-  let db: BetterSqliteDatabase | undefined;
+  let db: SqliteDatabase | undefined;
   try {
-    db = new Database(dbPath);
+    db = openSqliteDatabase(dbPath);
     assertDatabaseHealthy(db);
     return db;
   } catch (error) {
@@ -35,12 +35,12 @@ export function openRuntimeDatabaseWithRecovery(
       backupPaths,
       recoveredAt: Date.now(),
     });
-    return new Database(dbPath);
+    return openSqliteDatabase(dbPath);
   }
 }
 
-function assertDatabaseHealthy(db: BetterSqliteDatabase): void {
-  const result = db.pragma("quick_check", { simple: true });
+function assertDatabaseHealthy(db: SqliteDatabase): void {
+  const result = runPragmaValue(db, "quick_check");
   if (String(result).toLowerCase() !== "ok") {
     throw new Error(`SQLite quick_check failed: ${String(result)}`);
   }

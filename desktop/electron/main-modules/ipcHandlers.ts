@@ -19,7 +19,7 @@ import { ipcMain, dialog, shell, clipboard, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { AgentLoop } from "../agent/core/agentLoop";
-import type { AgentLoopManager } from "../agent/runtime/agentRuntime";
+import { refreshKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
 import { createAIClient } from "../agent/providers/aiClient";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
@@ -199,7 +199,7 @@ export function registerIpcHandlers(): void {
     return getSettingsStore().get(key);
   });
 
-  ipcMain.handle("settings:set", (_event, key: string, value: unknown) => {
+  ipcMain.handle("settings:set", async (_event, key: string, value: unknown) => {
     const store = getSettingsStore();
     store.set(key, value);
 
@@ -212,6 +212,11 @@ export function registerIpcHandlers(): void {
           contextWindowSize,
           savedCompaction: store.get("compactionConfig") as SavedCompactionConfig | undefined,
         }));
+      }
+      try {
+        await refreshKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath());
+      } catch (error) {
+        logger.warn("刷新知识库运行时失败，设置已保存:", error);
       }
     }
     if (key === "permissionMode") {

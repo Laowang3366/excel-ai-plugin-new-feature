@@ -24,6 +24,8 @@ export interface SandboxConfig {
   extraWritableRoots: string[];
 }
 
+export type ExcelRangeExpandMode = "none" | "spill" | "currentArray" | "currentRegion";
+
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
@@ -348,7 +350,7 @@ export interface ElectronAPI {
     readRange: (
       sheetName: string,
       range: string,
-      expand?: "none" | "spill" | "currentArray" | "currentRegion"
+      expand?: ExcelRangeExpandMode
     ) => Promise<{ values: unknown[][]; address?: string; expanded?: boolean; expandMode?: string }>;
     inspectWorkbook: () => Promise<unknown>;
     writeRange: (sheetName: string, range: string, values: unknown[][]) => Promise<{ success: boolean; error?: string }>;

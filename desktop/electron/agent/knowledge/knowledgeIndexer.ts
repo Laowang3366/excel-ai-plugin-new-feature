@@ -95,7 +95,11 @@ export class KnowledgeIndexer {
       if (opts.skipUnchanged) {
         const fileHash = this.computeFileHash(filePath);
         const existing = this.store.getSource(filePath);
-        if (existing && existing.fileHash === fileHash) {
+        if (
+          existing
+          && existing.fileHash === fileHash
+          && this.store.hasSourceEmbeddingProfile(filePath, this.embedder.getProfile())
+        ) {
           return {
             sourcePath: filePath,
             success: true,
@@ -129,6 +133,7 @@ export class KnowledgeIndexer {
       const sourceType = this.getSourceType(filePath);
       const sourceName = path.basename(filePath);
       const fileHash = this.computeFileHash(filePath);
+      const embeddingProfile = this.embedder.getProfile();
 
       // 先删除旧索引
       this.store.deleteSource(filePath);
@@ -147,6 +152,9 @@ export class KnowledgeIndexer {
           content: chunk.content,
           metadata: chunk.metadata,
           embedding: embeddings[i],
+          embeddingProvider: embeddingProfile.provider,
+          embeddingModel: embeddingProfile.model,
+          embeddingDimensions: embeddingProfile.dimensions,
           indexedAt: now,
           tokenCount: chunk.tokenCount,
         });

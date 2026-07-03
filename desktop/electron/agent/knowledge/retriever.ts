@@ -16,7 +16,7 @@ import type {
   KnowledgeSourceType,
 } from "./types";
 import { SqliteStore } from "./sqliteStore";
-import { EmbeddingService } from "./embeddingService";
+import { EmbeddingService, type EmbeddingProfile } from "./embeddingService";
 
 // ============================================================
 // 检索选项
@@ -74,7 +74,9 @@ export class Retriever {
     const queryVector = await this.embedder.embed(query.text);
 
     // 2. 向量搜索
-    const filter: { sourceFilter?: string[]; pathFilter?: string[] } = {};
+    const filter: { sourceFilter?: string[]; pathFilter?: string[]; embeddingProfile?: EmbeddingProfile } = {
+      embeddingProfile: this.embedder.getProfile(),
+    };
     if (query.sourceFilter && query.sourceFilter.length > 0) {
       filter.sourceFilter = query.sourceFilter;
     }
