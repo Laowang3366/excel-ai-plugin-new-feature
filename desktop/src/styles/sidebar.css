@@ -1011,6 +1011,7 @@
   min-width: 0;
   min-height: 18px;
   line-height: 18px;
+  transform: translateY(1px);
 }
 .sidebar-nav-btn:hover { background: var(--bg-tint); }
 .sidebar-nav-btn.active { background: var(--primary-light); color: var(--primary); }
