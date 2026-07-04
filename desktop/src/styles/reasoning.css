@@ -28,7 +28,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #111827;
+  color: var(--text-primary);
 }
 .reasoning-icon svg {
   display: block;
@@ -36,7 +36,7 @@
 .reasoning-label {
   font-size: inherit;
   line-height: inherit;
-  color: #9ca3af;
+  color: var(--text-faint);
   font-weight: 400;
   white-space: nowrap;
   display: inline-flex;
@@ -47,14 +47,14 @@
   font-size: inherit;
   line-height: inherit;
   font-weight: 400;
-  color: #9ca3af;
+  color: var(--text-faint);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   height: 18px;
 }
 .reasoning-preview {
-  flex: 1; font-size: 13px; color: #9ca3af;
+  flex: 1; font-size: 13px; color: var(--text-faint);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .reasoning-toggle {
@@ -64,7 +64,7 @@
   align-items: center;
   justify-content: center;
   font-size: inherit;
-  color: #9ca3af;
+  color: var(--text-faint);
   flex-shrink: 0;
   opacity: 0;
   margin-left: 2px;
@@ -81,7 +81,7 @@
   margin: 10px 0 0 10px;
   padding: 0 10px 0 18px;
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--text-faint);
   border-top: none;
   border-left: 1px solid var(--border-default);
   word-break: break-word; line-height: 1.55;
@@ -90,7 +90,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: #c5cad3 transparent;
+  scrollbar-color: var(--border-card) transparent;
 }
 .reasoning-content::-webkit-scrollbar {
   width: 5px;
@@ -99,7 +99,7 @@
   background: transparent;
 }
 .reasoning-content::-webkit-scrollbar-thumb {
-  background: #c5cad3;
+  background: var(--border-card);
   border-radius: 999px;
 }
 .reasoning-content p { margin: 0 0 6px 0; }

@@ -949,8 +949,8 @@
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   background: var(--text-muted);
 }
-.connection-indicator.connected .connection-dot { background: #22c55e; }
-.connection-indicator.disconnected .connection-dot { background: #6b7280; }
+.connection-indicator.connected .connection-dot { background: var(--success); }
+.connection-indicator.disconnected .connection-dot { background: var(--text-faint); }
 .connection-text { color: var(--text-muted); }
 
 .btn-connect {
