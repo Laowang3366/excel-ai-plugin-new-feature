@@ -294,12 +294,7 @@ export interface FileAttachment {
 // 附件/文件类型（兼容旧 AttachedFile）
 // ============================================================
 
-export interface AttachedFile {
-  filePath: string;
-  fileName: string;
-  fileType: "image" | "document";
-  size?: number;
-}
+export type AttachedFile = FileAttachment;
 
 // ============================================================
 // 文件夹文件信息
