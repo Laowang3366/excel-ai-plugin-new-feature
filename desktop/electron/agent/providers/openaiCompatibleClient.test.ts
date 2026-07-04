@@ -1,6 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { desanitizeToolName, OpenAICompatibleClient, sanitizeToolName } from "./openaiCompatibleClient";
 
+const baseConfig = {
+  provider: "openai",
+  apiKey: "test",
+  baseUrl: "https://api.example.com/v1",
+  model: "test-model",
+};
+
+async function collectStreamEvents(sse: string) {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(sse, { status: 200 })));
+
+  const client = new OpenAICompatibleClient(baseConfig);
+  const events = [];
+  for await (const event of client.streamChat({
+    messages: [{ role: "user", content: "test" }],
+  })) {
+    events.push(event);
+  }
+  return events;
+}
+
 describe("tool name normalization", () => {
   it("restores Office tool names returned by APIs that reject dots", () => {
     expect(sanitizeToolName("word.open")).toBe("word_open");
@@ -43,6 +63,56 @@ describe("OpenAICompatibleClient errors", () => {
       {
         type: "error",
         error: "API 请求失败 (502): 模型服务网关暂时不可用（Cloudflare 502 Bad Gateway），请稍后重试或切换模型。",
+      },
+    ]);
+  });
+});
+
+describe("OpenAICompatibleClient streaming text", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("emits text from array content parts", async () => {
+    const events = await collectStreamEvents([
+      "data: {\"choices\":[{\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"Hello\"},{\"type\":\"text\",\"text\":\" world\"}]}}]}",
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+    ].join("\n"));
+
+    expect(events.filter((event) => event.type === "text_delta")).toEqual([
+      { type: "text_delta", delta: "Hello world" },
+    ]);
+  });
+
+  it("emits final message.content when no text delta was streamed", async () => {
+    const events = await collectStreamEvents([
+      "data: {\"choices\":[{\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"Final text\"}]},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":3}}",
+      "",
+    ].join("\n"));
+
+    expect(events.filter((event) => event.type === "text_delta")).toEqual([
+      { type: "text_delta", delta: "Final text" },
+    ]);
+    expect(events[events.length - 1]).toEqual({ type: "done", finishReason: "stop" });
+  });
+
+  it("begins a tool call after both id and name are available", async () => {
+    const events = await collectStreamEvents([
+      "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"name\":\"range_read\"}}]}}]}",
+      "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"arguments\":\"{\\\"range\\\":\\\"A1\\\"}\"}}]}}]}",
+      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+      "",
+    ].join("\n"));
+
+    expect(events.filter((event) => event.type.startsWith("tool_call"))).toEqual([
+      { type: "tool_call_begin", toolCallId: "call_1", toolName: "range.read" },
+      { type: "tool_call_delta", toolCallId: "call_1", delta: "{\"range\":\"A1\"}" },
+      {
+        type: "tool_call_end",
+        toolCallId: "call_1",
+        toolName: "range.read",
+        arguments: "{\"range\":\"A1\"}",
       },
     ]);
   });

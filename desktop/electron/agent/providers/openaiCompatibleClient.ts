@@ -34,6 +34,18 @@ import type {
 import type { TokenUsage } from "../shared/types";
 import { formatProviderHttpError } from "./providerErrors";
 
+type ChatCompletionToolState = {
+  id: string;
+  name: string;
+  arguments: string;
+  began: boolean;
+};
+
+type ChatCompletionsParserState = {
+  currentToolCalls: Map<number, ChatCompletionToolState>;
+  emittedText: string;
+};
+
 // ============================================================
 // 工具名称清洗 — 兼容 DeepSeek 等要求 ^[a-zA-Z0-9_-]+$ 的 API
 // ============================================================
@@ -303,7 +315,10 @@ export class OpenAICompatibleClient {
 
     const decoder = new TextDecoder();
     let buffer = "";
-    let currentToolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+    const state: ChatCompletionsParserState = {
+      currentToolCalls: new Map(),
+      emittedText: "",
+    };
 
     try {
       while (true) {
@@ -321,7 +336,7 @@ export class OpenAICompatibleClient {
 
           try {
             const data = JSON.parse(trimmed.slice(6));
-            yield* this.processStreamChunk(data, currentToolCalls);
+            yield* this.processStreamChunk(data, state);
           } catch {
             // 跳过解析失败的行
           }
@@ -335,7 +350,7 @@ export class OpenAICompatibleClient {
   /** 处理单个 SSE chunk */
   protected *processStreamChunk(
     data: any,
-    currentToolCalls: Map<number, { id: string; name: string; arguments: string }>
+    state: ChatCompletionsParserState
   ): Generator<AIStreamEvent> {
     const choice = data.choices?.[0];
     if (!choice) return;
@@ -353,46 +368,55 @@ export class OpenAICompatibleClient {
 
     // 处理普通文本
     if (delta?.content) {
-      yield { type: "text_delta", delta: delta.content };
+      yield* emitChatCompletionsDelta(extractChatCompletionsText(delta.content), state);
+    }
+
+    const choiceMessageText = extractChatCompletionsText(choice.message?.content);
+    if (choiceMessageText) {
+      yield* emitMissingChatCompletionsText(choiceMessageText, state);
     }
 
     // 处理工具调用（名称还原为内部格式）
     if (delta?.tool_calls) {
       for (const tc of delta.tool_calls) {
         const idx = tc.index ?? 0;
-        if (!currentToolCalls.has(idx)) {
-          const resolvedName = desanitizeToolName(tc.function?.name || "");
-          currentToolCalls.set(idx, {
-            id: tc.id || "",
-            name: resolvedName,
+        if (!state.currentToolCalls.has(idx)) {
+          state.currentToolCalls.set(idx, {
+            id: "",
+            name: "",
             arguments: "",
+            began: false,
           });
-          if (tc.id) {
+        }
+        const current = state.currentToolCalls.get(idx)!;
+        if (tc.id) current.id = tc.id;
+        if (tc.function?.name) current.name = desanitizeToolName(tc.function.name);
+        if (current.id && current.name && !current.began) {
+          current.began = true;
+          yield {
+            type: "tool_call_begin",
+            toolCallId: current.id,
+            toolName: current.name,
+          };
+        }
+        if (tc.function?.arguments) {
+          current.arguments += tc.function.arguments;
+          if (current.began) {
             yield {
-              type: "tool_call_begin",
-              toolCallId: tc.id,
-              toolName: resolvedName,
+              type: "tool_call_delta",
+              toolCallId: current.id,
+              delta: tc.function.arguments,
             };
           }
         }
-        const current = currentToolCalls.get(idx)!;
-        if (tc.function?.name) current.name = desanitizeToolName(tc.function.name);
-        if (tc.function?.arguments) {
-          current.arguments += tc.function.arguments;
-          yield {
-            type: "tool_call_delta",
-            toolCallId: current.id,
-            delta: tc.function.arguments,
-          };
-        }
-        if (tc.id) current.id = tc.id;
       }
     }
 
     // 完成
     if (choice.finish_reason) {
       // 先发送所有工具调用的 end 事件
-      for (const [, tc] of currentToolCalls) {
+      for (const [, tc] of state.currentToolCalls) {
+        if (!tc.id && !tc.name && !tc.arguments) continue;
         yield {
           type: "tool_call_end",
           toolCallId: tc.id,
@@ -400,7 +424,7 @@ export class OpenAICompatibleClient {
           arguments: tc.arguments,
         };
       }
-      currentToolCalls.clear();
+      state.currentToolCalls.clear();
 
       // 使用量
       if (data.usage) {
@@ -436,4 +460,59 @@ export class OpenAICompatibleClient {
 
     return { content, usage };
   }
+}
+
+function extractChatCompletionsText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (!part || typeof part !== "object") return "";
+
+      const value = part as Record<string, unknown>;
+      if (typeof value.text === "string") return value.text;
+      if (typeof value.output_text === "string") return value.output_text;
+      if (typeof value.content === "string") return value.content;
+      if (Array.isArray(value.content)) return extractChatCompletionsText(value.content);
+      return "";
+    })
+    .join("");
+}
+
+function *emitChatCompletionsDelta(
+  text: string,
+  state: ChatCompletionsParserState
+): Generator<AIStreamEvent> {
+  if (!text) return;
+
+  const delta = state.emittedText && text.startsWith(state.emittedText)
+    ? text.slice(state.emittedText.length)
+    : text;
+  if (!delta) return;
+
+  state.emittedText += delta;
+  yield { type: "text_delta", delta };
+}
+
+function *emitMissingChatCompletionsText(
+  fullText: string,
+  state: ChatCompletionsParserState
+): Generator<AIStreamEvent> {
+  if (!fullText) return;
+
+  if (!state.emittedText) {
+    state.emittedText = fullText;
+    yield { type: "text_delta", delta: fullText };
+    return;
+  }
+
+  if (!fullText.startsWith(state.emittedText)) return;
+
+  const delta = fullText.slice(state.emittedText.length);
+  if (!delta) return;
+
+  state.emittedText = fullText;
+  yield { type: "text_delta", delta };
 }

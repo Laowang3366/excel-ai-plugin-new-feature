@@ -2,7 +2,7 @@
  * 助手消息组渲染 — 将连续的助手条目折叠/展开显示
  *
  * 从 ChatPage.tsx 提取，包含：
- * - sortItemsByRound: 按 agent 轮次排序
+ * - sortItemsByRound: 保留 agent 事件时间线
  * - AssistantGroupBlock: 已完成轮次的折叠组
  * - StreamingAssistantGroupBlock: 流式期间的展开组
  * - renderItem: 单个 TurnItem 渲染逻辑
@@ -28,56 +28,15 @@ import { StreamingReasoning, StreamingContent } from "./StreamingOutput";
 import { ChevronRight, ChevronDown } from "../common/IconMap";
 
 // ============================================================
-// 按 agent 轮次排序
+// 保留 agent 事件时间线
 // ============================================================
 
 /**
- * 对 TurnItem[] 做防御性排序，确保从 JSONL 历史恢复时顺序正确。
- *
- * 后端 agentLoop 按 API 真实事件顺序发出 items：
- *   reasoning → assistant_message → tool_call → tool_result
- *   （每轮内可能有多组这样的序列，最后一轮无 tool_call）
- *
- * 前端 store 按事件到达顺序 push，实时数据顺序已经正确。
- * 此函数仅作为从 JSONL 历史恢复时的兜底，按轮次分组后组内排序。
+ * 前端 store 已按事件到达顺序 push。工作详情需要保留真实时间线，
+ * 否则最终正文会被排到工具调用之前，造成展开后顺序颠倒。
  */
 export function sortItemsByRound(items: TurnItem[]): TurnItem[] {
-  if (items.length <= 1) return items;
-
-  // 将 items 分成轮次：reasoning 标志新一轮开始
-  const rounds: TurnItem[][] = [];
-  let currentRound: TurnItem[] = [];
-
-  for (const item of items) {
-    // reasoning 且当前轮非空 → 新一轮
-    if (item.type === "reasoning" && currentRound.length > 0) {
-      rounds.push(currentRound);
-      currentRound = [];
-    }
-    currentRound.push(item);
-  }
-  if (currentRound.length > 0) {
-    rounds.push(currentRound);
-  }
-
-  // 每轮内排序：reasoning(0) → assistant_message(1) → tool_call(2) → tool_result(3)
-  const TYPE_ORDER: Record<string, number> = {
-    reasoning: 0,
-    assistant_message: 1,
-    tool_call: 2,
-    tool_result: 3,
-  };
-
-  const sortedRounds = rounds.map((round) =>
-    [...round].sort((a, b) => {
-      const oa = TYPE_ORDER[a.type] ?? 99;
-      const ob = TYPE_ORDER[b.type] ?? 99;
-      if (oa !== ob) return oa - ob;
-      return 0; // 同类型保持原有相对顺序
-    })
-  );
-
-  return sortedRounds.flat();
+  return items;
 }
 
 // ============================================================
