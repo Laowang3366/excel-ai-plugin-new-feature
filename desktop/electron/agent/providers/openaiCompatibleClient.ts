@@ -1,25 +1,9 @@
 /**
- * OpenAI 兼容客户端基类
+ * OpenAI-compatible client base class.
  *
- * 覆盖大部分国内厂商（DeepSeek、Kimi、智谱、小米等）。
- * 提供：
- * - SSE 流式响应解析
- * - 工具调用（function calling）支持
- * - 推理/思考模式（通过特殊字段）
- * - 消息格式化与安全校验（孤立 tool_call 剔除）
- * - 非流式聊天（用于压缩时的摘要生成）
- *
- * 关联模块：
- * - aiClientTypes.ts — 提供 ChatMessage、StreamChatParams、AIStreamEvent 等类型
- * - anthropicClient.ts — 继承本类，重写消息格式和 SSE 解析
- * - providerClients.ts — 各厂商子类继承本类，覆盖 applyReasoningConfig
- * - agentLoop/streamCollector.ts — 调用 streamChat() 获取流式事件
- * - agentLoop/summaryGenerator.ts — 调用 chat() 获取非流式摘要
- *
- * 工具名称清洗：
- * - sanitizeToolName() 将点号转下划线（DeepSeek 等要求 ^[a-zA-Z0-9_-]+$）
- * - desanitizeToolName() 将下划线还原为点号
- * - 两个函数均被 AnthropicClient 使用，因此导出
+ * Handles Chat Completions request formatting, SSE parsing, tool-name
+ * normalization, and provider-specific reasoning configuration hooks.
+ * TurnItem-level tool-call validation belongs in shared/messageBuilder.ts.
  */
 
 import type {
@@ -186,86 +170,7 @@ export class OpenAICompatibleClient {
       result.push({ role: "system", content: systemPrompt });
     }
 
-    // ── 安全校验：确保每个 assistant tool_call 都有对应的 tool 消息 ──
-    // 先收集所有 tool 消息的 tool_call_id
-    const toolResultIds = new Set<string>();
     for (const msg of messages) {
-      if (msg.role === "tool" && msg.toolCallId) {
-        toolResultIds.add(msg.toolCallId);
-      }
-    }
-    // 检查每个 assistant 消息的 toolCalls，剔除没有对应 tool 消息的孤立项
-    const sanitizedMessages: ChatMessage[] = [];
-    for (const msg of messages) {
-      if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
-        // 过滤掉孤立的 tool_call（没有对应的 tool result 消息）
-        const validToolCalls = msg.toolCalls.filter(tc => toolResultIds.has(tc.id));
-        if (validToolCalls.length === 0) {
-          // 所有 toolCalls 都是孤立的，只保留文本内容（跳过纯工具调用消息）
-          if (msg.content && (typeof msg.content === "string" ? msg.content.trim() : true)) {
-            sanitizedMessages.push({ ...msg, toolCalls: undefined });
-          }
-          // 否则完全跳过这条空壳消息
-        } else if (validToolCalls.length < msg.toolCalls.length) {
-          // 部分孤立，保留有配对的 toolCalls
-          sanitizedMessages.push({ ...msg, toolCalls: validToolCalls });
-        } else {
-          // 全部有配对，原样保留
-          sanitizedMessages.push(msg);
-        }
-      } else {
-        sanitizedMessages.push(msg);
-      }
-    }
-
-    // ── 二次校验：确保连续的 assistant(toolCalls) 后紧跟对应的 tool 消息 ──
-    // 处理 tool 消息被意外删除或顺序错误导致中间断开的情况
-    const finalMessages: ChatMessage[] = [];
-    let i = 0;
-    while (i < sanitizedMessages.length) {
-      const msg = sanitizedMessages[i];
-      if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
-        // 收集这条 assistant 消息后面的所有连续 tool 消息
-        finalMessages.push(msg);
-        i++;
-        const expectedIds = new Set(msg.toolCalls.map(tc => tc.id));
-        const foundIds = new Set<string>();
-        // 消耗紧跟的 tool 消息
-        while (i < sanitizedMessages.length && sanitizedMessages[i].role === "tool") {
-          const toolMsg = sanitizedMessages[i];
-          if (expectedIds.has(toolMsg.toolCallId || "")) {
-            foundIds.add(toolMsg.toolCallId || "");
-            finalMessages.push(toolMsg);
-          }
-          // 不属于当前 assistant 的 tool 消息也保留
-          if (!expectedIds.has(toolMsg.toolCallId || "")) {
-            finalMessages.push(toolMsg);
-          }
-          i++;
-        }
-        // 如果有 toolCall 没找到对应的 tool 消息，从 assistant 中移除
-        if (foundIds.size < expectedIds.size) {
-          const assistantMsg = finalMessages[finalMessages.length - (foundIds.size + 1)];
-          if (assistantMsg && assistantMsg.role === "assistant" && assistantMsg.toolCalls) {
-            const missingIds = new Set([...expectedIds].filter(id => !foundIds.has(id)));
-            assistantMsg.toolCalls = assistantMsg.toolCalls.filter(tc => !missingIds.has(tc.id));
-            // 如果全部被移除，且内容为空，则删除这条 assistant 消息
-            if (assistantMsg.toolCalls.length === 0) {
-              const idx = finalMessages.indexOf(assistantMsg);
-              if (idx !== -1) {
-                finalMessages.splice(idx, 1);
-              }
-            }
-          }
-        }
-      } else {
-        finalMessages.push(msg);
-        i++;
-      }
-    }
-
-    // ── 构建最终 API 格式 ──
-    for (const msg of finalMessages) {
       if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
         // 助手消息 + 工具调用（名称清洗为 API 安全格式）
         result.push({

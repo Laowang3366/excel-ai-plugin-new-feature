@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { desanitizeToolName, OpenAICompatibleClient, sanitizeToolName } from "./openaiCompatibleClient";
+import type { ChatMessage } from "./aiClientTypes";
 
 const baseConfig = {
   provider: "openai",
@@ -7,6 +8,12 @@ const baseConfig = {
   baseUrl: "https://api.example.com/v1",
   model: "test-model",
 };
+
+class TestOpenAICompatibleClient extends OpenAICompatibleClient {
+  public exposeBuildRequestMessages(messages: ChatMessage[], systemPrompt?: string): Record<string, unknown>[] {
+    return this.buildRequestMessages(messages, systemPrompt);
+  }
+}
 
 async function collectStreamEvents(sse: string) {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(sse, { status: 200 })));
@@ -113,6 +120,46 @@ describe("OpenAICompatibleClient streaming text", () => {
         toolCallId: "call_1",
         toolName: "range.read",
         arguments: "{\"range\":\"A1\"}",
+      },
+    ]);
+  });
+});
+
+describe("OpenAICompatibleClient request messages", () => {
+  it("formats messages without applying orphan tool-call filtering", () => {
+    const client = new TestOpenAICompatibleClient(baseConfig);
+
+    const messages = client.exposeBuildRequestMessages([
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "call-orphan",
+            type: "function",
+            function: {
+              name: "range.read",
+              arguments: "{\"range\":\"A1\"}",
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(messages).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call-orphan",
+            type: "function",
+            function: {
+              name: "range_read",
+              arguments: "{\"range\":\"A1\"}",
+            },
+          },
+        ],
       },
     ]);
   });
