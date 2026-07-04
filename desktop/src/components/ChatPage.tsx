@@ -41,7 +41,6 @@ import { ipcApi } from "../services/ipcApi";
 import {
   collectOfficeEditEvents,
   getOfficePreviewToggleLocation,
-  shouldShowOfficePreviewPanel,
 } from "../utils/officeEditEvents";
 import {
   Activity,
@@ -126,7 +125,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings, activeIntent
   const showWelcomeComposer = isEmpty && !activeIntent;
   const chatTitle = getChatTitleSummary(messages, text.chat.newChat);
   const officeEditEvents = useMemo(() => collectOfficeEditEvents(messages), [messages]);
-  const showOfficePreviewPanel = shouldShowOfficePreviewPanel(officeEditEvents, officePreviewOpen);
+  const showOfficePreviewPanel = officePreviewOpen;
   const officePreviewToggleLocation = getOfficePreviewToggleLocation(showOfficePreviewPanel);
 
   return (

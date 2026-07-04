@@ -87,10 +87,6 @@ export function collectOfficeEditEvents(items: TurnItem[]): OfficeEditEvent[] {
     .filter((event): event is OfficeEditEvent => Boolean(event));
 }
 
-export function shouldShowOfficePreviewPanel(_events: OfficeEditEvent[], isOpen: boolean): boolean {
-  return isOpen;
-}
-
 export type OfficePreviewToggleLocation = "chat-header" | "panel-header";
 
 export function getOfficePreviewToggleLocation(isOpen: boolean): OfficePreviewToggleLocation {

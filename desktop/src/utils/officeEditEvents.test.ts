@@ -3,7 +3,6 @@ import type { TurnItem } from "../electronApi";
 import {
   collectOfficeEditEvents,
   getOfficePreviewToggleLocation,
-  shouldShowOfficePreviewPanel,
 } from "./officeEditEvents";
 
 describe("collectOfficeEditEvents", () => {
@@ -57,35 +56,6 @@ describe("collectOfficeEditEvents", () => {
     ]);
 
     expect(events).toEqual([]);
-  });
-});
-
-describe("shouldShowOfficePreviewPanel", () => {
-  it("keeps the monitor panel hidden by default until the user opens it", () => {
-    const events = collectOfficeEditEvents([
-      {
-        type: "tool_result",
-        id: "result-1",
-        toolCallId: "call-1",
-        toolName: "office.action.inspect",
-        isError: false,
-        timestamp: 1000,
-        result: {
-          status: "done",
-          engine: "openxml",
-          app: "excel",
-          action: "inspect",
-          operation: "inspect",
-          filePath: "D:\\docs\\book.xlsx",
-          summary: "已检查 Excel 文件",
-          changes: [],
-        },
-      },
-    ]);
-
-    expect(shouldShowOfficePreviewPanel(events, false)).toBe(false);
-    expect(shouldShowOfficePreviewPanel(events, true)).toBe(true);
-    expect(shouldShowOfficePreviewPanel([], true)).toBe(true);
   });
 });
 
