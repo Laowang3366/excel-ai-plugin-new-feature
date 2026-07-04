@@ -2,7 +2,6 @@
  * 助手消息组渲染 — 将连续的助手条目折叠/展开显示
  *
  * 从 ChatPage.tsx 提取，包含：
- * - sortItemsByRound: 保留 agent 事件时间线
  * - AssistantGroupBlock: 已完成轮次的折叠组
  * - StreamingAssistantGroupBlock: 流式期间的展开组
  * - renderItem: 单个 TurnItem 渲染逻辑
@@ -30,14 +29,6 @@ import { ChevronRight, ChevronDown } from "../common/IconMap";
 // ============================================================
 // 保留 agent 事件时间线
 // ============================================================
-
-/**
- * 前端 store 已按事件到达顺序 push。工作详情需要保留真实时间线，
- * 否则最终正文会被排到工具调用之前，造成展开后顺序颠倒。
- */
-export function sortItemsByRound(items: TurnItem[]): TurnItem[] {
-  return items;
-}
 
 // ============================================================
 // AssistantGroupBlock — 使用 React.memo 避免流式重渲染波及已完成组
@@ -70,13 +61,13 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
 }) {
   const { language } = useSettingsStore();
   const text = getAppText(language);
-  const sortedItems = useMemo(() => sortItemsByRound(group.items), [group.items]);
-  const hasFinalMessage = sortedItems.some(
+  const timelineItems = group.items;
+  const hasFinalMessage = timelineItems.some(
     (item) => item.type === "assistant_message" && item.phase === "final"
   );
   const itemDurations = useMemo(
-    () => getItemDurationSeconds(sortedItems, group.previousUserTimestamp),
-    [sortedItems, group.previousUserTimestamp]
+    () => getItemDurationSeconds(timelineItems, group.previousUserTimestamp),
+    [timelineItems, group.previousUserTimestamp]
   );
   const formattedElapsed = formatDuration(sumDurations(itemDurations), language);
 
@@ -86,9 +77,9 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
   // 预计算已被 tool_call 关联的 tool_result ID 集合，避免渲染期间 Mutation
   const renderedToolResultIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const item of sortedItems) {
+    for (const item of timelineItems) {
       if (item.type === "tool_call") {
-        const result = sortedItems.find(
+        const result = timelineItems.find(
           (c) => c.type === "tool_result" && c.toolCallId === item.id
         );
         if (result?.type === "tool_result") {
@@ -97,7 +88,7 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
       }
     }
     return ids;
-  }, [sortedItems]);
+  }, [timelineItems]);
 
   // 最新组：从流式（展开）切换到完成后，自动折叠
   useEffect(() => {
@@ -123,8 +114,8 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
         </span>
       </button>
 
-      {sortedItems.map((item) =>
-        renderItem(item, { ...group, items: sortedItems }, detailsCollapsed, renderedToolResultIds, itemDurations, language)
+      {timelineItems.map((item) =>
+        renderItem(item, { ...group, items: timelineItems }, detailsCollapsed, renderedToolResultIds, itemDurations, language)
       )}
     </div>
   );
@@ -158,14 +149,14 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
   const streamingReasoning = useChatStore((s) => s.streamingReasoning);
   const streamingContent = useChatStore((s) => s.streamingContent);
   const [nowTimestamp, setNowTimestamp] = useState(() => Date.now());
-  const sortedItems = useMemo(() => sortItemsByRound(group.items), [group.items]);
+  const timelineItems = group.items;
   const itemDurations = useMemo(
-    () => getItemDurationSeconds(sortedItems, group.previousUserTimestamp),
-    [sortedItems, group.previousUserTimestamp]
+    () => getItemDurationSeconds(timelineItems, group.previousUserTimestamp),
+    [timelineItems, group.previousUserTimestamp]
   );
   const liveElapsedSeconds = useMemo(
-    () => getLiveTurnDurationSeconds(sortedItems, group.previousUserTimestamp, nowTimestamp),
-    [sortedItems, group.previousUserTimestamp, nowTimestamp]
+    () => getLiveTurnDurationSeconds(timelineItems, group.previousUserTimestamp, nowTimestamp),
+    [timelineItems, group.previousUserTimestamp, nowTimestamp]
   );
   const formattedElapsed = formatDuration(liveElapsedSeconds, language);
 
@@ -179,9 +170,9 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
   // 预计算已被 tool_call 关联的 tool_result ID 集合，避免渲染期间 Mutation
   const renderedToolResultIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const item of sortedItems) {
+    for (const item of timelineItems) {
       if (item.type === "tool_call") {
-        const result = sortedItems.find(
+        const result = timelineItems.find(
           (c) => c.type === "tool_result" && c.toolCallId === item.id
         );
         if (result?.type === "tool_result") {
@@ -190,7 +181,7 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
       }
     }
     return ids;
-  }, [sortedItems]);
+  }, [timelineItems]);
 
   // 流式期间始终展开已完成轮次的所有内容（reasoning + commentary + tools），
   // 让用户实时看到完整进度。Turn 完成后切换到 AssistantGroupBlock 时才自动折叠。
@@ -211,8 +202,8 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
       </button>
 
       {/* 已完成轮次的 items — 流式期间全部展开 */}
-      {sortedItems.map((item) =>
-        renderItem(item, { ...group, items: sortedItems }, false, renderedToolResultIds, itemDurations, language)
+      {timelineItems.map((item) =>
+        renderItem(item, { ...group, items: timelineItems }, false, renderedToolResultIds, itemDurations, language)
       )}
 
       {/* 当前流式轮次：思考过程在前，正文片段在后 — 始终可见 */}
