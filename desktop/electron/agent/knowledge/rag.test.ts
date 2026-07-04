@@ -20,6 +20,7 @@ import JSZip from "jszip";
 // ============================================================
 
 import type { KnowledgeEntry, KnowledgeSource, KnowledgeQuery, KnowledgeResult } from "./types";
+import { openSqliteDatabase } from "../storage/nodeSqlite";
 
 // ============================================================
 // EmbeddingService 测试
@@ -230,6 +231,91 @@ describe("SqliteStore", () => {
     // 建表是幂等的，构造时已执行
     const count = store.countEntries();
     expect(count).toBe(0);
+  });
+
+  it("should migrate legacy entry schema before creating embedding profile index", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `knowledge-legacy-${Date.now()}-`));
+    const dbPath = path.join(tmpDir, "knowledge.db");
+    let legacyStore: InstanceType<typeof SqliteStore> | undefined;
+
+    try {
+      const legacyDb = openSqliteDatabase(dbPath);
+      try {
+        legacyDb.exec(`
+          CREATE TABLE knowledge_entries (
+            id          TEXT PRIMARY KEY,
+            source      TEXT NOT NULL,
+            source_path TEXT NOT NULL,
+            source_name TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            chunk_index INTEGER DEFAULT 0,
+            content     TEXT NOT NULL,
+            metadata    TEXT DEFAULT '{}',
+            embedding   TEXT,
+            indexed_at  INTEGER NOT NULL,
+            token_count INTEGER DEFAULT 0
+          );
+
+          CREATE TABLE knowledge_sources (
+            source_path   TEXT PRIMARY KEY,
+            source_name   TEXT NOT NULL,
+            source_type   TEXT NOT NULL,
+            entry_count   INTEGER DEFAULT 0,
+            first_indexed INTEGER NOT NULL,
+            last_indexed  INTEGER NOT NULL,
+            file_hash     TEXT DEFAULT ''
+          );
+
+          INSERT INTO knowledge_entries
+            (id, source, source_path, source_name, source_type,
+             chunk_index, content, metadata, embedding, indexed_at, token_count)
+          VALUES
+            ('legacy-entry', 'document', '/legacy/file.txt', 'file.txt', 'txt',
+             0, 'legacy content', '{}', '[1,0,0]', 1000, 2);
+
+          INSERT INTO knowledge_sources
+            (source_path, source_name, source_type, entry_count,
+             first_indexed, last_indexed, file_hash)
+          VALUES
+            ('/legacy/file.txt', 'file.txt', 'txt', 1, 1000, 1000, 'hash');
+        `);
+      } finally {
+        legacyDb.close();
+      }
+
+      legacyStore = new SqliteStore(dbPath);
+      await expect(legacyStore.init()).resolves.toBeUndefined();
+      expect(legacyStore.countEntries()).toBe(1);
+      expect(legacyStore.listSources()).toHaveLength(1);
+      expect(legacyStore.getEntry("legacy-entry")?.embedding).toEqual([1, 0, 0]);
+
+      legacyStore.close();
+      legacyStore = undefined;
+
+      const migratedDb = openSqliteDatabase(dbPath);
+      try {
+        const columns = migratedDb
+          .prepare("PRAGMA table_info(knowledge_entries)")
+          .all()
+          .map((row: any) => row.name);
+        const indexes = migratedDb
+          .prepare("PRAGMA index_list(knowledge_entries)")
+          .all()
+          .map((row: any) => row.name);
+
+        expect(columns).toContain("embedding_provider");
+        expect(columns).toContain("embedding_model");
+        expect(columns).toContain("embedding_dimensions");
+        expect(indexes).toContain("idx_entries_embedding_profile");
+      } finally {
+        migratedDb.close();
+      }
+    } finally {
+      if (legacyStore?.isInitialized()) {
+        legacyStore.close();
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("should insert and retrieve a single entry", () => {

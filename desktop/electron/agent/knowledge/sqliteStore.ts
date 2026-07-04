@@ -88,8 +88,6 @@ export class SqliteStore {
         ON knowledge_entries(source_path);
       CREATE INDEX IF NOT EXISTS idx_entries_indexed_at
         ON knowledge_entries(indexed_at);
-      CREATE INDEX IF NOT EXISTS idx_entries_embedding_profile
-        ON knowledge_entries(embedding_provider, embedding_model, embedding_dimensions);
 
       CREATE TABLE IF NOT EXISTS knowledge_sources (
         source_path   TEXT PRIMARY KEY,

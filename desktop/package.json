@@ -1,6 +1,6 @@
 {
   "name": "excel-ai-assistant",
-  "version": "0.1.54",
+  "version": "0.1.55",
   "description": "Office AI 桌面助手 - 通过 AI 帮你处理表格、文档和演示文稿",
   "main": "dist-electron/main.js",
   "scripts": {
