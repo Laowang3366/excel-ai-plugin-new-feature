@@ -27,6 +27,17 @@
 import { OpenAICompatibleClient } from "./openaiCompatibleClient";
 import { type ReasoningMode } from "./aiClientTypes";
 
+const THINKING_BUDGET_BY_MODE: Record<string, number> = {
+  low: 5000,
+  medium: 10000,
+  high: 20000,
+  max: 20000,
+};
+
+export function resolveThinkingBudget(mode?: ReasoningMode): number {
+  return THINKING_BUDGET_BY_MODE[mode || "high"] || 10000;
+}
+
 // ============================================================
 // 直连供应商客户端 — 各厂商思考等级映射
 // ============================================================
@@ -106,10 +117,7 @@ export class XunfeiClient extends OpenAICompatibleClient {
   ): void {
     body.enable_thinking = true;
     // 聚合平台按档位映射 budget
-    const budgetMap: Record<string, number> = {
-      low: 5000, medium: 10000, high: 20000, max: 20000,
-    };
-    body.thinking_budget = budgetMap[mode || "high"] || 10000;
+    body.thinking_budget = resolveThinkingBudget(mode);
   }
 }
 
@@ -130,12 +138,9 @@ export class VolcengineClient extends OpenAICompatibleClient {
     body: Record<string, unknown>,
     mode?: ReasoningMode
   ): void {
-    const budgetMap: Record<string, number> = {
-      low: 5000, medium: 10000, high: 20000, max: 20000,
-    };
     body.thinking = {
       type: "enabled",
-      budget_tokens: budgetMap[mode || "high"] || 10000,
+      budget_tokens: resolveThinkingBudget(mode),
     };
   }
 }
@@ -153,10 +158,7 @@ export class AliyunClient extends OpenAICompatibleClient {
     mode?: ReasoningMode
   ): void {
     body.enable_thinking = true;
-    const budgetMap: Record<string, number> = {
-      low: 5000, medium: 10000, high: 20000, max: 20000,
-    };
-    body.thinking_budget = budgetMap[mode || "high"] || 10000;
+    body.thinking_budget = resolveThinkingBudget(mode);
   }
 }
 
@@ -170,10 +172,7 @@ export class QwenClient extends OpenAICompatibleClient {
     // 与阿里云百炼共享同一套 API，使用 enable_thinking + thinking_budget
     if (mode && mode !== "off") {
       body.enable_thinking = true;
-      const budgetMap: Record<string, number> = {
-        low: 5000, medium: 10000, high: 20000, max: 20000,
-      };
-      body.thinking_budget = budgetMap[mode] || 10000;
+      body.thinking_budget = resolveThinkingBudget(mode);
     }
   }
 }

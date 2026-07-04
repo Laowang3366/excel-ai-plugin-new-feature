@@ -14,6 +14,7 @@ import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { ipcApi } from "../services/ipcApi";
 import { readFileAsBase64 } from "../utils/fileBase64";
+import { useDocumentDismiss } from "./useDocumentDismiss";
 import type { AttachedFile } from "../electronApi";
 
 /** MIME 类型到文件扩展名映射 */
@@ -26,6 +27,12 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
+const COMPOSER_POPOVER_IGNORE_SELECTORS = [".composer-popover-wrapper"];
+const COMPOSER_FOLDER_IGNORE_SELECTORS = [
+  ".chat-folder-badge-wrapper",
+  ".composer-folder-context-wrapper",
+  ".folder-file-popover",
+];
 
 function getFileExtension(file: File): string {
   const nameExt = file.name.includes(".") ? `.${file.name.split(".").pop()?.toLowerCase()}` : "";
@@ -361,36 +368,30 @@ export function useComposer(draftKey = "new") {
     }
   }, []);
 
-  // 点击外部关闭 popover
-  useEffect(() => {
-    if (!showAttachPopover && !showPermissionPopover && !showThinkingPopover) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest(".composer-popover-wrapper")) return;
-      setShowAttachPopover(false);
-      setShowPermissionPopover(false);
-      setShowThinkingPopover(false);
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [showAttachPopover, showPermissionPopover, showThinkingPopover]);
+  const closeComposerPopovers = useCallback(() => {
+    setShowAttachPopover(false);
+    setShowPermissionPopover(false);
+    setShowThinkingPopover(false);
+  }, []);
 
-  // 点击外部关闭文件夹文件列表弹窗
-  useEffect(() => {
-    if (!showFolderFileList && !showComposerFolderList) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest(".chat-folder-badge-wrapper") || target.closest(".composer-folder-context-wrapper") || target.closest(".folder-file-popover")) return;
-      setShowFolderFileList(false);
-      setShowComposerFolderList(false);
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [showFolderFileList, showComposerFolderList]);
+  useDocumentDismiss({
+    active: showAttachPopover || showPermissionPopover || showThinkingPopover,
+    closeOnEscape: false,
+    ignoreSelectors: COMPOSER_POPOVER_IGNORE_SELECTORS,
+    onDismiss: closeComposerPopovers,
+  });
+
+  const closeComposerFolderPopovers = useCallback(() => {
+    setShowFolderFileList(false);
+    setShowComposerFolderList(false);
+  }, []);
+
+  useDocumentDismiss({
+    active: showFolderFileList || showComposerFolderList,
+    closeOnEscape: false,
+    ignoreSelectors: COMPOSER_FOLDER_IGNORE_SELECTORS,
+    onDismiss: closeComposerFolderPopovers,
+  });
 
   const hasInput = inputText.trim().length > 0 || attachedFiles.length > 0;
 

@@ -22,6 +22,7 @@ import {
 } from "../utils/sidebarHelpers";
 import { useExcelConnection } from "../hooks/useExcelConnection";
 import { useOfficeConnection } from "../hooks/useOfficeConnection";
+import { useDocumentDismiss } from "../hooks/useDocumentDismiss";
 import { HostSelectionDialog } from "./excel/HostSelectionDialog";
 import { FolderSection, UngroupedThreadList } from "./sidebar/FolderSection";
 import { ThreadContextMenu, type ContextMenuState } from "./sidebar/ThreadContextMenu";
@@ -337,53 +338,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     updatePinnedFolder(folderPath, { pinnedFiles: newPinned });
   }, [folderFiles, pinnedFolders]);
 
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("click", close);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("click", close);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [contextMenu]);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  useDocumentDismiss({
+    active: contextMenu !== null,
+    onDismiss: closeContextMenu,
+  });
 
-  useEffect(() => {
-    if (!fileContextMenu) return;
-    const close = () => setFileContextMenu(null);
-    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("click", close);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("click", close);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [fileContextMenu]);
+  const closeFileContextMenu = useCallback(() => setFileContextMenu(null), []);
+  useDocumentDismiss({
+    active: fileContextMenu !== null,
+    onDismiss: closeFileContextMenu,
+  });
 
-  useEffect(() => {
-    if (!settingsMenuOpen) return;
-    const close = () => setSettingsMenuOpen(false);
-    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("click", close);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("click", close);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [settingsMenuOpen]);
+  const closeSettingsMenu = useCallback(() => setSettingsMenuOpen(false), []);
+  useDocumentDismiss({
+    active: settingsMenuOpen,
+    onDismiss: closeSettingsMenu,
+  });
 
-  useEffect(() => {
-    if (!sortMenu) return;
-    const close = () => setSortMenu(null);
-    const closeOnEscape = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("click", close);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("click", close);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [sortMenu]);
+  const closeSortMenu = useCallback(() => setSortMenu(null), []);
+  useDocumentDismiss({
+    active: sortMenu !== null,
+    onDismiss: closeSortMenu,
+  });
 
   const handleSelectSortMode = useCallback((section: SidebarSortSection, mode: SidebarSortMode) => {
     if (section === "projects") {
