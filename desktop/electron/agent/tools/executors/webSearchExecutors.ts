@@ -1,4 +1,5 @@
 import type { ToolExecutor } from "../../shared/types";
+import { clampNumber } from "../../shared/numberLimits";
 import { decodeHtmlText as decodeHtml } from "../../shared/xmlEntities";
 import { validateArgs } from "./validation";
 
@@ -36,7 +37,7 @@ export function addWebSearchExecutors(target: Map<string, ToolExecutor>): void {
       const query = (args.query as string).trim();
       if (!query) return { success: false, error: "参数 query 不能为空" };
 
-      const maxResults = clampMaxResults(typeof args.maxResults === "number" ? args.maxResults : 5);
+      const maxResults = clampNumber(args.maxResults, { fallback: 5, min: 1, max: 10 });
       const freshness = normalizeFreshness(args.freshness);
 
       try {
@@ -456,11 +457,6 @@ function validateOptionalSearchArgs(args: Record<string, unknown>): string | nul
     return "参数 freshness 必须是 day、week、month、year 或 any";
   }
   return null;
-}
-
-function clampMaxResults(value: number): number {
-  if (!Number.isFinite(value)) return 5;
-  return Math.max(1, Math.min(10, Math.floor(value)));
 }
 
 function normalizeFreshness(value: unknown): Freshness {

@@ -8,6 +8,7 @@ import {
   normalizeMemoryWriteInput,
   type MemoryWriteInput,
 } from "./memoryTypes";
+import { clampNumber } from "../../shared/numberLimits";
 
 export interface MemorySearchOptions {
   query?: string;
@@ -41,7 +42,7 @@ export class LongTermMemoryStore {
     options: MemorySearchOptions = {},
   ): Promise<RuntimeLongTermMemoryRecord[]> {
     const query = options.query?.trim().toLowerCase();
-    const publicLimit = clampLimit(options.limit);
+    const publicLimit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
     const baseOptions = {
       namespace: options.namespace,
       kind: options.kind,
@@ -108,9 +109,4 @@ function matchesQuery(
 ): boolean {
   const haystack = `${memory.content}\n${memory.summary ?? ""}`.toLowerCase();
   return haystack.includes(query);
-}
-
-function clampLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return 20;
-  return Math.min(100, Math.max(1, Math.floor(limit as number)));
 }

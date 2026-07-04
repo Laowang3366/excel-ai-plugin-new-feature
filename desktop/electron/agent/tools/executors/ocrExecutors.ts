@@ -15,6 +15,7 @@ import {
   parseFilesWithMineruAgent,
   type MineruParsedDocument,
 } from "../../../main-modules/mineruOcr";
+import { clampNumber } from "../../shared/numberLimits";
 import { parseFilesLocally, type LocalParsedDocument } from "./localDocumentParser";
 import { validateArgs } from "./validation";
 
@@ -84,8 +85,8 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
       if (pathError) return { success: false, error: pathError };
 
       const mode = normalizeOcrToolMode(args.mode);
-      const maxTextChars = clampNumber(args.maxTextChars, 60_000, 1_000, 120_000);
-      const maxTableRows = clampNumber(args.maxTableRows, 200, 0, 1_000);
+      const maxTextChars = clampNumber(args.maxTextChars, { fallback: 60_000, min: 1_000, max: 120_000 });
+      const maxTableRows = clampNumber(args.maxTableRows, { fallback: 200, min: 0, max: 1_000 });
       const allowTokenMineru = args.allowTokenMineru !== false;
       const allowFreeMineru = args.allowFreeMineru !== false;
       const allowLocalFallback = args.allowLocalFallback !== false;
@@ -380,14 +381,4 @@ function isQuotaLikeError(error: string): boolean {
 function clipText(value: string, maxChars: number): { text: string; truncated: boolean } {
   if (value.length <= maxChars) return { text: value, truncated: false };
   return { text: value.slice(0, maxChars), truncated: true };
-}
-
-function clampNumber(
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(value)));
 }

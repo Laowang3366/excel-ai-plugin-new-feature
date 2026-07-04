@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as zlib from "node:zlib";
 import { promisify } from "node:util";
 import type { RolloutItem, RolloutLine } from "../shared/types";
+import { clampNumber } from "../shared/numberLimits";
 import { getRolloutTurnId } from "./stateRuntimeMappers";
 import { extractRolloutSearchContent } from "./rolloutSearchContent";
 
@@ -163,7 +164,7 @@ export async function searchCompressedRolloutMatches(
   const terms = normalizeQueryTerms(options.query);
   if (terms.length === 0) return [];
 
-  const limit = clampSearchLimit(options.limit);
+  const limit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
   const archives = await collectCompressedRolloutFiles(options.sessionsRoot);
   const matches: CompressedRolloutSearchMatch[] = [];
   let nextId = -1;
@@ -315,9 +316,4 @@ function buildSnippet(content: string, terms: string[]): string {
   const start = Math.max(0, firstIndex - 24);
   const end = Math.min(content.length, firstIndex + 80);
   return `${start > 0 ? "..." : ""}${content.slice(start, end)}${end < content.length ? "..." : ""}`;
-}
-
-function clampSearchLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return 20;
-  return Math.min(100, Math.max(1, Math.floor(limit as number)));
 }

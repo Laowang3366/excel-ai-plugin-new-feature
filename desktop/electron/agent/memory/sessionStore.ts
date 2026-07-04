@@ -32,6 +32,7 @@ import {
   generateThreadId,
   generateTurnId,
 } from "../shared/types";
+import { clampNumber } from "../shared/numberLimits";
 import { AsyncRolloutWriter } from "./rolloutWriter";
 import {
   searchCompressedRolloutMatches,
@@ -69,11 +70,6 @@ function getSessionFilePath(sessionsRoot: string, threadId: ThreadId): string {
   const filename = `rollout-${timestamp}-${threadId}.jsonl`;
 
   return path.join(dir, filename);
-}
-
-function clampSearchLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return 20;
-  return Math.min(100, Math.max(1, Math.floor(limit as number)));
 }
 
 // ============================================================
@@ -204,7 +200,7 @@ export class SessionStore {
     options: { limit?: number } = {}
   ): Promise<SessionRolloutSearchMatch[]> {
     await this.flushRolloutWrites();
-    const limit = clampSearchLimit(options.limit);
+    const limit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
     const dbMatches = this.rolloutEventSink?.searchRolloutMatches
       ? await this.rolloutEventSink.searchRolloutMatches(query, { limit })
       : [];

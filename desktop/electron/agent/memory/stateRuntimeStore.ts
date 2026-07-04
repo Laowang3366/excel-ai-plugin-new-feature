@@ -31,6 +31,7 @@ import {
 } from "./stateRuntimeSchema";
 import { openRuntimeDatabaseWithRecovery } from "./stateRuntimeRecovery";
 import { runSqliteTransaction } from "../storage/nodeSqlite";
+import { clampNumber } from "../shared/numberLimits";
 import type {
   RuntimeConnections,
   RuntimeDatabasePaths,
@@ -293,7 +294,7 @@ export class StateRuntimeStore {
     const normalized = query.trim();
     if (!normalized) return [];
 
-    const limit = clampSearchLimit(options.limit);
+    const limit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
     const rows = this.getDbs().logs.prepare(
       `SELECT
           e.id,
@@ -351,7 +352,7 @@ export class StateRuntimeStore {
        WHERE thread_id = ?
        ORDER BY id ASC
        LIMIT ?`
-    ).all(threadId, clampToolLogLimit(options.limit)) as Record<string, any>[];
+    ).all(threadId, clampNumber(options.limit, { fallback: 200, min: 1, max: 1000 })) as Record<string, any>[];
     return rows.map(mapToolExecutionLog);
   }
 
@@ -528,7 +529,7 @@ export class StateRuntimeStore {
     }
 
     const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
-    const limit = clampMemoryListLimit(options.limit);
+    const limit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
     const offset = clampMemoryListOffset(options.offset);
     const rows = this.getDbs().memories.prepare(
       `SELECT * FROM long_term_memories ${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`
@@ -664,22 +665,7 @@ function quoteFtsTerm(term: string): string {
   return `"${term.replace(/"/g, '""')}"`;
 }
 
-function clampSearchLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return 20;
-  return Math.min(100, Math.max(1, Math.floor(limit as number)));
-}
-
-function clampMemoryListLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return 20;
-  return Math.min(100, Math.max(1, Math.floor(limit as number)));
-}
-
 function clampMemoryListOffset(offset: number | undefined): number {
   if (!Number.isFinite(offset)) return 0;
   return Math.max(0, Math.floor(offset as number));
-}
-
-function clampToolLogLimit(limit: number | undefined): number {
-  if (!Number.isFinite(limit)) return 200;
-  return Math.min(1000, Math.max(1, Math.floor(limit as number)));
 }
