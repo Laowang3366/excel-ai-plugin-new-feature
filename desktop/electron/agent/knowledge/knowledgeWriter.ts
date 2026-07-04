@@ -91,8 +91,8 @@ export class KnowledgeWriter {
       },
     ]);
 
-    const embeddings = await this.embedder.embedBatch(chunks.map((chunk) => chunk.content));
-    const embeddingProfile = this.embedder.getProfile?.();
+    const embeddingResult = await this.embedChunks(chunks.map((chunk) => chunk.content));
+    const embeddingProfile = embeddingResult.profile;
     const entries: KnowledgeEntry[] = chunks.map((chunk, index) => ({
       id: randomUUID(),
       source: "note",
@@ -102,10 +102,10 @@ export class KnowledgeWriter {
       chunkIndex: chunk.index,
       content: chunk.content,
       metadata: chunk.metadata,
-      embedding: embeddings[index],
-      embeddingProvider: embeddingProfile?.provider,
-      embeddingModel: embeddingProfile?.model,
-      embeddingDimensions: embeddingProfile?.dimensions ?? embeddings[index]?.length,
+      embedding: embeddingResult.embeddings[index],
+      embeddingProvider: embeddingResult.embeddings[index] ? embeddingProfile?.provider : undefined,
+      embeddingModel: embeddingResult.embeddings[index] ? embeddingProfile?.model : undefined,
+      embeddingDimensions: embeddingResult.embeddings[index]?.length ?? embeddingProfile?.dimensions,
       indexedAt: now,
       tokenCount: chunk.tokenCount,
     }));
@@ -138,6 +138,23 @@ export class KnowledgeWriter {
       return path.join(path.dirname(dbPath), "notes");
     }
     return path.join(os.tmpdir(), "excel-ai-assistant-knowledge-notes");
+  }
+
+  private async embedChunks(texts: string[]): Promise<{
+    embeddings: Array<number[] | null>;
+    profile?: EmbeddingProfile;
+  }> {
+    try {
+      const embeddings = await this.embedder.embedBatch(texts);
+      return {
+        embeddings,
+        profile: this.embedder.getProfile?.(),
+      };
+    } catch {
+      return {
+        embeddings: texts.map(() => null),
+      };
+    }
   }
 }
 

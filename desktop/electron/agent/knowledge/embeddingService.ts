@@ -284,6 +284,22 @@ function buildEmbeddingUrl(baseUrl: string): string {
 function formatApiError(errorText: string): string {
   const compact = errorText.replace(/\s+/g, " ").trim();
   if (!compact) return "空响应";
+  try {
+    const json = JSON.parse(errorText);
+    const message =
+      json?.error?.message
+      || json?.message
+      || json?.error
+      || JSON.stringify(json);
+    if (typeof message === "string" && message.trim()) {
+      return message.replace(/\s+/g, " ").trim().slice(0, 300);
+    }
+  } catch {
+    // 不是 JSON 时继续按文本/HTML 处理。
+  }
+  if (/<[a-z][\s\S]*>/i.test(errorText) || /data-component=|window\.|__NEXT_DATA__/i.test(compact)) {
+    return "服务返回了网页内容，请检查 Embedding API 地址、模型名称，或该供应商是否支持 embeddings 接口";
+  }
   const withoutHtml = compact.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return (withoutHtml || compact).slice(0, 300);
 }

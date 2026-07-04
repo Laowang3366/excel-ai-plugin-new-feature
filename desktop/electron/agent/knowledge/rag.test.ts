@@ -129,6 +129,29 @@ describe("EmbeddingService", () => {
     }
   });
 
+  it("should summarize HTML embedding errors without leaking page markup", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      return new Response(
+        `<html><body><div data-component="top">404</div><script>window.__NEXT_DATA__={}</script></body></html>`,
+        { status: 404, headers: { "Content-Type": "text/html" } }
+      );
+    };
+
+    try {
+      const svc = new EmbeddingService({
+        provider: "openai",
+        baseUrl: "https://api.example.com",
+        apiKey: "sk-test",
+      });
+
+      await expect(svc.embed("测试")).rejects.toThrow("服务返回了网页内容");
+      await expect(svc.embed("测试")).rejects.not.toThrow("data-component");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("should handle batch embedding with caching", async () => {
     let fetchCount = 0;
     const originalFetch = globalThis.fetch;
@@ -713,7 +736,7 @@ describe("KnowledgeIndexer", () => {
     indexer = new KnowledgeIndexer(store, embedder);
   });
 
-	  it("should index a CSV file and create entries", async () => {
+  it("should index a CSV file and create entries", async () => {
     const tmpPath = path.join(os.tmpdir(), `test-index-${Date.now()}.csv`);
     fs.writeFileSync(tmpPath, "商品,价格,库存\n苹果,5.0,100\n香蕉,3.0,200\n", "utf-8");
 
@@ -729,6 +752,26 @@ describe("KnowledgeIndexer", () => {
       expect(source).not.toBeNull();
       expect(source!.entryCount).toBe(result.entryCount);
       expect(source!.fileHash).toBeTruthy();
+    } finally {
+      fs.unlinkSync(tmpPath);
+    }
+  });
+
+  it("should keep keyword-searchable entries when embedding is unavailable", async () => {
+    const tmpPath = path.join(os.tmpdir(), `test-keyword-only-${Date.now()}.csv`);
+    fs.writeFileSync(tmpPath, "主题,说明\n区域汇总公式,区域汇总公式应该只写到锚点单元格\n", "utf-8");
+    embedder.embedBatch = vi.fn(async () => {
+      throw new Error("Embedding API 请求失败 (404)");
+    });
+
+    try {
+      const result = await indexer.indexFile(tmpPath);
+
+      expect(result.success).toBe(true);
+      expect(result.entryCount).toBeGreaterThan(0);
+      const entries = store.getEntriesBySource(tmpPath);
+      expect(entries[0].embedding).toBeNull();
+      expect(store.searchByKeyword(["区域汇总公式"], 5)).toHaveLength(1);
     } finally {
       fs.unlinkSync(tmpPath);
     }
@@ -914,6 +957,36 @@ describe("Retriever", () => {
     const results = await retriever.search({ text: "销售", topK: 3 });
     expect(results.length).toBeGreaterThanOrEqual(1);
     expect(results[0].entry.content).toContain("销售");
+  });
+
+  it("should fall back to keyword search when query embedding fails", async () => {
+    embedder.embed = vi.fn(async () => {
+      throw new Error("Embedding API 请求失败 (404)");
+    });
+
+    const results = await retriever.search({ text: "区域销售数据应该怎么汇总", topK: 3 });
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].entry.content).toContain("销售");
+    expect(results[0].score).toBe(0);
+    expect(retriever.formatForToolResult(results)).toContain("关键词匹配");
+  });
+
+  it("should fall back to keyword search when current embedding profile has no vector matches", async () => {
+    embedder.getProfile = () => ({
+      provider: "qwen",
+      model: "text-embedding-v2",
+      dimensions: 1536,
+    });
+
+    const results = await retriever.search({
+      text: "财务报表",
+      topK: 3,
+      sourceFilter: ["document"],
+    });
+
+    expect(results.map((r: KnowledgeResult) => r.entry.id)).toEqual(["r-id-2"]);
+    expect(results[0].score).toBe(0);
   });
 
   it("should filter by source type", async () => {

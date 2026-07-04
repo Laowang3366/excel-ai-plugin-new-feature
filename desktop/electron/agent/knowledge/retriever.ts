@@ -71,7 +71,12 @@ export class Retriever {
     const minScore = query.minScore ?? this.options.minScore;
 
     // 1. 生成查询向量
-    const queryVector = await this.embedder.embed(query.text);
+    let queryVector: number[];
+    try {
+      queryVector = await this.embedder.embed(query.text);
+    } catch {
+      return this.searchByKeywordFallback(query, topK);
+    }
 
     // 2. 向量搜索
     const filter: { sourceFilter?: string[]; pathFilter?: string[]; embeddingProfile?: EmbeddingProfile } = {
@@ -91,6 +96,10 @@ export class Retriever {
     // 3. 过滤低分结果
     results = results.filter((r) => r.score >= minScore);
 
+    if (results.length === 0) {
+      return this.searchByKeywordFallback(query, topK);
+    }
+
     // 4. 取 Top-K
     return results.slice(0, topK);
   }
@@ -102,10 +111,11 @@ export class Retriever {
    */
   searchByKeywords(
     keywords: string[],
-    topK?: number
+    topK?: number,
+    filter?: { sourceFilter?: KnowledgeSourceType[]; pathFilter?: string[] }
   ): KnowledgeEntry[] {
     const k = topK || this.options.defaultTopK;
-    return this.store.searchByKeyword(keywords, k);
+    return this.store.searchByKeyword(keywords, k, filter);
   }
 
   /**
@@ -157,9 +167,11 @@ export class Retriever {
       const sheetInfo = entry.metadata?.sheetName
         ? ` (Sheet: ${entry.metadata.sheetName})`
         : "";
-      const scoreStr = (r.score * 100).toFixed(1);
+      const scoreLabel = r.score > 0
+        ? `相关度: ${(r.score * 100).toFixed(1)}%`
+        : "关键词匹配";
 
-      lines.push(`\n${i + 1}. [${entry.sourceName}]${sheetInfo} (相关度: ${scoreStr}%)`);
+      lines.push(`\n${i + 1}. [${entry.sourceName}]${sheetInfo} (${scoreLabel})`);
       lines.push(`   路径: ${entry.sourcePath}`);
       lines.push(`   内容: ${entry.content.slice(0, 300)}${entry.content.length > 300 ? "…" : ""}`);
     }
@@ -171,4 +183,43 @@ export class Retriever {
   updateOptions(options: Partial<RetrieverOptions>): void {
     Object.assign(this.options, options);
   }
+
+  private searchByKeywordFallback(query: KnowledgeQuery, topK: number): KnowledgeResult[] {
+    const keywords = extractSearchKeywords(query.text);
+    const entries = this.searchByKeywords(keywords, topK, {
+      sourceFilter: query.sourceFilter,
+      pathFilter: query.pathFilter,
+    });
+    return entries.map((entry) => ({ entry, score: 0 }));
+  }
+}
+
+function extractSearchKeywords(text: string): string[] {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const keywords: string[] = [];
+  const add = (value: string) => {
+    const item = value.trim();
+    if (item.length >= 2 && !keywords.includes(item)) {
+      keywords.push(item);
+    }
+  };
+
+  add(normalized.slice(0, 80));
+
+  for (const part of normalized.split(/[^\p{L}\p{N}_]+/u)) {
+    add(part);
+    if (/[\p{Script=Han}]/u.test(part) && part.length > 2) {
+      for (let size = Math.min(6, part.length); size >= 2; size--) {
+        for (let start = 0; start <= part.length - size; start++) {
+          add(part.slice(start, start + size));
+          if (keywords.length >= 40) return keywords;
+        }
+      }
+    }
+    if (keywords.length >= 40) break;
+  }
+
+  return keywords;
 }

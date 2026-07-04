@@ -19,7 +19,7 @@ import type {
   IndexResult,
 } from "./types";
 import { SqliteStore } from "./sqliteStore";
-import { EmbeddingService } from "./embeddingService";
+import { EmbeddingService, type EmbeddingProfile } from "./embeddingService";
 import { DocumentParser, type RawChunk } from "./documentParser";
 import { TextChunker, type TextChunk } from "./textChunker";
 
@@ -124,16 +124,16 @@ export class KnowledgeIndexer {
         };
       }
 
-      // 3. 生成嵌入向量（批处理）
+      // 3. 生成嵌入向量（批处理）。Embedding 不可用时仍保存文本索引，检索时走关键词兜底。
       const texts = textChunks.map((c) => c.content);
-      const embeddings = await this.embedder.embedBatch(texts);
+      const embeddingResult = await this.embedChunks(texts);
 
       // 4. 构建 KnowledgeEntry 并批量写入
       const now = Date.now();
       const sourceType = this.getSourceType(filePath);
       const sourceName = path.basename(filePath);
       const fileHash = this.computeFileHash(filePath);
-      const embeddingProfile = this.embedder.getProfile();
+      const embeddingProfile = embeddingResult.profile;
 
       // 先删除旧索引
       this.store.deleteSource(filePath);
@@ -151,10 +151,10 @@ export class KnowledgeIndexer {
           chunkIndex: chunk.index,
           content: chunk.content,
           metadata: chunk.metadata,
-          embedding: embeddings[i],
-          embeddingProvider: embeddingProfile.provider,
-          embeddingModel: embeddingProfile.model,
-          embeddingDimensions: embeddingProfile.dimensions,
+          embedding: embeddingResult.embeddings[i],
+          embeddingProvider: embeddingResult.embeddings[i] ? embeddingProfile?.provider : undefined,
+          embeddingModel: embeddingResult.embeddings[i] ? embeddingProfile?.model : undefined,
+          embeddingDimensions: embeddingResult.embeddings[i]?.length ?? embeddingProfile?.dimensions,
           indexedAt: now,
           tokenCount: chunk.tokenCount,
         });
@@ -319,6 +319,23 @@ export class KnowledgeIndexer {
     if ([".xlsx", ".xlsm", ".xlsb"].includes(ext)) return "workbook";
     if (ext === ".md") return "agents_md";
     return "document";
+  }
+
+  private async embedChunks(texts: string[]): Promise<{
+    embeddings: Array<number[] | null>;
+    profile?: EmbeddingProfile;
+  }> {
+    try {
+      const embeddings = await this.embedder.embedBatch(texts);
+      return {
+        embeddings,
+        profile: this.embedder.getProfile(),
+      };
+    } catch {
+      return {
+        embeddings: texts.map(() => null),
+      };
+    }
   }
 
   /** 计算文件哈希（SHA256 前 16 字符） */

@@ -54,4 +54,37 @@ describe("KnowledgeWriter", () => {
       entryCount: 1,
     });
   });
+
+  it("writes keyword-only notes when embedding is unavailable", async () => {
+    const notesDir = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-writer-"));
+    tempDirs.push(notesDir);
+    const inserted: KnowledgeEntry[][] = [];
+    const writer = new KnowledgeWriter(
+      {
+        bulkInsert: (entries) => inserted.push(entries),
+        upsertSource: () => undefined,
+      },
+      {
+        embedBatch: async () => {
+          throw new Error("Embedding API 请求失败 (404)");
+        },
+      },
+      { notesDir }
+    );
+
+    const result = await writer.writeNote({
+      title: "区域汇总公式",
+      content: "区域汇总公式应该只写到锚点单元格。",
+    });
+
+    expect(result.entryCount).toBe(1);
+    expect(fs.existsSync(result.sourcePath)).toBe(true);
+    expect(inserted[0][0]).toMatchObject({
+      source: "note",
+      embedding: null,
+      embeddingProvider: undefined,
+      embeddingModel: undefined,
+    });
+    expect(inserted[0][0].content).toContain("区域汇总公式");
+  });
 });

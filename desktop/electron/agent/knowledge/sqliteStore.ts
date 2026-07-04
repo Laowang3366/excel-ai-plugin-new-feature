@@ -267,16 +267,32 @@ export class SqliteStore {
   /**
    * 关键词搜索（LIKE 匹配）
    */
-  searchByKeyword(keywords: string[], topK: number): KnowledgeEntry[] {
+  searchByKeyword(
+    keywords: string[],
+    topK: number,
+    filter?: { sourceFilter?: string[]; pathFilter?: string[] }
+  ): KnowledgeEntry[] {
     if (keywords.length === 0) return [];
 
     const seen = new Set<string>();
     const results: KnowledgeEntry[] = [];
 
     for (const kw of keywords) {
+      const where: string[] = ["content LIKE ?"];
+      const params: any[] = [`%${kw}%`];
+      if (filter?.sourceFilter && filter.sourceFilter.length > 0) {
+        where.push(`source IN (${filter.sourceFilter.map(() => "?").join(",")})`);
+        params.push(...filter.sourceFilter);
+      }
+      if (filter?.pathFilter && filter.pathFilter.length > 0) {
+        where.push(`source_path IN (${filter.pathFilter.map(() => "?").join(",")})`);
+        params.push(...filter.pathFilter);
+      }
+      params.push(topK);
+
       const rows = this.db
-        .prepare("SELECT * FROM knowledge_entries WHERE content LIKE ? LIMIT ?")
-        .all(`%${kw}%`, topK) as Record<string, any>[];
+        .prepare(`SELECT * FROM knowledge_entries WHERE ${where.join(" AND ")} LIMIT ?`)
+        .all(...params) as Record<string, any>[];
 
       for (const row of rows) {
         if (!seen.has(row.id)) {
