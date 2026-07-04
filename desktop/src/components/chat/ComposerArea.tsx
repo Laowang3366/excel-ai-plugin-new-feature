@@ -17,7 +17,7 @@ import { useChatStore } from "../../store/chatStore";
 import { useSettingsStore, PROVIDER_TEMPLATES, type PermissionMode } from "../../store/settingsStore";
 import type { ReasoningMode, FolderFileInfo, AttachedFile } from "../../electronApi";
 import { getAppText } from "../../i18n";
-import { formatTokensAsK } from "../../utils/modelContextWindows";
+import { formatEstimatedUsedTokens, formatTokensAsK } from "../../utils/modelContextWindows";
 import { PermissionIcon } from "../../utils/chatHelpers";
 import { ModelQuickSwitch } from "../chat/ModelQuickSwitch";
 import { AttachmentImagePreview } from "../chat/AttachmentImagePreview";
@@ -232,7 +232,7 @@ export function ComposerArea({
               >
                 <Activity size={14} />
                 <span className="context-indicator-pct">
-                  {Math.floor(contextUsage.estimatedTokens / 1000)}k/{formatTokensAsK(contextUsage.contextWindowSize)}
+                  {formatEstimatedUsedTokens(contextUsage.estimatedTokens)}/{formatTokensAsK(contextUsage.contextWindowSize)}
                 </span>
               </div>
             )}

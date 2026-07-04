@@ -14,6 +14,7 @@ import { describe, it, expect } from "vitest";
 import {
   estimateTokens,
   estimateItemsTokens,
+  estimateRequestTokens,
   shouldCompact,
   collectUserMessages,
   buildCompactedHistory,
@@ -88,6 +89,36 @@ describe("estimateItemsTokens", () => {
     const single1: TurnItem[] = [{ type: "user_message", id: "1", content: "hello", timestamp: Date.now() }];
     const single2: TurnItem[] = [{ type: "assistant_message", id: "2", content: "world", phase: "final", timestamp: Date.now() }];
     expect(estimateItemsTokens(items)).toBe(estimateItemsTokens(single1) + estimateItemsTokens(single2));
+  });
+});
+
+describe("estimateRequestTokens", () => {
+  it("includes hidden system prompt and tool schema overhead", () => {
+    const messageOnly = estimateRequestTokens({
+      messages: [{ role: "user", content: "hello" }],
+    });
+    const withPromptAndTools = estimateRequestTokens({
+      systemPrompt: "You are an Office automation agent. Always inspect connection status.",
+      messages: [{ role: "user", content: "hello" }],
+      tools: [
+        {
+          name: "range.read",
+          description: "Read an Excel range",
+          parameters: {
+            type: "object",
+            properties: {
+              sheetName: { type: "string" },
+              range: { type: "string" },
+            },
+          },
+          riskLevel: "safe",
+          requiresApproval: false,
+        },
+      ],
+    });
+
+    expect(withPromptAndTools).toBeGreaterThan(messageOnly);
+    expect(withPromptAndTools).toBeGreaterThan(estimateTokens("hello"));
   });
 });
 

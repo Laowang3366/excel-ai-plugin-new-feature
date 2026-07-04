@@ -294,6 +294,54 @@ describe("AgentLoop mid-turn compaction", () => {
     aiClientMocks.client.chat.mockReset();
   });
 
+  it("reports context usage from the estimated request payload", async () => {
+    aiClientMocks.client.streamChat.mockImplementation((params: StreamChatParams) => {
+      aiClientMocks.streamChatParams.push(params);
+      return streamEvents([
+        { type: "text_delta", delta: "done" },
+        { type: "done", finishReason: "stop" },
+      ]);
+    });
+
+    const callbacks: AgentTurnCallbacks = { onEvent: vi.fn() };
+    const loop = new AgentLoop(
+      {
+        aiConfig: {
+          provider: "openai",
+          apiKey: "test",
+          baseUrl: "https://example.test",
+          model: "test-model",
+          reasoningMode: "off",
+          contextWindowSize: 100_000,
+        },
+        systemPrompt: "hidden request context ".repeat(250),
+        compactionConfig: {
+          enabled: true,
+          autoCompactTokenThreshold: 80_000,
+          retainedUserMessageMaxTokens: 20_000,
+          contextWindowSize: 100_000,
+        },
+        permissionMode: "confirm_all",
+        toolExecutors: new Map<string, ToolExecutor>([
+          ["range.read", { name: "range.read", execute: vi.fn(async () => ({ success: true })) }],
+        ]),
+      },
+      createMemorySessionStore()
+    );
+
+    await loop.runTurn({ content: "hi" }, callbacks);
+
+    expect(aiClientMocks.streamChatParams[0].tools.length).toBeGreaterThan(0);
+    const usage = vi.mocked(callbacks.onEvent).mock.calls.find(
+      ([event]) => event.type === "context_usage"
+    )?.[0];
+    expect(usage).toMatchObject({
+      type: "context_usage",
+      contextWindowSize: 100_000,
+    });
+    expect(usage?.type === "context_usage" ? usage.estimatedTokens : 0).toBeGreaterThan(1000);
+  });
+
   it("keeps the current user message visible after mid-turn compaction", async () => {
     const userContent = "请读取当前表格并继续分析";
     let streamCallCount = 0;

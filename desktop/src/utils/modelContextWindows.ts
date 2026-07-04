@@ -24,3 +24,8 @@ export function formatTokensAsK(tokens: number): string {
   const k = Math.floor(tokens / 1000);
   return `${k}k`;
 }
+
+export function formatEstimatedUsedTokens(tokens: number): string {
+  if (tokens > 0 && tokens < 1000) return "<1k";
+  return `${Math.floor(tokens / 1000)}k`;
+}

@@ -26,6 +26,7 @@ import {
   type AgentTurnInput,
   type AgentTurnCallbacks,
   type ToolExecutor,
+  type ToolDefinition,
   type CompactionConfig,
   type CompactionReason,
   type CompactProgressItem,
@@ -44,6 +45,7 @@ import { turnItemGroupsToChatMessages } from "../../shared/messageBuilder";
 import {
   buildResumeContext,
   estimateItemsTokens,
+  estimateRequestTokens,
   historyToCompactPrompt,
   performCompaction,
   shouldCompact,
@@ -668,9 +670,10 @@ export class AgentLoop {
         this.stateRuntimeStore
       );
 
+      const toolDefs = getToolDefs(this.config.toolExecutors);
       const streamParams = {
         messages,
-        tools: getToolDefs(this.config.toolExecutors),
+        tools: toolDefs,
         systemPrompt: effectiveSystemPrompt,
         maxTokens: resolveMaxTokens(this.config.aiConfig),
         reasoningMode: effectiveMode,
@@ -742,9 +745,12 @@ export class AgentLoop {
         this.throwIfAborted();
 
         // 检查是否需要压缩（mid-turn compaction）
-        const allItems = this.getAllTurnItems();
         const compactionConfig = this.getSessionCompactionConfig();
-        const allTokens = estimateItemsTokens(allItems);
+        const allTokens = estimateRequestTokens({
+          messages: turnItemGroupsToChatMessages(this.getTurnItemGroups()),
+          systemPrompt: effectiveSystemPrompt,
+          tools: toolDefs,
+        });
         const midTurnRatio = compactionConfig.midTurnThresholdRatio ?? 0.9;
         if (compactionConfig.enabled && allTokens > compactionConfig.autoCompactTokenThreshold * midTurnRatio) {
           await this.performMidTurnCompaction(turn, callbacks);
@@ -765,7 +771,10 @@ export class AgentLoop {
         }
       }
       // Turn 结束时始终发送上下文使用情况
-      this.emitContextUsage(callbacks);
+      this.emitContextUsage(callbacks, {
+        systemPrompt: effectiveSystemPrompt,
+        tools: toolDefs,
+      });
       break;
     }
   }
@@ -1186,9 +1195,15 @@ export class AgentLoop {
   /**
    * 发送上下文使用情况事件
    */
-  private emitContextUsage(callbacks: AgentTurnCallbacks): void {
-    const allItems = this.getAllTurnItems();
-    const estimatedTokens = estimateItemsTokens(allItems);
+  private emitContextUsage(
+    callbacks: AgentTurnCallbacks,
+    requestContext?: { systemPrompt?: string; tools?: ToolDefinition[] }
+  ): void {
+    const estimatedTokens = estimateRequestTokens({
+      messages: turnItemGroupsToChatMessages(this.getTurnItemGroups()),
+      systemPrompt: requestContext?.systemPrompt,
+      tools: requestContext?.tools ?? getToolDefs(this.config.toolExecutors),
+    });
     const config = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
     const contextWindowSize = this.activeThread?.metadata?.contextWindowSize
       || config.contextWindowSize || 128_000;

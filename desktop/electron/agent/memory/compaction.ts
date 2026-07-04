@@ -25,10 +25,29 @@ import {
   type ReasoningItem,
   type CompactedItem,
   type TokenUsage,
+  type ToolDefinition,
   type CompactionReason,
   type CompactionConfig,
   DEFAULT_COMPACTION_CONFIG,
 } from "../shared/types";
+
+interface RequestEstimateMessage {
+  role?: string;
+  content?: unknown;
+  toolCalls?: Array<{
+    id?: string;
+    function?: {
+      name?: string;
+      arguments?: string;
+    };
+  }>;
+}
+
+export interface RequestTokenEstimateInput {
+  messages?: RequestEstimateMessage[];
+  systemPrompt?: string;
+  tools?: ToolDefinition[];
+}
 
 // ============================================================
 // 常量
@@ -49,6 +68,55 @@ export function estimateTokens(text: string): number {
   const otherChars = charCount - chineseChars;
   // 中文约 1.5 字/token，英文约 0.25 词/token（4字符≈1token）
   return Math.ceil(chineseChars / 1.5 + otherChars / 4);
+}
+
+/** 估算实际请求负载：系统提示词、消息和工具 schema */
+export function estimateRequestTokens(input: RequestTokenEstimateInput): number {
+  let total = 0;
+
+  if (input.systemPrompt) {
+    total += estimateTokens(input.systemPrompt) + 4;
+  }
+
+  for (const message of input.messages || []) {
+    total += 4;
+    total += estimateTokens(message.role || "");
+    total += estimateMessageContentTokens(message.content);
+    if (message.toolCalls?.length) {
+      total += estimateTokens(JSON.stringify(message.toolCalls));
+      total += message.toolCalls.length * 20;
+    }
+  }
+
+  if (input.tools?.length) {
+    total += estimateTokens(JSON.stringify(input.tools));
+    total += input.tools.length * 10;
+  }
+
+  return total;
+}
+
+function estimateMessageContentTokens(content: unknown): number {
+  if (!content) return 0;
+  if (typeof content === "string") return estimateTokens(content);
+  if (Array.isArray(content)) {
+    return content.reduce((sum, part) => sum + estimateContentPartTokens(part), 0);
+  }
+  return estimateTokens(JSON.stringify(content));
+}
+
+function estimateContentPartTokens(part: unknown): number {
+  if (!part) return 0;
+  if (typeof part === "string") return estimateTokens(part);
+  if (typeof part !== "object") return estimateTokens(String(part));
+
+  const value = part as Record<string, unknown>;
+  if (typeof value.text === "string") return estimateTokens(value.text);
+  if (typeof value.content === "string") return estimateTokens(value.content);
+  if (typeof value.output_text === "string") return estimateTokens(value.output_text);
+  if (value.image_url) return estimateTokens(JSON.stringify(value.image_url)) + 85;
+  if (value.file) return estimateTokens(JSON.stringify(value.file));
+  return estimateTokens(JSON.stringify(value));
 }
 
 /** 估算 TurnItem 数组的总 token 数 */
