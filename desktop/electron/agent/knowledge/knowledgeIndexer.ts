@@ -132,6 +132,7 @@ export class KnowledgeIndexer {
       const now = Date.now();
       const sourceType = this.getSourceType(filePath);
       const sourceName = path.basename(filePath);
+      const sourceFileType = this.getSourceFileType(filePath);
       const fileHash = this.computeFileHash(filePath);
       const embeddingProfile = embeddingResult.profile;
 
@@ -165,7 +166,7 @@ export class KnowledgeIndexer {
       this.store.upsertSource({
         sourcePath: filePath,
         sourceName,
-        sourceType: sourceType as any,
+        sourceType: sourceFileType as any,
         entryCount: entries.length,
         firstIndexed: now,
         lastIndexed: now,
@@ -319,6 +320,10 @@ export class KnowledgeIndexer {
     if ([".xlsx", ".xlsm", ".xlsb"].includes(ext)) return "workbook";
     if (ext === ".md") return "agents_md";
     return "document";
+  }
+
+  private getSourceFileType(filePath: string): string {
+    return path.extname(filePath).toLowerCase().replace(/^\./, "") || "txt";
   }
 
   private async embedChunks(texts: string[]): Promise<{

@@ -552,8 +552,12 @@ describe("DocumentParser", () => {
     expect(parser.isSupported("test.md")).toBe(true);
     expect(parser.isSupported("test.txt")).toBe(true);
     expect(parser.isSupported("test.xlsm")).toBe(true);
+    expect(parser.isSupported("test.json")).toBe(true);
+    expect(parser.isSupported("test.docx")).toBe(true);
+    expect(parser.isSupported("test.pptx")).toBe(true);
     expect(parser.isSupported("test.pdf")).toBe(false);
     expect(parser.isSupported("test.doc")).toBe(false);
+    expect(parser.isSupported("test.ppt")).toBe(false);
   });
 
   it("should parse an XLSX workbook through Open XML", async () => {
@@ -610,6 +614,84 @@ describe("DocumentParser", () => {
       expect(chunks[0].metadata.headers).toEqual(["姓名", "年龄", "城市"]);
       expect(chunks[0].content).toContain("张三");
       expect(chunks[0].content).toContain("李四");
+    } finally {
+      fs.unlinkSync(tmpPath);
+    }
+  });
+
+  it("should parse a JSON file into searchable paths", () => {
+    const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.json`);
+    fs.writeFileSync(tmpPath, JSON.stringify({
+      formula: {
+        name: "区域汇总公式",
+        target: "汇总表!B2",
+      },
+      fields: ["区域", "销售额"],
+    }), "utf-8");
+
+    try {
+      const chunks = parser.parse(tmpPath);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].sourceType).toBe("json");
+      expect(chunks[0].content).toContain("$.formula.name: 区域汇总公式");
+      expect(chunks[0].content).toContain("$.fields[1]: 销售额");
+    } finally {
+      fs.unlinkSync(tmpPath);
+    }
+  });
+
+  it("should parse DOCX body text through Open XML", async () => {
+    const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.docx`);
+    const zip = new JSZip();
+    zip.file("word/document.xml", `
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:body>
+          <w:p><w:r><w:t>区域汇总公式说明</w:t></w:r></w:p>
+          <w:p><w:r><w:t>公式应该写入汇总表锚点单元格。</w:t></w:r></w:p>
+        </w:body>
+      </w:document>
+    `);
+    fs.writeFileSync(tmpPath, await zip.generateAsync({ type: "nodebuffer" }));
+
+    try {
+      const chunks = await parser.parseAsync(tmpPath);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].sourceType).toBe("docx");
+      expect(chunks[0].content).toContain("区域汇总公式说明");
+      expect(chunks[0].content).toContain("汇总表锚点单元格");
+    } finally {
+      fs.unlinkSync(tmpPath);
+    }
+  });
+
+  it("should parse PPTX slide text through Open XML", async () => {
+    const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.pptx`);
+    const zip = new JSZip();
+    zip.file("ppt/slides/slide1.xml", `
+      <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+             xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <p:cSld><p:spTree><p:sp><p:txBody>
+          <a:p><a:r><a:t>知识库演示页</a:t></a:r></a:p>
+          <a:p><a:r><a:t>支持提取 PPT 文本</a:t></a:r></a:p>
+        </p:txBody></p:sp></p:spTree></p:cSld>
+      </p:sld>
+    `);
+    zip.file("ppt/slides/slide2.xml", `
+      <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+             xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <p:cSld><p:spTree><p:sp><p:txBody>
+          <a:p><a:r><a:t>第二页内容</a:t></a:r></a:p>
+        </p:txBody></p:sp></p:spTree></p:cSld>
+      </p:sld>
+    `);
+    fs.writeFileSync(tmpPath, await zip.generateAsync({ type: "nodebuffer" }));
+
+    try {
+      const chunks = await parser.parseAsync(tmpPath);
+      expect(chunks).toHaveLength(2);
+      expect(chunks[0].sourceType).toBe("pptx");
+      expect(chunks[0].content).toContain("知识库演示页");
+      expect(chunks[1].content).toContain("第二页内容");
     } finally {
       fs.unlinkSync(tmpPath);
     }

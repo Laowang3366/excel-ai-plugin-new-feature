@@ -1,8 +1,8 @@
 /**
  * 文档解析器
  *
- * 支持解析 .xlsx / .xlsm / .csv / .md / .txt 文件。
- * Excel 使用内置 Open XML ZIP/XML 读取，避免依赖存在高危审计项的 SheetJS xlsx 包。
+ * 支持解析 .xlsx / .xlsm / .csv / .json / .docx / .pptx / .md / .txt 文件。
+ * Office 文件使用内置 Open XML ZIP/XML 读取，避免引入原生二进制依赖。
  */
 
 import * as fs from "fs";
@@ -12,6 +12,7 @@ import type { KnowledgeFileType } from "./types";
 
 const MAX_EXCEL_PARSE_BYTES = 25 * 1024 * 1024;
 const MAX_EXCEL_DATA_ROWS = 500;
+const MAX_JSON_LINES = 2000;
 
 interface WorkbookSheetInfo {
   name: string;
@@ -47,6 +48,8 @@ export class DocumentParser {
     switch (ext) {
       case "csv":
         return this.parseCsv(filePath, sourceName);
+      case "json":
+        return this.parseJson(filePath, sourceName);
       case "md":
         return this.parseMarkdown(filePath, sourceName);
       case "txt":
@@ -54,6 +57,9 @@ export class DocumentParser {
       case "xlsx":
       case "xlsm":
         throw new Error("Excel 文件解析需要使用 parseAsync");
+      case "docx":
+      case "pptx":
+        throw new Error("Office Open XML 文件解析需要使用 parseAsync");
       default:
         throw new Error(`不支持的文件类型: ${ext}`);
     }
@@ -67,7 +73,12 @@ export class DocumentParser {
       case "xlsx":
       case "xlsm":
         return await this.parseExcel(filePath, sourceName, ext);
+      case "docx":
+        return await this.parseDocx(filePath, sourceName);
+      case "pptx":
+        return await this.parsePptx(filePath, sourceName);
       case "csv":
+      case "json":
       case "md":
       case "txt":
         return this.parse(filePath);
@@ -79,14 +90,14 @@ export class DocumentParser {
   isSupported(filePath: string): boolean {
     try {
       const ext = this.getFileType(filePath);
-      return ["xlsx", "xlsm", "csv", "md", "txt"].includes(ext);
+      return ["xlsx", "xlsm", "csv", "json", "docx", "pptx", "md", "txt"].includes(ext);
     } catch {
       return false;
     }
   }
 
   getSupportedExtensions(): string[] {
-    return ["xlsx", "xlsm", "csv", "md", "txt"];
+    return ["xlsx", "xlsm", "csv", "json", "docx", "pptx", "md", "txt"];
   }
 
   private async parseExcel(
@@ -176,6 +187,89 @@ export class DocumentParser {
         },
       },
     ];
+  }
+
+  private parseJson(filePath: string, sourceName: string): RawChunk[] {
+    const content = fs.readFileSync(filePath, "utf-8");
+    if (!content.trim()) return [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch (error: any) {
+      throw new Error(`JSON 解析失败: ${sourceName} (${error?.message || "格式错误"})`);
+    }
+
+    const allLines = this.flattenJson(parsed);
+    const lines = allLines.slice(0, MAX_JSON_LINES);
+    if (allLines.length > MAX_JSON_LINES) {
+      lines.push(`...（还有 ${allLines.length - MAX_JSON_LINES} 个 JSON 字段未展示）`);
+    }
+
+    return [
+      {
+        content: lines.join("\n"),
+        sourcePath: filePath,
+        sourceName,
+        sourceType: "json",
+        metadata: {
+          rowCount: allLines.length,
+        },
+      },
+    ];
+  }
+
+  private async parseDocx(filePath: string, sourceName: string): Promise<RawChunk[]> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(filePath));
+    const documentPart = zip.file("word/document.xml");
+    if (!documentPart) return [];
+
+    const xml = await documentPart.async("text");
+    const lines = this.extractParagraphTexts(xml);
+    if (lines.length === 0) return [];
+
+    return [
+      {
+        content: lines.join("\n"),
+        sourcePath: filePath,
+        sourceName,
+        sourceType: "docx",
+        metadata: {
+          rowCount: lines.length,
+        },
+      },
+    ];
+  }
+
+  private async parsePptx(filePath: string, sourceName: string): Promise<RawChunk[]> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(filePath));
+    const slideParts = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+      .sort((a, b) => this.slidePartNumber(a) - this.slidePartNumber(b));
+    const chunks: RawChunk[] = [];
+
+    for (const partName of slideParts) {
+      const part = zip.file(partName);
+      if (!part) continue;
+      const xml = await part.async("text");
+      const lines = this.extractTextTags(xml)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (lines.length === 0) continue;
+      const slideNumber = this.slidePartNumber(partName) || chunks.length + 1;
+      chunks.push({
+        content: [`【幻灯片 ${slideNumber}】`, ...lines].join("\n"),
+        sourcePath: filePath,
+        sourceName,
+        sourceType: "pptx",
+        metadata: {
+          slideNumber,
+          rowCount: lines.length,
+        },
+      });
+    }
+
+    return chunks;
   }
 
   private parseMarkdown(filePath: string, sourceName: string): RawChunk[] {
@@ -352,12 +446,59 @@ export class DocumentParser {
 
   private extractTextTags(xml: string): string[] {
     const values: string[] = [];
-    const textRe = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
+    const textRe = /<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g;
     let match: RegExpExecArray | null;
     while ((match = textRe.exec(xml))) {
       values.push(this.decodeXml(match[1]));
     }
     return values;
+  }
+
+  private extractParagraphTexts(xml: string): string[] {
+    const lines: string[] = [];
+    const paragraphRe = /<(?:\w+:)?p\b[^>]*>([\s\S]*?)<\/(?:\w+:)?p>/g;
+    let match: RegExpExecArray | null;
+    while ((match = paragraphRe.exec(xml))) {
+      const text = this.extractTextTags(match[1]).join("").replace(/\s+/g, " ").trim();
+      if (text) lines.push(text);
+    }
+    if (lines.length > 0) return lines;
+    return this.extractTextTags(xml).map((value) => value.trim()).filter(Boolean);
+  }
+
+  private flattenJson(value: unknown, pathKey = "$", lines: string[] = []): string[] {
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        lines.push(`${pathKey}: []`);
+        return lines;
+      }
+      value.forEach((item, index) => this.flattenJson(item, `${pathKey}[${index}]`, lines));
+      return lines;
+    }
+
+    if (value && typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) {
+        lines.push(`${pathKey}: {}`);
+        return lines;
+      }
+      for (const [key, child] of entries) {
+        const childPath = /^[A-Za-z_$][\w$]*$/.test(key)
+          ? `${pathKey}.${key}`
+          : `${pathKey}[${JSON.stringify(key)}]`;
+        this.flattenJson(child, childPath, lines);
+      }
+      return lines;
+    }
+
+    lines.push(`${pathKey}: ${this.jsonScalarToText(value)}`);
+    return lines;
+  }
+
+  private jsonScalarToText(value: unknown): string {
+    if (typeof value === "string") return value;
+    if (value === null) return "null";
+    return String(value);
   }
 
   private extractFirstTag(xml: string, tagName: string): string | undefined {
@@ -384,6 +525,10 @@ export class DocumentParser {
 
   private sheetPartNumber(partName: string): number {
     return Number(/sheet(\d+)\.xml$/i.exec(partName)?.[1] || 0);
+  }
+
+  private slidePartNumber(partName: string): number {
+    return Number(/slide(\d+)\.xml$/i.exec(partName)?.[1] || 0);
   }
 
   private columnNameToNumber(name: string): number {
@@ -417,6 +562,9 @@ export class DocumentParser {
       case ".xlsm": return "xlsm";
       case ".xlsb": return "xlsb";
       case ".csv": return "csv";
+      case ".json": return "json";
+      case ".docx": return "docx";
+      case ".pptx": return "pptx";
       case ".md": return "md";
       case ".txt": return "txt";
       default: throw new Error(`不支持的文件扩展名: ${ext}`);

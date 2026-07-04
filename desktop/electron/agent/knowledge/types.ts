@@ -12,7 +12,7 @@
 /** 知识来源分类 */
 export type KnowledgeSourceType =
   | "workbook"      // Excel 工作簿（.xlsx/.xlsm/.xlsb）
-  | "document"      // 文档（.csv/.md/.txt）
+  | "document"      // 文档（.csv/.json/.docx/.pptx/.md/.txt）
   | "note"          // 用户手写笔记
   | "agents_md";    // AGENTS.md 项目级知识
 
@@ -22,6 +22,9 @@ export type KnowledgeFileType =
   | "xlsm"
   | "xlsb"
   | "csv"
+  | "json"
+  | "docx"
+  | "pptx"
   | "md"
   | "txt";
 
