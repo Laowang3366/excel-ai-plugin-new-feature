@@ -30,7 +30,6 @@ export { buildSessionCompactionConfig } from "./sessionCompactionConfig";
 
 // 流式参数构建
 export {
-  getEffectiveReasoningMode,
   buildEffectiveSystemPrompt,
 } from "./buildStreamParams";
 

@@ -63,7 +63,6 @@ import { processToolCalls, getToolDefinitions as getToolDefs, type ToolApprovalC
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
 import {
   appendRuntimeLongTermMemoryContext,
-  getEffectiveReasoningMode,
   buildEffectiveSystemPrompt,
 } from "./buildStreamParams";
 import { resolveMaxTokens } from "./maxTokens";
@@ -654,7 +653,6 @@ export class AgentLoop {
 
       // 2. 调用 AI（流式）
       const configuredMode: ReasoningMode = this.config.aiConfig.reasoningMode || this.config.reasoningMode || "high";
-      const effectiveMode = getEffectiveReasoningMode(configuredMode, round);
 
       // 构建系统提示词：静态基础 + 动态文件夹上下文
       let effectiveSystemPrompt = await buildEffectiveSystemPrompt(
@@ -676,7 +674,7 @@ export class AgentLoop {
         tools: toolDefs,
         systemPrompt: effectiveSystemPrompt,
         maxTokens: resolveMaxTokens(this.config.aiConfig),
-        reasoningMode: effectiveMode,
+        reasoningMode: configuredMode,
         signal: this.abortController?.signal,
         roundId: round,
       };

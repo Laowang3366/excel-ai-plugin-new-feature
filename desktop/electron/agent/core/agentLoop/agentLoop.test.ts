@@ -25,9 +25,6 @@ vi.mock("../../providers/aiClient", async () => {
 import { AgentLoop } from "./agentLoop";
 import { ThreadWatchManager } from "./threadWatchManager";
 import {
-  getEffectiveReasoningMode,
-} from "./buildStreamParams";
-import {
   shouldRequireApproval,
   clearAlwaysAllowedTools,
   markToolAlwaysAllowed,
@@ -83,25 +80,6 @@ function createMemorySessionStore(): any {
     registerRolloutPath: vi.fn(),
   };
 }
-
-// ============================================================
-// getEffectiveReasoningMode
-// ============================================================
-
-describe("getEffectiveReasoningMode", () => {
-  it("should always use configured mode regardless of round", () => {
-    // 取消推理强度递减后，所有轮次都保持用户配置的力度
-    expect(getEffectiveReasoningMode("high", 1)).toBe("high");
-    expect(getEffectiveReasoningMode("high", 2)).toBe("high");
-    expect(getEffectiveReasoningMode("high", 5)).toBe("high");
-    expect(getEffectiveReasoningMode("max", 1)).toBe("max");
-    expect(getEffectiveReasoningMode("max", 2)).toBe("max");
-    expect(getEffectiveReasoningMode("medium", 3)).toBe("medium");
-    expect(getEffectiveReasoningMode("low", 5)).toBe("low");
-    expect(getEffectiveReasoningMode("off", 1)).toBe("off");
-    expect(getEffectiveReasoningMode("off", 10)).toBe("off");
-  });
-});
 
 // ============================================================
 // executeTool

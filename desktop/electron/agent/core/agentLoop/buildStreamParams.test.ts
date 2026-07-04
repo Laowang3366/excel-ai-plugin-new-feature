@@ -6,10 +6,17 @@ import {
   appendLongTermMemoryContext,
   appendRuntimeLongTermMemoryContext,
 } from "./buildStreamParams";
+import * as buildStreamParams from "./buildStreamParams";
 import { resetKnowledgeRegistry, setKnowledgeRetriever } from "../../knowledge/knowledgeRegistry";
 
 afterEach(() => {
   resetKnowledgeRegistry();
+});
+
+describe("buildStreamParams exports", () => {
+  it("does not expose a no-op reasoning mode adapter", () => {
+    expect("getEffectiveReasoningMode" in buildStreamParams).toBe(false);
+  });
 });
 
 describe("appendRuntimeDateContext", () => {

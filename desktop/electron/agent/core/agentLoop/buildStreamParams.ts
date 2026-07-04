@@ -1,12 +1,10 @@
 /**
- * 构建 AI 流式请求参数
+ * Build AI stream request parameters.
  *
- * 从 AgentLoop.runAgentLoop 中提取的逻辑：
- * - 推理力度降级策略
- * - 系统提示词构建（含文件夹上下文）
+ * Extracted from AgentLoop.runAgentLoop:
+ * - system prompt assembly with folder context
  */
 
-import { type ReasoningMode } from "../../providers/aiClient";
 import { type AIClientConfig } from "../../providers/aiClient";
 import {
   buildSystemPrompt,
@@ -25,30 +23,6 @@ import {
   getWordBridge,
   getPresentationBridge,
 } from "../../runtime/bridgeRegistry";
-
-// ============================================================
-// 推理力度（不再递减）
-// ============================================================
-
-/**
- * 计算当前轮次的有效推理力度
- *
- * 旧逻辑：round 2+ 自动降一档（max→high, high→medium…），目的是节省 token。
- * 问题：推理强度切换导致上下文连贯性断裂 — 第一轮深度思考写入了公式，
- *       第二轮降级后模型无法维持同等推理质量，反而反复纠结"公式对不对"
- *       而不调用 range.read 验证，浪费更多轮次。
- * 新逻辑：全程保持用户配置的推理力度，不再递减。
- *
- * @param configuredMode - 用户配置的推理力度
- * @param _round - 当前轮次编号（保留参数签名兼容，不再使用）
- * @returns 用户配置的推理力度
- */
-export function getEffectiveReasoningMode(
-  configuredMode: ReasoningMode,
-  _round: number
-): ReasoningMode {
-  return configuredMode;
-}
 
 export function appendLongTermMemoryContext(
   prompt: string,
