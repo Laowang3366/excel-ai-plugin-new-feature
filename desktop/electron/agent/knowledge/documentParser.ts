@@ -8,6 +8,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import JSZip from "jszip";
+import { extractOpenXmlParagraphTexts, extractOpenXmlTextValues } from "../shared/openXmlText";
 import { decodeXmlText } from "../shared/xmlEntities";
 import type { KnowledgeFileType } from "./types";
 
@@ -226,7 +227,7 @@ export class DocumentParser {
     if (!documentPart) return [];
 
     const xml = await documentPart.async("text");
-    const lines = this.extractParagraphTexts(xml);
+    const lines = extractOpenXmlParagraphTexts(xml);
     if (lines.length === 0) return [];
 
     return [
@@ -253,7 +254,7 @@ export class DocumentParser {
       const part = zip.file(partName);
       if (!part) continue;
       const xml = await part.async("text");
-      const lines = this.extractTextTags(xml)
+      const lines = extractOpenXmlTextValues(xml, { namespaceAgnostic: true })
         .map((value) => value.trim())
         .filter(Boolean);
       if (lines.length === 0) continue;
@@ -362,7 +363,7 @@ export class DocumentParser {
     const siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/g;
     let match: RegExpExecArray | null;
     while ((match = siRe.exec(xml))) {
-      strings.push(this.extractTextTags(match[1]).join(""));
+      strings.push(extractOpenXmlTextValues(match[1], { namespaceAgnostic: true }).join(""));
     }
     return strings;
   }
@@ -418,7 +419,7 @@ export class DocumentParser {
 
   private parseCellValue(innerXml: string, attrs: Record<string, string>, sharedStrings: string[]): string {
     if (attrs.t === "inlineStr") {
-      return this.extractTextTags(innerXml).join("");
+      return extractOpenXmlTextValues(innerXml, { namespaceAgnostic: true }).join("");
     }
 
     const value = this.extractFirstTag(innerXml, "v");
@@ -433,7 +434,7 @@ export class DocumentParser {
       return decodeXmlText(value);
     }
 
-    return this.extractTextTags(innerXml).join("");
+    return extractOpenXmlTextValues(innerXml, { namespaceAgnostic: true }).join("");
   }
 
   private detectWorksheetRange(xml: string, parsedRows: ParsedWorksheetRows): string {
@@ -443,28 +444,6 @@ export class DocumentParser {
     const endCol = Math.max(1, parsedRows.maxCol);
     const endRow = Math.max(1, parsedRows.maxRow || parsedRows.totalRows);
     return `A1:${this.toCellAddress(endCol, endRow)}`;
-  }
-
-  private extractTextTags(xml: string): string[] {
-    const values: string[] = [];
-    const textRe = /<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g;
-    let match: RegExpExecArray | null;
-    while ((match = textRe.exec(xml))) {
-      values.push(decodeXmlText(match[1]));
-    }
-    return values;
-  }
-
-  private extractParagraphTexts(xml: string): string[] {
-    const lines: string[] = [];
-    const paragraphRe = /<(?:\w+:)?p\b[^>]*>([\s\S]*?)<\/(?:\w+:)?p>/g;
-    let match: RegExpExecArray | null;
-    while ((match = paragraphRe.exec(xml))) {
-      const text = this.extractTextTags(match[1]).join("").replace(/\s+/g, " ").trim();
-      if (text) lines.push(text);
-    }
-    if (lines.length > 0) return lines;
-    return this.extractTextTags(xml).map((value) => value.trim()).filter(Boolean);
   }
 
   private flattenJson(value: unknown, pathKey = "$", lines: string[] = []): string[] {

@@ -10,7 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import JSZip from "jszip";
 import { DocumentParser } from "../../knowledge/documentParser";
-import { decodeXmlText as decodeXml } from "../../shared/xmlEntities";
+import { extractOpenXmlTextValues, readOpenXmlTextParts } from "../../shared/openXmlText";
 import { extractMarkdownTables } from "../../../main-modules/mineruOcr";
 
 export interface LocalParsedDocument {
@@ -173,7 +173,10 @@ function parsePlainTextFallback(
 async function parseDocx(filePath: string, filename: string): Promise<LocalParsedDocument> {
   try {
     const zip = await JSZip.loadAsync(await fs.promises.readFile(filePath));
-    const documentText = await readOpenXmlTextParts(zip, /^word\/(?:document|header\d+|footer\d+|footnotes|endnotes)\.xml$/i, "w:t");
+    const documentText = (await readOpenXmlTextParts(zip, /^word\/(?:document|header\d+|footer\d+|footnotes|endnotes)\.xml$/i, {
+      tagName: "w:t",
+      includeEmpty: false,
+    })).map((part) => part.text).join("\n");
     const rows = await readDocxTables(zip);
     const textParts = [documentText.trim()];
     if (rows.length > 0) {
@@ -214,7 +217,7 @@ async function parsePptx(filePath: string, filename: string): Promise<LocalParse
       const slide = zip.file(slideName);
       if (!slide) continue;
       const xml = await slide.async("text");
-      const values = extractTextValues(xml, "a:t");
+      const values = extractOpenXmlTextValues(xml, { tagName: "a:t", includeEmpty: false });
       if (values.length > 0) {
         slideTexts.push(`### Slide ${slideNumber(slideName)}\n${values.join("\n")}`);
       }
@@ -243,17 +246,6 @@ async function parsePptx(filePath: string, filename: string): Promise<LocalParse
   }
 }
 
-async function readOpenXmlTextParts(zip: JSZip, partRe: RegExp, tagName: string): Promise<string> {
-  const values: string[] = [];
-  const partNames = Object.keys(zip.files).filter((name) => partRe.test(name)).sort();
-  for (const partName of partNames) {
-    const part = zip.file(partName);
-    if (!part) continue;
-    values.push(...extractTextValues(await part.async("text"), tagName));
-  }
-  return values.join("\n");
-}
-
 async function readDocxTables(zip: JSZip): Promise<string[][]> {
   const part = zip.file("word/document.xml");
   if (!part) return [];
@@ -262,7 +254,7 @@ async function readDocxTables(zip: JSZip): Promise<string[][]> {
   for (const tableMatch of xml.matchAll(/<w:tbl\b[\s\S]*?<\/w:tbl>/g)) {
     for (const rowMatch of tableMatch[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)) {
       const cells = Array.from(rowMatch[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g), (cellMatch) =>
-        extractTextValues(cellMatch[0], "w:t").join("")
+        extractOpenXmlTextValues(cellMatch[0], { tagName: "w:t" }).join("")
       );
       if (cells.some((cell) => cell.trim())) {
         rows.push(cells);
@@ -306,12 +298,6 @@ function formatRowsAsMarkdown(rows: string[][]): string {
     "| " + separator.join(" | ") + " |",
     ...body.map((row) => "| " + row.join(" | ") + " |"),
   ].join("\n");
-}
-
-function extractTextValues(xml: string, tagName: string): string[] {
-  const escapedTag = tagName.replace(":", "\\:");
-  const re = new RegExp(`<${escapedTag}\\b[^>]*>([\\s\\S]*?)<\\/${escapedTag}>`, "g");
-  return Array.from(xml.matchAll(re), (match) => decodeXml(match[1])).filter((value) => value.trim());
 }
 
 function slideNumber(partName: string): number {

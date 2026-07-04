@@ -11,7 +11,8 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
-import { decodeXmlText as unescapeXmlText, escapeXmlText } from "../../../shared/xmlEntities";
+import { extractOpenXmlText } from "../../../shared/openXmlText";
+import { escapeXmlText } from "../../../shared/xmlEntities";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlInspectResult,
@@ -46,16 +47,6 @@ function textTagName(documentType: OfficeOpenXmlDocumentType): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function extractTextFromXml(documentType: OfficeOpenXmlDocumentType, xml: string): string {
-  const tagName = textTagName(documentType);
-  const re = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "g");
-  const values: string[] = [];
-  for (const match of xml.matchAll(re)) {
-    values.push(unescapeXmlText(match[1]));
-  }
-  return values.join("\n");
 }
 
 function replaceEscapedTextInXml(
@@ -97,7 +88,7 @@ async function readTextParts(zip: JSZip, documentType: OfficeOpenXmlDocumentType
     const file = zip.file(partName);
     if (!file) continue;
     const xml = await file.async("text");
-    const text = extractTextFromXml(documentType, xml);
+    const text = extractOpenXmlText(xml, { tagName: textTagName(documentType) });
     if (!text) continue;
     parts.push({ partName, text, textLength: text.length });
   }

@@ -9,7 +9,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
-import { decodeXmlText as unescapeXmlText } from "../../../shared/xmlEntities";
+import { extractOpenXmlTextValues } from "../../../shared/openXmlText";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlLayoutInspectInput,
@@ -41,12 +41,6 @@ function textTagName(documentType: OfficeOpenXmlDocumentType): string {
   return "t";
 }
 
-function extractTextValues(documentType: OfficeOpenXmlDocumentType, xml: string): string[] {
-  const tagName = textTagName(documentType);
-  const re = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "g");
-  return Array.from(xml.matchAll(re), (match) => unescapeXmlText(match[1])).filter(Boolean);
-}
-
 export async function inspectOfficeOpenXmlLayout(
   input: OfficeOpenXmlLayoutInspectInput
 ): Promise<OfficeOpenXmlLayoutInspectResult> {
@@ -58,7 +52,7 @@ export async function inspectOfficeOpenXmlLayout(
     const file = zip.file(partName);
     if (!file) continue;
     const xml = await file.async("text");
-    for (const text of extractTextValues(documentType, xml)) {
+    for (const text of extractOpenXmlTextValues(xml, { tagName: textTagName(documentType) }).filter(Boolean)) {
       objects.push({ type: "text", partName, text, textLength: text.length });
     }
   }
