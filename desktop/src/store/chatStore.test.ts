@@ -30,7 +30,7 @@ vi.mock("../services/ipcApi", () => ({
   },
 }));
 
-import { useChatStore } from "./chatStore";
+import { mergeBufferedStreamDeltas, useChatStore } from "./chatStore";
 
 describe("chatStore sendMessage", () => {
   beforeEach(() => {
@@ -82,6 +82,49 @@ describe("chatStore sendMessage", () => {
     expect(ipcMocks.startTurn).not.toHaveBeenCalled();
     expect(useChatStore.getState().error).toBe("会话正在创建中，请等待连接完成后再发送");
     expect(useChatStore.getState().isStreaming).toBe(true);
+  });
+});
+
+describe("chatStore stream delta handling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useChatStore.setState({
+      messages: [],
+      isStreaming: false,
+      streamingContent: "",
+      streamingReasoning: "",
+      activeStreamingRound: null,
+      turnStatus: "completed",
+      activeThreadId: "thread-1",
+      activeClientId: null,
+      error: null,
+    });
+  });
+
+  it("ignores late stream deltas after the turn has completed", () => {
+    useChatStore.getState().handleStreamDelta({
+      delta: "迟到的思考",
+      itemType: "reasoning",
+      roundId: 2,
+      threadId: "thread-1",
+    });
+
+    expect(useChatStore.getState().streamingReasoning).toBe("");
+    expect(useChatStore.getState().streamingContent).toBe("");
+    expect(useChatStore.getState().activeStreamingRound).toBeNull();
+  });
+
+  it("merges adjacent buffered stream deltas before updating store state", () => {
+    expect(mergeBufferedStreamDeltas([
+      { delta: "思", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
+      { delta: "考", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
+      { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "thread-1" },
+      { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "thread-1" },
+    ])).toEqual([
+      { delta: "思考", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
+      { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "thread-1" },
+      { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "thread-1" },
+    ]);
   });
 });
 

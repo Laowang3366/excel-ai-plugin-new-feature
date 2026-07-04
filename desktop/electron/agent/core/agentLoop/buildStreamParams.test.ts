@@ -48,6 +48,8 @@ describe("buildEffectiveSystemPrompt", () => {
 
     expect(prompt).toContain("场景化操作指南：公式助手");
     expect(prompt).toContain("range.write");
+    expect(prompt).toContain("禁止为了匹配样例结果硬编码输出路径");
+    expect(prompt).toContain("只需更改数据源选区/表引用即可重算");
     expect(prompt).toContain('expand:"spill"');
     expect(prompt.length).toBeLessThan(10_000);
   });

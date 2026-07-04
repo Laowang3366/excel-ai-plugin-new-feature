@@ -218,10 +218,19 @@ export function handleAgentEvent(
       }
       const patch: Partial<ChatState> = { messages: newMessages };
       if (event.item.type === "reasoning") {
-        patch.streamingReasoning = "";
+        const completedReasoning = textOf(event.item.rawContent) || textOf(event.item.summaryText);
+        if (current.streamingReasoning === completedReasoning) {
+          patch.streamingReasoning = "";
+        }
       }
       if (event.item.type === "assistant_message") {
-        patch.streamingContent = "";
+        if (event.item.phase === "final") {
+          patch.streamingContent = "";
+          patch.streamingReasoning = "";
+          patch.activeStreamingRound = null;
+        } else if (current.streamingContent === event.item.content) {
+          patch.streamingContent = "";
+        }
       }
       patches.push(patch);
       break;

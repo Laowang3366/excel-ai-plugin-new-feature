@@ -140,6 +140,7 @@ export function setWindowDisplayMode(
     }
 
     displayMode = mode;
+    notifyRendererDisplayModeChanged(mainWindow, displayMode);
     requestRendererLayoutRefresh(mainWindow);
     mainWindow.show();
     mainWindow.focus();
@@ -171,6 +172,14 @@ function applyCompactWindowMode(mainWindow: BrowserWindow): void {
   mainWindow.setSkipTaskbar(false);
   applyWindowTheme(mainWindow);
   mainWindow.setBounds(getSideDockBounds(mainWindow, COMPACT_SIZE.width), true);
+}
+
+function notifyRendererDisplayModeChanged(
+  mainWindow: BrowserWindow,
+  mode: WindowDisplayMode
+): void {
+  if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+  mainWindow.webContents.send("window:displayModeChanged", mode);
 }
 
 function requestRendererLayoutRefresh(mainWindow: BrowserWindow): void {

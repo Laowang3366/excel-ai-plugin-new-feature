@@ -79,6 +79,8 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("knowledge.search");
     expect(prompt).toContain("字段口径");
+    expect(prompt).toContain("禁止为了匹配样例结果硬编码输出路径");
+    expect(prompt).toContain("只需更改数据源选区/表引用即可重算");
     expect(prompt).toContain("简单公式");
     expect(prompt).toContain("中高复杂度公式");
     expect(prompt).toContain('expand:"spill"');

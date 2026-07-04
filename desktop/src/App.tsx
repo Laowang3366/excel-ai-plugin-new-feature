@@ -39,6 +39,13 @@ import type { WindowDisplayMode } from "./electronApi";
 /** 主内容区可显示的页面 */
 export type AppPage = "chat" | "settings";
 
+function requestLayoutReflow(): void {
+  void document.documentElement.offsetWidth;
+  window.requestAnimationFrame(() => {
+    void document.documentElement.offsetWidth;
+  });
+}
+
 export const App: React.FC = () => {
   const {
     isConfigured,
@@ -75,9 +82,48 @@ export const App: React.FC = () => {
     ipcApi.window.getAlwaysOnTop()
       .then(setAlwaysOnTop)
       .catch(() => setAlwaysOnTop(true));
-    ipcApi.window.getDisplayMode()
-      .then(setDisplayMode)
-      .catch(() => setDisplayMode("normal"));
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let resizeSyncTimer: number | undefined;
+
+    const applyActualMode = (mode: WindowDisplayMode, forceReflow = false) => {
+      if (disposed) return;
+      setDisplayMode(mode);
+      if (forceReflow) {
+        requestLayoutReflow();
+      }
+    };
+
+    const syncActualMode = () => {
+      ipcApi.window.getDisplayMode()
+        .then((mode) => applyActualMode(mode))
+        .catch(() => applyActualMode("normal"));
+    };
+
+    const handleResize = () => {
+      if (resizeSyncTimer !== undefined) {
+        window.clearTimeout(resizeSyncTimer);
+      }
+      resizeSyncTimer = window.setTimeout(syncActualMode, 120);
+    };
+
+    const unsubscribeDisplayMode = ipcApi.window.onDisplayModeChanged((mode) => {
+      applyActualMode(mode, true);
+    });
+
+    syncActualMode();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      disposed = true;
+      if (resizeSyncTimer !== undefined) {
+        window.clearTimeout(resizeSyncTimer);
+      }
+      unsubscribeDisplayMode();
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   useEffect(() => {

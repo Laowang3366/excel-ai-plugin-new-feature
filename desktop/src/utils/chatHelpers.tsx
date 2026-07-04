@@ -137,10 +137,37 @@ export function formatDuration(totalSeconds: number | undefined, language: AppLa
 // 标题与选区
 // ============================================================
 
+const MODULE_INTERNAL_LINE_PREFIXES = [
+  "模块指令：",
+  "交付要求：",
+  "交付方式：",
+];
+
+const MODULE_INTERNAL_EXACT_LINES = new Set([
+  "数据源选区：未指定，请读取工作簿快照后自主判断。",
+  "答案参考样例：未指定。",
+  "答案填入锚点/选区：由 Agent 选择空白区域",
+  "输出/操作锚点：未指定。",
+]);
+
+function isTaskModulePayload(lines: string[]): boolean {
+  return lines.some((line) => line.trim().length > 0) &&
+    (lines.find((line) => line.trim().length > 0)?.trim().startsWith("【功能模块：") ?? false);
+}
+
+function isHiddenModuleLine(line: string, taskModulePayload: boolean): boolean {
+  const trimmed = line.trim();
+  if (trimmed.startsWith("模块指令：")) return true;
+  if (!taskModulePayload) return false;
+  if (MODULE_INTERNAL_LINE_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) return true;
+  return MODULE_INTERNAL_EXACT_LINES.has(trimmed);
+}
+
 export function getUserFacingMessageContent(content: string): string {
-  return content
-    .split(/\r?\n/)
-    .filter((line) => !line.trim().startsWith("模块指令："))
+  const lines = content.split(/\r?\n/);
+  const taskModulePayload = isTaskModulePayload(lines);
+  return lines
+    .filter((line) => !isHiddenModuleLine(line, taskModulePayload))
     .join("\n")
     .trim();
 }

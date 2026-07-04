@@ -329,6 +329,7 @@ export interface ElectronAPI {
     setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
     getDisplayMode: () => Promise<WindowDisplayMode>;
     setDisplayMode: (mode: WindowDisplayMode) => Promise<WindowDisplayMode>;
+    onDisplayModeChanged: (callback: (mode: WindowDisplayMode) => void) => () => void;
   };
   settings: {
     get: (key: string) => Promise<unknown>;

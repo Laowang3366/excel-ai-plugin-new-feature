@@ -295,6 +295,78 @@ describe("handleAgentEvent", () => {
     expect(next.messages[1]).toBe(toolCall);
   });
 
+  it("clears stale streaming buffers when the final assistant message is completed", () => {
+    const finalMessage: TurnItem = {
+      type: "assistant_message",
+      id: "msg-final",
+      content: "处理完成",
+      phase: "final",
+      timestamp: 4000,
+    };
+    const current = makeState({
+      streamingContent: "",
+      streamingReasoning: "迟到的旧思考片段",
+      activeStreamingRound: 3,
+    });
+
+    const next = applyPatches(
+      current,
+      handleAgentEvent({ type: "item_completed", item: finalMessage } as AgentEvent, current, [])
+    );
+
+    expect(next.streamingContent).toBe("");
+    expect(next.streamingReasoning).toBe("");
+    expect(next.activeStreamingRound).toBeNull();
+    expect(next.messages).toEqual([finalMessage]);
+  });
+
+  it("does not clear newer round streaming buffers for an older commentary completion", () => {
+    const commentary: TurnItem = {
+      type: "assistant_message",
+      id: "msg-commentary",
+      content: "上一轮工具前说明",
+      phase: "commentary",
+      timestamp: 3000,
+    };
+    const current = makeState({
+      streamingContent: "下一轮正在输出",
+      streamingReasoning: "下一轮正在思考",
+      activeStreamingRound: 2,
+    });
+
+    const next = applyPatches(
+      current,
+      handleAgentEvent({ type: "item_completed", item: commentary } as AgentEvent, current, [])
+    );
+
+    expect(next.streamingContent).toBe("下一轮正在输出");
+    expect(next.streamingReasoning).toBe("下一轮正在思考");
+    expect(next.activeStreamingRound).toBe(2);
+    expect(next.messages).toEqual([commentary]);
+  });
+
+  it("does not clear newer round reasoning for an older completed reasoning item", () => {
+    const completed: TurnItem = {
+      type: "reasoning",
+      id: "reasoning-old",
+      summaryText: [],
+      rawContent: ["上一轮思考"],
+      timestamp: 3000,
+    };
+    const current = makeState({
+      streamingReasoning: "下一轮思考",
+      activeStreamingRound: 2,
+    });
+
+    const next = applyPatches(
+      current,
+      handleAgentEvent({ type: "item_completed", item: completed } as AgentEvent, current, [])
+    );
+
+    expect(next.streamingReasoning).toBe("下一轮思考");
+    expect(next.messages).toEqual([completed]);
+  });
+
   it("shows compaction progress items in the message list", () => {
     const progress: TurnItem = {
       type: "compact_progress",

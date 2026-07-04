@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getDisplayMode: () => ipcRenderer.invoke("window:getDisplayMode"),
     setDisplayMode: (mode: "normal" | "compact") =>
       ipcRenderer.invoke("window:setDisplayMode", mode),
+    onDisplayModeChanged: (callback: (mode: "normal" | "compact") => void) => {
+      const handler = (_event: any, mode: "normal" | "compact") => callback(mode);
+      ipcRenderer.on("window:displayModeChanged", handler);
+      return () => ipcRenderer.removeListener("window:displayModeChanged", handler);
+    },
   },
 
   // ---- 设置 ----

@@ -10,15 +10,69 @@
 import { BrowserWindow, ipcMain } from "electron";
 import type { AgentEvent } from "../shared/types";
 
+export const STREAM_DELTA_FORWARD_FLUSH_MS = 32;
+
+export type StreamDeltaPayload = {
+  delta: string;
+  itemType: "assistant_message" | "reasoning";
+  roundId?: number;
+  threadId?: string;
+  clientId?: string;
+};
+
 /** 挂起的工具审批：toolCallId → { resolve, reject } */
 export const pendingApprovals = new Map<string, {
   resolve: (approved: boolean, alwaysAllow?: boolean) => void;
   reject: (reason: string) => void;
 }>();
 
+export function mergeStreamDeltas(deltas: StreamDeltaPayload[]): StreamDeltaPayload[] {
+  const merged: StreamDeltaPayload[] = [];
+  for (const delta of deltas) {
+    const previous = merged[merged.length - 1];
+    if (
+      previous &&
+      previous.itemType === delta.itemType &&
+      previous.roundId === delta.roundId &&
+      previous.threadId === delta.threadId &&
+      previous.clientId === delta.clientId
+    ) {
+      previous.delta += delta.delta;
+    } else {
+      merged.push({ ...delta });
+    }
+  }
+  return merged;
+}
+
 export function createEventForwarder(mainWindowRef: () => BrowserWindow | null) {
+  let pendingStreamDeltas: StreamDeltaPayload[] = [];
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const flushStreamDeltas = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (pendingStreamDeltas.length === 0) return;
+    const batch = mergeStreamDeltas(pendingStreamDeltas);
+    pendingStreamDeltas = [];
+
+    const mw = mainWindowRef();
+    if (!mw || mw.isDestroyed()) return;
+    for (const payload of batch) {
+      mw.webContents.send("agent:event", { type: "stream_delta", ...payload });
+    }
+  };
+
+  const scheduleStreamDeltaFlush = () => {
+    if (flushTimer) return;
+    flushTimer = setTimeout(flushStreamDeltas, STREAM_DELTA_FORWARD_FLUSH_MS);
+  };
+
   return {
     onEvent: (agentEvent: AgentEvent) => {
+      flushStreamDeltas();
       const mw = mainWindowRef();
       if (mw && !mw.isDestroyed()) {
         mw.webContents.send("agent:event", agentEvent);
@@ -31,10 +85,8 @@ export function createEventForwarder(mainWindowRef: () => BrowserWindow | null) 
       threadId?: string,
       clientId?: string
     ) => {
-      const mw = mainWindowRef();
-      if (mw && !mw.isDestroyed()) {
-        mw.webContents.send("agent:streamDelta", { delta, itemType, roundId, threadId, clientId });
-      }
+      pendingStreamDeltas.push({ delta, itemType, roundId, threadId, clientId });
+      scheduleStreamDeltaFlush();
     },
   };
 }

@@ -48,6 +48,7 @@ export interface IIpcApi {
     setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
     getDisplayMode: () => Promise<WindowDisplayMode>;
     setDisplayMode: (mode: WindowDisplayMode) => Promise<WindowDisplayMode>;
+    onDisplayModeChanged: (callback: (mode: WindowDisplayMode) => void) => () => void;
   };
   settings: {
     get: (key: string) => Promise<unknown>;
@@ -258,6 +259,11 @@ export const ipcApi: IIpcApi = {
       const raw = getRaw();
       if (!raw?.window.setDisplayMode) return "normal";
       return raw.window.setDisplayMode(mode);
+    },
+    onDisplayModeChanged: (callback) => {
+      const raw = getRaw();
+      if (!raw?.window.onDisplayModeChanged) return () => {};
+      return raw.window.onDisplayModeChanged(callback);
     },
   },
 
@@ -630,6 +636,7 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       setAlwaysOnTop: async () => false,
       getDisplayMode: async () => "normal",
       setDisplayMode: async (mode) => mode,
+      onDisplayModeChanged: () => () => {},
     },
     settings: {
       get: async () => undefined,
