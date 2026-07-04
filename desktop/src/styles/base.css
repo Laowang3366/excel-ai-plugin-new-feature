@@ -4,6 +4,13 @@
   padding: 0;
 }
 
+html {
+  width: 100vw;
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;
@@ -11,11 +18,15 @@ body {
   color: var(--text-primary);
   background: var(--bg-page);
   overflow: hidden;
+  width: 100vw;
   height: 100vh;
+  min-width: 0;
 }
 
 #root {
+  width: 100vw;
   height: 100vh;
+  min-width: 0;
   overflow: hidden;
 }
 /* ============================================================
@@ -31,4 +42,3 @@ body {
 .chat-messages::-webkit-scrollbar-thumb,
 .settings-page::-webkit-scrollbar-thumb,
 .sidebar-content::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
-

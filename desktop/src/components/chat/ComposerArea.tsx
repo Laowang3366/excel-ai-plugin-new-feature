@@ -23,6 +23,12 @@ import { ModelQuickSwitch } from "../chat/ModelQuickSwitch";
 import { AttachmentImagePreview } from "../chat/AttachmentImagePreview";
 import type { SettingsSection } from "../SettingsPage";
 import {
+  buildReasoningOptions,
+  coerceReasoningMode,
+  defaultReasoningModeForOptions,
+  resolveReasoningOptionValues,
+} from "../../utils/reasoningSupport";
+import {
   Square,
   ArrowUp,
   Plus,
@@ -238,23 +244,16 @@ export function ComposerArea({
               const activeModel = activeProvider?.model || "";
               const activeMc = (activeProvider?.modelConfigs || []).find(m => m.name === activeModel);
 
-              // 推理等级选项：优先模型级 → 供应商级 → 空
-              const reasoningOptions = (() => {
-                // 模型级（在 EditProviderDialog/ModelConfigList 中配置的 per-model reasoningOptions）
-                if (activeMc?.reasoningOptions && activeMc.reasoningOptions.length >= 2) {
-                  const labels: Record<string, string> = language === "zh-CN"
-                    ? { off: "关闭", low: "低", medium: "中", high: "高", max: "极高" }
-                    : { off: "Off", low: "Low", medium: "Medium", high: "High", max: "Max" };
-                  return activeMc.reasoningOptions.map(v => ({
-                    value: v,
-                    label: labels[v] || v,
-                  }));
-                }
-                // 供应商级
-                return activeTemplate?.reasoningOptions || [];
-              })();
-
-              const currentMode = activeMc?.reasoningMode || activeProvider?.reasoningMode || activeTemplate?.defaultReasoningMode || "off";
+              const reasoningOptionValues = activeProvider
+                ? resolveReasoningOptionValues(activeProvider, activeTemplate, activeMc)
+                : [];
+              const reasoningOptions = buildReasoningOptions(reasoningOptionValues, language);
+              const defaultMode = defaultReasoningModeForOptions(reasoningOptionValues, activeTemplate?.defaultReasoningMode);
+              const currentMode = coerceReasoningMode(
+                activeMc?.reasoningMode || activeProvider?.reasoningMode,
+                reasoningOptionValues,
+                defaultMode,
+              );
               const isReasoningActive = currentMode !== "off";
               if (reasoningOptions.length === 0) return null;
               return (

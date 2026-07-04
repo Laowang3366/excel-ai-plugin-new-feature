@@ -140,6 +140,7 @@ export function setWindowDisplayMode(
     }
 
     displayMode = mode;
+    requestRendererLayoutRefresh(mainWindow);
     mainWindow.show();
     mainWindow.focus();
     return displayMode;
@@ -170,6 +171,21 @@ function applyCompactWindowMode(mainWindow: BrowserWindow): void {
   mainWindow.setSkipTaskbar(false);
   applyWindowTheme(mainWindow);
   mainWindow.setBounds(getSideDockBounds(mainWindow, COMPACT_SIZE.width), true);
+}
+
+function requestRendererLayoutRefresh(mainWindow: BrowserWindow): void {
+  if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+
+  const dispatchResize = () => {
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+    void mainWindow.webContents.executeJavaScript(
+      "window.dispatchEvent(new Event('resize')); document.documentElement.offsetWidth;",
+      true
+    ).catch(() => undefined);
+  };
+
+  dispatchResize();
+  setTimeout(dispatchResize, 80);
 }
 
 function getCurrentWorkArea(mainWindow: BrowserWindow): Electron.Rectangle {

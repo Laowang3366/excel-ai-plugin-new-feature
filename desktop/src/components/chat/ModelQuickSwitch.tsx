@@ -16,6 +16,11 @@ import { useSettingsStore, PROVIDER_TEMPLATES } from "../../store/settingsStore"
 import { Check, ChevronDown, Settings } from "../common/IconMap";
 import { getAppText } from "../../i18n";
 import type { SettingsSection } from "../SettingsPage";
+import {
+  coerceReasoningMode,
+  defaultReasoningModeForOptions,
+  resolveReasoningOptionValues,
+} from "../../utils/reasoningSupport";
 
 interface ModelQuickSwitchProps {
   onOpenSettings?: (section?: SettingsSection) => void;
@@ -94,12 +99,20 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
     // 更新供应商的模型选择
     const provider = providers[providerId];
     const patch: Record<string, unknown> = { model: modelId };
-    // 如果供应商没有 reasoningMode，应用模板默认值
-    if (provider && !provider.reasoningMode) {
+    if (provider) {
       const template = PROVIDER_TEMPLATES.find(t => t.provider === provider.provider);
-      if (template?.defaultReasoningMode) {
-        patch.reasoningMode = template.defaultReasoningMode;
-      }
+      const modelConfig = provider.modelConfigs?.find((item) => item.name === modelId);
+      const optionValues = resolveReasoningOptionValues(
+        { ...provider, model: modelId },
+        template,
+        modelConfig,
+      );
+      const defaultMode = defaultReasoningModeForOptions(optionValues, template?.defaultReasoningMode);
+      patch.reasoningMode = coerceReasoningMode(
+        modelConfig?.reasoningMode || provider.reasoningMode,
+        optionValues,
+        defaultMode,
+      );
     }
     updateProvider(providerId, patch);
     setOpen(false);

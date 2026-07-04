@@ -22,6 +22,7 @@ export interface ReasoningModeSelectProps {
   value: ReasoningMode;
   defaultMode: ReasoningMode;
   onChange: (mode: ReasoningMode) => void;
+  hint?: string;
 }
 
 export const ReasoningModeSelect: React.FC<ReasoningModeSelectProps> = ({
@@ -29,6 +30,7 @@ export const ReasoningModeSelect: React.FC<ReasoningModeSelectProps> = ({
   value,
   defaultMode,
   onChange,
+  hint,
 }) => {
   const { language } = useSettingsStore();
   const text = MODEL_TEXT[language];
@@ -47,7 +49,7 @@ export const ReasoningModeSelect: React.FC<ReasoningModeSelectProps> = ({
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-        <span className="form-hint">{text.reasoningModeHint}</span>
+        <span className="form-hint">{hint || text.reasoningModeHint}</span>
       </div>
     );
   }
@@ -63,7 +65,7 @@ export const ReasoningModeSelect: React.FC<ReasoningModeSelectProps> = ({
         />
         {text.enableThinking}
       </label>
-      <span className="form-hint">{text.thinkingHint}</span>
+      <span className="form-hint">{hint || text.thinkingHint}</span>
     </div>
   );
 };

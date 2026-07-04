@@ -14,6 +14,7 @@ import { create } from "zustand";
 import type { AiProviderConfig, ReasoningMode } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { DEFAULT_CONTEXT_WINDOW } from "../utils/modelContextWindows";
+import { normalizeProviderReasoningConfig } from "../utils/reasoningSupport";
 
 /** 固定的文件夹 */
 export interface PinnedFolder {
@@ -297,6 +298,14 @@ export const API_FORMATS = [
   { value: "responses", label: "OpenAI Responses (/responses)" },
 ] as const;
 
+function getProviderTemplate(provider: Pick<AiProviderConfig, "provider">): ProviderTemplate | undefined {
+  return PROVIDER_TEMPLATES.find((template) => template.provider === provider.provider);
+}
+
+function normalizeProviderConfig(provider: AiProviderConfig): AiProviderConfig {
+  return normalizeProviderReasoningConfig(provider, getProviderTemplate(provider));
+}
+
 // ============================================================
 // 状态类型
 // ============================================================
@@ -469,10 +478,15 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
         const providers = allSettings.aiProviders as Record<string, AiProviderConfig>;
         let needsMigration = false;
         for (const id of Object.keys(providers)) {
-          const p = providers[id];
+          let p = providers[id];
           if (!p.reasoningMode) {
             needsMigration = true;
-            p.reasoningMode = p.enableReasoning ? "high" : "off";
+            p = { ...p, reasoningMode: p.enableReasoning ? "high" : "off" };
+          }
+          const normalized = normalizeProviderConfig(p);
+          if (JSON.stringify(normalized) !== JSON.stringify(providers[id])) {
+            needsMigration = true;
+            providers[id] = normalized;
           }
         }
         set({ providers });
@@ -560,24 +574,28 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   updateProvider: (id: string, patch: Partial<AiProviderConfig>) => {
-    set((s) => ({
-      providers: {
-        ...s.providers,
-        [id]: { ...s.providers[id], ...patch },
-      },
-      isConfigured: get().checkConfigured(),
-    }));
+    set((s) => {
+      const nextProvider = normalizeProviderConfig({ ...s.providers[id], ...patch });
+      return {
+        providers: {
+          ...s.providers,
+          [id]: nextProvider,
+        },
+        isConfigured: get().checkConfigured(),
+      };
+    });
     savePartial(["providers"], get);
   },
 
   addProvider: (config: AiProviderConfig) => {
     set((s) => {
-      const newProviders = { ...s.providers, [config.id]: config };
-      const newActiveId = s.activeProviderId || config.id;
+      const normalizedConfig = normalizeProviderConfig(config);
+      const newProviders = { ...s.providers, [normalizedConfig.id]: normalizedConfig };
+      const newActiveId = s.activeProviderId || normalizedConfig.id;
       return {
         providers: newProviders,
         activeProviderId: newActiveId,
-        isConfigured: !!(config.apiKey && config.baseUrl && (config.model || config.defaultModel)),
+        isConfigured: !!(normalizedConfig.apiKey && normalizedConfig.baseUrl && (normalizedConfig.model || normalizedConfig.defaultModel)),
       };
     });
     savePartial(["providers", "activeProviderId"], get);

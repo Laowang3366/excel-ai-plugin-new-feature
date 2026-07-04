@@ -255,13 +255,7 @@ export interface ModelConfig {
   compHash?: string;
   /** 该模型的思考等级，覆盖供应商级默认值 */
   reasoningMode?: ReasoningMode;
-  /**
-   * 该模型支持的推理等级选项。
-   * 当模型与供应商默认的推理等级不同时使用（如第三方部署的 deepseek-v4-flash
-   * 只支持 off/on，而官方 API 支持 off/high/max）。
-   * 格式：["off", "high", "max"] 或 ["off", "high"]。
-   * 未设置时继承供应商级别的 reasoningOptions。
-   */
+  /** 旧配置兼容字段：新版本会按供应商/API/模型自动推断，不再暴露给用户手动配置。 */
   reasoningOptions?: string[];
 }
 

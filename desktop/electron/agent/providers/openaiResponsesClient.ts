@@ -21,6 +21,8 @@ type ResponseToolState = {
 type ResponseParserState = {
   toolByItemId: Map<string, ResponseToolState>;
   itemIdByCallId: Map<string, string>;
+  emittedText: string;
+  textByPartKey: Map<string, string>;
 };
 
 export class OpenAIResponsesClient extends OpenAICompatibleClient {
@@ -85,9 +87,11 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
       (params.enableReasoning || this.config.enableReasoning
         ? (params.reasoningEffort || "high")
         : undefined);
-    if (effectiveMode && effectiveMode !== "off") {
+    if (effectiveMode) {
+      const effort = toOpenAIResponsesReasoningEffort(effectiveMode);
       requestBody.reasoning = {
-        effort: effectiveMode === "max" ? "xhigh" : effectiveMode,
+        effort,
+        ...(effort !== "none" ? { summary: "auto" } : {}),
       };
     }
 
@@ -161,6 +165,8 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
     const state: ResponseParserState = {
       toolByItemId: new Map(),
       itemIdByCallId: new Map(),
+      emittedText: "",
+      textByPartKey: new Map(),
     };
     let buffer = "";
 
@@ -199,7 +205,20 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
   ): Generator<AIStreamEvent> {
     switch (data.type) {
       case "response.output_text.delta":
-        if (data.delta) yield { type: "text_delta", delta: data.delta };
+        if (data.delta) {
+          const delta = String(data.delta);
+          appendResponseTextPart(data, delta, state);
+          state.emittedText += delta;
+          yield { type: "text_delta", delta };
+        }
+        return;
+
+      case "response.output_text.done":
+        yield* emitMissingResponseTextPart(data, data.text, state);
+        return;
+
+      case "response.content_part.done":
+        yield* emitMissingResponseTextPart(data, extractResponseContentText(data.part), state);
         return;
 
       case "response.reasoning_summary_text.delta":
@@ -245,11 +264,14 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
             toolName: tool.name,
             arguments: tool.arguments,
           };
+        } else if (item?.type === "message") {
+          yield* emitMissingResponseOutputItemText(item, state);
         }
         return;
       }
 
       case "response.completed": {
+        yield* emitMissingCompletedResponseText(data.response, state);
         const usage = normalizeResponsesUsage(data.response?.usage);
         if (usage) yield { type: "usage", usage };
         const finishReason = responseContainsFunctionCall(data.response) ? "tool_calls" : "stop";
@@ -347,6 +369,84 @@ function getToolState(data: any, state: ResponseParserState): ResponseToolState 
     return upsertToolState({ id: data.item_id || data.call_id, call_id: data.call_id }, state);
   }
   return undefined;
+}
+
+function responseTextPartKey(data: any, fallbackIndex = 0): string {
+  const itemId = data?.item_id || data?.item?.id || `output:${data?.output_index ?? "unknown"}`;
+  const contentIndex = data?.content_index ?? data?.part_index ?? fallbackIndex;
+  return `${itemId}:${contentIndex}`;
+}
+
+function appendResponseTextPart(data: any, delta: string, state: ResponseParserState): void {
+  const key = responseTextPartKey(data);
+  state.textByPartKey.set(key, `${state.textByPartKey.get(key) || ""}${delta}`);
+}
+
+function *emitMissingResponseTextPart(
+  data: any,
+  fullText: unknown,
+  state: ResponseParserState,
+  fallbackIndex = 0
+): Generator<AIStreamEvent> {
+  if (typeof fullText !== "string" || !fullText) return;
+
+  const key = responseTextPartKey(data, fallbackIndex);
+  const currentText = state.textByPartKey.get(key) || "";
+  const delta = missingSuffix(fullText, currentText);
+  state.textByPartKey.set(key, fullText);
+  if (!delta) return;
+
+  state.emittedText += delta;
+  yield { type: "text_delta", delta };
+}
+
+function *emitMissingResponseOutputItemText(
+  item: any,
+  state: ResponseParserState
+): Generator<AIStreamEvent> {
+  if (!Array.isArray(item?.content)) return;
+
+  for (let index = 0; index < item.content.length; index++) {
+    const text = extractResponseContentText(item.content[index]);
+    yield* emitMissingResponseTextPart(
+      { item_id: item.id, content_index: index },
+      text,
+      state,
+      index
+    );
+  }
+}
+
+function *emitMissingCompletedResponseText(
+  response: any,
+  state: ResponseParserState
+): Generator<AIStreamEvent> {
+  const fullText = extractResponsesText(response);
+  const delta = missingSuffix(fullText, state.emittedText);
+  if (!delta) return;
+
+  state.emittedText += delta;
+  yield { type: "text_delta", delta };
+}
+
+function extractResponseContentText(content: any): string {
+  if (typeof content?.text === "string") return content.text;
+  if (typeof content?.content === "string") return content.content;
+  if (typeof content?.output_text === "string") return content.output_text;
+  return "";
+}
+
+function missingSuffix(fullText: string, currentText: string): string {
+  if (!fullText) return "";
+  if (!currentText) return fullText;
+  if (fullText.startsWith(currentText)) return fullText.slice(currentText.length);
+  return "";
+}
+
+function toOpenAIResponsesReasoningEffort(mode: ReasoningMode): string {
+  if (mode === "off") return "none";
+  if (mode === "max") return "xhigh";
+  return mode;
 }
 
 function extractResponsesText(data: any): string {

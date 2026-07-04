@@ -9,6 +9,19 @@ const baseConfig = {
   model: "gpt-test",
 };
 
+async function collectStreamEvents(client: OpenAIResponsesClient, sse: string) {
+  const fetchMock = vi.fn(async () => new Response(sse, { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  const events = [];
+  for await (const event of client.streamChat({
+    messages: [{ role: "user", content: "test" }],
+  })) {
+    events.push(event);
+  }
+  return { events, fetchMock };
+}
+
 describe("OpenAIResponsesClient", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -72,6 +85,7 @@ describe("OpenAIResponsesClient", () => {
       max_output_tokens: 3000,
       temperature: 0,
     });
+    expect(body.reasoning).toEqual({ effort: "none" });
     expect(body.input[0].content).toEqual([
       { type: "input_text", text: "识别这个文件" },
       {
@@ -85,6 +99,88 @@ describe("OpenAIResponsesClient", () => {
         detail: "high",
       },
     ]);
+  });
+
+  it("sends OpenAI reasoning effort and visible summary request when enabled", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) =>
+      new Response(JSON.stringify({
+        output_text: "done",
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+    await client.chat({
+      messages: [{ role: "user", content: "hi" }],
+      reasoningMode: "max",
+    });
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    expect(body.reasoning).toEqual({ effort: "xhigh", summary: "auto" });
+  });
+
+  it("emits missing text from output_text.done without duplicating prior deltas", async () => {
+    const sse = [
+      "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_1\",\"content_index\":0,\"delta\":\"Hello\"}",
+      "event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_1\",\"content_index\":0,\"text\":\"Hello world\"}",
+      "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output_text\":\"Hello world\",\"usage\":{\"input_tokens\":2,\"output_tokens\":3}}}",
+      "",
+    ].join("\n\n");
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+    const { events } = await collectStreamEvents(client, sse);
+
+    expect(events.filter((event) => event.type === "text_delta")).toEqual([
+      { type: "text_delta", delta: "Hello" },
+      { type: "text_delta", delta: " world" },
+    ]);
+  });
+
+  it("emits text from content_part.done when no delta event was streamed", async () => {
+    const sse = [
+      "event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"item_id\":\"msg_1\",\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"Part text\"}}",
+      "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"type\":\"message\",\"id\":\"msg_1\",\"content\":[{\"type\":\"output_text\",\"text\":\"Part text\"}]}]}}",
+      "",
+    ].join("\n\n");
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+    const { events } = await collectStreamEvents(client, sse);
+
+    expect(events.filter((event) => event.type === "text_delta")).toEqual([
+      { type: "text_delta", delta: "Part text" },
+    ]);
+  });
+
+  it("emits text from message output_item.done when no text delta was streamed", async () => {
+    const sse = [
+      "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"item\":{\"type\":\"message\",\"id\":\"msg_1\",\"content\":[{\"type\":\"output_text\",\"text\":\"Item text\"}]}}",
+      "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"type\":\"message\",\"id\":\"msg_1\",\"content\":[{\"type\":\"output_text\",\"text\":\"Item text\"}]}]}}",
+      "",
+    ].join("\n\n");
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+    const { events } = await collectStreamEvents(client, sse);
+
+    expect(events.filter((event) => event.type === "text_delta")).toEqual([
+      { type: "text_delta", delta: "Item text" },
+    ]);
+  });
+
+  it("emits final response text from response.completed as a last fallback", async () => {
+    const sse = [
+      "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"type\":\"message\",\"id\":\"msg_1\",\"content\":[{\"type\":\"output_text\",\"text\":\"Completed text\"}]}],\"usage\":{\"input_tokens\":2,\"output_tokens\":2}}}",
+      "",
+    ].join("\n\n");
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+    const { events } = await collectStreamEvents(client, sse);
+
+    expect(events.slice(0, 1)).toEqual([
+      { type: "text_delta", delta: "Completed text" },
+    ]);
+    expect(events[events.length - 1]).toEqual({ type: "done", finishReason: "stop" });
   });
 
   it("parses Responses streaming function calls into internal tool events", async () => {

@@ -43,6 +43,13 @@ import {
 import { useTestConnection } from "./useTestConnection";
 import { ReasoningModeSelect } from "./ReasoningModeSelect";
 import { ModelConfigList } from "./ModelConfigList";
+import {
+  buildReasoningOptions,
+  coerceReasoningMode,
+  defaultReasoningModeForOptions,
+  formatReasoningOptionLabels,
+  resolveReasoningOptionValues,
+} from "../../utils/reasoningSupport";
 
 // ============================================================
 // 类型定义
@@ -79,6 +86,26 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
   // 当前选中的模板
   const selectedTemplate = PROVIDER_TEMPLATES.find((t) => t.id === selectedTemplateId) || null;
   const isAggregation = selectedTemplate?.category === "aggregation";
+  const reasoningOptionValues = resolveReasoningOptionValues(
+    {
+      provider: selectedTemplate?.provider || "custom",
+      apiFormat,
+      model,
+    },
+    selectedTemplate,
+  );
+  const defaultReasoningMode = defaultReasoningModeForOptions(
+    reasoningOptionValues,
+    selectedTemplate?.defaultReasoningMode,
+  );
+  const effectiveReasoningMode = coerceReasoningMode(
+    reasoningMode,
+    reasoningOptionValues,
+    defaultReasoningMode,
+  );
+  const reasoningAutoHint = language === "zh-CN"
+    ? `已根据当前供应商/API/模型自动适配：${formatReasoningOptionLabels(reasoningOptionValues, language)}`
+    : `Automatically adapted for this provider/API/model: ${formatReasoningOptionLabels(reasoningOptionValues, language)}`;
 
   // 选择模板后自动填充
   const handleSelectTemplate = (templateId: string) => {
@@ -144,8 +171,8 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
       model: finalModel,
       defaultBaseUrl: selectedTemplate?.baseUrl || baseUrl,
       defaultModel: selectedTemplate?.defaultModel || "",
-      enableReasoning: reasoningMode !== "off" ? true : undefined,
-      reasoningMode,
+      enableReasoning: effectiveReasoningMode !== "off" ? true : undefined,
+      reasoningMode: effectiveReasoningMode,
       apiFormat,
       models: selectedTemplate?.presetModels || undefined,
       modelConfigs: modelConfigs.length > 0 ? modelConfigs : undefined,
@@ -330,12 +357,13 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
             </div>
 
             {/* 思考等级 */}
-            {selectedTemplate?.reasoningOptions && selectedTemplate.reasoningOptions.length > 0 && (
+            {reasoningOptionValues.length > 0 && (
               <ReasoningModeSelect
-                reasoningOptions={selectedTemplate.reasoningOptions}
-                value={reasoningMode}
-                defaultMode={selectedTemplate.defaultReasoningMode}
+                reasoningOptions={buildReasoningOptions(reasoningOptionValues, language)}
+                value={effectiveReasoningMode}
+                defaultMode={defaultReasoningMode}
                 onChange={(mode) => setReasoningMode(mode)}
+                hint={reasoningAutoHint}
               />
             )}
 

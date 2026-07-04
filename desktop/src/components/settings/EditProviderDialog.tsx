@@ -33,6 +33,13 @@ import { ReasoningModeSelect } from "./ReasoningModeSelect";
 import { ModelConfigList } from "./ModelConfigList";
 import { formatTokensAsK } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
+import {
+  buildReasoningOptions,
+  coerceReasoningMode,
+  defaultReasoningModeForOptions,
+  formatReasoningOptionLabels,
+  resolveReasoningOptionValues,
+} from "../../utils/reasoningSupport";
 
 // ============================================================
 // 类型定义
@@ -68,40 +75,32 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
   const [showApiKey, setShowApiKey] = useState(false);
   const [fetchingModels, setFetchingModels] = useState(false);
 
-  /** 当前模型手动选择的推理等级选项（覆盖供应商级的默认值） */
-  const [selectedReasoningOptions, setSelectedReasoningOptions] = useState<string[] | undefined>(() => {
-    const mc = (provider.modelConfigs || []).find((m) => m.name === provider.model);
-    return mc?.reasoningOptions;
-  });
-
   const { testing, testResult, testConnection } = useTestConnection({
     testFailedText: text.testFailed,
   });
-
-  // 推理等级选项的标签映射
-  const labels = language === "zh-CN"
-    ? { off: "关闭", low: "低", medium: "中", high: "高", max: "极高" }
-    : { off: "Off", low: "Low", medium: "Medium", high: "High", max: "Max" };
 
   // 判断是否为聚合类供应商（无预设模型）
   const template = PROVIDER_TEMPLATES.find((t) => t.provider === provider.provider);
   const isAggregation = template?.category === "aggregation";
 
-  /**
-   * 获取当前模型的推理等级选项
-   * 优先使用手动选择的 reasoningOptions，其次 modelConfig，最后供应商级别
-   */
-  const effectiveReasoningOptions = (() => {
-    // 手动选择的推理等级选项
-    if (selectedReasoningOptions && selectedReasoningOptions.length >= 2) {
-      return selectedReasoningOptions.map((v) => ({
-        value: v,
-        label: labels[v as keyof typeof labels] || v,
-      }));
-    }
-    // 兜底：供应商级别
-    return template?.reasoningOptions || [];
-  })();
+  const activeModelConfig = modelConfigs.find((m) => m.name === model);
+  const reasoningOptionValues = resolveReasoningOptionValues(
+    { ...provider, apiFormat, model },
+    template,
+    activeModelConfig,
+  );
+  const defaultReasoningMode = defaultReasoningModeForOptions(
+    reasoningOptionValues,
+    template?.defaultReasoningMode,
+  );
+  const effectiveReasoningMode = coerceReasoningMode(
+    activeModelConfig?.reasoningMode || reasoningMode,
+    reasoningOptionValues,
+    defaultReasoningMode,
+  );
+  const reasoningAutoHint = language === "zh-CN"
+    ? `已根据当前供应商/API/模型自动适配：${formatReasoningOptionLabels(reasoningOptionValues, language)}`
+    : `Automatically adapted for this provider/API/model: ${formatReasoningOptionLabels(reasoningOptionValues, language)}`;
 
   // 可选模型列表
   const availableModels = provider.models || [];
@@ -141,22 +140,31 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
   const applyModelConfig = useCallback((newModel: string) => {
     const mc = modelConfigs.find((m) => m.name === newModel);
     if (mc?.contextWindowSize) setContextWindowSize(mc.contextWindowSize);
-    if (mc?.reasoningMode) setReasoningMode(mc.reasoningMode);
-    setSelectedReasoningOptions(mc?.reasoningOptions);
-  }, [modelConfigs]);
+    const optionValues = resolveReasoningOptionValues(
+      { ...provider, apiFormat, model: newModel },
+      template,
+      mc,
+    );
+    const fallbackMode = defaultReasoningModeForOptions(optionValues, template?.defaultReasoningMode);
+    setReasoningMode(coerceReasoningMode(mc?.reasoningMode || reasoningMode, optionValues, fallbackMode));
+  }, [apiFormat, modelConfigs, provider, reasoningMode, template]);
 
   // 保存：收集所有变更并提交
   const handleSave = () => {
     const patch: Partial<AiProviderConfig> = {};
+    const normalizedModelConfigs = modelConfigs.map((modelConfig) => {
+      const { reasoningOptions: _legacyReasoningOptions, ...rest } = modelConfig;
+      return rest;
+    });
     if (name !== provider.name) patch.name = name;
     if (apiFormat !== (provider.apiFormat || "openai")) patch.apiFormat = apiFormat;
     if (baseUrl !== provider.baseUrl) patch.baseUrl = baseUrl;
     if (apiKey !== provider.apiKey) patch.apiKey = apiKey;
     if (model !== provider.model) patch.model = model;
     if (contextWindowSize !== provider.contextWindowSize) patch.contextWindowSize = contextWindowSize;
-    if (reasoningMode !== (provider.reasoningMode || "off")) patch.reasoningMode = reasoningMode;
-    if (JSON.stringify(modelConfigs) !== JSON.stringify(provider.modelConfigs || [])) {
-      patch.modelConfigs = modelConfigs;
+    if (effectiveReasoningMode !== (provider.reasoningMode || "off")) patch.reasoningMode = effectiveReasoningMode;
+    if (JSON.stringify(normalizedModelConfigs) !== JSON.stringify(provider.modelConfigs || [])) {
+      patch.modelConfigs = normalizedModelConfigs;
     }
     onSave(patch);
   };
@@ -385,48 +393,16 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
             )}
           </div>
 
-          {/* 思考等级 — 优先使用模型的 reasoningOptions */}
-          {effectiveReasoningOptions.length > 0 && (
+          {/* 思考等级 — 自动根据供应商/API/模型适配 */}
+          {reasoningOptionValues.length > 0 && (
             <ReasoningModeSelect
-              reasoningOptions={effectiveReasoningOptions}
-              value={reasoningMode}
-              defaultMode={template?.defaultReasoningMode || "off"}
+              reasoningOptions={buildReasoningOptions(reasoningOptionValues, language)}
+              value={effectiveReasoningMode}
+              defaultMode={defaultReasoningMode}
               onChange={(mode) => setReasoningMode(mode)}
+              hint={reasoningAutoHint}
             />
           )}
-
-          {/* 推理等级选项（覆盖供应商默认）— 所有供应商可用 */}
-          <div className="form-group">
-            <label>{text.reasoningOptions}</label>
-            <select
-              className="form-input reasoning-select"
-              value={selectedReasoningOptions?.join(",") || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                const newOptions = val ? val.split(",") : undefined;
-                setSelectedReasoningOptions(newOptions);
-
-                // 同步保存到 modelConfigs
-                const mcIdx = modelConfigs.findIndex((m) => m.name === model);
-                const newConfigs = [...modelConfigs];
-                if (mcIdx >= 0) {
-                  newConfigs[mcIdx] = {
-                    ...newConfigs[mcIdx],
-                    reasoningOptions: newOptions,
-                  };
-                } else if (newOptions && model) {
-                  newConfigs.push({ name: model, reasoningOptions: newOptions });
-                }
-                setModelConfigs(newConfigs);
-              }}
-            >
-              <option value="">{text.defaultValue}</option>
-              <option value="off,high">{labels.off} / {labels.high}</option>
-              <option value="off,high,max">{labels.off} / {labels.high} / {labels.max}</option>
-              <option value="off,low,medium,high,max">{labels.off} / {labels.low} / {labels.medium} / {labels.high} / {labels.max}</option>
-            </select>
-            <span className="form-hint">{text.reasoningOptionsHint}</span>
-          </div>
 
           {/* 聚合平台：模型列表管理 */}
           {isAggregation && (
@@ -435,12 +411,7 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
               <ModelConfigList
                 modelConfigs={modelConfigs}
                 currentModel={model}
-                onModelConfigsChange={(newConfigs) => {
-                  setModelConfigs(newConfigs);
-                  // 同步当前模型的 selectedReasoningOptions
-                  const currentMc = newConfigs.find((m) => m.name === model);
-                  setSelectedReasoningOptions(currentMc?.reasoningOptions);
-                }}
+                onModelConfigsChange={(newConfigs) => setModelConfigs(newConfigs)}
               />
             </div>
           )}

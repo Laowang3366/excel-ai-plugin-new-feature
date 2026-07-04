@@ -10,35 +10,9 @@
 
 import React, { useRef } from "react";
 import type { AiProviderConfig, ModelConfig } from "../../electronApi";
-import { Trash2, Plus, Brain } from "../common/IconMap";
+import { Trash2, Plus } from "../common/IconMap";
 import { MODEL_TEXT } from "./modelSettingsI18n";
 import { useSettingsStore } from "../../store/settingsStore";
-
-/** 默认推理等级选项映射（用于 UI 标签） */
-const REASONING_LABELS: Record<string, string> = {
-  off: "关闭",
-  low: "低",
-  medium: "中",
-  high: "高",
-  max: "极高",
-};
-const REASONING_LABELS_EN: Record<string, string> = {
-  off: "Off",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  max: "Max",
-};
-
-/** 预定义的推理等级选项组 */
-export const REASONING_OPTIONS_PRESETS = {
-  /** off/low/medium/high/max — 完整五档 */
-  FULL: ["off", "low", "medium", "high", "max"] as const,
-  /** off/high/max — 仅高/极高两档（DeepSeek, 智谱） */
-  HIGH_MAX: ["off", "high", "max"] as const,
-  /** off/high — 开关型（Kimi, 聚合平台） */
-  TOGGLE: ["off", "high"] as const,
-};
 
 export interface ModelConfigListProps {
   modelConfigs: ModelConfig[];
@@ -60,7 +34,6 @@ export const ModelConfigList: React.FC<ModelConfigListProps> = ({
   const { language } = useSettingsStore();
   const text = MODEL_TEXT[language];
   const addInputRef = useRef<HTMLInputElement>(null);
-  const labels = language === "zh-CN" ? REASONING_LABELS : REASONING_LABELS_EN;
 
   /** 添加一个模型 */
   const addModel = (name: string) => {
@@ -93,16 +66,6 @@ export const ModelConfigList: React.FC<ModelConfigListProps> = ({
     onModelConfigsChange(newConfigs);
   };
 
-  /** 更新第 idx 个模型的 reasoningOptions */
-  const updateReasoningOptions = (idx: number, options: string[] | undefined) => {
-    const newConfigs = [...modelConfigs];
-    newConfigs[idx] = {
-      ...newConfigs[idx],
-      reasoningOptions: options,
-    };
-    onModelConfigsChange(newConfigs);
-  };
-
   return (
     <div className="model-config-list">
       {modelConfigs.map((mc, idx) => (
@@ -124,24 +87,6 @@ export const ModelConfigList: React.FC<ModelConfigListProps> = ({
               step={1000}
               title={text.contextWindowSize}
             />
-            {/* 推理等级选项（可覆盖供应商级默认值） */}
-            <select
-              className="form-input model-config-reasoning"
-              value={mc.reasoningOptions?.join(",") || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                updateReasoningOptions(
-                  idx,
-                  val ? val.split(",") : undefined
-                );
-              }}
-              title={text.reasoningMode}
-            >
-              <option value="">{text.defaultValue}</option>
-              <option value="off,high">{labels.off} / {labels.high}</option>
-              <option value="off,high,max">{labels.off} / {labels.high} / {labels.max}</option>
-              <option value="off,low,medium,high,max">{labels.off} / {labels.low} / {labels.medium} / {labels.high} / {labels.max}</option>
-            </select>
             <button
               className="btn-icon-danger"
               onClick={() => removeModel(idx)}
@@ -150,11 +95,6 @@ export const ModelConfigList: React.FC<ModelConfigListProps> = ({
               <Trash2 size={13} />
             </button>
           </div>
-          {mc.reasoningOptions && (
-            <div className="model-config-hint">
-              <Brain size={12} /> {mc.reasoningOptions.map((r) => labels[r] || r).join(" → ")}
-            </div>
-          )}
         </div>
       ))}
       <div className="model-config-add">
