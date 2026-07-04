@@ -495,6 +495,37 @@ describe("SqliteStore", () => {
     expect(retrieved!.fileHash).toBe("abc123");
   });
 
+  it("should show indexed entries as sources even when source summaries are missing", () => {
+    store.bulkInsert([
+      sampleEntry({
+        id: "summary-id-1",
+        sourcePath: "/test/orphan.xlsx",
+        sourceName: "orphan.xlsx",
+        sourceType: "xlsx",
+        indexedAt: 1000,
+      }),
+      sampleEntry({
+        id: "summary-id-2",
+        sourcePath: "/test/orphan.xlsx",
+        sourceName: "orphan.xlsx",
+        sourceType: "xlsx",
+        indexedAt: 2000,
+      }),
+    ]);
+
+    const listed = store.listSources();
+
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      sourcePath: "/test/orphan.xlsx",
+      sourceName: "orphan.xlsx",
+      sourceType: "xlsx",
+      entryCount: 2,
+      firstIndexed: 1000,
+      lastIndexed: 2000,
+    });
+  });
+
   it("should handle empty vector search gracefully", () => {
     const results = store.searchByVector([1, 0, 0], 10);
     expect(results).toHaveLength(0);

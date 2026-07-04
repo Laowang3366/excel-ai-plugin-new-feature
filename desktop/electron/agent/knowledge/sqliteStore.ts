@@ -330,6 +330,7 @@ export class SqliteStore {
 
   /** 列出所有已索引的来源 */
   listSources(): KnowledgeSource[] {
+    this.ensureSourceSummaries();
     const rows = this.db
       .prepare("SELECT * FROM knowledge_sources ORDER BY last_indexed DESC")
       .all() as Record<string, any>[];
@@ -468,6 +469,53 @@ export class SqliteStore {
       lastIndexed: row.last_indexed,
       fileHash: row.file_hash,
     };
+  }
+
+  private ensureSourceSummaries(): void {
+    const rows = this.db
+      .prepare(
+        `SELECT
+           source_path,
+           source_name,
+           source_type,
+           COUNT(*) as entry_count,
+           MIN(indexed_at) as first_indexed,
+           MAX(indexed_at) as last_indexed
+         FROM knowledge_entries
+         GROUP BY source_path, source_name, source_type`
+      )
+      .all() as Record<string, any>[];
+
+    if (rows.length === 0) return;
+
+    const existingRows = this.db
+      .prepare("SELECT source_path FROM knowledge_sources")
+      .all() as Array<{ source_path: string }>;
+    const existing = new Set(existingRows.map((row) => row.source_path));
+
+    const insert = this.db.prepare(
+      `INSERT INTO knowledge_sources
+        (source_path, source_name, source_type, entry_count,
+         first_indexed, last_indexed, file_hash)
+       VALUES
+        (?, ?, ?, ?,
+         ?, ?, ?)`
+    );
+
+    runSqliteTransaction(this.db, () => {
+      for (const row of rows) {
+        if (existing.has(row.source_path)) continue;
+        insert.run(
+          row.source_path,
+          row.source_name,
+          row.source_type,
+          row.entry_count,
+          row.first_indexed,
+          row.last_indexed,
+          ""
+        );
+      }
+    });
   }
 
   /** 余弦相似度 */

@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { BookOpen, Database, FolderOpen, FileScan, Trash2, RefreshCw, Search, Check, X } from "../common/IconMap";
+import { BookOpen, Database, FolderOpen, FileScan, Trash2, RefreshCw, Search, Check, X, FileText } from "../common/IconMap";
 import { useSettingsStore } from "../../store/settingsStore";
 import { ipcApi } from "../../services/ipcApi";
 
@@ -26,6 +26,8 @@ const KNOWLEDGE_TEXT = {
     sourcesTitle: "知识来源",
     sourcesDesc: "已索引的文件列表，AI 在对话时会自动参考这些知识。",
     noSources: "暂无知识来源。点击下方按钮添加文件或文件夹。",
+    sourceStats: "已索引 {files} 个来源，共 {entries} 条知识",
+    sourcePathLabel: "路径",
     sourceCol: "来源文件",
     typeCol: "类型",
     entriesCol: "条目数",
@@ -40,7 +42,7 @@ const KNOWLEDGE_TEXT = {
     reindexConfirm: "确定要重建全部索引吗？这可能需要一些时间。",
     reindexAllProgress: "正在重建全部索引 ({current}/{total})...",
     indexFileSuccess: "文件索引完成，共 {count} 条",
-    indexFolderSuccess: "文件夹索引完成",
+    indexFolderSuccess: "文件夹索引完成，成功 {success} 个，失败 {failed} 个，共 {count} 条",
     deleteSuccess: "已删除索引",
     error: "操作失败",
     workbook: "工作簿",
@@ -56,6 +58,8 @@ const KNOWLEDGE_TEXT = {
     sourcesTitle: "Knowledge Sources",
     sourcesDesc: "Indexed files that the AI references during conversations.",
     noSources: "No knowledge sources yet. Click below to add files or folders.",
+    sourceStats: "{files} sources indexed, {entries} knowledge entries",
+    sourcePathLabel: "Path",
     sourceCol: "Source File",
     typeCol: "Type",
     entriesCol: "Entries",
@@ -70,7 +74,7 @@ const KNOWLEDGE_TEXT = {
     reindexConfirm: "Rebuild all indexes? This may take some time.",
     reindexAllProgress: "Rebuilding all indexes ({current}/{total})...",
     indexFileSuccess: "File indexed, {count} entries created",
-    indexFolderSuccess: "Folder indexed",
+    indexFolderSuccess: "Folder indexed: {success} succeeded, {failed} failed, {count} entries",
     deleteSuccess: "Index deleted",
     error: "Operation failed",
     workbook: "Workbook",
@@ -108,6 +112,7 @@ export const KnowledgeSettings: React.FC = () => {
   const [reindexing, setReindexing] = useState(false);
   const [reindexProgress, setReindexProgress] = useState<{ current: number; total: number } | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const totalEntries = sources.reduce((sum, source) => sum + source.entryCount, 0);
 
   // ── 加载来源列表 ──
   const loadSources = useCallback(async () => {
@@ -139,6 +144,22 @@ export const KnowledgeSettings: React.FC = () => {
   const formatTime = (ts: number): string => {
     const d = new Date(ts);
     return d.toLocaleString(language === "zh-CN" ? "zh-CN" : "en-US");
+  };
+
+  const formatSourceStats = (): string => {
+    return text.sourceStats
+      .replace("{files}", String(sources.length))
+      .replace("{entries}", String(totalEntries));
+  };
+
+  const formatFolderIndexSuccess = (results: any[]): string => {
+    const success = results.filter((item) => item?.success).length;
+    const failed = results.length - success;
+    const count = results.reduce((sum, item) => sum + (item?.entryCount || 0), 0);
+    return text.indexFolderSuccess
+      .replace("{success}", String(success))
+      .replace("{failed}", String(failed))
+      .replace("{count}", String(count));
   };
 
   // ── 类型标签 ──
@@ -182,7 +203,7 @@ export const KnowledgeSettings: React.FC = () => {
       const folderPath = result.filePaths[0];
       const r = await ipcApi.knowledge.indexFolder(folderPath);
       if (Array.isArray(r)) {
-        setSuccessMsg(text.indexFolderSuccess);
+        setSuccessMsg(formatFolderIndexSuccess(r));
         await loadSources();
       } else {
         setError((r as any)?.error || text.error);
@@ -216,7 +237,10 @@ export const KnowledgeSettings: React.FC = () => {
       setReindexProgress({ current: 0, total: 0 });
       const r = await ipcApi.knowledge.reindexAll();
       if (r.success) {
-        setSuccessMsg(text.indexFolderSuccess);
+        setSuccessMsg(Array.isArray(r.results) ? formatFolderIndexSuccess(r.results) : text.indexFolderSuccess
+          .replace("{success}", "0")
+          .replace("{failed}", "0")
+          .replace("{count}", "0"));
         await loadSources();
       } else {
         setError(r.error || text.error);
@@ -284,40 +308,36 @@ export const KnowledgeSettings: React.FC = () => {
             <p>{text.noSources}</p>
           </div>
         ) : (
-          <table className="knowledge-source-table">
-            <thead>
-              <tr>
-                <th>{text.sourceCol}</th>
-                <th>{text.typeCol}</th>
-                <th>{text.entriesCol}</th>
-                <th>{text.indexedCol}</th>
-                <th>{text.actionsCol}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((s) => (
-                <tr key={s.sourcePath}>
-                  <td className="source-name" title={s.sourcePath}>
-                    {s.sourceName}
-                  </td>
-                  <td>
+          <div className="knowledge-source-list">
+            <div className="knowledge-source-summary">{formatSourceStats()}</div>
+            {sources.map((s) => (
+              <div className="knowledge-source-item" key={s.sourcePath}>
+                <div className="knowledge-source-icon">
+                  <FileText size={18} />
+                </div>
+                <div className="knowledge-source-main">
+                  <div className="knowledge-source-title-row">
+                    <span className="knowledge-source-name" title={s.sourceName}>{s.sourceName}</span>
                     <span className="type-badge">{typeLabel(s.sourceType)}</span>
-                  </td>
-                  <td>{s.entryCount}</td>
-                  <td className="indexed-time">{formatTime(s.lastIndexed)}</td>
-                  <td>
-                    <button
-                      className="settings-action-btn icon-btn danger"
-                      onClick={() => handleDelete(s.sourcePath)}
-                      title={text.deleteSource}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  <div className="knowledge-source-path" title={s.sourcePath}>
+                    {text.sourcePathLabel}: {s.sourcePath}
+                  </div>
+                  <div className="knowledge-source-meta">
+                    <span>{text.entriesCol}: {s.entryCount}</span>
+                    <span>{text.indexedCol}: {formatTime(s.lastIndexed)}</span>
+                  </div>
+                </div>
+                <button
+                  className="settings-action-btn icon-btn danger knowledge-source-delete"
+                  onClick={() => handleDelete(s.sourcePath)}
+                  title={text.deleteSource}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
