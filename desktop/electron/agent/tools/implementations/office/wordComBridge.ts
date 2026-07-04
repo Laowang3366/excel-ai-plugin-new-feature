@@ -8,6 +8,14 @@
 import type { WordDocumentBridge } from "../../contracts/office";
 import { executePowerShell, psVar } from "../../../automation/powershell";
 import { safeJsonParse } from "../../../automation/json";
+import {
+  buildAcquireOfficeAppScript,
+  buildTargetOfficeFileResolverScript,
+  findActiveOfficeComProgId,
+  psNullableVar,
+  verifyDirectOfficeCom,
+  verifyOfficeComAvailable,
+} from "./officeComPowerShell";
 
 const WORD_PROG_IDS = ["Word.Application", "Kwps.Application", "Wps.Application"];
 
@@ -21,74 +29,25 @@ interface WordDocumentOpenResult {
   version?: string;
 }
 
-function progIdsLiteral(): string {
-  return "@(" + WORD_PROG_IDS.map((id) => `'${id}'`).join(", ") + ")";
-}
-
-function psStringLiteral(value?: string | null): string {
-  if (!value) return "$null";
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-function psNullableVar(name: string, value?: string | null): string {
-  return value ? psVar(name, value) : `$${name} = $null`;
-}
-
 /** 获取 Word COM 对象的 PowerShell 脚本（优先已运行的实例） */
 function acquireWordAppScript(allowCreate = true, preferredProgId?: string | null): string {
-  const createBlock = allowCreate ? `
-if ($null -eq $app) {
-  if ($preferredProgId) {
-    try { $app = New-Object -ComObject $preferredProgId; $progId = $preferredProgId; $createdApp = $true } catch {}
-  }
-}
-if ($null -eq $app) {
-  foreach ($id in $progIds) {
-    if ($id -eq $preferredProgId) { continue }
-    try { $app = New-Object -ComObject $id; $progId = $id; $createdApp = $true; break } catch {}
-  }
-}
-` : "";
   const missingMessage = allowCreate
     ? "未找到可用的 Word/WPS 文字 COM 应用"
     : "Word 或 WPS 文字未运行，请先打开文档";
-  return `
-$progIds = ${progIdsLiteral()}
-$preferredProgId = ${psStringLiteral(preferredProgId)}
-$app = $null; $progId = $null; $createdApp = $false
-if ($preferredProgId) {
-  try { $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject($preferredProgId); $progId = $preferredProgId } catch {}
-}
-if ($null -eq $app) {
-  foreach ($id in $progIds) {
-    if ($id -eq $preferredProgId) { continue }
-    try { $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject($id); $progId = $id; break } catch {}
-  }
-}
-${createBlock}
-if ($null -eq $app) { throw '${missingMessage}' }
-$app.Visible = $true
-`;
+  return buildAcquireOfficeAppScript({
+    progIds: WORD_PROG_IDS,
+    allowCreate,
+    preferredProgId,
+    missingMessage,
+  });
 }
 
 function targetDocumentResolverScript(): string {
-  return `
-function Resolve-TargetWordDocument($app, $targetPath) {
-  if ($targetPath) {
-    try {
-      $normalizedTarget = [System.IO.Path]::GetFullPath([string]$targetPath)
-      foreach ($candidate in $app.Documents) {
-        try {
-          if ($candidate.FullName -and ([System.IO.Path]::GetFullPath([string]$candidate.FullName) -ieq $normalizedTarget)) {
-            return $candidate
-          }
-        } catch {}
-      }
-    } catch {}
-  }
-  try { if ($null -ne $app.ActiveDocument) { return $app.ActiveDocument } } catch {}
-  return $null
-}`;
+  return buildTargetOfficeFileResolverScript({
+    functionName: "Resolve-TargetWordDocument",
+    collectionProperty: "Documents",
+    activeProperty: "ActiveDocument",
+  });
 }
 
 export class WordComBridge implements WordDocumentBridge {
@@ -336,25 +295,16 @@ ${buildScript("$app", `'${progId}'`, "$doc")}
       return this.cachedProgId;
     }
 
-    // 重新检测所有 ProgID
-    for (const progId of WORD_PROG_IDS) {
-      try {
-        const result = await executePowerShell(`
-          try {
-            $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject('${progId}')
-            $ver = $app.Version
-            "OK|${progId}|$ver"
-          } catch { "FAIL" }
-        `);
-        if (result.startsWith("OK|")) {
-          const parts = result.split("|");
-          this.cachedProgId = parts[1];
-          this._connected = true;
-          this._host = isWpsWordProgId(progId) ? "wps" : "word";
-          this._version = parts[2];
-          return this.cachedProgId!;
-        }
-      } catch { /* 继续检测下一个 */ }
+    const activeCom = await findActiveOfficeComProgId({
+      progIds: WORD_PROG_IDS,
+      hostForProgId: hostForWordProgId,
+    });
+    if (activeCom) {
+      this.cachedProgId = activeCom.progId;
+      this._connected = true;
+      this._host = activeCom.host;
+      this._version = activeCom.version;
+      return this.cachedProgId;
     }
 
     this._connected = false;
@@ -386,44 +336,37 @@ ${buildScript("$app", `'${progId}'`, "$doc")}
   private async verifyComAvailable(hosts: WordHost[]): Promise<{
     available: boolean; host: WordHost; version?: string; documentName?: string; progId?: string;
   }> {
-    for (const host of hosts) {
-      for (const progId of progIdsForHost(host)) {
-        try {
-          const result = await executePowerShell(`
-          try {
-            $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject('${progId}')
-            "OK|$($app.Version)|$(if ($app.ActiveDocument) { $app.ActiveDocument.Name } else { '' })"
-          } catch { "FAIL" }
-        `);
-          if (result.startsWith("OK|")) {
-            const p = result.split("|");
-            return { available: true, host, version: p[1] || undefined, documentName: p[2] || undefined, progId };
-          }
-        } catch { /* next */ }
-      }
-    }
-    return { available: false, host: hosts[0] || "word" };
+    const result = await verifyOfficeComAvailable({
+      hosts,
+      defaultHost: "word",
+      progIdsForHost,
+      activeObjectExpression: "$app.ActiveDocument",
+    });
+    return {
+      available: result.available,
+      host: result.host,
+      version: result.version,
+      documentName: result.activeName,
+      progId: result.progId,
+    };
   }
 
   private async verifyDirectCom(): Promise<{
     available: boolean; host: WordHost; version?: string; documentName?: string; progId?: string;
   }> {
-    for (const progId of WORD_PROG_IDS) {
-      try {
-        const result = await executePowerShell(`
-          try {
-            $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject('${progId}')
-            "OK|$($app.Version)|$(if ($app.ActiveDocument) { $app.ActiveDocument.Name } else { '' })"
-          } catch { "FAIL" }
-        `);
-        if (result.startsWith("OK|")) {
-          const p = result.split("|");
-          const host: WordHost = progId.includes("wps") || progId.includes("Kwps") ? "wps" : "word";
-          return { available: true, host, version: p[1] || undefined, documentName: p[2] || undefined, progId };
-        }
-      } catch { /* next */ }
-    }
-    return { available: false, host: "word" };
+    const result = await verifyDirectOfficeCom({
+      progIds: WORD_PROG_IDS,
+      defaultHost: "word",
+      hostForProgId: hostForWordProgId,
+      activeObjectExpression: "$app.ActiveDocument",
+    });
+    return {
+      available: result.available,
+      host: result.host,
+      version: result.version,
+      documentName: result.activeName,
+      progId: result.progId,
+    };
   }
 }
 
@@ -433,4 +376,8 @@ function progIdsForHost(host: WordHost): string[] {
 
 function isWpsWordProgId(progId: string): boolean {
   return progId.toLowerCase().includes("wps");
+}
+
+function hostForWordProgId(progId: string): WordHost {
+  return isWpsWordProgId(progId) ? "wps" : "word";
 }
