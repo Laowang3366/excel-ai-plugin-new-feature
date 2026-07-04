@@ -10,6 +10,7 @@ import type { AppLanguage, PermissionMode } from "../store/settingsStore";
 import type { TurnItem } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { getAppText } from "../i18n";
+import { formatFileSize as formatSharedFileSize } from "./fileSize";
 import {
   Hash,
   Code,
@@ -228,9 +229,7 @@ export function clamp(value: number, min: number, max: number) {
 
 /** 格式化文件大小 */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return formatSharedFileSize(bytes);
 }
 
 /** 权限模式图标 */

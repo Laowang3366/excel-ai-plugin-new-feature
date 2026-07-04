@@ -1,3 +1,5 @@
+import { formatFileSize } from "./fileSize";
+
 const IMAGE_MIME_BY_EXT: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
@@ -21,10 +23,5 @@ export function buildImageDataUri(data: string, mimeType?: string, filePathOrNam
 }
 
 export function formatAttachmentSize(size?: number): string {
-  if (typeof size !== "number" || !Number.isFinite(size) || size < 0) return "";
-  if (size < 1024) return `${size} B`;
-  const kb = size / 1024;
-  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
-  const mb = kb / 1024;
-  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+  return formatFileSize(size, { emptyText: "", compact: true });
 }
