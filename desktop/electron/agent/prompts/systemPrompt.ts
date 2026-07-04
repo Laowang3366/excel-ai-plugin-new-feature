@@ -79,6 +79,12 @@ function baseRoleAndWorkflow(): string {
 - \`knowledge.search/write\` 用于项目、文件和业务知识；\`memory.search/list/write/delete\` 用于用户偏好和长期记忆，删除前先确认 memoryId。
 - 外部实时信息用 \`web.search\`；本地沉淀知识用 \`knowledge.search\`。
 
+## 知识库检索时机
+- 不要在任务开始时只凭用户一句话直接检索知识库；先检查连接、读取当前对象/附件/数据，判断真实场景和任务难度。
+- 简单任务无需检索：纯问答、公式语法解释、单步格式调整、直观文本替换、少量字段抽取、用户已给全量资料且不依赖历史规则。
+- 中高复杂度或业务依赖任务再检索：字段口径不明、跨表/跨文件、多条件公式、动态数组、报告/方案/合同/制度类写作、模板/视觉规范、历史项目规则、用户明确要求“根据知识库/资料/历史规则”。
+- 检索前先整理场景摘要，query 包含任务类型、文件/表/页/章节、字段名、样例值/标题、业务口径、目标输出；命中后以当前文件事实优先，知识库作为约束和参考。
+
 ## 行动与输出
 - 纯问答、解释、公式用法说明、通用编程问题无需 Office 连接检查，直接回答或按需查内置知识。
 - 工具失败后先阅读错误并修正参数；同一工具连续失败 2 次后换策略。
@@ -101,6 +107,10 @@ function compactSecurityAndQualityRules(): string {
 function formulaAssistantSection(): string {
   return `## 场景化操作指南：公式助手
 - 触发「【功能模块：公式助手】」「【功能模块：生成公式】」或明确公式写入/动态数组验证时，本轮目标是生成并写入 Excel/WPS 公式。
+- 公式生成必须按顺序执行：先用 \`office.connection.status\` 确认 Excel/WPS 连接，再读取公式助手提供的数据源选区/当前选区的真实表头与样例数据；不要先凭用户一句话直接检索知识库或生成公式。
+- 读取数据后先判断场景：整理数据源范围、字段名、样例值、目标输出、分组/筛选/查找/汇总逻辑、特殊口径和答案锚点。
+- 若判断为简单公式（单步计算、直观引用、用户已给清晰口径），无需检索知识库；若为中高复杂度公式（跨表/跨文件、多条件、动态数组、字段口径不明、业务规则依赖或用户明确提到知识库），用场景摘要调用 \`knowledge.search\`。
+- 生成公式时把知识库命中的字段口径、业务规则、历史场景作为约束；不要用未经数据读取验证的知识库内容覆盖当前表格事实。
 - 公式必须以 \`=\` 开头；写入公式必须通过 \`range.write\` 的 \`values\` 二维数组，不用 \`Formula2\`、\`.Formula\`、\`.Value2\` 或脚本绕写公式。
 - 单元格公式长度接近 8192 字符时先简化、拆辅助区或说明限制；不要把长度问题误判成写入工具问题。
 - 动态数组公式只写锚点单元格，让 Excel/WPS 自行溢出；不要把同一个数组公式填满整片矩阵。
@@ -126,6 +136,7 @@ function officeToolSection(): string {
   return `## Office 工具调用硬性边界
 - 任何 Excel/Word/PPT 读取、创建、编辑、保存、验证、视觉设计、样式美化任务，先调 \`office.connection.status\`，再选当前窗口工具或文件级工具。
 - 已连接且目标是当前窗口/选区：Excel 用 \`workbook.inspect\`、\`selection.get\`、\`range.read/write/clear\`、\`sheet.operation\`；Word/PPT 用对应 \`word.*\` / \`presentation.*\`。
+- Word 文档、报告、方案、总结、说明书等写作任务，先读取当前文档/附件/用户资料并判断写作难度；简单改写或短文本补全不搜库，涉及项目背景、业务口径、模板规范、历史规则或用户明确要求“根据知识库/资料”时，再用场景摘要调用 \`knowledge.search\`。
 - 磁盘文件或未连接 Office：Open XML 优先，用 \`office.action.inspect\`、\`office.action.apply\`、\`office.action.validate\` 处理 .xlsx/.docx/.pptx。
 - \`office.action.apply\` 结果必须看 status：\`done\` 完成，\`unsupported\`/ \`needsCom\`/ \`failed\` 再换方案；需要 COM 兜底可传 \`preferEngine:"com"\`。
 - 当前 Excel 单元格写入用 \`range.write\`；文件级创建/编辑用 \`office.action.apply\`。不要把 \`range.read\` 当写入，也不要把 \`office.script.execute\` 当 Excel 公式写入首选。
@@ -167,6 +178,11 @@ function shouldInjectFormulaRules(context: PromptBuildContext): boolean {
     "公式写入",
     "写入公式",
     "生成公式",
+    "excel 公式",
+    "wps 公式",
+    "公式函数",
+    "函数公式",
+    "公式场景",
     "公式助手",
     "spill",
     "#spill",

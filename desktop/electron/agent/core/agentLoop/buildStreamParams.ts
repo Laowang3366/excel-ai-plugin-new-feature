@@ -18,7 +18,6 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import { type StreamParams } from "./streamCollector";
-import { getKnowledgeRetriever } from "../../knowledge/knowledgeRegistry";
 import type { RuntimeLongTermMemoryRecord } from "../../memory/stateRuntimeTypes";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 import { isToolWritableMemoryKind } from "../../memory/longTerm/memoryTypes";
@@ -117,7 +116,7 @@ export function appendRuntimeDateContext(prompt: string, now: Date = new Date())
 // ============================================================
 
 /**
- * 构建有效系统提示词（含动态文件夹上下文 + 知识库上下文）
+ * 构建有效系统提示词（含动态文件夹上下文）
  *
  * @param basePrompt - 静态基础提示词
  * @param folderId - 关联的文件夹 ID（可选）
@@ -156,30 +155,6 @@ export async function buildEffectiveSystemPrompt(
     } catch {
       // 文件夹路径不可访问时静默跳过
     }
-  }
-
-  // ── 注入相关知识库上下文 ──
-  try {
-    const retriever = getKnowledgeRetriever();
-    if (retriever) {
-      // 基于 folderId（工作目录）构建查询关键词
-      const queryTerms: string[] = [];
-      if (folderId) {
-        const folderName = folderId.split(/[\\/]/).pop() || "";
-        queryTerms.push(folderName);
-      }
-      // 执行检索
-      const queryText = queryTerms.join(" ");
-      if (queryText) {
-        const results = await retriever.search({ text: queryText, topK: 5 });
-        if (results.length > 0) {
-          const knowledgeContext = retriever.formatForPrompt(results);
-          effectivePrompt += "\n\n" + knowledgeContext;
-        }
-      }
-    }
-  } catch {
-    // 知识检索失败时静默跳过
   }
 
   // ── 注入 Office 连接状态 ──

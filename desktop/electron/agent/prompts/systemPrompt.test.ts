@@ -17,6 +17,10 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("ocr.parseDocument");
     expect(prompt).toContain("knowledge.search/write");
     expect(prompt).toContain("memory.search/list/write/delete");
+    expect(prompt).toContain("知识库检索时机");
+    expect(prompt).toContain("不要在任务开始时只凭用户一句话直接检索知识库");
+    expect(prompt).toContain("简单任务无需检索");
+    expect(prompt).toContain("中高复杂度或业务依赖任务再检索");
     expect(prompt).toContain("shell.execute");
     expect(prompt).toContain("prompt");
     expect(prompt).toContain("forbidden");
@@ -73,6 +77,10 @@ describe("buildContextualPromptSections", () => {
 
     expect(prompt).toContain("场景化操作指南：公式助手");
     expect(prompt).toContain("range.write");
+    expect(prompt).toContain("knowledge.search");
+    expect(prompt).toContain("字段口径");
+    expect(prompt).toContain("简单公式");
+    expect(prompt).toContain("中高复杂度公式");
     expect(prompt).toContain('expand:"spill"');
     expect(prompt).toContain("动态数组公式必须用");
     expect(prompt).toContain("允许输出测试报告");
@@ -114,6 +122,9 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("Open XML 优先");
     expect(prompt).toContain("office.action.inspect");
     expect(prompt).toContain("office.action.apply");
+    expect(prompt).toContain("Word 文档、报告、方案");
+    expect(prompt).toContain("判断写作难度");
+    expect(prompt).toContain("简单改写或短文本补全不搜库");
     expect(prompt).toContain('preferEngine:"com"');
     expect(prompt.length).toBeLessThan(2_500);
   });

@@ -9,11 +9,11 @@ import type { ToolDefinition } from "../../shared/types";
 /** 知识库搜索 */
 const KNOWLEDGE_SEARCH_DEF: ToolDefinition = {
   name: "knowledge.search",
-  description: "搜索本地的知识库，获取与当前任务相关的历史信息，包括工作簿结构、字段含义、公式规则、操作记录等。当需要了解表格结构、字段定义、过往操作时可使用此工具",
+  description: "搜索本地知识库，获取与当前任务相关的历史项目知识、字段口径、公式规则、模板规范和操作记录。先读取当前文件/数据并判断场景难度；简单问答、单步操作、直观格式调整无需调用，只有中高复杂度或明确依赖业务资料/历史规则时再用场景摘要检索",
   parameters: {
     type: "object",
     properties: {
-      query: { type: "string", description: "搜索关键词，建议包含表名、字段名或操作类型，如「销售表 金额列含义」" },
+      query: { type: "string", description: "场景摘要式搜索词，建议包含任务类型、文件/表/页/章节、字段名、样例值、业务口径和目标输出，如「销售汇总公式 订单表 区域 金额 月份 多条件汇总」" },
       topK: { type: "number", description: "返回结果数量，默认5", default: 5 },
     },
     required: ["query"],

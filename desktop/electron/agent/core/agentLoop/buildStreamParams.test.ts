@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   appendRuntimeDateContext,
@@ -6,6 +6,11 @@ import {
   appendLongTermMemoryContext,
   appendRuntimeLongTermMemoryContext,
 } from "./buildStreamParams";
+import { resetKnowledgeRegistry, setKnowledgeRetriever } from "../../knowledge/knowledgeRegistry";
+
+afterEach(() => {
+  resetKnowledgeRegistry();
+});
 
 describe("appendRuntimeDateContext", () => {
   it("injects the current Shanghai date for relative-time tasks", () => {
@@ -69,6 +74,65 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(prompt).toContain("Office 工具调用硬性边界");
     expect(prompt).toContain("Open XML 优先");
     expect(prompt).toContain("office.action.apply");
+  });
+
+  it("does not pre-inject knowledge context for formula tasks before data is read", async () => {
+    const search = vi.fn(async () => [
+      {
+        entry: {
+          sourceName: "formula-rules.md",
+          sourcePath: "D:\\kb\\formula-rules.md",
+          metadata: {},
+          content: "区域汇总公式应该按知识库场景使用 SUMIFS，并以区域字段作为条件。",
+        },
+        score: 0.92,
+      },
+    ]);
+    setKnowledgeRetriever({
+      search,
+      formatForPrompt: (results: any[]) => `## 相关知识\n- ${results[0].entry.content}`,
+    } as any);
+
+    const prompt = await buildEffectiveSystemPrompt(undefined, undefined, {
+      content: "请根据区域汇总公式场景生成 Excel 公式",
+    });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(prompt).not.toContain("SUMIFS");
+    expect(prompt).toContain("场景化操作指南：公式助手");
+    expect(prompt).toContain("先用 `office.connection.status`");
+    expect(prompt).toContain("读取公式助手提供的数据源选区");
+    expect(prompt).toContain("用场景摘要调用 `knowledge.search`");
+  });
+
+  it("does not pre-inject knowledge context for Word writing tasks before scene difficulty is known", async () => {
+    const search = vi.fn(async () => [
+      {
+        entry: {
+          sourceName: "project-summary.docx",
+          sourcePath: "D:\\kb\\project-summary.docx",
+          metadata: {},
+          content: "项目总结必须包含背景、过程、结果和风险四个章节。",
+        },
+        score: 0.9,
+      },
+    ]);
+    setKnowledgeRetriever({
+      search,
+      formatForPrompt: (results: any[]) => `## 相关知识\n- ${results[0].entry.content}`,
+    } as any);
+
+    const prompt = await buildEffectiveSystemPrompt(undefined, undefined, {
+      content: "根据知识库资料写 Word 项目总结",
+      attachments: [
+        { fileName: "项目资料.docx", filePath: "D:\\work\\项目资料.docx", fileType: "document" },
+      ],
+    });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(prompt).not.toContain("## 相关知识");
+    expect(prompt).not.toContain("背景、过程、结果和风险");
+    expect(prompt).toContain("Word 文档、报告、方案");
   });
 });
 
