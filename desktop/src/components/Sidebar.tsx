@@ -731,7 +731,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setSettingsMenuOpen((open) => !open);
             }}
           >
-            <Settings size={16} /> {text.sidebar.settings}
+            <Settings size={16} />
+            <span>{text.sidebar.settings}</span>
           </button>
 
           {settingsMenuOpen && (

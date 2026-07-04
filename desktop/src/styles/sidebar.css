@@ -988,15 +988,29 @@
 .model-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-nav-btn {
-  width: 100%; padding: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 8px;
   border: none; border-radius: var(--radius-sm);
   background: none; cursor: pointer;
   font-size: 13px; color: var(--text-muted);
   text-align: left; transition: all 0.15s;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
-  line-height: 1;
+  line-height: 18px;
+}
+.sidebar-nav-btn svg {
+  flex: 0 0 auto;
+  display: block;
+}
+.sidebar-nav-btn span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 18px;
+  line-height: 18px;
 }
 .sidebar-nav-btn:hover { background: var(--bg-tint); }
 .sidebar-nav-btn.active { background: var(--primary-light); color: var(--primary); }
@@ -1065,6 +1079,7 @@
 .sidebar-settings-menu-item svg,
 .sidebar-settings-account svg {
   flex: 0 0 auto;
+  display: block;
 }
 
 :root[data-theme="dark"] .sidebar-settings-menu {

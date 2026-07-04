@@ -249,7 +249,7 @@ export const KnowledgeSettings: React.FC = () => {
 
       {/* 启用/禁用开关 */}
       <div className="settings-card">
-        <div className="settings-switch-row">
+        <div className="settings-switch-row knowledge-enable-row">
           <div className="settings-switch-info">
             <div className="settings-switch-label">
               <BookOpen size={18} />
@@ -270,7 +270,7 @@ export const KnowledgeSettings: React.FC = () => {
 
       {/* 知识来源列表 */}
       <div className="settings-card">
-        <div className="settings-card-header">
+        <div className="settings-card-header knowledge-card-header">
           <Database size={18} />
           <span>{text.sourcesTitle}</span>
         </div>
