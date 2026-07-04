@@ -17,6 +17,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { FileScan, Paperclip, FileText, Image, AlertTriangle, Ruler, X } from "../common/IconMap";
 import { ipcApi } from "../../services/ipcApi";
 import { pickExcelRange } from "../../utils/chatHelpers";
+import { readFileAsBase64 } from "../../utils/fileBase64";
 
 export type OcrMode = "image" | "invoice";
 
@@ -59,19 +60,6 @@ interface OCRTaskComposerPanelProps {
 
 const ACCEPTED_TYPES = "image/png, image/jpeg, image/webp, image/bmp, application/pdf";
 const ACCEPTED_OCR_MIME_TYPES = new Set(ACCEPTED_TYPES.split(", "));
-
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const commaIndex = result.indexOf(",");
-      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 async function resolveOcrFilePaths(files: File[]): Promise<string[]> {
   const paths: string[] = [];

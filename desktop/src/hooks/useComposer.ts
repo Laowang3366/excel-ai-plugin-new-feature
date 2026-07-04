@@ -13,6 +13,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { ipcApi } from "../services/ipcApi";
+import { readFileAsBase64 } from "../utils/fileBase64";
 import type { AttachedFile } from "../electronApi";
 
 /** MIME 类型到文件扩展名映射 */
@@ -25,31 +26,6 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
-
-function readFileAsBase64(file: File): Promise<string> {
-  if (typeof FileReader === "undefined") {
-    return file.arrayBuffer().then((buffer) => {
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      }
-      return btoa(binary);
-    });
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      // 去掉 data:image/png;base64, 前缀
-      const commaIndex = result.indexOf(",");
-      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 function getFileExtension(file: File): string {
   const nameExt = file.name.includes(".") ? `.${file.name.split(".").pop()?.toLowerCase()}` : "";
