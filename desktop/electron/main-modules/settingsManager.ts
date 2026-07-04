@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS = {
   theme: "light",
   closeToTray: false,
   officeAutoCompactEnabled: false,
+  windowOpacity: 1,
   dataStoragePath: "",
   mineruApiToken: "",
   compactionConfig: {
@@ -48,6 +49,16 @@ const DEFAULT_SETTINGS = {
   sandboxUserRules: [] as unknown[],
   sandboxExtraWritableRoots: [] as string[],
 };
+
+const MIN_WINDOW_OPACITY = 0.55;
+const MAX_WINDOW_OPACITY = 1;
+
+export function normalizeWindowOpacity(value: unknown): number {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return MAX_WINDOW_OPACITY;
+  const clamped = Math.min(Math.max(numericValue, MIN_WINDOW_OPACITY), MAX_WINDOW_OPACITY);
+  return Math.round(clamped * 100) / 100;
+}
 
 migrateLegacyDefaultDataPathIfNeeded();
 
@@ -405,4 +416,10 @@ export function applyWindowTheme(mainWindow: Electron.BrowserWindow | null): voi
     symbolColor: theme === "dark" ? "#f8fafc" : "#111827",
     height: 36,
   });
+}
+
+/** Apply the configured main window opacity. */
+export function applyWindowOpacity(mainWindow: Electron.BrowserWindow | null): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setOpacity(normalizeWindowOpacity(settingsStore.get("windowOpacity")));
 }

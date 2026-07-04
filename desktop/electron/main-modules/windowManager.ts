@@ -10,7 +10,7 @@
 import { BrowserWindow, Tray, Menu, app, screen } from "electron";
 import * as path from "path";
 import * as fs from "fs";
-import { getSettingsStore, applyWindowTheme } from "./settingsManager";
+import { getSettingsStore, applyWindowOpacity, applyWindowTheme } from "./settingsManager";
 
 let tray: Tray | null = null;
 let isQuitting = false;
@@ -100,6 +100,7 @@ export function createWindow(
   mw.setMenuBarVisibility(false);
   mw.setMenu(editMenu);
   applyWindowTheme(mw);
+  applyWindowOpacity(mw);
 
   mw.on("close", (event) => {
     if (!isQuitting && getSettingsStore().get("closeToTray") === true) {
@@ -160,6 +161,7 @@ function applyNormalWindowMode(mainWindow: BrowserWindow): void {
   mainWindow.setMinimumSize(NORMAL_MIN_SIZE.width, NORMAL_MIN_SIZE.height);
   mainWindow.setSkipTaskbar(false);
   applyWindowTheme(mainWindow);
+  applyWindowOpacity(mainWindow);
 
   const fallbackBounds = mainWindow.getBounds();
   const nextBounds = normalizeNormalBounds(normalBounds ?? fallbackBounds);
@@ -171,6 +173,7 @@ function applyCompactWindowMode(mainWindow: BrowserWindow): void {
   mainWindow.setMinimumSize(COMPACT_SIZE.minWidth, COMPACT_SIZE.minHeight);
   mainWindow.setSkipTaskbar(false);
   applyWindowTheme(mainWindow);
+  applyWindowOpacity(mainWindow);
   mainWindow.setBounds(getSideDockBounds(mainWindow, COMPACT_SIZE.width), true);
 }
 

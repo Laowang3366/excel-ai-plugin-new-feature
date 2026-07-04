@@ -117,6 +117,7 @@ export const GeneralSettings: React.FC = () => {
     theme,
     closeToTray,
     officeAutoCompactEnabled,
+    windowOpacity,
     compactionEnabled,
     autoCompactThresholdPercent,
     providers,
@@ -125,6 +126,7 @@ export const GeneralSettings: React.FC = () => {
     setTheme,
     setCloseToTray,
     setOfficeAutoCompactEnabled,
+    setWindowOpacity,
     setCompactionEnabled,
     setAutoCompactThresholdPercent,
     loadSettings,
@@ -136,6 +138,11 @@ export const GeneralSettings: React.FC = () => {
   const [mineruApiToken, setMineruApiToken] = useState("");
   const [mineruSaved, setMineruSaved] = useState(false);
   const text = GENERAL_TEXT[language];
+  const windowOpacityPercent = Math.round(windowOpacity * 100);
+  const windowOpacityLabel = language === "zh-CN" ? "窗口透明度" : "Window opacity";
+  const windowOpacityHint = language === "zh-CN"
+    ? "降低后整个助手窗口会半透明，便于查看和操作后方的 Office 内容。"
+    : "Lower values make the whole assistant window translucent so Office content behind it remains easier to use.";
 
   // 获取当前供应商的上下文窗口大小（用户自定义，支持 per-model 覆盖）
   const activeProvider = providers[activeProviderId];
@@ -281,6 +288,25 @@ export const GeneralSettings: React.FC = () => {
             <span>{text.officeAutoCompactEnabled}</span>
           </label>
           <span className="form-hint">{text.officeAutoCompactHint}</span>
+        </div>
+
+        <div className="form-group">
+          <label>{windowOpacityLabel}</label>
+          <div className="compaction-threshold-row">
+            <input
+              type="range"
+              className="compaction-slider"
+              min={55}
+              max={100}
+              step={5}
+              value={windowOpacityPercent}
+              onChange={(event) => setWindowOpacity(Number(event.target.value) / 100)}
+            />
+            <span className="compaction-threshold-value">
+              {windowOpacityPercent}%
+            </span>
+          </div>
+          <span className="form-hint">{windowOpacityHint}</span>
         </div>
       </div>
 

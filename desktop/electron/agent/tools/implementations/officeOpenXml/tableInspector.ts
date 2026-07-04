@@ -9,6 +9,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
+import { decodeXmlText as unescapeXmlText } from "../../../shared/xmlEntities";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlTableCell,
@@ -34,15 +35,6 @@ function isTablePart(documentType: OfficeOpenXmlDocumentType, partName: string):
   if (documentType === "word") return WORD_TABLE_PART_RE.test(partName);
   if (documentType === "presentation") return PRESENTATION_TABLE_PART_RE.test(partName);
   return SPREADSHEET_TABLE_PART_RE.test(partName);
-}
-
-function unescapeXmlText(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
 }
 
 function blocks(xml: string, tagName: string): string[] {

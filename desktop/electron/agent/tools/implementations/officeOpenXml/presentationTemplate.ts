@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { escapeXmlTextWithQuotes as escapeXml } from "../../../shared/xmlEntities";
 
 /**
  * 基础 PPTX 模板。
@@ -25,15 +26,6 @@ export function createBasicPresentationPackage(title: string, subtitle: string):
   zip.file("ppt/viewProps.xml", viewPropsXml());
   zip.file("ppt/tableStyles.xml", tableStylesXml());
   return zip;
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 function contentTypesXml(): string {

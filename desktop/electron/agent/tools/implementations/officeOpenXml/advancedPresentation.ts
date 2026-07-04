@@ -11,6 +11,7 @@ import path from "path";
 import JSZip from "jszip";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
+import { escapeXmlTextWithQuotes as escapeXml } from "../../../shared/xmlEntities";
 import { createBasicPresentationPackage } from "./presentationTemplate";
 
 export interface PresentationAdvancedActionInput {
@@ -468,15 +469,6 @@ function presentationDone(
 
 function normalizeColor(value: unknown): string {
   return typeof value === "string" && /^[0-9a-fA-F]{6}$/.test(value) ? value.toUpperCase() : "1F4E79";
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 function stringParam(params: Record<string, unknown> | undefined, key: string): string | undefined {

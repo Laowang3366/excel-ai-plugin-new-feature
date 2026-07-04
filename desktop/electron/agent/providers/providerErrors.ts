@@ -1,3 +1,5 @@
+import { decodeHtmlText } from "../shared/xmlEntities";
+
 const HTML_TAG_RE = /<[^>]+>/g;
 
 export function formatProviderHttpError(prefix: string, status: number, body: string): string {
@@ -48,7 +50,7 @@ function looksLikeHtml(text: string): boolean {
 function extractHtmlTitle(html: string): string | null {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   if (!match) return null;
-  const title = decodeBasicHtmlEntities(match[1].replace(HTML_TAG_RE, " ").replace(/\s+/g, " ").trim());
+  const title = decodeHtmlText(match[1].replace(HTML_TAG_RE, " ").replace(/\s+/g, " ").trim());
   return title || null;
 }
 
@@ -68,13 +70,4 @@ function stripControlChars(text: string): string {
 function truncate(text: string, maxLength = 500): string {
   const compact = stripControlChars(text).replace(/\s+/g, " ").trim();
   return compact.length > maxLength ? `${compact.slice(0, maxLength)}...` : compact;
-}
-
-function decodeBasicHtmlEntities(text: string): string {
-  return text
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'");
 }

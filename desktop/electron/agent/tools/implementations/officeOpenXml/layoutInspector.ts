@@ -9,6 +9,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
+import { decodeXmlText as unescapeXmlText } from "../../../shared/xmlEntities";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlLayoutInspectInput,
@@ -38,15 +39,6 @@ function textTagName(documentType: OfficeOpenXmlDocumentType): string {
   if (documentType === "word") return "w:t";
   if (documentType === "presentation") return "a:t";
   return "t";
-}
-
-function unescapeXmlText(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
 }
 
 function extractTextValues(documentType: OfficeOpenXmlDocumentType, xml: string): string[] {

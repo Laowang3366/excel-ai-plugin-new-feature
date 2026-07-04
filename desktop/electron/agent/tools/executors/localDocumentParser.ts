@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import JSZip from "jszip";
 import { DocumentParser } from "../../knowledge/documentParser";
+import { decodeXmlText as decodeXml } from "../../shared/xmlEntities";
 import { extractMarkdownTables } from "../../../main-modules/mineruOcr";
 
 export interface LocalParsedDocument {
@@ -311,15 +312,6 @@ function extractTextValues(xml: string, tagName: string): string[] {
   const escapedTag = tagName.replace(":", "\\:");
   const re = new RegExp(`<${escapedTag}\\b[^>]*>([\\s\\S]*?)<\\/${escapedTag}>`, "g");
   return Array.from(xml.matchAll(re), (match) => decodeXml(match[1])).filter((value) => value.trim());
-}
-
-function decodeXml(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
 }
 
 function slideNumber(partName: string): number {

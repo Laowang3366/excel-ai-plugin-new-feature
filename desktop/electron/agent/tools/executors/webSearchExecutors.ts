@@ -1,4 +1,5 @@
 import type { ToolExecutor } from "../../shared/types";
+import { decodeHtmlText as decodeHtml } from "../../shared/xmlEntities";
 import { validateArgs } from "./validation";
 
 export interface WebSearchResultItem {
@@ -533,17 +534,6 @@ function hostnameFromUrl(url: string): string | undefined {
 
 function stripTags(value: string): string {
   return value.replace(/<[^>]+>/g, " ");
-}
-
-function decodeHtml(value: string): string {
-  return value
-    .replace(/&quot;/g, "\"")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ");
 }
 
 function cleanText(value: string): string {

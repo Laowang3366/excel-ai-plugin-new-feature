@@ -314,6 +314,16 @@ export type PermissionMode = "normal" | "auto_approve_safe" | "confirm_all";
 export type AppLanguage = "zh-CN" | "en-US";
 export type AppTheme = "light" | "dark";
 
+export const MIN_WINDOW_OPACITY = 0.55;
+export const MAX_WINDOW_OPACITY = 1;
+
+export function normalizeWindowOpacity(value: unknown): number {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return MAX_WINDOW_OPACITY;
+  const clamped = Math.min(Math.max(numericValue, MIN_WINDOW_OPACITY), MAX_WINDOW_OPACITY);
+  return Math.round(clamped * 100) / 100;
+}
+
 export interface SettingsState {
   /** 所有已配置的提供商（用户自行添加） */
   providers: Record<string, AiProviderConfig>;
@@ -331,6 +341,8 @@ export interface SettingsState {
   closeToTray: boolean;
   /** Office 操作时是否自动避让为紧凑栏 */
   officeAutoCompactEnabled: boolean;
+  /** Main window opacity, from 0.55 to 1. */
+  windowOpacity: number;
   /** 是否启用上下文自动压缩 */
   compactionEnabled: boolean;
   /** 自动压缩触发阈值（百分比，如 80 表示 80%） */
@@ -374,6 +386,8 @@ export interface SettingsActions {
   setCloseToTray: (enabled: boolean) => void;
   /** 设置 Office 操作时自动避让 */
   setOfficeAutoCompactEnabled: (enabled: boolean) => void;
+  /** Set main window opacity. */
+  setWindowOpacity: (opacity: number) => void;
   /** 设置是否启用上下文自动压缩 */
   setCompactionEnabled: (enabled: boolean) => void;
   /** 设置自动压缩触发阈值百分比 */
@@ -404,6 +418,7 @@ const KEY_MAP: Partial<Record<keyof SettingsState, string>> = {
   theme: "theme",
   closeToTray: "closeToTray",
   officeAutoCompactEnabled: "officeAutoCompactEnabled",
+  windowOpacity: "windowOpacity",
   pinnedFolders: "pinnedFolders",
   knowledgeEnabled: "knowledgeEnabled",
 };
@@ -460,6 +475,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   theme: "light",
   closeToTray: false,
   officeAutoCompactEnabled: false,
+  windowOpacity: MAX_WINDOW_OPACITY,
   compactionEnabled: true,
   autoCompactThresholdPercent: 80,
   isConfigured: false,
@@ -516,6 +532,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       if (typeof allSettings.officeAutoCompactEnabled === "boolean") {
         set({ officeAutoCompactEnabled: allSettings.officeAutoCompactEnabled });
       }
+      if (allSettings.windowOpacity !== undefined) {
+        set({ windowOpacity: normalizeWindowOpacity(allSettings.windowOpacity) });
+      }
       // 上下文压缩配置
       const compactionConfig = allSettings.compactionConfig;
       if (compactionConfig && typeof compactionConfig === "object") {
@@ -547,7 +566,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   saveSettings: async () => {
-    const { providers, activeProviderId, permissionMode, showReasoning, language, theme, closeToTray, officeAutoCompactEnabled, compactionEnabled, autoCompactThresholdPercent, pinnedFolders } = get();
+    const { providers, activeProviderId, permissionMode, showReasoning, language, theme, closeToTray, officeAutoCompactEnabled, windowOpacity, compactionEnabled, autoCompactThresholdPercent, pinnedFolders } = get();
 
     await ipcApi.settings.set("aiProviders", providers);
     await ipcApi.settings.set("activeProvider", activeProviderId);
@@ -557,6 +576,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
     await ipcApi.settings.set("theme", theme);
     await ipcApi.settings.set("closeToTray", closeToTray);
     await ipcApi.settings.set("officeAutoCompactEnabled", officeAutoCompactEnabled);
+    await ipcApi.settings.set("windowOpacity", normalizeWindowOpacity(windowOpacity));
     // 上下文压缩配置（百分比制，main.ts 会根据当前模型换算为实际 token 阈值）
     const existingCompaction = await ipcApi.settings.get("compactionConfig") as Record<string, unknown> | null;
     await ipcApi.settings.set("compactionConfig", {
@@ -659,6 +679,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   setOfficeAutoCompactEnabled: (enabled: boolean) => {
     set({ officeAutoCompactEnabled: enabled });
     savePartial(["officeAutoCompactEnabled"], get);
+  },
+
+  setWindowOpacity: (opacity: number) => {
+    set({ windowOpacity: normalizeWindowOpacity(opacity) });
+    savePartial(["windowOpacity"], get);
   },
 
   setCompactionEnabled: (enabled: boolean) => {

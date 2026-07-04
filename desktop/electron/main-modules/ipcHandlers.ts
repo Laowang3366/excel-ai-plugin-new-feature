@@ -34,6 +34,7 @@ import {
   getStateRuntimeStoreInstance,
   getAgentGraphStoreInstance,
   migrateDataPath,
+  applyWindowOpacity,
   applyWindowTheme,
 } from "./settingsManager";
 import {
@@ -243,6 +244,9 @@ export function registerIpcHandlers(): void {
     }
     if (key === "theme") {
       applyWindowTheme(mainWindowRef());
+    }
+    if (key === "windowOpacity") {
+      applyWindowOpacity(mainWindowRef());
     }
   });
 

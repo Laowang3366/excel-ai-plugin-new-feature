@@ -12,6 +12,11 @@ import JSZip from "jszip";
 import { parseOfficeLocator } from "../../officeCore/locator";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
+import {
+  decodeXmlText as decodeXml,
+  escapeXmlAttribute as escapeXml,
+  escapeXmlTextWithQuotes as escapeXmlText,
+} from "../../../shared/xmlEntities";
 import { applyOfficeOpenXmlTableStyle } from "./tableStyler";
 import type { OfficeOpenXmlTableStylePreset } from "./types";
 
@@ -654,25 +659,4 @@ function normalizeTableStyle(value: unknown): OfficeOpenXmlTableStylePreset {
 function defaultOutputPath(filePath: string): string {
   const ext = path.extname(filePath);
   return path.join(path.dirname(filePath), `${path.basename(filePath, ext)}-advanced${ext}`);
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function escapeXmlText(value: string): string {
-  return escapeXml(value).replace(/'/g, "&apos;");
-}
-
-function decodeXml(value: string): string {
-  return value
-    .replace(/&quot;/g, "\"")
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
 }

@@ -11,6 +11,7 @@ import path from "path";
 import JSZip from "jszip";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
+import { decodeXmlText as unescapeXml, escapeXmlText as escapeXml } from "../../../shared/xmlEntities";
 import { applyOfficeOpenXmlTableStyle } from "./tableStyler";
 import type { OfficeOpenXmlTableStylePreset } from "./types";
 
@@ -255,18 +256,4 @@ function normalizeTableStyle(value: unknown): OfficeOpenXmlTableStylePreset {
 function defaultOutputPath(filePath: string): string {
   const ext = path.extname(filePath);
   return path.join(path.dirname(filePath), `${path.basename(filePath, ext)}-advanced${ext}`);
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function unescapeXml(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
 }

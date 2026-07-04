@@ -11,6 +11,7 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
+import { decodeXmlText as unescapeXmlText, escapeXmlText } from "../../../shared/xmlEntities";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlInspectResult,
@@ -41,22 +42,6 @@ function textTagName(documentType: OfficeOpenXmlDocumentType): string {
   if (documentType === "word") return "w:t";
   if (documentType === "presentation") return "a:t";
   return "t";
-}
-
-function escapeXmlText(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function unescapeXmlText(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
 }
 
 function escapeRegExp(value: string): string {

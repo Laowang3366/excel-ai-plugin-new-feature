@@ -49,3 +49,22 @@ describe("settingsStore compaction config persistence", () => {
     });
   });
 });
+
+describe("settingsStore window opacity persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSettingsStore.setState({
+      windowOpacity: 1,
+    });
+  });
+
+  it("persists normalized window opacity when the setting changes", async () => {
+    mocks.set.mockResolvedValue(undefined);
+
+    useSettingsStore.getState().setWindowOpacity(0.42);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(useSettingsStore.getState().windowOpacity).toBe(0.55);
+    expect(mocks.set).toHaveBeenCalledWith("windowOpacity", 0.55);
+  });
+});

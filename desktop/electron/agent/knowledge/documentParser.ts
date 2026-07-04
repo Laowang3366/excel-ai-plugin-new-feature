@@ -8,6 +8,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import JSZip from "jszip";
+import { decodeXmlText } from "../shared/xmlEntities";
 import type { KnowledgeFileType } from "./types";
 
 const MAX_EXCEL_PARSE_BYTES = 25 * 1024 * 1024;
@@ -324,7 +325,7 @@ export class DocumentParser {
       const target = relId ? relationshipTargets.get(relId) : undefined;
       if (!target) continue;
       sheets.push({
-        name: this.decodeXml(attrs.name || `Sheet${sheets.length + 1}`),
+        name: decodeXmlText(attrs.name || `Sheet${sheets.length + 1}`),
         partName: target,
       });
     }
@@ -429,7 +430,7 @@ export class DocumentParser {
       return value === "1" ? "TRUE" : "FALSE";
     }
     if (value !== undefined) {
-      return this.decodeXml(value);
+      return decodeXmlText(value);
     }
 
     return this.extractTextTags(innerXml).join("");
@@ -437,7 +438,7 @@ export class DocumentParser {
 
   private detectWorksheetRange(xml: string, parsedRows: ParsedWorksheetRows): string {
     const dimension = /<dimension\b[^>]*\bref=["']([^"']+)["']/.exec(xml)?.[1];
-    if (dimension) return this.decodeXml(dimension);
+    if (dimension) return decodeXmlText(dimension);
 
     const endCol = Math.max(1, parsedRows.maxCol);
     const endRow = Math.max(1, parsedRows.maxRow || parsedRows.totalRows);
@@ -449,7 +450,7 @@ export class DocumentParser {
     const textRe = /<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g;
     let match: RegExpExecArray | null;
     while ((match = textRe.exec(xml))) {
-      values.push(this.decodeXml(match[1]));
+      values.push(decodeXmlText(match[1]));
     }
     return values;
   }
@@ -504,7 +505,7 @@ export class DocumentParser {
   private extractFirstTag(xml: string, tagName: string): string | undefined {
     const re = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`);
     const match = re.exec(xml);
-    return match ? this.decodeXml(match[1]) : undefined;
+    return match ? decodeXmlText(match[1]) : undefined;
   }
 
   private parseXmlAttributes(tagXml: string): Record<string, string> {
@@ -544,15 +545,6 @@ export class DocumentParser {
       value = Math.floor((value - 1) / 26);
     }
     return `${name || "A"}${row}`;
-  }
-
-  private decodeXml(value: string): string {
-    return value
-      .replace(/&quot;/g, "\"")
-      .replace(/&apos;/g, "'")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&");
   }
 
   private getFileType(filePath: string): KnowledgeFileType {
