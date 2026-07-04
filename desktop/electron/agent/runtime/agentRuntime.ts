@@ -189,3 +189,14 @@ export async function refreshKnowledgeRuntime(
   }
   return knowledge;
 }
+
+export async function ensureKnowledgeRuntime(
+  aiConfig: AIClientConfig,
+  dataRoot?: string
+): Promise<KnowledgeRuntimeState> {
+  const knowledge = await initializeKnowledgeRuntime(aiConfig, dataRoot);
+  if (runtime) {
+    runtime.knowledge = knowledge;
+  }
+  return knowledge;
+}

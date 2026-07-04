@@ -20,6 +20,7 @@ export interface KnowledgeRuntimeState {
   indexer: KnowledgeIndexer | null;
   writer: KnowledgeWriter | null;
   retriever: Retriever | null;
+  error?: string | null;
 }
 
 let knowledgeStore: SqliteStore | null = null;
@@ -28,6 +29,7 @@ let knowledgeIndexer: KnowledgeIndexer | null = null;
 let knowledgeWriter: KnowledgeWriter | null = null;
 let knowledgeRetriever: Retriever | null = null;
 let knowledgeRuntimeSignature: string | null = null;
+let knowledgeRuntimeError: string | null = null;
 
 /**
  * RAG 知识库运行时装配。
@@ -67,7 +69,10 @@ export async function initializeKnowledgeRuntime(
       setKnowledgeIndexer(knowledgeIndexer);
       setKnowledgeWriter(knowledgeWriter);
       knowledgeRuntimeSignature = signature;
+      knowledgeRuntimeError = null;
     } catch (e) {
+      knowledgeRuntimeError = formatKnowledgeRuntimeError(e);
+      clearKnowledgeRuntimeInstances();
       console.warn("RAG 知识库初始化失败（可在设置中配置后重试）:", e);
     }
   }
@@ -78,10 +83,16 @@ export async function initializeKnowledgeRuntime(
     indexer: knowledgeIndexer,
     writer: knowledgeWriter,
     retriever: knowledgeRetriever,
+    error: knowledgeRuntimeError,
   };
 }
 
 export function resetKnowledgeRuntime(): void {
+  clearKnowledgeRuntimeInstances();
+  knowledgeRuntimeError = null;
+}
+
+function clearKnowledgeRuntimeInstances(): void {
   try {
     knowledgeStore?.close();
   } catch {
@@ -129,4 +140,9 @@ function buildKnowledgeRuntimeSignature(aiConfig: AIClientConfig, dataRoot?: str
     apiKey: aiConfig.apiKey,
     customHeaders: aiConfig.customHeaders || {},
   });
+}
+
+function formatKnowledgeRuntimeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error || "未知错误");
 }

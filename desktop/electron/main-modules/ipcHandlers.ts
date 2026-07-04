@@ -19,7 +19,7 @@ import { ipcMain, dialog, shell, clipboard, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { AgentLoop } from "../agent/core/agentLoop";
-import { refreshKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
+import { ensureKnowledgeRuntime, refreshKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
 import { createAIClient } from "../agent/providers/aiClient";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
@@ -135,6 +135,7 @@ export function registerIpcHandlers(): void {
     getSessionStoreInstance,
     getStateRuntimeStoreInstance,
     getAgentGraphStoreInstance,
+    ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath()),
   });
 
   // ---- 应用信息 ----

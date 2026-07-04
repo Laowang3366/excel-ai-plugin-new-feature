@@ -12,6 +12,7 @@ import { BrowserWindow, ipcMain } from "electron";
 import type { AgentLoop } from "../core/agentLoop";
 import type { AgentLoopManager } from "../runtime/agentRuntime";
 import { getKnowledgeIndexer, getKnowledgeRetriever, getKnowledgeStore } from "../knowledge/knowledgeRegistry";
+import type { KnowledgeRuntimeState } from "../runtime/knowledgeRuntime";
 import type { SessionStore } from "../memory/sessionStore";
 import type { AgentGraphStore } from "../memory/agentGraphStore";
 import type { StateRuntimeStore } from "../memory/stateRuntimeStore";
@@ -39,6 +40,7 @@ export interface AgentIpcHandlerDeps {
   getSessionStoreInstance: () => SessionStore;
   getStateRuntimeStoreInstance?: () => Promise<StateRuntimeStore>;
   getAgentGraphStoreInstance: () => AgentGraphStore;
+  ensureKnowledgeRuntime?: () => Promise<KnowledgeRuntimeState>;
 }
 
 const PARALLEL_TURN_ERROR = "当前已有会话正在执行，请等待完成或停止后再开始其他会话";
@@ -121,6 +123,19 @@ export async function prepareNewThreadForIpc(deps: Pick<AgentIpcHandlerDeps, "ag
     await agent.resetThread(folderId);
   }
   return { success: true };
+}
+
+async function ensureKnowledgeRuntimeForIpc(deps: AgentIpcHandlerDeps): Promise<string | null> {
+  try {
+    const runtime = await deps.ensureKnowledgeRuntime?.();
+    return runtime?.error || null;
+  } catch (error: any) {
+    return error?.message || String(error || "未知错误");
+  }
+}
+
+function formatKnowledgeUnavailableError(error?: string | null): string {
+  return error ? `知识库未初始化：${error}` : "知识库未初始化";
 }
 
 export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
@@ -267,16 +282,20 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:listSources", async () => {
-    const store = getKnowledgeStore();
-    if (!store) return [];
+    let store = getKnowledgeStore();
+    const initError = !store ? await ensureKnowledgeRuntimeForIpc(deps) : null;
+    store = getKnowledgeStore();
+    if (!store) throw new Error(formatKnowledgeUnavailableError(initError));
     return store.listSources();
   });
 
   ipcMain.handle("knowledge:search", async (_event, query: unknown, topK: unknown) => {
     const validated = validateInput(KnowledgeSearchInput, { query, topK });
-    const retriever = getKnowledgeRetriever();
+    let retriever = getKnowledgeRetriever();
+    const initError = !retriever ? await ensureKnowledgeRuntimeForIpc(deps) : null;
+    retriever = getKnowledgeRetriever();
     if (!retriever) {
-      return { success: false, error: "知识库未初始化" };
+      return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
       const results = await retriever.search({
@@ -291,9 +310,11 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("knowledge:indexFile", async (_event, filePath: unknown) => {
     const validated = validateInput(KnowledgeIndexFileInput, { filePath });
-    const indexer = getKnowledgeIndexer();
+    let indexer = getKnowledgeIndexer();
+    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
+    indexer = getKnowledgeIndexer();
     if (!indexer) {
-      return { success: false, error: "知识库未初始化" };
+      return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
       const result = await indexer.indexFile(validated.filePath);
@@ -305,9 +326,11 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("knowledge:indexFolder", async (_event, folderPath: unknown) => {
     const validated = validateInput(KnowledgeIndexFolderInput, { folderPath });
-    const indexer = getKnowledgeIndexer();
+    let indexer = getKnowledgeIndexer();
+    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
+    indexer = getKnowledgeIndexer();
     if (!indexer) {
-      return { success: false, error: "知识库未初始化" };
+      return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
       const results = await indexer.indexFolder(validated.folderPath);
@@ -319,9 +342,11 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("knowledge:deleteFile", async (_event, sourcePath: unknown) => {
     const validated = validateInput(KnowledgeDeleteInput, { sourcePath });
-    const indexer = getKnowledgeIndexer();
+    let indexer = getKnowledgeIndexer();
+    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
+    indexer = getKnowledgeIndexer();
     if (!indexer) {
-      return { success: false, error: "知识库未初始化" };
+      return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
       await indexer.deleteSource(validated.sourcePath);
@@ -332,9 +357,11 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:reindexAll", async () => {
-    const indexer = getKnowledgeIndexer();
+    let indexer = getKnowledgeIndexer();
+    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
+    indexer = getKnowledgeIndexer();
     if (!indexer) {
-      return { success: false, error: "知识库未初始化" };
+      return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
       const results = await indexer.reindexAll();
