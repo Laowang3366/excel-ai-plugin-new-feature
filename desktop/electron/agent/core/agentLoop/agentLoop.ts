@@ -41,7 +41,6 @@ import {
   createAIClient,
 } from "../../providers/aiClient";
 
-import { turnItemGroupsToChatMessages } from "../../shared/messageBuilder";
 import {
   buildResumeContext,
   estimateItemsTokens,
@@ -50,6 +49,7 @@ import {
   performCompaction,
   shouldCompact,
 } from "../../memory/compaction";
+import { turnItemGroupsToChatMessages } from "../../shared/messageBuilder";
 import { resolveImageAttachments } from "../../attachments/imageAttachmentResolver";
 
 import { SessionStore } from "../../memory/sessionStore";
@@ -81,6 +81,18 @@ import { PendingInterruptQueue, type ConnectionRequestId } from "./pendingInterr
 import { ThreadWatchManager } from "./threadWatchManager";
 import { InputQueue } from "./inputQueue";
 import { isModelCompHashCompatible, resolveModelCompHash } from "./modelCompHash";
+import {
+  buildContextUsageEvent,
+  collectPromptTurnItemGroups,
+  collectPromptTurnItems,
+} from "./contextUsage";
+import { emitStreamResultItems as emitCollectedStreamResultItems } from "./streamResultItems";
+import {
+  archiveRolloutIfConfigured as archiveRolloutIfConfiguredHelper,
+  completeCompactionProgress as completeCompactionProgressHelper,
+  failCompactionProgress as failCompactionProgressHelper,
+  startCompactionProgress as startCompactionProgressHelper,
+} from "./compactionProgress";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
   runAIRequestWithRetry,
@@ -799,47 +811,13 @@ export class AgentLoop {
     turn: Turn,
     callbacks: AgentTurnCallbacks
   ): Promise<void> {
-    // 4a. 发出 reasoning（思考过程）
-    if (streamResult.reasoningContent.length > 0 || streamResult.reasoningSummary.length > 0) {
-      const reasoningItem: TurnItem = {
-        type: "reasoning",
-        id: `reasoning-${Date.now()}`,
-        summaryText: streamResult.reasoningSummary,
-        rawContent: streamResult.reasoningContent,
-        timestamp: Date.now(),
-      };
-      turn.items.push(reasoningItem);
-      await this.sessionStore.appendTurnItem(turn.threadId, turn.turnId, reasoningItem);
-      callbacks.onEvent({ type: "item_started", item: reasoningItem });
-      callbacks.onEvent({ type: "item_completed", item: reasoningItem });
-    }
-
-    // 4b. 发出 assistant_message（正文/评论片段）
-    if (streamResult.assistantContent) {
-      const hasToolCalls = streamResult.toolCalls.length > 0;
-      const msgItem: TurnItem = {
-        type: "assistant_message",
-        id: `msg-${Date.now()}`,
-        content: streamResult.assistantContent,
-        phase: hasToolCalls ? "commentary" : "final",
-        timestamp: Date.now(),
-      };
-      turn.items.push(msgItem);
-      await this.sessionStore.appendTurnItem(turn.threadId, turn.turnId, msgItem);
-      callbacks.onEvent({ type: "item_started", item: msgItem });
-      callbacks.onEvent({ type: "item_completed", item: msgItem });
-    }
-
-    // 4c. 发出 tool_call（item_started 已在 streamCollector tool_call_begin 中发出，
-    // 这里再发一次，前端是幂等的——agentEventHandler 检查 exists 跳过重复项）
-    for (const tc of streamResult.toolCalls) {
-      const existingItem = streamResult.pendingToolCallItems.get(tc.id);
-      if (existingItem) {
-        turn.items.push(existingItem);
-        await this.sessionStore.appendTurnItem(turn.threadId, turn.turnId, existingItem);
-        callbacks.onEvent({ type: "item_started", item: existingItem });
-      }
-    }
+    await emitCollectedStreamResultItems({
+      streamResult,
+      turn,
+      callbacks,
+      appendTurnItem: (threadId, turnId, item) =>
+        this.sessionStore.appendTurnItem(threadId, turnId, item),
+    });
   }
 
   // ----------------------------------------------------------
@@ -1024,47 +1002,14 @@ export class AgentLoop {
     items: TurnItem[],
     callbacks: AgentTurnCallbacks
   ): Promise<CompactProgressItem> {
-    const tokensBefore = estimateItemsTokens(items);
-    const compactionConfig = this.getSessionCompactionConfig();
-    const retryCount = Math.max(
-      0,
-      Math.floor(compactionConfig.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount ?? 0)
-    );
-    const timestamp = Date.now();
-    const progress: CompactProgressItem = {
-      type: "compact_progress",
-      id: `compact-progress-${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
-      reason,
-      status: "running",
-      message: "正在压缩上下文...",
-      tokensBefore,
-      timestamp,
-    };
-
-    await this.sessionStore.appendRolloutItems(threadId, [
-      {
-        type: "compact_params",
-        reason,
-        status: "started",
-        itemCount: items.length,
-        tokensBefore,
-      },
-    ]);
-    callbacks.onEvent({
-      type: "thread_compact_started",
+    return startCompactionProgressHelper({
+      sessionStore: this.sessionStore,
       threadId,
-      params: {
-        reason,
-        itemCount: items.length,
-        tokensBefore,
-        tokenThreshold: compactionConfig.autoCompactTokenThreshold,
-        contextWindowSize: compactionConfig.contextWindowSize,
-        retryCount,
-        timestamp,
-      },
+      reason,
+      items,
+      callbacks,
+      compactionConfig: this.getSessionCompactionConfig(),
     });
-    callbacks.onEvent({ type: "item_started", item: progress });
-    return progress;
   }
 
   private completeCompactionProgress(
@@ -1074,16 +1019,13 @@ export class AgentLoop {
     summary: string,
     callbacks: AgentTurnCallbacks
   ): void {
-    const completed: CompactProgressItem = {
-      ...progress,
-      status: "completed",
-      message: `上下文已压缩：${tokensBefore} → ${tokensAfter} tokens`,
+    completeCompactionProgressHelper({
+      progress,
       tokensBefore,
       tokensAfter,
       summary,
-      timestamp: Date.now(),
-    };
-    callbacks.onEvent({ type: "item_completed", item: completed });
+      callbacks,
+    });
   }
 
   private async failCompactionProgress(
@@ -1093,40 +1035,22 @@ export class AgentLoop {
     error: unknown,
     callbacks: AgentTurnCallbacks
   ): Promise<void> {
-    const message = error instanceof Error ? error.message : String(error);
-    await this.sessionStore.appendRolloutItems(threadId, [
-      {
-        type: "compact_params",
-        reason: progress.reason,
-        status: "failed",
-        itemCount: items.length,
-        tokensBefore: progress.tokensBefore ?? estimateItemsTokens(items),
-        error: message,
-      },
-    ]);
-    callbacks.onEvent({
-      type: "item_completed",
-      item: {
-        ...progress,
-        status: "failed",
-        message: `上下文压缩失败：${message}`,
-        timestamp: Date.now(),
-      },
+    await failCompactionProgressHelper({
+      sessionStore: this.sessionStore,
+      threadId,
+      progress,
+      items,
+      error,
+      callbacks,
     });
   }
 
   private async archiveRolloutIfConfigured(threadId: ThreadId): Promise<void> {
-    const threshold = this.config.compactionConfig?.archiveRolloutAfterBytes;
-    if (!threshold || threshold <= 0) return;
-
-    try {
-      await this.sessionStore.spawnRolloutCompressionWorker({
-        activeThreadIds: [threadId],
-        minBytes: threshold,
-      });
-    } catch (error) {
-      console.warn("压缩冷 rollout JSONL 失败:", error);
-    }
+    await archiveRolloutIfConfiguredHelper({
+      sessionStore: this.sessionStore,
+      threadId,
+      threshold: this.config.compactionConfig?.archiveRolloutAfterBytes,
+    });
   }
 
   // ----------------------------------------------------------
@@ -1144,46 +1068,19 @@ export class AgentLoop {
    * 压缩点之后的已完成 turns（或为空），不会与 compactedHistory 重叠。
    */
   private getAllTurnItems(): TurnItem[] {
-    if (!this.activeThread) return [];
-
-    // 如果有压缩后的历史，用它作为基础
-    if (this.compactedHistory) {
-      const items = [...this.compactedHistory];
-      // 加入压缩点之后已完成的 turns（resume 场景下可能有）
-      for (const turn of this.activeThread.turns) {
-        items.push(...turn.items);
-      }
-      if (this.activeTurn) {
-        items.push(...this.activeTurn.items);
-      }
-      return items;
-    }
-
-    // 否则从所有 turns 收集
-    const items: TurnItem[] = [];
-    for (const turn of this.activeThread.turns) {
-      items.push(...turn.items);
-    }
-    if (this.activeTurn) {
-      items.push(...this.activeTurn.items);
-    }
-    return items;
+    return collectPromptTurnItems({
+      activeThread: this.activeThread,
+      activeTurn: this.activeTurn,
+      compactedHistory: this.compactedHistory,
+    });
   }
 
   private getTurnItemGroups(): TurnItem[][] {
-    if (!this.activeThread) return [];
-
-    const groups: TurnItem[][] = [];
-    if (this.compactedHistory) {
-      groups.push(this.compactedHistory);
-    }
-    for (const turn of this.activeThread.turns) {
-      groups.push(turn.items);
-    }
-    if (this.activeTurn) {
-      groups.push(this.activeTurn.items);
-    }
-    return groups.filter((items) => items.length > 0);
+    return collectPromptTurnItemGroups({
+      activeThread: this.activeThread,
+      activeTurn: this.activeTurn,
+      compactedHistory: this.compactedHistory,
+    });
   }
 
   // ----------------------------------------------------------
@@ -1197,24 +1094,13 @@ export class AgentLoop {
     callbacks: AgentTurnCallbacks,
     requestContext?: { systemPrompt?: string; tools?: ToolDefinition[] }
   ): void {
-    const estimatedTokens = estimateRequestTokens({
-      messages: turnItemGroupsToChatMessages(this.getTurnItemGroups()),
+    callbacks.onEvent(buildContextUsageEvent({
+      groups: this.getTurnItemGroups(),
+      activeThread: this.activeThread,
+      compactionConfig: this.config.compactionConfig,
       systemPrompt: requestContext?.systemPrompt,
       tools: requestContext?.tools ?? getToolDefs(this.config.toolExecutors),
-    });
-    const config = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
-    const contextWindowSize = this.activeThread?.metadata?.contextWindowSize
-      || config.contextWindowSize || 128_000;
-    const threshold = config.autoCompactTokenThreshold;
-    const percentage = Math.min(Math.round((estimatedTokens / contextWindowSize) * 100), 100);
-
-    callbacks.onEvent({
-      type: "context_usage",
-      estimatedTokens,
-      threshold,
-      percentage,
-      contextWindowSize,
-    });
+    }));
   }
 
   /**

@@ -53,6 +53,27 @@
 - `npm exec vitest run electron/agent/interaction/ipcAgentHandlers.test.ts electron/agent/interaction/eventForwarder.test.ts`
 - `npm run typecheck`
 
+### 2026-07-05 — P0 可维护性：`agentLoop.ts` 阶段性拆分（M1 进行中）
+
+**状态**：🚧 进行中（阶段 1 已完成，M1 尚未关闭）
+
+**关联提交**：本节所在提交 `refactor: split agent loop helper modules`
+
+**覆盖范围**：
+- 从 `agentLoop.ts` 抽出上下文历史收集与用量事件：`electron/agent/core/agentLoop/contextUsage.ts`。
+- 从 `agentLoop.ts` 抽出流结束后的 `TurnItem` 补发与落库顺序：`electron/agent/core/agentLoop/streamResultItems.ts`。
+- 从 `agentLoop.ts` 抽出压缩进度事件、压缩参数 rollout 记录和冷 rollout 归档触发：`electron/agent/core/agentLoop/compactionProgress.ts`。
+- 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
+- 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
+
+**业务链路保护**：
+- `AgentLoop` 对外 API 和主流程签名不变，保留原私有方法作为委托入口，降低调用链变更风险。
+- reasoning、assistant_message、tool_call 的补发顺序保持原逻辑；工具执行、压缩触发、长期记忆写入和线程运行态写入链路未改。
+- 此阶段只降低主循环文件复杂度，`agentLoop.ts` 仍超过 400 行，后续还需要继续拆主循环编排、线程运行态和压缩执行逻辑。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/core/agentLoop/streamResultItems.test.ts electron/agent/core/agentLoop/compactionProgress.test.ts electron/agent/core/agentLoop/contextUsage.test.ts`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）

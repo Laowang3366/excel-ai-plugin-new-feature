@@ -10,8 +10,11 @@
 - `turnState.ts`：当前运行 Turn 的可变状态容器。
 - `turnRunner.ts`：创建和完成 Turn、用户消息等基础对象。
 - `streamCollector.ts`：收集模型流式事件并转换为 Agent 内部事件。
+- `streamResultItems.ts`：在模型流结束后，按 reasoning、assistant message、tool call 的真实顺序补齐 `TurnItem` 落库与事件发送。
 - `toolExecutor.ts`：执行模型请求的工具调用，并处理审批与工具结果回写。
 - `buildStreamParams.ts`：构建模型请求参数、系统提示词和推理配置。
+- `contextUsage.ts`：收集用于提示词的历史条目，并生成上下文使用量事件。
+- `compactionProgress.ts`：封装上下文压缩进度事件、压缩参数 rollout 记录和冷 rollout 归档触发。
 - `summaryGenerator.ts`：会话标题/摘要生成。
 - `sessionCompactionConfig.ts`：根据会话上下文窗口生成压缩配置。
 - `maxTokens.ts`：输出 token 预算计算。
