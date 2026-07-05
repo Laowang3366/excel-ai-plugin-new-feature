@@ -93,7 +93,6 @@ import {
   mergePendingCompactionReason,
 } from "./configUpdates";
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
-import { runAgentLoopRounds } from "./agentLoopRunner";
 import { createCompactionRunnerDeps } from "./compactionRunnerDeps";
 import {
   clearIdleThreadUnloadTimer,
@@ -102,6 +101,7 @@ import {
 } from "./idleThreadUnload";
 import { runTurnFlow } from "./turnFlow";
 import type { AgentLoopConfig } from "./agentLoopConfig";
+import { runAgentLoopWithDeps } from "./agentLoopRoundDeps";
 
 export type { AgentLoopConfig } from "./agentLoopConfig";
 
@@ -443,7 +443,7 @@ export class AgentLoop {
     input: AgentTurnInput,
     resumeContext?: string
   ): Promise<void> {
-    await runAgentLoopRounds({
+    await runAgentLoopWithDeps({
       turn,
       callbacks,
       turnInput: input,
@@ -454,11 +454,9 @@ export class AgentLoop {
       baseSystemPrompt: this.config.systemPrompt,
       folderId: this.turnState.activeThread?.metadata.folderId,
       stateRuntimeStore: this.stateRuntimeStore,
-      toolExecutors: this.config.toolExecutors!,
-      approvalConfig: {
-        permissionMode: this.config.permissionMode || "normal",
-        requestToolApproval: this.config.requestToolApproval,
-      },
+      toolExecutors: this.config.toolExecutors,
+      permissionMode: this.config.permissionMode,
+      requestToolApproval: this.config.requestToolApproval,
       samplingRetryConfig: this.config.aiRequestRetryConfig?.sampling,
       signal: this.turnState.abortController?.signal,
       appendTurnItem: (threadId, turnId, item) =>
