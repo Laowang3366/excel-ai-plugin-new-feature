@@ -42,17 +42,15 @@ import {
 
 import {
   buildResumeContext,
-  estimateRequestTokens,
   shouldCompact,
 } from "../../memory/compaction";
-import { turnItemGroupsToChatMessages } from "../../shared/messageBuilder";
 
 import { SessionStore } from "../../memory/sessionStore";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
 
 // 子模块导入
-import { processToolCalls, getToolDefinitions as getToolDefs, type ToolApprovalConfig } from "./toolExecutor";
+import { getToolDefinitions as getToolDefs } from "./toolExecutor";
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
 import { TurnState } from "./turnState";
 import {
@@ -115,6 +113,7 @@ import {
   collectRoundStream,
   emitStreamErrorItem,
 } from "./streamRound";
+import { handleToolRound } from "./toolRound";
 import {
   applyAIConfigUpdate,
   applyCompactionConfigUpdate,
@@ -603,43 +602,26 @@ export class AgentLoop {
       });
       this.throwIfAborted();
 
-      // 5. 处理工具调用
-      if (streamResult.toolCalls.length > 0) {
-        const approvalConfig: ToolApprovalConfig = {
+      if (await handleToolRound({
+        streamResult,
+        turn,
+        toolExecutors: this.config.toolExecutors!,
+        approvalConfig: {
           permissionMode: this.config.permissionMode || "normal",
           requestToolApproval: this.config.requestToolApproval,
-        };
-
-        await processToolCalls(
-          streamResult.toolCalls,
-          streamResult.pendingToolCallItems,
-          turn,
-          this.config.toolExecutors!,
-          approvalConfig,
-          callbacks,
-          async (threadId, turnId, item) => {
-            await this.sessionStore.appendTurnItem(threadId, turnId, item);
-          },
-          async (record) => {
-            await this.stateRuntimeStore?.appendToolExecutionLog(record);
-          }
-        );
-        this.throwIfAborted();
-
-        // 检查是否需要压缩（mid-turn compaction）
-        const compactionConfig = this.getSessionCompactionConfig();
-        const allTokens = estimateRequestTokens({
-          messages: turnItemGroupsToChatMessages(this.getTurnItemGroups()),
-          systemPrompt: effectiveSystemPrompt,
-          tools: toolDefs,
-        });
-        const midTurnRatio = compactionConfig.midTurnThresholdRatio ?? 0.9;
-        if (compactionConfig.enabled && allTokens > compactionConfig.autoCompactTokenThreshold * midTurnRatio) {
-          await this.performMidTurnCompaction(turn, callbacks);
-        }
-        this.throwIfAborted();
-
-        // 继续循环
+        },
+        callbacks,
+        appendTurnItem: (threadId, turnId, item) =>
+          this.sessionStore.appendTurnItem(threadId, turnId, item),
+        appendToolExecutionLog: (record) =>
+          this.stateRuntimeStore?.appendToolExecutionLog(record) ?? Promise.resolve(),
+        turnItemGroups: this.getTurnItemGroups(),
+        effectiveSystemPrompt,
+        toolDefs,
+        compactionConfig: this.getSessionCompactionConfig(),
+        runMidTurnCompaction: () => this.performMidTurnCompaction(turn, callbacks),
+        throwIfAborted: () => this.throwIfAborted(),
+      })) {
         continue;
       }
 

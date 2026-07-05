@@ -18,6 +18,7 @@
 - `streamRound.ts`：封装单轮模型采样请求、流式错误 item 落库和最终 token usage 合并。
 - `streamResultItems.ts`：在模型流结束后，按 reasoning、assistant message、tool call 的真实顺序补齐 `TurnItem` 落库与事件发送。
 - `toolExecutor.ts`：执行模型请求的工具调用，并处理审批与工具结果回写。
+- `toolRound.ts`：封装单轮工具调用后的执行、工具日志写入和 mid-turn 压缩触发判断。
 - `buildStreamParams.ts`：构建模型请求参数、系统提示词和推理配置。
 - `roundStreamParams.ts`：为每轮模型调用装配消息历史、图片附件、恢复上下文、动态系统提示词、工具定义和流式请求参数。
 - `contextUsage.ts`：收集用于提示词的历史条目，并生成上下文使用量事件。
