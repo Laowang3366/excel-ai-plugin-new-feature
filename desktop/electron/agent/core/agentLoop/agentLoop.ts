@@ -62,10 +62,10 @@ import {
   sweepIdleThreadSession,
 } from "./threadSession";
 import {
-  drainQueuedTurns,
+  drainQueuedTurnsAndReschedule,
   enqueueQueuedTurn,
   interruptCurrentTurn,
-  shouldRescheduleQueueDrain,
+  scheduleQueuedTurnsDrain,
 } from "./queuedTurns";
 import {
   applyAIConfigUpdate,
@@ -255,11 +255,8 @@ export class AgentLoop {
     callbacks: AgentTurnCallbacks
   ): Promise<Turn> {
     return runTurnFlow({
-      turnInput: input,
-      callbacks,
-      turnState: this.turnState,
-      sessionStore: this.sessionStore,
-      threadStateManager: this.threadStateManager,
+      turnInput: input, callbacks, turnState: this.turnState,
+      sessionStore: this.sessionStore, threadStateManager: this.threadStateManager,
       setAutoDrainInputQueue: (enabled) => { this.autoDrainInputQueue = enabled; },
       shouldDrainInputQueue: () => this.autoDrainInputQueue && this.inputQueue.size() > 0,
       scheduleInputQueueDrain: () => this.scheduleInputQueueDrain(),
@@ -271,11 +268,7 @@ export class AgentLoop {
         this.bindCallbacksToThread(sourceCallbacks, threadId, clientId),
       getAllTurnItems: () => this.getAllTurnItems(),
       compactionConfig: this.config.compactionConfig,
-      consumePendingCompactionReason: () => {
-        const reason = this.pendingCompactionReason;
-        this.pendingCompactionReason = null;
-        return reason;
-      },
+      consumePendingCompactionReason: () => this.consumePendingCompactionReason(),
       performAutoCompaction: (thread, reason, targetCallbacks) =>
         this.performAutoCompaction(thread, reason, targetCallbacks),
       persistThreadSnapshot: (thread) => this.persistThreadSnapshot(thread),
@@ -297,27 +290,25 @@ export class AgentLoop {
   }
 
   private scheduleInputQueueDrain(): void {
-    if (!this.autoDrainInputQueue || this.isDrainingInputQueue || this.turnState.isRunning) return;
-    this.isDrainingInputQueue = true;
-    queueMicrotask(() => {
-      void this.drainInputQueue();
+    scheduleQueuedTurnsDrain({
+      autoDrainInputQueue: this.autoDrainInputQueue,
+      isDrainingInputQueue: this.isDrainingInputQueue,
+      isRunning: this.turnState.isRunning,
+      setDraining: (isDraining) => { this.isDrainingInputQueue = isDraining; },
+      drain: () => this.drainInputQueue(),
     });
   }
 
   private async drainInputQueue(): Promise<void> {
-    try {
-      await drainQueuedTurns({
-        inputQueue: this.inputQueue,
-        isRunning: () => this.turnState.isRunning,
-        runTurn: (input, callbacks) => this.runTurn(input, callbacks),
-        onTurnError: (error) => console.warn("执行排队输入失败:", error),
-      });
-    } finally {
-      this.isDrainingInputQueue = false;
-      if (shouldRescheduleQueueDrain({ autoDrainInputQueue: this.autoDrainInputQueue, isRunning: this.turnState.isRunning, queueSize: this.inputQueue.size() })) {
-        this.scheduleInputQueueDrain();
-      }
-    }
+    await drainQueuedTurnsAndReschedule({
+      inputQueue: this.inputQueue,
+      isRunning: () => this.turnState.isRunning,
+      autoDrainInputQueue: () => this.autoDrainInputQueue,
+      runTurn: (input, callbacks) => this.runTurn(input, callbacks),
+      setDraining: (isDraining) => { this.isDrainingInputQueue = isDraining; },
+      scheduleDrain: () => this.scheduleInputQueueDrain(),
+      onTurnError: (error) => console.warn("执行排队输入失败:", error),
+    });
   }
 
   private async persistThreadSnapshot(thread: Thread): Promise<void> {
@@ -504,6 +495,12 @@ export class AgentLoop {
 
   private markPendingCompactionReason(reason: CompactionReason | null): void {
     this.pendingCompactionReason = mergePendingCompactionReason(this.pendingCompactionReason, reason);
+  }
+
+  private consumePendingCompactionReason(): CompactionReason | null {
+    const reason = this.pendingCompactionReason;
+    this.pendingCompactionReason = null;
+    return reason;
   }
 
   async resumeFromInterruption(

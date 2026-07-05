@@ -5,8 +5,10 @@ import { PendingInterruptQueue } from "./pendingInterruptQueue";
 import { TurnState } from "./turnState";
 import {
   drainQueuedTurns,
+  drainQueuedTurnsAndReschedule,
   enqueueQueuedTurn,
   interruptCurrentTurn,
+  scheduleQueuedTurnsDrain,
   shouldRescheduleQueueDrain,
 } from "./queuedTurns";
 
@@ -77,5 +79,62 @@ describe("queuedTurns", () => {
       isRunning: false,
       queueSize: 1,
     })).toBe(true);
+  });
+
+  it("schedules a queue drain only when allowed", async () => {
+    const drain = vi.fn().mockResolvedValue(undefined);
+    let isDraining = false;
+
+    scheduleQueuedTurnsDrain({
+      autoDrainInputQueue: true,
+      isDrainingInputQueue: false,
+      isRunning: false,
+      setDraining: (value) => { isDraining = value; },
+      drain,
+    });
+
+    expect(isDraining).toBe(true);
+    expect(drain).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(drain).toHaveBeenCalledTimes(1);
+
+    scheduleQueuedTurnsDrain({
+      autoDrainInputQueue: false,
+      isDrainingInputQueue: false,
+      isRunning: false,
+      setDraining: vi.fn(),
+      drain,
+    });
+    expect(drain).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears draining state and reschedules when queue remains", async () => {
+    const inputQueue = new InputQueue();
+    inputQueue.enqueue({ input: { content: "1" }, callbacks });
+    const runTurn = vi.fn(async () => ({
+      turnId: "turn-1",
+      threadId: "thread-1",
+      status: "completed" as const,
+      items: [],
+      startedAt: 1,
+      completedAt: 2,
+    }));
+    const setDraining = vi.fn();
+    const scheduleDrain = vi.fn();
+
+    await drainQueuedTurnsAndReschedule({
+      inputQueue,
+      isRunning: () => false,
+      autoDrainInputQueue: () => {
+        inputQueue.enqueue({ input: { content: "2" }, callbacks });
+        return true;
+      },
+      runTurn,
+      setDraining,
+      scheduleDrain,
+    });
+
+    expect(setDraining).toHaveBeenCalledWith(false);
+    expect(scheduleDrain).toHaveBeenCalledTimes(1);
   });
 });

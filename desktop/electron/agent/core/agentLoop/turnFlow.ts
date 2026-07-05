@@ -21,7 +21,7 @@ import {
   prepareThreadForTurn,
 } from "./turnExecution";
 
-export async function runTurnFlow(input: {
+export interface TurnFlowInput {
   turnInput: AgentTurnInput;
   callbacks: AgentTurnCallbacks;
   turnState: TurnState;
@@ -56,7 +56,9 @@ export async function runTurnFlow(input: {
   ) => Promise<void>;
   scheduleTurnMemoryExtraction: (thread: Thread, turn: Turn) => void;
   scheduleIdleThreadUnload: () => void;
-}): Promise<Turn> {
+}
+
+export async function runTurnFlow(input: TurnFlowInput): Promise<Turn> {
   beginTurnRun(input.turnState);
   input.setAutoDrainInputQueue(true);
 

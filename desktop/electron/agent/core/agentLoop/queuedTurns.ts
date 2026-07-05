@@ -64,3 +64,45 @@ export function shouldRescheduleQueueDrain(input: {
 }): boolean {
   return input.autoDrainInputQueue && !input.isRunning && input.queueSize > 0;
 }
+
+export function scheduleQueuedTurnsDrain(input: {
+  autoDrainInputQueue: boolean;
+  isDrainingInputQueue: boolean;
+  isRunning: boolean;
+  setDraining: (isDraining: boolean) => void;
+  drain: () => Promise<void>;
+}): void {
+  if (!input.autoDrainInputQueue || input.isDrainingInputQueue || input.isRunning) return;
+  input.setDraining(true);
+  queueMicrotask(() => {
+    void input.drain();
+  });
+}
+
+export async function drainQueuedTurnsAndReschedule(input: {
+  inputQueue: InputQueue;
+  isRunning: () => boolean;
+  autoDrainInputQueue: () => boolean;
+  runTurn: (turnInput: AgentTurnInput, callbacks: AgentTurnCallbacks) => Promise<Turn>;
+  setDraining: (isDraining: boolean) => void;
+  scheduleDrain: () => void;
+  onTurnError?: (error: unknown) => void;
+}): Promise<void> {
+  try {
+    await drainQueuedTurns({
+      inputQueue: input.inputQueue,
+      isRunning: input.isRunning,
+      runTurn: input.runTurn,
+      onTurnError: input.onTurnError,
+    });
+  } finally {
+    input.setDraining(false);
+    if (shouldRescheduleQueueDrain({
+      autoDrainInputQueue: input.autoDrainInputQueue(),
+      isRunning: input.isRunning(),
+      queueSize: input.inputQueue.size(),
+    })) {
+      input.scheduleDrain();
+    }
+  }
+}
