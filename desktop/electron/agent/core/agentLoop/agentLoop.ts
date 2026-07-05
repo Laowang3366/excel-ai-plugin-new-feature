@@ -43,10 +43,7 @@ import {
 
 import {
   buildResumeContext,
-  estimateItemsTokens,
   estimateRequestTokens,
-  historyToCompactPrompt,
-  performCompaction,
   shouldCompact,
 } from "../../memory/compaction";
 import { turnItemGroupsToChatMessages } from "../../shared/messageBuilder";
@@ -99,6 +96,10 @@ import {
   persistThreadSnapshot as persistThreadSnapshotHelper,
   scheduleTurnMemoryExtraction as scheduleTurnMemoryExtractionHelper,
 } from "./threadRuntime";
+import {
+  runAutoCompaction,
+  runMidTurnCompaction,
+} from "./compactionRunner";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
   runAIRequestWithRetry,
@@ -855,63 +856,11 @@ export class AgentLoop {
     reason: CompactionReason,
     callbacks: AgentTurnCallbacks
   ): Promise<void> {
-    const allItems = this.getAllTurnItems();
-    if (allItems.length === 0) return;
-
-    const prompt = historyToCompactPrompt(allItems);
-    const progress = await this.startCompactionProgress(
-      thread.metadata.threadId,
+    await runAutoCompaction({
+      thread,
       reason,
-      allItems,
-      callbacks
-    );
-    let summary: string;
-    try {
-      summary = await this.generateCompactionSummary(prompt);
-    } catch (error) {
-      await this.failCompactionProgress(thread.metadata.threadId, progress, allItems, error, callbacks);
-      throw error;
-    }
-    const { compactedItem, newHistory } = performCompaction(
-      allItems,
-      summary,
-      reason,
-      this.config.compactionConfig
-    );
-
-    this.compactedHistory = newHistory;
-    // 清除已被摘要替代的已完成 turns，防止 getAllTurnItems() 重复计入
-    thread.turns = [];
-
-    await this.sessionStore.appendRolloutItems(thread.metadata.threadId, [
-      {
-        type: "compacted",
-        summary,
-        replacementHistory: newHistory,
-      },
-      {
-        type: "compact_params",
-        reason,
-        status: "completed",
-        itemCount: allItems.length,
-        tokensBefore: compactedItem.tokensBefore,
-        tokensAfter: compactedItem.tokensAfter,
-      },
-    ]);
-    await this.archiveRolloutIfConfigured(thread.metadata.threadId);
-
-    this.completeCompactionProgress(
-      progress,
-      compactedItem.tokensBefore,
-      compactedItem.tokensAfter,
-      summary,
-      callbacks
-    );
-    callbacks.onEvent({
-      type: "context_compacted",
-      summary,
-      tokensBefore: compactedItem.tokensBefore,
-      tokensAfter: compactedItem.tokensAfter,
+      callbacks,
+      deps: this.createCompactionRunnerDeps(),
     });
   }
 
@@ -920,72 +869,45 @@ export class AgentLoop {
     turn: Turn,
     callbacks: AgentTurnCallbacks
   ): Promise<void> {
-    const currentUserItems = turn.items.filter((item) => item.type === "user_message");
-    const currentUserItemIds = new Set(currentUserItems.map((item) => item.id));
-    const allItems = this.getAllTurnItems();
-    const prompt = historyToCompactPrompt(allItems);
-    const threadId = this.activeThread?.metadata.threadId;
-    const progress = threadId
-      ? await this.startCompactionProgress(threadId, "auto_token_limit", allItems, callbacks)
-      : null;
-    let summary: string;
-    try {
-      summary = await this.generateCompactionSummary(prompt);
-    } catch (error) {
-      if (threadId && progress) {
-        await this.failCompactionProgress(threadId, progress, allItems, error, callbacks);
-      }
-      throw error;
-    }
-
-    const { compactedItem, newHistory } = performCompaction(
-      allItems,
-      summary,
-      "auto_token_limit",
-      this.config.compactionConfig
-    );
-
-    this.compactedHistory = newHistory.filter(
-      (item) => item.type !== "user_message" || !currentUserItemIds.has(item.id)
-    );
-    // 清除已完成 turns 和当前 turn 的工具/助手中间项，因为它们已被摘要替代。
-    // 当前用户消息仍属于正在执行的 active turn，保留在尾部供下一轮模型请求直接看到。
-    turn.items = currentUserItems;
-    if (this.activeThread) {
-      this.activeThread.turns = [];
-      await this.sessionStore.appendRolloutItems(this.activeThread.metadata.threadId, [
-        {
-          type: "compacted",
-          summary,
-          replacementHistory: newHistory,
-        },
-        {
-          type: "compact_params",
-          reason: "auto_token_limit",
-          status: "completed",
-          itemCount: allItems.length,
-          tokensBefore: compactedItem.tokensBefore,
-          tokensAfter: compactedItem.tokensAfter,
-        },
-      ]);
-      await this.archiveRolloutIfConfigured(this.activeThread.metadata.threadId);
-    }
-
-    if (progress) {
-      this.completeCompactionProgress(
-        progress,
-        compactedItem.tokensBefore,
-        compactedItem.tokensAfter,
-        summary,
-        callbacks
-      );
-    }
-    callbacks.onEvent({
-      type: "context_compacted",
-      summary,
-      tokensBefore: compactedItem.tokensBefore,
-      tokensAfter: compactedItem.tokensAfter,
+    await runMidTurnCompaction({
+      turn,
+      callbacks,
+      deps: this.createCompactionRunnerDeps(),
     });
+  }
+
+  private createCompactionRunnerDeps() {
+    return {
+      sessionStore: this.sessionStore,
+      getAllTurnItems: () => this.getAllTurnItems(),
+      generateCompactionSummary: (prompt: string) => this.generateCompactionSummary(prompt),
+      startCompactionProgress: (
+        threadId: ThreadId,
+        reason: CompactionReason,
+        items: TurnItem[],
+        callbacks: AgentTurnCallbacks
+      ) => this.startCompactionProgress(threadId, reason, items, callbacks),
+      completeCompactionProgress: (
+        progress: CompactProgressItem,
+        tokensBefore: number,
+        tokensAfter: number,
+        summary: string,
+        callbacks: AgentTurnCallbacks
+      ) => this.completeCompactionProgress(progress, tokensBefore, tokensAfter, summary, callbacks),
+      failCompactionProgress: (
+        threadId: ThreadId,
+        progress: CompactProgressItem,
+        items: TurnItem[],
+        error: unknown,
+        callbacks: AgentTurnCallbacks
+      ) => this.failCompactionProgress(threadId, progress, items, error, callbacks),
+      archiveRolloutIfConfigured: (threadId: ThreadId) => this.archiveRolloutIfConfigured(threadId),
+      setCompactedHistory: (history: TurnItem[]) => {
+        this.compactedHistory = history;
+      },
+      getActiveThread: () => this.activeThread,
+      compactionConfig: this.config.compactionConfig,
+    };
   }
 
   private async startCompactionProgress(

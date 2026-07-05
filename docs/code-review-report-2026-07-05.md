@@ -55,7 +55,7 @@
 
 ### 2026-07-05 — P0 可维护性：`agentLoop.ts` 阶段性拆分（M1 进行中）
 
-**状态**：🚧 进行中（阶段 1 已完成，M1 尚未关闭）
+**状态**：🚧 进行中（阶段性拆分已提交，M1 尚未关闭）
 
 **关联提交**：本节所在提交 `refactor: split agent loop helper modules`
 
@@ -64,6 +64,7 @@
 - 从 `agentLoop.ts` 抽出流结束后的 `TurnItem` 补发与落库顺序：`electron/agent/core/agentLoop/streamResultItems.ts`。
 - 从 `agentLoop.ts` 抽出压缩进度事件、压缩参数 rollout 记录和冷 rollout 归档触发：`electron/agent/core/agentLoop/compactionProgress.ts`。
 - 从 `agentLoop.ts` 抽出线程回调绑定、线程快照/运行态持久化、rollout 事件 sink 绑定和长期记忆抽取调度：`electron/agent/core/agentLoop/threadRuntime.ts`。
+- 从 `agentLoop.ts` 抽出 pre-turn / mid-turn 压缩执行逻辑：`electron/agent/core/agentLoop/compactionRunner.ts`。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
@@ -75,6 +76,7 @@
 **验证证据**：
 - `npm exec vitest run electron/agent/core/agentLoop/streamResultItems.test.ts electron/agent/core/agentLoop/compactionProgress.test.ts electron/agent/core/agentLoop/contextUsage.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/threadRuntime.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
+- `npm exec vitest run electron/agent/core/agentLoop/compactionRunner.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 
 ---
 
