@@ -42,7 +42,6 @@ import {
 
 import {
   buildResumeContext,
-  shouldCompact,
 } from "../../memory/compaction";
 
 import { SessionStore } from "../../memory/sessionStore";
@@ -118,6 +117,7 @@ import {
 } from "./aiRequestRetry";
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
 import { runAgentLoopRounds } from "./agentLoopRunner";
+import { buildPreTurnCompactionPlan } from "./preTurnCompaction";
 
 // ============================================================
 // Agent Loop 配置
@@ -377,19 +377,16 @@ export class AgentLoop {
       const { thread } = prepared;
       turnCallbacks = prepared.callbacks;
 
-      // 检查是否需要压缩（参考 Codex 的 pre-turn compaction）
-      // 使用会话自己的 contextWindowSize 构建压缩配置，确保会话间隔离
       const allItems = this.getAllTurnItems();
-      const globalConfig = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
-      const sessionContextWindowSize = thread.metadata.contextWindowSize
-        || globalConfig.contextWindowSize
-        || 128_000;
-      const sessionCompactionConfig = buildSessionCompactionConfig(globalConfig, sessionContextWindowSize);
-      const pendingReason = this.consumePendingCompactionReason(allItems, sessionCompactionConfig);
-      if (pendingReason) {
-        await this.performAutoCompaction(thread, pendingReason, turnCallbacks);
-      } else if (shouldCompact(allItems, sessionCompactionConfig)) {
-        await this.performAutoCompaction(thread, "auto_pre_turn", turnCallbacks);
+      const compactionPlan = buildPreTurnCompactionPlan({
+        items: allItems,
+        thread,
+        globalConfig: this.config.compactionConfig,
+        pendingReason: this.pendingCompactionReason,
+      });
+      this.pendingCompactionReason = null;
+      if (compactionPlan.reason) {
+        await this.performAutoCompaction(thread, compactionPlan.reason, turnCallbacks);
       }
 
       const turn = await createStartedTurn({
@@ -753,16 +750,6 @@ export class AgentLoop {
 
   private markPendingCompactionReason(reason: CompactionReason | null): void {
     this.pendingCompactionReason = mergePendingCompactionReason(this.pendingCompactionReason, reason);
-  }
-
-  private consumePendingCompactionReason(
-    items: TurnItem[],
-    config: CompactionConfig
-  ): CompactionReason | null {
-    const reason = this.pendingCompactionReason;
-    this.pendingCompactionReason = null;
-    if (!reason || !config.enabled || items.length === 0) return null;
-    return reason;
   }
 
   // ----------------------------------------------------------

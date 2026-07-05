@@ -12,6 +12,7 @@
 - `turnExecution.ts`：编排单个 Turn 的运行开始、活跃线程准备、用户消息落库、成功完成、失败记录和最终运行态收尾。
 - `queuedTurns.ts`：处理运行中补充输入入队、用户中断等待和队列自动续跑。
 - `configUpdates.ts`：处理 AI/压缩配置热更新后的客户端重建、线程 metadata 更新和待压缩原因合并。
+- `preTurnCompaction.ts`：根据会话上下文窗口、待处理压缩原因和自动阈值生成 turn 前压缩计划。
 - `turnState.ts`：当前运行 Turn 的可变状态容器。
 - `turnRunner.ts`：创建和完成 Turn、用户消息等基础对象。
 - `agentLoopRunner.ts`：编排每轮模型请求、流式结果补发、工具轮继续和最终上下文用量事件。
