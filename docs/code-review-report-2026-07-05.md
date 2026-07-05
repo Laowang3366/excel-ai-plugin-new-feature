@@ -67,6 +67,7 @@
 - 从 `agentLoop.ts` 抽出 pre-turn / mid-turn 压缩执行逻辑：`electron/agent/core/agentLoop/compactionRunner.ts`。
 - 清理 `agentLoop.ts` 中已变成“转一手”的流式结果、压缩进度薄委托包装，减少重复跳转。
 - 从 `agentLoop.ts` 抽出每轮模型请求参数装配：`electron/agent/core/agentLoop/roundStreamParams.ts`。
+- 从 `agentLoop.ts` 抽出线程会话生命周期编排：`electron/agent/core/agentLoop/threadSession.ts`，覆盖重置、新建、恢复和空闲卸载。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
@@ -80,6 +81,7 @@
 - `npm exec vitest run electron/agent/core/agentLoop/threadRuntime.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/compactionRunner.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/roundStreamParams.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
+- `npm exec vitest run electron/agent/core/agentLoop/threadSession.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 
 ---
 

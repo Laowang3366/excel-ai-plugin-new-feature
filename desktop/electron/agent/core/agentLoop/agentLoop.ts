@@ -65,7 +65,6 @@ import {
   DEFAULT_THREAD_IDLE_UNLOAD_MS,
   ThreadStateManager,
 } from "./threadStateManager";
-import { createAgentThread, loadAgentThread } from "./threadLifecycle";
 import { completeTurn, createTurn, createUserMessageItem } from "./turnRunner";
 import { PendingInterruptQueue, type ConnectionRequestId } from "./pendingInterruptQueue";
 import { ThreadWatchManager } from "./threadWatchManager";
@@ -95,6 +94,12 @@ import {
   runMidTurnCompaction,
 } from "./compactionRunner";
 import { buildRoundStreamParams } from "./roundStreamParams";
+import {
+  resetThreadSession,
+  resumeThreadSession,
+  startThreadSession,
+  sweepIdleThreadSession,
+} from "./threadSession";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
   runAIRequestWithRetry,
@@ -302,6 +307,22 @@ export class AgentLoop {
     return bindCallbacksToThreadHelper({ callbacks, threadId, clientId });
   }
 
+  private get threadSessionDeps() {
+    return {
+      turnState: this.turnState,
+      sessionStore: this.sessionStore,
+      threadStateManager: this.threadStateManager,
+      setActiveThread: (thread: Thread | null) => { this.activeThread = thread; },
+      setActiveTurn: (turn: Turn | null) => { this.activeTurn = turn; },
+      setCompactedHistory: (history: TurnItem[] | null) => { this.compactedHistory = history; },
+      publishThreadStatus: () => this.publishThreadStatus(),
+      scheduleIdleThreadUnload: () => this.scheduleIdleThreadUnload(),
+      clearIdleUnloadTimer: () => this.clearIdleUnloadTimer(),
+      persistThreadSnapshot: (thread: Thread) => this.persistThreadSnapshot(thread),
+      persistThreadRuntime: (threadId: ThreadId) => this.persistThreadRuntime(threadId),
+    };
+  }
+
   /**
    * 重置线程（用于新建会话）
    *
@@ -310,68 +331,41 @@ export class AgentLoop {
    * 不影响 SessionStore 中的历史数据。
    */
   async resetThread(folderId?: string): Promise<void> {
-    if (this.isRunning) {
-      await this.interrupt();
-    }
-    this.clearIdleUnloadTimer();
-    this.turnState.resetForNextThread(folderId);
-    this.threadStateManager.clear();
+    await resetThreadSession({
+      ...this.threadSessionDeps,
+      isRunning: this.isRunning,
+      interrupt: () => this.interrupt(),
+      folderId,
+    });
   }
 
   /** 启动新会话 */
   async startThread(): Promise<ThreadId> {
-    const folderId = this.turnState.consumePendingFolderId();
-
-    const thread = await createAgentThread({
-      sessionStore: this.sessionStore,
+    return startThreadSession({
+      ...this.threadSessionDeps,
       aiConfig: this.config.aiConfig,
       compactionConfig: this.config.compactionConfig,
-      folderId,
     });
-    this.activeThread = thread;
-    this.compactedHistory = null;
-    this.threadStateManager.markLoaded(thread.metadata.threadId);
-    this.publishThreadStatus();
-    this.scheduleIdleThreadUnload();
-    await this.persistThreadSnapshot(thread);
-    await this.persistThreadRuntime(thread.metadata.threadId);
-    return thread.metadata.threadId;
   }
 
   /** 恢复已有会话 */
   async resumeThread(threadId: ThreadId): Promise<boolean> {
-    if (this.isRunning) {
-      return this.activeThread?.metadata.threadId === threadId;
-    }
-    const result = await loadAgentThread(this.sessionStore, threadId);
-    if (!result) return false;
-    this.activeThread = result.thread;
-    this.compactedHistory = result.compactedHistory;
-    this.threadStateManager.markLoaded(result.thread.metadata.threadId);
-    this.publishThreadStatus();
-    this.scheduleIdleThreadUnload();
-    await this.persistThreadSnapshot(result.thread);
-    await this.persistThreadRuntime(result.thread.metadata.threadId);
-
-    return true;
+    return resumeThreadSession({
+      ...this.threadSessionDeps,
+      isRunning: this.isRunning,
+      activeThread: this.activeThread,
+      threadId,
+    });
   }
 
   /** 扫描并卸载空闲线程；返回 true 表示已释放 activeThread。 */
   async sweepIdleThread(now = Date.now()): Promise<boolean> {
-    if (this.isRunning || !this.activeThread || !this.threadStateManager.shouldUnload(now)) {
-      return false;
-    }
-
-    const threadId = this.activeThread.metadata.threadId;
-    await this.sessionStore.flushRolloutWrites();
-    this.activeThread = null;
-    this.activeTurn = null;
-    this.compactedHistory = null;
-    this.threadStateManager.markUnloaded(now);
-    this.publishThreadStatus();
-    this.clearIdleUnloadTimer();
-    await this.persistThreadRuntime(threadId);
-    return true;
+    return sweepIdleThreadSession({
+      ...this.threadSessionDeps,
+      now,
+      isRunning: this.isRunning,
+      activeThread: this.activeThread,
+    });
   }
 
   /** 执行一次 Turn（核心方法） */
