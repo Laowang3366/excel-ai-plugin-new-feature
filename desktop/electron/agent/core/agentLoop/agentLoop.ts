@@ -1,22 +1,3 @@
-﻿/**
- * Agent 循环 — 参考 Codex 的 turn.rs 和 codex_thread.rs 重写
- *
- * 核心流程（参考 Codex run_turn）：
- *   1. 用户发送消息 → 创建新 Turn
- *   2. 构建 AI 请求（包含历史上下文）
- *   3. 流式接收 AI 响应
- *      - 文本 → 直接输出
- *      - 推理 → 完整展示（不隐藏）
- *      - 工具调用 → 执行工具 → 将结果发回 AI → 继续
- *   4. AI 不再请求工具 → Turn 完成
- *
- * 关键设计（参考 Codex 事件驱动模型）：
- *   - 消息列表是 Agent 事件的唯一投影，前端不自行创建消息
- *   - 所有 TurnItem 通过 item_started/item_completed 事件发出
- *   - 设置变更只更新 AI 客户端，不销毁线程
- *   - 压缩历史在 thread 级别维护，不创建虚拟 Turn
- */
-
 import {
   type TurnItem,
   type Turn,
@@ -44,7 +25,6 @@ import {
 import { SessionStore } from "../../memory/sessionStore";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 
-// 子模块导入
 import { getToolDefinitions as getToolDefs } from "./toolExecutor";
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
 import { TurnState } from "./turnState";
@@ -105,10 +85,6 @@ import { runAgentLoopWithDeps } from "./agentLoopRoundDeps";
 
 export type { AgentLoopConfig } from "./agentLoopConfig";
 
-// ============================================================
-// Agent Loop — 核心循环
-// ============================================================
-
 export class AgentLoop {
   private config: AgentLoopConfig;
   private aiClient: ReturnType<typeof createAIClient>;
@@ -146,49 +122,37 @@ export class AgentLoop {
     });
   }
 
-  // ----------------------------------------------------------
-  // 公共 API
-  // ----------------------------------------------------------
-
-  /** 迁移后更新 SessionStore 引用（数据迁移场景） */
   updateSessionStore(store: SessionStore): void {
     this.sessionStore = store;
     this.attachRolloutEventSink();
   }
 
-  /** 数据迁移后更新 SQLite 运行态存储引用。 */
   updateStateRuntimeStore(store: StateRuntimeStore): void {
     this.stateRuntimeStore = store;
     this.config.memoryStore?.updateRuntime(store);
     this.attachRolloutEventSink();
   }
 
-  /** 获取当前活跃的线程 */
   getThread(): Thread | null {
     return this.turnState.activeThread;
   }
 
-  /** 获取当前线程运行态快照，用于状态观察和诊断。 */
   getThreadRuntimeStatus(): ThreadRuntimeSnapshot {
     return this.threadStateManager.getSnapshot();
   }
 
-  /** 是否正在运行 */
   getIsRunning(): boolean {
     return this.turnState.isRunning;
   }
 
-  /** 当前排队中的中断请求 ID，用于诊断多来源中断。 */
   getPendingInterruptRequestIds(): ConnectionRequestId[] {
     return this.pendingInterruptQueue.pendingIds();
   }
 
-  /** 运行中用户补充输入数量。 */
   getQueuedInputCount(): number {
     return this.inputQueue.size();
   }
 
-  /** 当前 turn 运行中收到的新输入先入队，待当前 turn 结束后自动继续。 */
   enqueueTurn(
     input: AgentTurnInput,
     callbacks: AgentTurnCallbacks
@@ -211,12 +175,6 @@ export class AgentLoop {
     });
   }
 
-  /**
-   * 更新 AI 客户端配置（参考 Codex CodexThreadSettingsOverrides）
-   *
-   * 设置变更时只更新 AI 客户端，不销毁线程。
-   * 这样切换 provider 后对话历史不会丢失。
-   */
   updateAIConfig(config: AIClientConfig): void {
     const result = applyAIConfigUpdate({
       currentConfig: this.config,
@@ -229,7 +187,6 @@ export class AgentLoop {
     this.markPendingCompactionReason(result.pendingReason);
   }
 
-  /** 更新权限模式（热更新，不销毁线程） */
   updatePermissionMode(mode: "normal" | "auto_approve_safe" | "confirm_all"): void {
     this.config.permissionMode = mode;
   }
@@ -258,13 +215,6 @@ export class AgentLoop {
     };
   }
 
-  /**
-   * 重置线程（用于新建会话）
-   *
-   * 如果当前有正在运行的 Turn，先中断并等待清理完成。
-   * 清除 activeThread，下次 startTurn 时自动创建新线程。
-   * 不影响 SessionStore 中的历史数据。
-   */
   async resetThread(folderId?: string): Promise<void> {
     await resetThreadSession({
       ...this.threadSessionDeps,
@@ -274,7 +224,6 @@ export class AgentLoop {
     });
   }
 
-  /** 启动新会话 */
   async startThread(): Promise<ThreadId> {
     return startThreadSession({
       ...this.threadSessionDeps,
@@ -283,7 +232,6 @@ export class AgentLoop {
     });
   }
 
-  /** 恢复已有会话 */
   async resumeThread(threadId: ThreadId): Promise<boolean> {
     return resumeThreadSession({
       ...this.threadSessionDeps,
@@ -293,7 +241,6 @@ export class AgentLoop {
     });
   }
 
-  /** 扫描并卸载空闲线程；返回 true 表示已释放 activeThread。 */
   async sweepIdleThread(now = Date.now()): Promise<boolean> {
     return sweepIdleThreadSession({
       ...this.threadSessionDeps,
@@ -303,7 +250,6 @@ export class AgentLoop {
     });
   }
 
-  /** 执行一次 Turn（核心方法） */
   async runTurn(
     input: AgentTurnInput,
     callbacks: AgentTurnCallbacks
@@ -341,7 +287,6 @@ export class AgentLoop {
     });
   }
 
-  /** 中断当前 Turn，等待清理完成后返回 */
   async interrupt(requestId: ConnectionRequestId = `interrupt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`): Promise<void> {
     await interruptCurrentTurn({
       requestId, pendingInterruptQueue: this.pendingInterruptQueue, inputQueue: this.inputQueue, turnState: this.turnState,
@@ -418,25 +363,6 @@ export class AgentLoop {
     this.idleUnloadTimer = clearIdleThreadUnloadTimer(this.idleUnloadTimer);
   }
 
-  // ----------------------------------------------------------
-  // Agent 循环核心
-  // ----------------------------------------------------------
-
-  /**
-   * Agent 循环（参考 Codex run_turn）
-   *
-   * 流程：
-   *   while (true) {
-   *     1. 构建消息历史
-   *     2. 调用 AI
-   *     3. 收集响应（文本/推理/工具调用）
-   *     4. 如果有工具调用 → 执行 → 添加结果到历史 → continue
-   *     5. 如果没有工具调用 → break
-   *   }
-   *
-   * 关键：所有消息通过 item_started/item_completed 事件发出，
-   * 前端只从事件获取消息，不自行创建。
-   */
   private async runAgentLoop(
     turn: Turn,
     callbacks: AgentTurnCallbacks,
@@ -498,7 +424,6 @@ export class AgentLoop {
     });
   }
 
-  /** Pre-turn 自动压缩 */
   private async performAutoCompaction(
     thread: Thread,
     reason: CompactionReason,
@@ -512,7 +437,6 @@ export class AgentLoop {
     });
   }
 
-  /** Mid-turn 压缩（参考 Codex 的 mid-turn compaction） */
   private async performMidTurnCompaction(
     turn: Turn,
     callbacks: AgentTurnCallbacks
@@ -537,20 +461,6 @@ export class AgentLoop {
     });
   }
 
-  // ----------------------------------------------------------
-  // 历史管理
-  // ----------------------------------------------------------
-
-  /**
-   * 获取所有 Turn 的条目（参考 Codex ContextManager.for_prompt）
-   *
-   * 优先使用 compactedHistory（压缩后的历史），
-   * 否则从所有 turns 收集。
-   * 加上当前活跃 turn 的新条目。
-   *
-   * invariant: 当 compactedHistory 非空时，thread.turns 只包含
-   * 压缩点之后的已完成 turns（或为空），不会与 compactedHistory 重叠。
-   */
   private getAllTurnItems(): TurnItem[] {
     return collectPromptTurnItems({
       activeThread: this.turnState.activeThread,
@@ -567,13 +477,6 @@ export class AgentLoop {
     });
   }
 
-  // ----------------------------------------------------------
-  // 上下文使用量（参考 Codex context_window_line / AutoCompactTokenStatus）
-  // ----------------------------------------------------------
-
-  /**
-   * 发送上下文使用情况事件
-   */
   private emitContextUsage(
     callbacks: AgentTurnCallbacks,
     requestContext?: { systemPrompt?: string; tools?: ToolDefinition[] }
@@ -587,9 +490,6 @@ export class AgentLoop {
     }));
   }
 
-  /**
-   * 更新压缩配置（热更新，不销毁线程）
-   */
   updateCompactionConfig(config: CompactionConfig): void {
     const result = applyCompactionConfigUpdate({
       currentConfig: this.config,
@@ -606,13 +506,6 @@ export class AgentLoop {
     this.pendingCompactionReason = mergePendingCompactionReason(this.pendingCompactionReason, reason);
   }
 
-  // ----------------------------------------------------------
-  // 中断恢复
-  // ----------------------------------------------------------
-
-  /**
-   * 从中断处恢复
-   */
   async resumeFromInterruption(
     userMessage: string,
     callbacks: AgentTurnCallbacks,

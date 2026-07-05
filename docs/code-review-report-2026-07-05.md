@@ -82,6 +82,7 @@
 - 从 `agentLoop.ts` 抽出单次 `runTurn` 生命周期编排：`electron/agent/core/agentLoop/turnFlow.ts`，串联线程准备、turn 前压缩、Agent 循环、成功/失败收尾和队列续跑。
 - 从 `agentLoop.ts` 抽出 `AgentLoopConfig` 类型定义：`electron/agent/core/agentLoop/agentLoopConfig.ts`，并在原模块继续 re-export 保持外部导入兼容。
 - 从 `agentLoop.ts` 抽出每轮 runner 依赖组装：`electron/agent/core/agentLoop/agentLoopRoundDeps.ts`，集中处理模型、工具、权限、上下文和落库回调接线。
+- 精简 `agentLoop.ts` 中与 README 重复的长段注释、区块横线和简单 getter 注释，主循环设计说明改由 `electron/agent/core/agentLoop/README.md` 统一维护。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
