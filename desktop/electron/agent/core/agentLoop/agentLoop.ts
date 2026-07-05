@@ -107,6 +107,12 @@ import {
   prepareThreadForTurn,
 } from "./turnExecution";
 import {
+  drainQueuedTurns,
+  enqueueQueuedTurn,
+  interruptCurrentTurn,
+  shouldRescheduleQueueDrain,
+} from "./queuedTurns";
+import {
   applyAIConfigUpdate,
   applyCompactionConfigUpdate,
   mergePendingCompactionReason,
@@ -240,11 +246,7 @@ export class AgentLoop {
     input: AgentTurnInput,
     callbacks: AgentTurnCallbacks
   ): { queued: true; queueSize: number } {
-    if (!this.autoDrainInputQueue) {
-      throw new Error("Agent 正在中断中，请等待停止完成后再发送新请求");
-    }
-    const queueSize = this.inputQueue.enqueue({ input, callbacks });
-    return { queued: true, queueSize };
+    return enqueueQueuedTurn({ autoDrainInputQueue: this.autoDrainInputQueue, inputQueue: this.inputQueue, turnInput: input, callbacks });
   }
 
   watchThreadStatus(
@@ -441,20 +443,12 @@ export class AgentLoop {
 
   /** 中断当前 Turn，等待清理完成后返回 */
   async interrupt(requestId: ConnectionRequestId = `interrupt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`): Promise<void> {
-    this.pendingInterruptQueue.push(requestId);
-    this.autoDrainInputQueue = false;
-    this.inputQueue.clear();
-    this.turnState.abortController?.abort();
-    // 等待 runTurn() 的 catch/finally 完全执行完毕，
-    // 确保 isRunning=false、activeThread/activeTurn 稳定后才返回。
-    try {
-      if (this.turnState.turnCompletionPromise) {
-        await this.turnState.turnCompletionPromise;
-      }
-    } finally {
-      this.inputQueue.clear();
-      this.pendingInterruptQueue.drain();
-    }
+    await interruptCurrentTurn({
+      requestId, pendingInterruptQueue: this.pendingInterruptQueue, inputQueue: this.inputQueue, turnState: this.turnState,
+      disableAutoDrain: () => {
+        this.autoDrainInputQueue = false;
+      },
+    });
   }
 
   private scheduleInputQueueDrain(): void {
@@ -467,18 +461,15 @@ export class AgentLoop {
 
   private async drainInputQueue(): Promise<void> {
     try {
-      while (!this.turnState.isRunning) {
-        const next = this.inputQueue.dequeue();
-        if (!next) return;
-        try {
-          await this.runTurn(next.input, next.callbacks);
-        } catch (error) {
-          console.warn("执行排队输入失败:", error);
-        }
-      }
+      await drainQueuedTurns({
+        inputQueue: this.inputQueue,
+        isRunning: () => this.turnState.isRunning,
+        runTurn: (input, callbacks) => this.runTurn(input, callbacks),
+        onTurnError: (error) => console.warn("执行排队输入失败:", error),
+      });
     } finally {
       this.isDrainingInputQueue = false;
-      if (this.autoDrainInputQueue && !this.turnState.isRunning && this.inputQueue.size() > 0) {
+      if (shouldRescheduleQueueDrain({ autoDrainInputQueue: this.autoDrainInputQueue, isRunning: this.turnState.isRunning, queueSize: this.inputQueue.size() })) {
         this.scheduleInputQueueDrain();
       }
     }
