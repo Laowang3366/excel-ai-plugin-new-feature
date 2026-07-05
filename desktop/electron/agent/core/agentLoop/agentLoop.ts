@@ -32,7 +32,6 @@ import {
   type CompactProgressItem,
   type ThreadRuntimeSnapshot,
   DEFAULT_COMPACTION_CONFIG,
-  mergeTokenUsage,
 } from "../../shared/types";
 
 import {
@@ -53,7 +52,6 @@ import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
 
 // 子模块导入
-import { collectStreamEvents, type ToolCallInfo } from "./streamCollector";
 import { processToolCalls, getToolDefinitions as getToolDefs, type ToolApprovalConfig } from "./toolExecutor";
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
 import { TurnState } from "./turnState";
@@ -112,6 +110,11 @@ import {
   interruptCurrentTurn,
   shouldRescheduleQueueDrain,
 } from "./queuedTurns";
+import {
+  applyStreamUsage,
+  collectRoundStream,
+  emitStreamErrorItem,
+} from "./streamRound";
 import {
   applyAIConfigUpdate,
   applyCompactionConfigUpdate,
@@ -570,40 +573,24 @@ export class AgentLoop {
         resumeContext,
       });
 
-      // 3. 收集响应
-      let streamResult;
-      try {
-        streamResult = await runAIRequestWithRetry({
-          phase: "sampling",
-          config: this.config.aiRequestRetryConfig?.sampling,
-          signal: this.turnState.abortController?.signal,
-          operation: () => collectStreamEvents(
-            this.aiClient.streamChat(streamParams),
-            callbacks,
-            round
-          ),
-        });
-      } catch (err: any) {
-        if (err.name === "AbortError") {
-          // 中断处理已移到 streamCollector
-          throw err;
-        }
-        throw err;
-      }
+      const streamResult = await collectRoundStream({
+        aiClient: this.aiClient,
+        streamParams,
+        callbacks,
+        round,
+        retryConfig: this.config.aiRequestRetryConfig?.sampling,
+        signal: this.turnState.abortController?.signal,
+      });
 
-      // 处理流式错误事件
-      const errorItem = (streamResult as any).errorItem as TurnItem | undefined;
-      if (errorItem) {
-        turn.items.push(errorItem);
-        await this.sessionStore.appendTurnItem(turn.threadId, turn.turnId, errorItem);
-        callbacks.onEvent({ type: "item_started", item: errorItem });
-        callbacks.onEvent({ type: "item_completed", item: errorItem });
-        callbacks.onEvent({ type: "error", message: errorItem.type === "error" ? errorItem.message : "Unknown error" });
+      if (await emitStreamErrorItem({
+        streamResult,
+        turn,
+        callbacks,
+        appendTurnItem: (threadId, turnId, item) =>
+          this.sessionStore.appendTurnItem(threadId, turnId, item),
+      })) {
         return;
       }
-
-      // 处理中断（AbortError 在 collectStreamEvents 外部抛出）
-      // 这里不会到这里——AbortError 会在上方 throw
 
       // 4. 流结束，按 API 真实事件顺序发出 items
       this.throwIfAborted();
@@ -656,15 +643,7 @@ export class AgentLoop {
         continue;
       }
 
-      // 7. 没有工具调用 → Turn 结束
-      if (streamResult.usage) {
-        turn.tokenUsage = streamResult.usage;
-        if (this.turnState.activeThread) {
-          this.turnState.activeThread.metadata.totalTokenUsage = this.turnState.activeThread.metadata.totalTokenUsage
-            ? mergeTokenUsage(this.turnState.activeThread.metadata.totalTokenUsage, streamResult.usage)
-            : streamResult.usage;
-        }
-      }
+      applyStreamUsage({ streamResult, turn, activeThread: this.turnState.activeThread });
       // Turn 结束时始终发送上下文使用情况
       this.emitContextUsage(callbacks, {
         systemPrompt: effectiveSystemPrompt,

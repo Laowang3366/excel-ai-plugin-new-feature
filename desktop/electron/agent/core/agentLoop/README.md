@@ -15,6 +15,7 @@
 - `turnState.ts`：当前运行 Turn 的可变状态容器。
 - `turnRunner.ts`：创建和完成 Turn、用户消息等基础对象。
 - `streamCollector.ts`：收集模型流式事件并转换为 Agent 内部事件。
+- `streamRound.ts`：封装单轮模型采样请求、流式错误 item 落库和最终 token usage 合并。
 - `streamResultItems.ts`：在模型流结束后，按 reasoning、assistant message、tool call 的真实顺序补齐 `TurnItem` 落库与事件发送。
 - `toolExecutor.ts`：执行模型请求的工具调用，并处理审批与工具结果回写。
 - `buildStreamParams.ts`：构建模型请求参数、系统提示词和推理配置。
