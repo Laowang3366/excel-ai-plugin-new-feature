@@ -8,6 +8,17 @@ import { useSettingsStore, type AppLanguage, type AppTheme } from "../../store/s
 import { formatTokensAsK, DEFAULT_CONTEXT_WINDOW } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
 
+function getSliderFillPercent(value: number, min: number, max: number): number {
+  if (max <= min) return 0;
+  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+}
+
+function getSliderStyle(value: number, min: number, max: number): React.CSSProperties {
+  return {
+    "--slider-fill": `${getSliderFillPercent(value, min, max)}%`,
+  } as React.CSSProperties;
+}
+
 const GENERAL_TEXT = {
   "zh-CN": {
     title: "常规设置",
@@ -139,6 +150,10 @@ export const GeneralSettings: React.FC = () => {
   const [mineruSaved, setMineruSaved] = useState(false);
   const text = GENERAL_TEXT[language];
   const windowOpacityPercent = Math.round(windowOpacity * 100);
+  const windowOpacityMin = 55;
+  const windowOpacityMax = 100;
+  const autoCompactThresholdMin = 10;
+  const autoCompactThresholdMax = 95;
   const windowOpacityLabel = language === "zh-CN" ? "窗口透明度" : "Window opacity";
   const windowOpacityHint = language === "zh-CN"
     ? "降低后整个助手窗口会半透明，便于查看和操作后方的 Office 内容。"
@@ -296,10 +311,11 @@ export const GeneralSettings: React.FC = () => {
             <input
               type="range"
               className="compaction-slider"
-              min={55}
-              max={100}
+              min={windowOpacityMin}
+              max={windowOpacityMax}
               step={5}
               value={windowOpacityPercent}
+              style={getSliderStyle(windowOpacityPercent, windowOpacityMin, windowOpacityMax)}
               onChange={(event) => setWindowOpacity(Number(event.target.value) / 100)}
             />
             <span className="compaction-threshold-value">
@@ -417,10 +433,11 @@ export const GeneralSettings: React.FC = () => {
             <input
               type="range"
               className="compaction-slider"
-              min={10}
-              max={95}
+              min={autoCompactThresholdMin}
+              max={autoCompactThresholdMax}
               step={5}
               value={autoCompactThresholdPercent}
+              style={getSliderStyle(autoCompactThresholdPercent, autoCompactThresholdMin, autoCompactThresholdMax)}
               onChange={(event) => setAutoCompactThresholdPercent(Number(event.target.value))}
               disabled={!compactionEnabled}
             />
