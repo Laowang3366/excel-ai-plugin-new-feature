@@ -14,6 +14,7 @@
 - `streamResultItems.ts`：在模型流结束后，按 reasoning、assistant message、tool call 的真实顺序补齐 `TurnItem` 落库与事件发送。
 - `toolExecutor.ts`：执行模型请求的工具调用，并处理审批与工具结果回写。
 - `buildStreamParams.ts`：构建模型请求参数、系统提示词和推理配置。
+- `roundStreamParams.ts`：为每轮模型调用装配消息历史、图片附件、恢复上下文、动态系统提示词、工具定义和流式请求参数。
 - `contextUsage.ts`：收集用于提示词的历史条目，并生成上下文使用量事件。
 - `compactionProgress.ts`：封装上下文压缩进度事件、压缩参数 rollout 记录和冷 rollout 归档触发。
 - `compactionRunner.ts`：执行 pre-turn / mid-turn 上下文压缩，负责摘要写入、历史替换、当前用户消息保留和压缩完成事件。

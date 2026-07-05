@@ -47,7 +47,6 @@ import {
   shouldCompact,
 } from "../../memory/compaction";
 import { turnItemGroupsToChatMessages } from "../../shared/messageBuilder";
-import { resolveImageAttachments } from "../../attachments/imageAttachmentResolver";
 
 import { SessionStore } from "../../memory/sessionStore";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
@@ -57,11 +56,6 @@ import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
 import { collectStreamEvents, type ToolCallInfo } from "./streamCollector";
 import { processToolCalls, getToolDefinitions as getToolDefs, type ToolApprovalConfig } from "./toolExecutor";
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
-import {
-  appendRuntimeLongTermMemoryContext,
-  buildEffectiveSystemPrompt,
-} from "./buildStreamParams";
-import { resolveMaxTokens } from "./maxTokens";
 import { TurnState } from "./turnState";
 import {
   createCompactionProvider,
@@ -100,6 +94,7 @@ import {
   runAutoCompaction,
   runMidTurnCompaction,
 } from "./compactionRunner";
+import { buildRoundStreamParams } from "./roundStreamParams";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
   runAIRequestWithRetry,
@@ -642,47 +637,19 @@ export class AgentLoop {
       this.throwIfAborted();
       round++;
 
-      // 1. 构建消息历史
-      const messages = turnItemGroupsToChatMessages(this.getTurnItemGroups());
-
-      // 解析图片附件：将本地文件路径转为 base64 data URI
-      await resolveImageAttachments(messages);
-
-      // 注入中断恢复上下文（作为系统消息，不显示给用户）
-      if (resumeContext) {
-        messages.push({
-          role: "system",
-          content: resumeContext,
-        });
-      }
-
-      // 2. 调用 AI（流式）
-      const configuredMode: ReasoningMode = this.config.aiConfig.reasoningMode || this.config.reasoningMode || "high";
-
-      // 构建系统提示词：静态基础 + 动态文件夹上下文
-      let effectiveSystemPrompt = await buildEffectiveSystemPrompt(
-        this.config.systemPrompt,
-        this.activeThread?.metadata.folderId,
-        {
-          content: input.content,
-          attachments: input.attachments,
-        }
-      );
-      effectiveSystemPrompt = await appendRuntimeLongTermMemoryContext(
-        effectiveSystemPrompt,
-        this.stateRuntimeStore
-      );
-
-      const toolDefs = getToolDefs(this.config.toolExecutors);
-      const streamParams = {
-        messages,
-        tools: toolDefs,
-        systemPrompt: effectiveSystemPrompt,
-        maxTokens: resolveMaxTokens(this.config.aiConfig),
-        reasoningMode: configuredMode,
+      const { streamParams, effectiveSystemPrompt, toolDefs } = await buildRoundStreamParams({
+        turnItemGroups: this.getTurnItemGroups(),
+        turnInput: input,
+        aiConfig: this.config.aiConfig,
+        configuredReasoningMode: this.config.reasoningMode,
+        baseSystemPrompt: this.config.systemPrompt,
+        folderId: this.activeThread?.metadata.folderId,
+        stateRuntimeStore: this.stateRuntimeStore,
+        toolExecutors: this.config.toolExecutors,
         signal: this.abortController?.signal,
-        roundId: round,
-      };
+        round,
+        resumeContext,
+      });
 
       // 3. 收集响应
       let streamResult;
