@@ -31,6 +31,9 @@ export function validateInput<T>(schema: z.ZodType<T>, data: unknown): T {
 export const MigrateDataPathInput = z.string().min(1, "路径不能为空");
 export type MigrateDataPathInput = z.infer<typeof MigrateDataPathInput>;
 
+export const AppOpenPathInput = z.string().min(1, "路径不能为空");
+export const AppOpenExternalInput = z.string().url("URL 格式不正确");
+
 export const SelectDataPathOutput = z.object({
   canceled: z.boolean(),
   filePaths: z.array(z.string()),
@@ -41,6 +44,7 @@ export const SelectDataPathOutput = z.object({
 // ============================================================
 
 export const SetAlwaysOnTopInput = z.boolean();
+export const WindowDisplayModeInput = z.enum(["normal", "compact"]);
 
 // ============================================================
 // Settings
@@ -56,6 +60,7 @@ export const SettingsSetInput = z.tuple([z.string(), z.unknown()]);
 export const ExcelReadRangeInput = z.object({
   sheetName: z.string(),
   range: z.string(),
+  expand: z.enum(["none", "spill", "currentArray", "currentRegion"]).optional(),
 });
 
 export const ExcelWriteRangeInput = z.object({
@@ -63,6 +68,8 @@ export const ExcelWriteRangeInput = z.object({
   range: z.string(),
   values: z.array(z.array(z.unknown())),
 });
+
+export const ExcelSelectHostInput = z.enum(["excel", "wps"]);
 
 // ============================================================
 // Agent
@@ -92,6 +99,11 @@ export const AgentContinueTurnInput = z.object({
   threadId: z.string().optional().nullable(),
 });
 export type AgentContinueTurnInput = z.infer<typeof AgentContinueTurnInput>;
+
+export const AgentInterruptInput = z.object({
+  threadId: z.string().min(1).nullable().optional(),
+}).optional();
+export type AgentInterruptInput = z.infer<typeof AgentInterruptInput>;
 
 // ============================================================
 // Thread
@@ -123,6 +135,15 @@ export const ThreadGraphListDescendantsInput = z.object({
 
 export const FilePathInput = z.string().min(1);
 export const FolderPathInput = z.string().min(1);
+export const FileWriteTempFileInput = z.object({
+  prefix: z.string().max(64).optional(),
+  suffix: z.string().regex(/^\.[a-zA-Z0-9]{1,16}$/).optional(),
+  data: z.string().min(1, "data 不能为空"),
+});
+export const OcrRecognizeInput = z.object({
+  mode: z.enum(["image", "invoice"]).optional(),
+  filePaths: z.array(z.string().min(1)).min(1, "文件列表不能为空"),
+});
 
 // ============================================================
 // AI
@@ -159,6 +180,28 @@ export const ToolCancelInput = z.string();
 export const StatsGetSummaryInput = z.object({
   days: z.number().int().min(1).max(365).optional(),
 }).optional();
+
+// ============================================================
+// Sandbox
+// ============================================================
+
+const SandboxPatternToken = z.union([
+  z.string(),
+  z.array(z.string()).min(1),
+]);
+
+export const SandboxUserRuleInput = z.object({
+  first: z.string().min(1).optional(),
+  pattern: z.array(SandboxPatternToken).min(1).optional(),
+  rest: z.array(SandboxPatternToken).optional(),
+  decision: z.enum(["allow", "prompt", "forbidden"]),
+  justification: z.string().optional(),
+}).refine((rule) => Boolean(rule.first || rule.pattern?.[0]), {
+  message: "规则必须包含 first 或 pattern",
+});
+
+export const SandboxUserRulesInput = z.array(SandboxUserRuleInput);
+export const SandboxWritableRootsInput = z.array(z.string().min(1));
 
 // ============================================================
 // Knowledge (RAG)

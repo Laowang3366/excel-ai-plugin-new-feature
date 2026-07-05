@@ -19,15 +19,19 @@ import type { StateRuntimeStore } from "../memory/stateRuntimeStore";
 import type { AgentTurnCallbacks, AgentTurnInput, ThreadId } from "../shared/types";
 import { ALL_TOOL_DEFINITIONS } from "../tools/registry/toolDefinitions";
 import {
+  AgentInterruptInput,
   AgentContinueTurnInput,
   AgentStartTurnInput,
   KnowledgeDeleteInput,
   KnowledgeIndexFileInput,
   KnowledgeIndexFolderInput,
   KnowledgeSearchInput,
+  StatsGetSummaryInput,
+  ThreadIdInput,
   ThreadGraphCloseEdgeInput,
   ThreadGraphEdgeInput,
   ThreadGraphListDescendantsInput,
+  ThreadNewInput,
   ThreadUpdateMetadataInput,
   validateInput,
 } from "../../shared/ipcSchemas";
@@ -196,10 +200,11 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("agent:interrupt", async (event, request?: { threadId?: string | null }) => {
+    const validated = validateInput(AgentInterruptInput, request);
     const requestId = `ipc-${event.processId}-${event.frameId}-${Date.now()}`;
     const manager = deps.agentLoopManagerRef?.();
     if (manager) {
-      const interrupted = await manager.interruptThread(request?.threadId, requestId);
+      const interrupted = await manager.interruptThread(validated?.threadId, requestId);
       return interrupted
         ? { success: true }
         : { success: false, error: "没有正在运行的 Agent" };
@@ -216,24 +221,28 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
     return listThreadsForIpc(deps);
   });
 
-  ipcMain.handle("thread:load", async (_event, threadId: ThreadId) => {
-    return deps.getSessionStoreInstance().loadThread(threadId);
+  ipcMain.handle("thread:load", async (_event, threadId: unknown) => {
+    const validated = validateInput(ThreadIdInput, threadId);
+    return deps.getSessionStoreInstance().loadThread(validated);
   });
 
-  ipcMain.handle("thread:delete", async (_event, threadId: ThreadId) => {
-    return deps.getSessionStoreInstance().deleteThread(threadId);
+  ipcMain.handle("thread:delete", async (_event, threadId: unknown) => {
+    const validated = validateInput(ThreadIdInput, threadId);
+    return deps.getSessionStoreInstance().deleteThread(validated);
   });
 
-  ipcMain.handle("thread:resume", async (_event, threadId: ThreadId) => {
-    const agent = await resolveAgentLoop(deps, threadId);
+  ipcMain.handle("thread:resume", async (_event, threadId: unknown) => {
+    const validated = validateInput(ThreadIdInput, threadId);
+    const agent = await resolveAgentLoop(deps, validated);
     if (!agent) return { success: false };
-    const success = await agent.resumeThread(threadId);
+    const success = await agent.resumeThread(validated);
     deps.agentLoopManagerRef?.()?.rememberLoop(agent);
     return { success };
   });
 
-  ipcMain.handle("thread:new", async (_event, folderId?: string) => {
-    return prepareNewThreadForIpc(deps, folderId);
+  ipcMain.handle("thread:new", async (_event, folderId?: unknown) => {
+    const validated = validateInput(ThreadNewInput, folderId);
+    return prepareNewThreadForIpc(deps, validated);
   });
 
   ipcMain.handle("thread:updateMetadata", async (_event, threadId: unknown, patch: unknown) => {
@@ -277,7 +286,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("tools:list", () => ALL_TOOL_DEFINITIONS);
 
-  ipcMain.handle("stats:getSummary", async () => {
+  ipcMain.handle("stats:getSummary", async (_event, options?: unknown) => {
+    validateInput(StatsGetSummaryInput, options);
     return deps.getSessionStoreInstance().getUsageSummary();
   });
 

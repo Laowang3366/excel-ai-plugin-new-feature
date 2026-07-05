@@ -164,7 +164,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     writeTempFile: (data: { prefix?: string; suffix?: string; data: string }) =>
       ipcRenderer.invoke("file:writeTempFile", data),
     /** 获取拖拽/粘贴 File 对象对应的本地路径（Electron 新版替代 File.path） */
-    getPathForFile: (file: any) => webUtils.getPathForFile(file),
+    getPathForFile: (file: any) => {
+      const filePath = webUtils.getPathForFile(file);
+      if (filePath) {
+        ipcRenderer.sendSync("file:authorizePathSync", filePath);
+      }
+      return filePath;
+    },
   },
 
   // ---- 文件夹操作 ----

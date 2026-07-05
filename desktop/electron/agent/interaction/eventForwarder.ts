@@ -8,6 +8,11 @@
  */
 
 import { BrowserWindow, ipcMain } from "electron";
+import {
+  ToolCancelInput,
+  ToolConfirmInput,
+  validateInput,
+} from "../../shared/ipcSchemas";
 import type { AgentEvent } from "../shared/types";
 
 export const STREAM_DELTA_FORWARD_FLUSH_MS = 32;
@@ -139,15 +144,17 @@ export function requestToolApproval(
 }
 
 export function registerToolApprovalHandlers(): void {
-  ipcMain.handle("tool:confirm", async (_event, toolCallId: string, alwaysAllow?: boolean) => {
-    const pending = pendingApprovals.get(toolCallId);
+  ipcMain.handle("tool:confirm", async (_event, toolCallId: unknown, alwaysAllow?: unknown) => {
+    const validated = validateInput(ToolConfirmInput, { toolCallId, alwaysAllow });
+    const pending = pendingApprovals.get(validated.toolCallId);
     if (pending) {
-      pending.resolve(true, alwaysAllow);
+      pending.resolve(true, validated.alwaysAllow);
     }
   });
 
-  ipcMain.handle("tool:cancel", async (_event, toolCallId: string) => {
-    const pending = pendingApprovals.get(toolCallId);
+  ipcMain.handle("tool:cancel", async (_event, toolCallId: unknown) => {
+    const validated = validateInput(ToolCancelInput, toolCallId);
+    const pending = pendingApprovals.get(validated);
     if (pending) {
       pending.reject("用户取消了工具执行");
     }

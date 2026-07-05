@@ -46,11 +46,27 @@ import {
 } from "../agent/security/sandbox";
 import {
   validateInput,
+  AppOpenExternalInput,
+  AppOpenPathInput,
   AiListModelsInput,
   AiTestConnectionInput,
+  ExcelReadRangeInput,
+  ExcelSelectHostInput,
+  ExcelWriteRangeInput,
+  FilePathInput,
+  FileWriteTempFileInput,
+  FolderPathInput,
   MigrateDataPathInput,
+  OcrRecognizeInput,
+  SandboxUserRulesInput,
+  SandboxWritableRootsInput,
+  SettingsGetInput,
+  SettingsSetInput,
+  SetAlwaysOnTopInput,
+  WindowDisplayModeInput,
 } from "../shared/ipcSchemas";
 import { createLogger } from "../shared/logger";
+import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
 import { parseFilesWithMineru, parseFilesWithMineruAgent, type MineruParsedDocument } from "./mineruOcr";
 import { parseFilesLocally } from "../agent/tools/executors/localDocumentParser";
 import {
@@ -131,6 +147,21 @@ export function setOfficeBridgesRefs(
 
 export function registerIpcHandlers(): void {
   setDynamicArrayFunctionsEnabled(getSettingsStore().get("dynamicArrayFunctionsEnabled"));
+  const pathAuthorizer = createPathAuthorizer({
+    getDataPath: getActiveDataPath,
+    getPinnedFolders: () => {
+      const folders = getSettingsStore().get("pinnedFolders") as Array<{ path?: unknown }> | undefined;
+      return Array.isArray(folders)
+        ? folders.map((folder) => typeof folder.path === "string" ? folder.path : "").filter(Boolean)
+        : [];
+    },
+    getExtraRoots: () => {
+      const roots = getSettingsStore().get("sandboxExtraWritableRoots") as unknown;
+      return Array.isArray(roots)
+        ? roots.filter((root): root is string => typeof root === "string" && root.trim().length > 0)
+        : [];
+    },
+  });
 
   registerAgentIpcHandlers({
     mainWindowRef,
@@ -143,17 +174,19 @@ export function registerIpcHandlers(): void {
   });
 
   // ---- 应用信息 ----
-  registerOcrIpcHandler();
+  registerOcrIpcHandler(pathAuthorizer);
 
   ipcMain.handle("app:getDataPath", () => getActiveDataPath());
 
-  ipcMain.handle("app:openPath", async (_event, targetPath: string) => {
-    return await shell.openPath(targetPath);
+  ipcMain.handle("app:openPath", async (_event, targetPath: unknown) => {
+    const validated = validateInput(AppOpenPathInput, targetPath);
+    return await shell.openPath(assertAuthorizedPath(pathAuthorizer, validated));
   });
 
-  ipcMain.handle("app:openExternal", async (_event, targetUrl: string) => {
+  ipcMain.handle("app:openExternal", async (_event, targetUrl: unknown) => {
     try {
-      const url = new URL(targetUrl);
+      const validated = validateInput(AppOpenExternalInput, targetUrl);
+      const url = new URL(validated);
       if (url.protocol !== "https:" && url.protocol !== "http:") {
         return `Unsupported URL protocol: ${url.protocol}`;
       }
@@ -183,8 +216,9 @@ export function registerIpcHandlers(): void {
     return mainWindowRef()?.isAlwaysOnTop() ?? false;
   });
 
-  ipcMain.handle("window:setAlwaysOnTop", (_event, enabled: boolean) => {
-    mainWindowRef()?.setAlwaysOnTop(enabled);
+  ipcMain.handle("window:setAlwaysOnTop", (_event, enabled: unknown) => {
+    const validated = validateInput(SetAlwaysOnTopInput, enabled);
+    mainWindowRef()?.setAlwaysOnTop(validated);
     return mainWindowRef()?.isAlwaysOnTop() ?? false;
   });
 
@@ -192,19 +226,19 @@ export function registerIpcHandlers(): void {
     return getWindowDisplayMode();
   });
 
-  ipcMain.handle("window:setDisplayMode", (_event, mode: WindowDisplayMode) => {
-    if (mode !== "normal" && mode !== "compact") {
-      return getWindowDisplayMode();
-    }
-    return setWindowDisplayMode(mainWindowRef(), mode);
+  ipcMain.handle("window:setDisplayMode", (_event, mode: unknown) => {
+    const validated = validateInput(WindowDisplayModeInput, mode);
+    return setWindowDisplayMode(mainWindowRef(), validated as WindowDisplayMode);
   });
 
   // ---- 设置相关 ----
-  ipcMain.handle("settings:get", (_event, key: string) => {
-    return getSettingsStore().get(key);
+  ipcMain.handle("settings:get", (_event, key: unknown) => {
+    const validated = validateInput(SettingsGetInput, key);
+    return getSettingsStore().get(validated);
   });
 
-  ipcMain.handle("settings:set", async (_event, key: string, value: unknown) => {
+  ipcMain.handle("settings:set", async (_event, keyInput: unknown, valueInput: unknown) => {
+    const [key, value] = validateInput(SettingsSetInput, [keyInput, valueInput]);
     const store = getSettingsStore();
     store.set(key, value);
 
@@ -269,10 +303,11 @@ export function registerIpcHandlers(): void {
     return await getExcelBridgeForIpc().connect();
   });
 
-  ipcMain.handle("excel:selectHost", async (_event, host: "excel" | "wps") => {
+  ipcMain.handle("excel:selectHost", async (_event, host: unknown) => {
+    const validated = validateInput(ExcelSelectHostInput, host);
     const bridge = excelBridgeRef();
     if (!bridge) return { connected: false, host: "unknown", error: "Bridge not available" };
-    return await bridge.selectHost(host);
+    return await bridge.selectHost(validated);
   });
 
   // ---- Word 连接状态 ----
@@ -301,10 +336,11 @@ export function registerIpcHandlers(): void {
     return await bridge.getSelectionAddress();
   });
 
-  ipcMain.handle("excel:readRange", async (_event, sheetName: string, range: string, expand?: "none" | "spill" | "currentArray" | "currentRegion") => {
+  ipcMain.handle("excel:readRange", async (_event, sheetName: unknown, range: unknown, expand?: unknown) => {
+    const validated = validateInput(ExcelReadRangeInput, { sheetName, range, expand });
     const bridge = excelBridgeRef();
     if (!bridge) return { values: [[]] };
-    try { return await bridge.readRange(sheetName, range, expand); }
+    try { return await bridge.readRange(validated.sheetName, validated.range, validated.expand); }
     catch { return { values: [[]] }; }
   });
 
@@ -315,11 +351,12 @@ export function registerIpcHandlers(): void {
     catch { return null; }
   });
 
-  ipcMain.handle("excel:writeRange", async (_event, sheetName: string, range: string, values: unknown[][]) => {
+  ipcMain.handle("excel:writeRange", async (_event, sheetName: unknown, range: unknown, values: unknown) => {
+    const validated = validateInput(ExcelWriteRangeInput, { sheetName, range, values });
     const bridge = excelBridgeRef();
     if (!bridge) return { success: false, error: "Excel 未连接" };
     try {
-      await bridge.writeRange(sheetName, range, values);
+      await bridge.writeRange(validated.sheetName, validated.range, validated.values);
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -337,6 +374,7 @@ export function registerIpcHandlers(): void {
         { name: "All Files", extensions: ["*"] },
       ],
     });
+    result.filePaths.forEach((filePath) => pathAuthorizer.authorizePath(filePath));
     return { canceled: result.canceled, filePaths: result.filePaths };
   });
 
@@ -349,6 +387,7 @@ export function registerIpcHandlers(): void {
         { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] },
       ],
     });
+    result.filePaths.forEach((filePath) => pathAuthorizer.authorizePath(filePath));
     return { canceled: result.canceled, filePaths: result.filePaths };
   });
 
@@ -359,18 +398,22 @@ export function registerIpcHandlers(): void {
       title: "选择文件夹",
       properties: ["openDirectory"],
     });
+    result.filePaths.forEach((folderPath) => pathAuthorizer.authorizeRoot(folderPath));
     return { canceled: result.canceled, filePaths: result.filePaths };
   });
 
   // ---- 文件夹文件列表 ----
-  ipcMain.handle("folder:listFiles", async (_event, folderPath: string) => {
+  ipcMain.handle("folder:listFiles", async (_event, folderPath: unknown) => {
+    const validated = validateInput(FolderPathInput, folderPath);
     try {
+      const authorizedFolderPath = assertAuthorizedPath(pathAuthorizer, validated);
       const officeExts = new Set([".xlsx", ".xls", ".csv", ".doc", ".docx", ".ppt", ".pptx"]);
-      const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+      const entries = await fs.promises.readdir(authorizedFolderPath, { withFileTypes: true });
       const files = entries
         .filter((e) => e.isFile() && officeExts.has(path.extname(e.name).toLowerCase()))
         .map((e) => {
-          const fullPath = path.join(folderPath, e.name);
+          const fullPath = path.join(authorizedFolderPath, e.name);
+          pathAuthorizer.authorizePath(fullPath);
           return { filePath: fullPath, fileName: e.name };
         });
       const results = await Promise.all(
@@ -391,10 +434,22 @@ export function registerIpcHandlers(): void {
   });
 
   // ---- 文件读取 ----
-  ipcMain.handle("file:readAsBase64", async (_event, filePath: string) => {
+  ipcMain.on("file:authorizePathSync", (event, filePath: unknown) => {
     try {
-      const buffer = await fs.promises.readFile(filePath);
-      const ext = path.extname(filePath).toLowerCase().replace(".", "");
+      const validated = validateInput(FilePathInput, filePath);
+      pathAuthorizer.authorizePath(validated);
+      event.returnValue = { success: true };
+    } catch (err: any) {
+      event.returnValue = { success: false, error: err?.message || "授权路径失败" };
+    }
+  });
+
+  ipcMain.handle("file:readAsBase64", async (_event, filePath: unknown) => {
+    try {
+      const validated = validateInput(FilePathInput, filePath);
+      const authorizedFilePath = assertAuthorizedPath(pathAuthorizer, validated);
+      const buffer = await fs.promises.readFile(authorizedFilePath);
+      const ext = path.extname(authorizedFilePath).toLowerCase().replace(".", "");
       const mimeMap: Record<string, string> = {
         png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
         gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
@@ -410,7 +465,7 @@ export function registerIpcHandlers(): void {
       return {
         data: buffer.toString("base64"),
         mimeType,
-        fileName: path.basename(filePath),
+        fileName: path.basename(authorizedFilePath),
         size: buffer.length,
       };
     } catch (err: any) {
@@ -421,10 +476,7 @@ export function registerIpcHandlers(): void {
   // ---- 临时文件操作（截图粘贴等） ----
   ipcMain.handle("file:writeTempFile", async (_event, data: unknown) => {
     try {
-      const input = data as { prefix?: string; suffix?: string; data: string };
-      if (!input.data || typeof input.data !== "string") {
-        return { success: false, error: "缺少 data 参数" };
-      }
+      const input = validateInput(FileWriteTempFileInput, data);
       const prefix = input.prefix?.replace(/[^a-zA-Z0-9_-]/g, "") || "clipboard";
       const suffix = input.suffix?.replace(/[^a-zA-Z0-9.]/g, "") || ".png";
       const tmpDir = await import("os").then((os) => os.tmpdir());
@@ -432,6 +484,7 @@ export function registerIpcHandlers(): void {
       const filePath = path.join(tmpDir, fileName);
       const buffer = Buffer.from(input.data, "base64");
       await fs.promises.writeFile(filePath, buffer);
+      pathAuthorizer.authorizePath(filePath);
       return { success: true, filePath };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -439,18 +492,20 @@ export function registerIpcHandlers(): void {
   });
 
   // ---- 文件操作（回收站/打开/复制路径/显示） ----
-  ipcMain.handle("file:trashFile", async (_event, filePath: string) => {
+  ipcMain.handle("file:trashFile", async (_event, filePath: unknown) => {
     try {
-      await shell.trashItem(filePath);
+      const validated = validateInput(FilePathInput, filePath);
+      await shell.trashItem(assertAuthorizedPath(pathAuthorizer, validated));
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
   });
 
-  ipcMain.handle("file:openFile", async (_event, filePath: string) => {
+  ipcMain.handle("file:openFile", async (_event, filePath: unknown) => {
     try {
-      const result = await shell.openPath(filePath);
+      const validated = validateInput(FilePathInput, filePath);
+      const result = await shell.openPath(assertAuthorizedPath(pathAuthorizer, validated));
       if (result) return { success: false, error: result };
       return { success: true };
     } catch (err: any) {
@@ -458,18 +513,20 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("file:copyPath", (_event, filePath: string) => {
+  ipcMain.handle("file:copyPath", (_event, filePath: unknown) => {
     try {
-      clipboard.writeText(filePath);
+      const validated = validateInput(FilePathInput, filePath);
+      clipboard.writeText(assertAuthorizedPath(pathAuthorizer, validated));
       return { success: true };
     } catch (err: any) {
       return { success: false };
     }
   });
 
-  ipcMain.handle("file:revealInExplorer", (_event, filePath: string) => {
+  ipcMain.handle("file:revealInExplorer", (_event, filePath: unknown) => {
     try {
-      shell.showItemInFolder(filePath);
+      const validated = validateInput(FilePathInput, filePath);
+      shell.showItemInFolder(assertAuthorizedPath(pathAuthorizer, validated));
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -488,10 +545,8 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("sandbox:setUserRules", (_event, rules: unknown) => {
-    if (!Array.isArray(rules)) {
-      return { success: false, error: "rules 必须为数组" };
-    }
-    const normalized = normalizeUserRules(rules);
+    const validated = validateInput(SandboxUserRulesInput, rules);
+    const normalized = normalizeUserRules(validated);
     if (normalized.error) {
       return { success: false, error: normalized.error };
     }
@@ -501,10 +556,9 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("sandbox:setWritableRoots", (_event, roots: unknown) => {
-    if (!Array.isArray(roots)) {
-      return { success: false, error: "roots 必须为数组" };
-    }
-    const clean = roots.filter((r): r is string => typeof r === "string" && r.trim().length > 0);
+    const clean = validateInput(SandboxWritableRootsInput, roots)
+      .map((root) => root.trim())
+      .filter(Boolean);
     getSettingsStore().set("sandboxExtraWritableRoots", clean);
     applySandboxConfig();
     return { success: true };
@@ -683,7 +737,7 @@ function getExcelBridgeForIpc(): ExcelConnectionBridge {
   return excelBridgeRef() ?? getOrCreateExcelBridge();
 }
 
-function registerOcrIpcHandler(): void {
+function registerOcrIpcHandler(pathAuthorizer: ReturnType<typeof createPathAuthorizer>): void {
   try {
     ipcMain.removeHandler("ocr:recognize");
   } catch {
@@ -692,7 +746,11 @@ function registerOcrIpcHandler(): void {
 
   ipcMain.handle("ocr:recognize", async (_event, mode: unknown, filePaths: unknown) => {
     try {
-      return await recognizeWithOcrFallbacks(mode, filePaths);
+      const validated = validateInput(OcrRecognizeInput, { mode, filePaths });
+      const authorizedFilePaths = validated.filePaths.map((filePath) =>
+        assertAuthorizedPath(pathAuthorizer, filePath)
+      );
+      return await recognizeWithOcrFallbacks(validated.mode, authorizedFilePaths);
     } catch (err: any) {
       return emptyOcrResult(normalizeOcrMode(mode), [err?.message || "OCR 识别失败"]);
     }
