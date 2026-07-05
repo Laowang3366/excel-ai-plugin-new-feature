@@ -65,7 +65,6 @@ import {
   DEFAULT_THREAD_IDLE_UNLOAD_MS,
   ThreadStateManager,
 } from "./threadStateManager";
-import { completeTurn, createTurn, createUserMessageItem } from "./turnRunner";
 import { PendingInterruptQueue, type ConnectionRequestId } from "./pendingInterruptQueue";
 import { ThreadWatchManager } from "./threadWatchManager";
 import { InputQueue } from "./inputQueue";
@@ -99,6 +98,14 @@ import {
   startThreadSession,
   sweepIdleThreadSession,
 } from "./threadSession";
+import {
+  beginTurnRun,
+  completeSuccessfulTurn,
+  createStartedTurn,
+  finishTurnRun,
+  handleTurnFailure,
+  prepareThreadForTurn,
+} from "./turnExecution";
 import {
   applyAIConfigUpdate,
   applyCompactionConfigUpdate,
@@ -352,32 +359,26 @@ export class AgentLoop {
     input: AgentTurnInput,
     callbacks: AgentTurnCallbacks
   ): Promise<Turn> {
-    if (this.turnState.isRunning) {
-      throw new Error("Agent 正在运行中，请等待当前 Turn 完成或中断");
-    }
-
-    this.turnState.isRunning = true;
+    beginTurnRun(this.turnState);
     this.autoDrainInputQueue = true;
-    this.turnState.abortController = new AbortController();
-
-    // 创建 turn 完成 Promise，供 interrupt() 等待清理完毕
-    this.turnState.turnCompletionPromise = new Promise((resolve) => {
-      this.turnState.resolveTurnCompletion = resolve;
-    });
 
     let turnCallbacks = callbacks;
 
     try {
-      // 确保有活跃线程
-      if (!this.turnState.activeThread) {
-        await this.startThread();
-      }
-      const thread = this.turnState.activeThread!;
-      this.clearIdleUnloadTimer();
-      this.threadStateManager.markRunning(thread.metadata.threadId);
-      this.publishThreadStatus();
-      await this.persistThreadRuntime(thread.metadata.threadId);
-      turnCallbacks = this.bindCallbacksToThread(callbacks, thread.metadata.threadId, input.clientId);
+      const prepared = await prepareThreadForTurn({
+        turnState: this.turnState,
+        startThread: () => this.startThread(),
+        clearIdleUnloadTimer: () => this.clearIdleUnloadTimer(),
+        threadStateManager: this.threadStateManager,
+        publishThreadStatus: () => this.publishThreadStatus(),
+        persistThreadRuntime: (threadId) => this.persistThreadRuntime(threadId),
+        bindCallbacksToThread: (sourceCallbacks, threadId, clientId) =>
+          this.bindCallbacksToThread(sourceCallbacks, threadId, clientId),
+        callbacks,
+        clientId: input.clientId,
+      });
+      const { thread } = prepared;
+      turnCallbacks = prepared.callbacks;
 
       // 检查是否需要压缩（参考 Codex 的 pre-turn compaction）
       // 使用会话自己的 contextWindowSize 构建压缩配置，确保会话间隔离
@@ -394,93 +395,47 @@ export class AgentLoop {
         await this.performAutoCompaction(thread, "auto_pre_turn", turnCallbacks);
       }
 
-      // 创建新 Turn
-      const turn = createTurn(thread.metadata.threadId);
-      this.turnState.activeTurn = turn;
-      thread.metadata.activeTurnId = turn.turnId;
-      thread.metadata.lastTurnStatus = "in_progress";
-      await this.persistThreadSnapshot(thread);
-
-      // 发送 Turn 开始事件
-      turnCallbacks.onEvent({ type: "turn_started", turnId: turn.turnId });
-
-      // 添加用户消息并通过事件发出（参考 Codex：消息只从 agent 事件产出）
-      const userItem = createUserMessageItem(input);
-      turn.items.push(userItem);
-      await this.sessionStore.appendTurnItem(thread.metadata.threadId, turn.turnId, userItem);
-      // 通过事件通知前端——前端不再自行创建用户消息
-      turnCallbacks.onEvent({ type: "item_started", item: userItem });
-      turnCallbacks.onEvent({ type: "item_completed", item: userItem });
-
-      // 更新会话预览
-      if (!thread.metadata.preview) {
-        thread.metadata.preview = input.content.slice(0, 100);
-      }
+      const turn = await createStartedTurn({
+        turnInput: input,
+        thread,
+        turnState: this.turnState,
+        callbacks: turnCallbacks,
+        sessionStore: this.sessionStore,
+        persistThreadSnapshot: (targetThread) => this.persistThreadSnapshot(targetThread),
+      });
 
       // 运行 Agent 循环，传入恢复上下文（仅系统内部使用，不显示给用户）
       const resumeContext = input.isResume ? input.resumeContext : undefined;
       await this.runAgentLoop(turn, turnCallbacks, input, resumeContext);
 
-      // 完成 Turn
-      completeTurn(turn);
-      if (turn.tokenUsage) {
-        await this.sessionStore.appendTurnUsage(thread.metadata.threadId, turn.turnId, turn.tokenUsage);
-      }
-      thread.turns.push(turn);
-      thread.metadata.updatedAt = Date.now();
-      thread.metadata.lastTurnStatus = turn.status;
-      thread.metadata.activeTurnId = undefined;
-      await this.persistThreadSnapshot(thread);
-
-      turnCallbacks.onEvent({
-        type: "turn_completed",
-        turnId: turn.turnId,
-        usage: turn.tokenUsage,
+      return completeSuccessfulTurn({
+        thread,
+        turn,
+        callbacks: turnCallbacks,
+        sessionStore: this.sessionStore,
+        persistThreadSnapshot: (targetThread) => this.persistThreadSnapshot(targetThread),
+        scheduleTurnMemoryExtraction: (targetThread, completedTurn) =>
+          this.scheduleTurnMemoryExtraction(targetThread, completedTurn),
       });
-      this.scheduleTurnMemoryExtraction(thread, turn);
-
-      return turn;
     } catch (err: any) {
-      if (this.turnState.activeTurn) {
-        this.turnState.activeTurn.status = err.name === "AbortError" ? "interrupted" : "failed";
-        this.turnState.activeTurn.error = err.message;
-        this.turnState.activeTurn.completedAt = Date.now();
-
-        if (this.turnState.activeTurn.status === "interrupted") {
-          turnCallbacks.onEvent({ type: "turn_interrupted", turnId: this.turnState.activeTurn.turnId });
-        } else {
-          turnCallbacks.onEvent({
-            type: "turn_failed",
-            turnId: this.turnState.activeTurn.turnId,
-            error: err.message,
-          });
-        }
-
-        this.turnState.activeThread?.turns.push(this.turnState.activeTurn);
-        if (this.turnState.activeThread) {
-          this.turnState.activeThread.metadata.updatedAt = this.turnState.activeTurn.completedAt ?? Date.now();
-          this.turnState.activeThread.metadata.lastTurnStatus = this.turnState.activeTurn.status;
-          this.turnState.activeThread.metadata.activeTurnId = undefined;
-          await this.persistThreadSnapshot(this.turnState.activeThread);
-        }
-      }
+      await handleTurnFailure({
+        error: err,
+        turnState: this.turnState,
+        callbacks: turnCallbacks,
+        persistThreadSnapshot: (thread) => this.persistThreadSnapshot(thread),
+      });
       throw err;
     } finally {
-      this.turnState.isRunning = false;
-      this.turnState.abortController = null;
-      if (this.turnState.activeThread) {
-        this.threadStateManager.markIdle(this.turnState.activeThread.metadata.threadId);
-        this.publishThreadStatus();
-        this.scheduleIdleThreadUnload();
-        await this.persistThreadRuntime(this.turnState.activeThread.metadata.threadId);
-      }
+      await finishTurnRun({
+        turnState: this.turnState,
+        threadStateManager: this.threadStateManager,
+        publishThreadStatus: () => this.publishThreadStatus(),
+        scheduleIdleThreadUnload: () => this.scheduleIdleThreadUnload(),
+        persistThreadRuntime: (threadId) => this.persistThreadRuntime(threadId),
+      });
       if (this.autoDrainInputQueue && this.inputQueue.size() > 0) {
         this.scheduleInputQueueDrain();
       }
-      // 通知 interrupt() 等待者：Turn 清理已完成
-      this.turnState.resolveTurnCompletion?.();
-      this.turnState.turnCompletionPromise = null;
-      this.turnState.resolveTurnCompletion = null;
     }
   }
 
