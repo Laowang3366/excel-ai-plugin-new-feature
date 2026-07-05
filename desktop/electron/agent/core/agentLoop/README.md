@@ -7,6 +7,7 @@
 - `agentLoop.ts`：Agent 主循环入口，协调线程、Turn、模型流式响应、工具调用和自动压缩。
 - `threadLifecycle.ts`：线程创建与恢复，只负责调用 `memory/sessionStore` 读写持久化会话。
 - `threadStateManager.ts`：线程运行态观察与空闲卸载判定，只记录内存态，不直接读写 rollout。
+- `threadRuntime.ts`：线程回调绑定、线程快照/运行态持久化、rollout 事件 sink 绑定和 Turn 完成后的长期记忆抽取调度。
 - `turnState.ts`：当前运行 Turn 的可变状态容器。
 - `turnRunner.ts`：创建和完成 Turn、用户消息等基础对象。
 - `streamCollector.ts`：收集模型流式事件并转换为 Agent 内部事件。

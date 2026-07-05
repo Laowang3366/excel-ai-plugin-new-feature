@@ -55,7 +55,6 @@ import { resolveImageAttachments } from "../../attachments/imageAttachmentResolv
 import { SessionStore } from "../../memory/sessionStore";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
-import { extractAndWriteTurnMemories } from "../../memory/longTerm/memoryAutoExtraction";
 
 // 子模块导入
 import { collectStreamEvents, type ToolCallInfo } from "./streamCollector";
@@ -93,6 +92,13 @@ import {
   failCompactionProgress as failCompactionProgressHelper,
   startCompactionProgress as startCompactionProgressHelper,
 } from "./compactionProgress";
+import {
+  attachRolloutEventSink as attachRolloutEventSinkHelper,
+  bindCallbacksToThread as bindCallbacksToThreadHelper,
+  persistThreadRuntime as persistThreadRuntimeHelper,
+  persistThreadSnapshot as persistThreadSnapshotHelper,
+  scheduleTurnMemoryExtraction as scheduleTurnMemoryExtractionHelper,
+} from "./threadRuntime";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
   runAIRequestWithRetry,
@@ -254,10 +260,10 @@ export class AgentLoop {
   }
 
   private attachRolloutEventSink(): void {
-    const maybeStore = this.sessionStore as SessionStore & {
-      setRolloutEventSink?: SessionStore["setRolloutEventSink"];
-    };
-    maybeStore.setRolloutEventSink?.(this.stateRuntimeStore ?? null);
+    attachRolloutEventSinkHelper({
+      sessionStore: this.sessionStore,
+      stateRuntimeStore: this.stateRuntimeStore,
+    });
   }
 
   /**
@@ -297,12 +303,7 @@ export class AgentLoop {
     threadId: ThreadId,
     clientId?: string
   ): AgentTurnCallbacks {
-    return {
-      onEvent: (event) => callbacks.onEvent({ ...event, threadId, clientId: event.clientId ?? clientId }),
-      onStreamDelta: (delta, itemType, roundId) => {
-        callbacks.onStreamDelta?.(delta, itemType, roundId, threadId, clientId);
-      },
-    };
+    return bindCallbacksToThreadHelper({ callbacks, threadId, clientId });
   }
 
   /**
@@ -560,35 +561,26 @@ export class AgentLoop {
   }
 
   private async persistThreadSnapshot(thread: Thread): Promise<void> {
-    if (!this.stateRuntimeStore) return;
-    try {
-      await this.stateRuntimeStore.upsertThreadSnapshot(thread.metadata);
-    } catch (error) {
-      console.warn("写入线程状态快照失败:", error);
-    }
+    await persistThreadSnapshotHelper({
+      stateRuntimeStore: this.stateRuntimeStore,
+      thread,
+    });
   }
 
   private async persistThreadRuntime(threadId: ThreadId): Promise<void> {
-    if (!this.stateRuntimeStore) return;
-    const snapshot = this.threadStateManager.getSnapshot();
-    try {
-      await this.stateRuntimeStore.updateThreadRuntime({ ...snapshot, threadId });
-    } catch (error) {
-      console.warn("写入线程运行态失败:", error);
-    }
+    await persistThreadRuntimeHelper({
+      stateRuntimeStore: this.stateRuntimeStore,
+      snapshot: this.threadStateManager.getSnapshot(),
+      threadId,
+    });
   }
 
   private scheduleTurnMemoryExtraction(thread: Thread, turn: Turn): void {
-    const memoryStore = this.config.memoryStore;
-    if (!memoryStore || turn.status !== "completed") return;
-
-    void extractAndWriteTurnMemories({
+    scheduleTurnMemoryExtractionHelper({
       aiClient: this.aiClient,
-      memoryStore,
+      memoryStore: this.config.memoryStore,
       thread,
       turn,
-    }).catch((error) => {
-      console.warn("自动写入长期记忆失败:", error);
     });
   }
 
