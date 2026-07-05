@@ -26,6 +26,7 @@
 - `contextUsage.ts`：收集用于提示词的历史条目，并生成上下文使用量事件。
 - `compactionProgress.ts`：封装上下文压缩进度事件、压缩参数 rollout 记录和冷 rollout 归档触发。
 - `compactionRunner.ts`：执行 pre-turn / mid-turn 上下文压缩，负责摘要写入、历史替换、当前用户消息保留和压缩完成事件。
+- `compactionRunnerDeps.ts`：集中组装压缩 runner 所需的进度事件、归档、历史写回和摘要生成依赖。
 - `compactionSummary.ts`：生成压缩摘要并集中处理 compact 请求的重试配置。
 - `summaryGenerator.ts`：会话标题/摘要生成。
 - `sessionCompactionConfig.ts`：根据会话上下文窗口生成压缩配置。

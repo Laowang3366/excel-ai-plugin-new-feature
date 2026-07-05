@@ -14,7 +14,7 @@ import {
 } from "../../memory/compaction";
 import type { SessionStore } from "../../memory/sessionStore";
 
-interface CompactionRunnerDependencies {
+export interface CompactionRunnerDependencies {
   sessionStore: SessionStore;
   getAllTurnItems: () => TurnItem[];
   generateCompactionSummary: (prompt: string) => Promise<string>;

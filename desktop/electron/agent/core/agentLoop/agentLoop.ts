@@ -29,7 +29,6 @@ import {
   type ToolDefinition,
   type CompactionConfig,
   type CompactionReason,
-  type CompactProgressItem,
   type ThreadRuntimeSnapshot,
   DEFAULT_COMPACTION_CONFIG,
 } from "../../shared/types";
@@ -68,13 +67,6 @@ import {
   collectPromptTurnItemGroups,
   collectPromptTurnItems,
 } from "./contextUsage";
-import { emitStreamResultItems as emitCollectedStreamResultItems } from "./streamResultItems";
-import {
-  archiveRolloutIfConfigured as archiveRolloutIfConfiguredHelper,
-  completeCompactionProgress as completeCompactionProgressHelper,
-  failCompactionProgress as failCompactionProgressHelper,
-  startCompactionProgress as startCompactionProgressHelper,
-} from "./compactionProgress";
 import {
   attachRolloutEventSink as attachRolloutEventSinkHelper,
   bindCallbacksToThread as bindCallbacksToThreadHelper,
@@ -118,6 +110,7 @@ import {
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
 import { runAgentLoopRounds } from "./agentLoopRunner";
 import { buildPreTurnCompactionPlan } from "./preTurnCompaction";
+import { createCompactionRunnerDeps } from "./compactionRunnerDeps";
 
 // ============================================================
 // Agent Loop 配置
@@ -626,61 +619,16 @@ export class AgentLoop {
   }
 
   private createCompactionRunnerDeps() {
-    return {
+    return createCompactionRunnerDeps({
       sessionStore: this.sessionStore,
       getAllTurnItems: () => this.getAllTurnItems(),
       generateCompactionSummary: (prompt: string) => this.generateCompactionSummary(prompt),
-      startCompactionProgress: (
-        threadId: ThreadId,
-        reason: CompactionReason,
-        items: TurnItem[],
-        callbacks: AgentTurnCallbacks
-      ) => startCompactionProgressHelper({
-        sessionStore: this.sessionStore,
-        threadId,
-        reason,
-        items,
-        callbacks,
-        compactionConfig: this.getSessionCompactionConfig(),
-      }),
-      completeCompactionProgress: (
-        progress: CompactProgressItem,
-        tokensBefore: number,
-        tokensAfter: number,
-        summary: string,
-        callbacks: AgentTurnCallbacks
-      ) => completeCompactionProgressHelper({
-        progress,
-        tokensBefore,
-        tokensAfter,
-        summary,
-        callbacks,
-      }),
-      failCompactionProgress: (
-        threadId: ThreadId,
-        progress: CompactProgressItem,
-        items: TurnItem[],
-        error: unknown,
-        callbacks: AgentTurnCallbacks
-      ) => failCompactionProgressHelper({
-        sessionStore: this.sessionStore,
-        threadId,
-        progress,
-        items,
-        error,
-        callbacks,
-      }),
-      archiveRolloutIfConfigured: (threadId: ThreadId) => archiveRolloutIfConfiguredHelper({
-        sessionStore: this.sessionStore,
-        threadId,
-        threshold: this.config.compactionConfig?.archiveRolloutAfterBytes,
-      }),
-      setCompactedHistory: (history: TurnItem[]) => {
-        this.turnState.compactedHistory = history;
-      },
+      getSessionCompactionConfig: () => this.getSessionCompactionConfig(),
+      archiveRolloutAfterBytes: this.config.compactionConfig?.archiveRolloutAfterBytes,
+      setCompactedHistory: (history: TurnItem[]) => { this.turnState.compactedHistory = history; },
       getActiveThread: () => this.turnState.activeThread,
       compactionConfig: this.config.compactionConfig,
-    };
+    });
   }
 
   // ----------------------------------------------------------
