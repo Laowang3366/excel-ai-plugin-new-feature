@@ -69,6 +69,7 @@
 - 从 `agentLoop.ts` 抽出每轮模型请求参数装配：`electron/agent/core/agentLoop/roundStreamParams.ts`。
 - 从 `agentLoop.ts` 抽出线程会话生命周期编排：`electron/agent/core/agentLoop/threadSession.ts`，覆盖重置、新建、恢复和空闲卸载。
 - 移除 `AgentLoop` 内只转发 `turnState` 字段的私有 getter/setter，直接访问 `turnState`，减少主文件噪音。
+- 从 `agentLoop.ts` 抽出配置热更新逻辑：`electron/agent/core/agentLoop/configUpdates.ts`，覆盖 AI 客户端重建、压缩 provider 重建、线程 metadata 更新和待压缩原因合并。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
@@ -83,6 +84,7 @@
 - `npm exec vitest run electron/agent/core/agentLoop/compactionRunner.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/roundStreamParams.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/threadSession.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
+- `npm exec vitest run electron/agent/core/agentLoop/configUpdates.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 
 ---
 

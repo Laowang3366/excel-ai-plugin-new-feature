@@ -69,7 +69,6 @@ import { completeTurn, createTurn, createUserMessageItem } from "./turnRunner";
 import { PendingInterruptQueue, type ConnectionRequestId } from "./pendingInterruptQueue";
 import { ThreadWatchManager } from "./threadWatchManager";
 import { InputQueue } from "./inputQueue";
-import { isModelCompHashCompatible, resolveModelCompHash } from "./modelCompHash";
 import {
   buildContextUsageEvent,
   collectPromptTurnItemGroups,
@@ -100,6 +99,11 @@ import {
   startThreadSession,
   sweepIdleThreadSession,
 } from "./threadSession";
+import {
+  applyAIConfigUpdate,
+  applyCompactionConfigUpdate,
+  mergePendingCompactionReason,
+} from "./configUpdates";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
   runAIRequestWithRetry,
@@ -258,24 +262,15 @@ export class AgentLoop {
    * 这样切换 provider 后对话历史不会丢失。
    */
   updateAIConfig(config: AIClientConfig): void {
-    const previous = this.config.aiConfig;
-    this.config.aiConfig = config;
-    this.aiClient = createAIClient(config);
-    if (!this.usesCustomCompactionProvider) {
-      this.compactionProvider = createCompactionProvider(this.aiClient, this.config.compactionConfig);
-    }
-    if (this.turnState.activeThread) {
-      this.turnState.activeThread.metadata.modelProvider = config.provider;
-      this.turnState.activeThread.metadata.model = config.model;
-      this.turnState.activeThread.metadata.contextWindowSize = config.contextWindowSize ?? this.turnState.activeThread.metadata.contextWindowSize;
-      this.turnState.activeThread.metadata.compHash = resolveModelCompHash(config);
-    }
-    if (this.turnState.activeThread && !isModelCompHashCompatible(previous, config)) {
-      this.markPendingCompactionReason("model_changed");
-    }
-    if (this.turnState.activeThread && previous.contextWindowSize !== config.contextWindowSize) {
-      this.markPendingCompactionReason("context_window_changed");
-    }
+    const result = applyAIConfigUpdate({
+      currentConfig: this.config,
+      nextConfig: config,
+      activeThread: this.turnState.activeThread,
+      usesCustomCompactionProvider: this.usesCustomCompactionProvider,
+    });
+    this.aiClient = result.aiClient;
+    if (result.compactionProvider) this.compactionProvider = result.compactionProvider;
+    this.markPendingCompactionReason(result.pendingReason);
   }
 
   /** 更新权限模式（热更新，不销毁线程） */
@@ -911,21 +906,19 @@ export class AgentLoop {
    * 更新压缩配置（热更新，不销毁线程）
    */
   updateCompactionConfig(config: CompactionConfig): void {
-    const previousWindow = this.config.compactionConfig?.contextWindowSize;
-    this.config.compactionConfig = config;
-    if (!this.usesCustomCompactionProvider) {
-      this.compactionProvider = createCompactionProvider(this.aiClient, config);
-    }
-    if (this.turnState.activeThread && previousWindow !== config.contextWindowSize) {
-      this.markPendingCompactionReason("context_window_changed");
-    }
+    const result = applyCompactionConfigUpdate({
+      currentConfig: this.config,
+      nextConfig: config,
+      aiClient: this.aiClient,
+      activeThread: this.turnState.activeThread,
+      usesCustomCompactionProvider: this.usesCustomCompactionProvider,
+    });
+    if (result.compactionProvider) this.compactionProvider = result.compactionProvider;
+    this.markPendingCompactionReason(result.pendingReason);
   }
 
-  private markPendingCompactionReason(reason: CompactionReason): void {
-    if (this.pendingCompactionReason === "model_changed" && reason === "context_window_changed") {
-      return;
-    }
-    this.pendingCompactionReason = reason;
+  private markPendingCompactionReason(reason: CompactionReason | null): void {
+    this.pendingCompactionReason = mergePendingCompactionReason(this.pendingCompactionReason, reason);
   }
 
   private consumePendingCompactionReason(
