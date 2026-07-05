@@ -5,6 +5,7 @@
 ## 模块职责
 
 - `agentLoop.ts`：Agent 主循环入口，协调线程、Turn、模型流式响应、工具调用和自动压缩。
+- `agentLoopConfig.ts`：定义 `AgentLoop` 初始化和热更新所需的配置类型。
 - `threadLifecycle.ts`：线程创建与恢复，只负责调用 `memory/sessionStore` 读写持久化会话。
 - `threadSession.ts`：编排重置、新建、恢复和空闲卸载线程，保持 `AgentLoop` 公共 API 不变。
 - `threadStateManager.ts`：线程运行态观察与空闲卸载判定，只记录内存态，不直接读写 rollout。

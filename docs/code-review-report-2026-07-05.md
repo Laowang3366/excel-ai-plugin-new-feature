@@ -80,6 +80,7 @@
 - 从 `agentLoop.ts` 抽出压缩 runner 依赖组装：`electron/agent/core/agentLoop/compactionRunnerDeps.ts`，集中管理进度事件、归档、历史写回和摘要生成回调。
 - 从 `agentLoop.ts` 抽出空闲线程卸载 timer 管理：`electron/agent/core/agentLoop/idleThreadUnload.ts`，覆盖延迟计算、运行中跳过和失败重排。
 - 从 `agentLoop.ts` 抽出单次 `runTurn` 生命周期编排：`electron/agent/core/agentLoop/turnFlow.ts`，串联线程准备、turn 前压缩、Agent 循环、成功/失败收尾和队列续跑。
+- 从 `agentLoop.ts` 抽出 `AgentLoopConfig` 类型定义：`electron/agent/core/agentLoop/agentLoopConfig.ts`，并在原模块继续 re-export 保持外部导入兼容。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
@@ -105,6 +106,7 @@
 - `npm exec vitest run electron/agent/core/agentLoop/compactionRunner.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/idleThreadUnload.test.ts electron/agent/core/agentLoop/threadSession.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/turnExecution.test.ts electron/agent/core/agentLoop/preTurnCompaction.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
+- `npm run typecheck`
 
 ---
 
