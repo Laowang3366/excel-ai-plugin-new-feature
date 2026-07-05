@@ -9,6 +9,7 @@
 - `threadSession.ts`：编排重置、新建、恢复和空闲卸载线程，保持 `AgentLoop` 公共 API 不变。
 - `threadStateManager.ts`：线程运行态观察与空闲卸载判定，只记录内存态，不直接读写 rollout。
 - `threadRuntime.ts`：线程回调绑定、线程快照/运行态持久化、rollout 事件 sink 绑定和 Turn 完成后的长期记忆抽取调度。
+- `idleThreadUnload.ts`：管理空闲线程卸载 timer、延迟计算和失败后的重排。
 - `turnExecution.ts`：编排单个 Turn 的运行开始、活跃线程准备、用户消息落库、成功完成、失败记录和最终运行态收尾。
 - `queuedTurns.ts`：处理运行中补充输入入队、用户中断等待和队列自动续跑。
 - `configUpdates.ts`：处理 AI/压缩配置热更新后的客户端重建、线程 metadata 更新和待压缩原因合并。

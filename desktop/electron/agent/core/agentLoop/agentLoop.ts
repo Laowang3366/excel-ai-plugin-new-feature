@@ -111,6 +111,11 @@ import { generateCompactionSummary as generateCompactionSummaryWithRetry } from 
 import { runAgentLoopRounds } from "./agentLoopRunner";
 import { buildPreTurnCompactionPlan } from "./preTurnCompaction";
 import { createCompactionRunnerDeps } from "./compactionRunnerDeps";
+import {
+  clearIdleThreadUnloadTimer,
+  scheduleIdleThreadUnload as scheduleIdleThreadUnloadTimer,
+  type IdleThreadUnloadTimer,
+} from "./idleThreadUnload";
 
 // ============================================================
 // Agent Loop 配置
@@ -163,7 +168,7 @@ export class AgentLoop {
   private compactionProvider: CompactionProvider;
   private readonly usesCustomCompactionProvider: boolean;
   private pendingCompactionReason: CompactionReason | null = null;
-  private idleUnloadTimer: ReturnType<typeof setTimeout> | null = null;
+  private idleUnloadTimer: IdleThreadUnloadTimer | null = null;
   private isDrainingInputQueue = false;
   private autoDrainInputQueue = true;
 
@@ -489,25 +494,18 @@ export class AgentLoop {
   }
 
   private scheduleIdleThreadUnload(): void {
-    this.clearIdleUnloadTimer();
-    if (this.turnState.isRunning || !this.turnState.activeThread) return;
-
-    const status = this.threadStateManager.getSnapshot();
-    if (status.idleUnloadMs <= 0 || status.lastActiveAt === undefined) return;
-
-    const delay = Math.max(0, status.idleUnloadMs - (Date.now() - status.lastActiveAt));
-    this.idleUnloadTimer = setTimeout(() => {
-      void this.sweepIdleThread().catch(() => {
-        this.scheduleIdleThreadUnload();
-      });
-    }, delay);
-    (this.idleUnloadTimer as { unref?: () => void }).unref?.();
+    this.idleUnloadTimer = scheduleIdleThreadUnloadTimer({
+      currentTimer: this.idleUnloadTimer,
+      isRunning: this.turnState.isRunning,
+      hasActiveThread: Boolean(this.turnState.activeThread),
+      getStatus: () => this.threadStateManager.getSnapshot(),
+      sweepIdleThread: () => this.sweepIdleThread(),
+      scheduleAgain: () => this.scheduleIdleThreadUnload(),
+    });
   }
 
   private clearIdleUnloadTimer(): void {
-    if (!this.idleUnloadTimer) return;
-    clearTimeout(this.idleUnloadTimer);
-    this.idleUnloadTimer = null;
+    this.idleUnloadTimer = clearIdleThreadUnloadTimer(this.idleUnloadTimer);
   }
 
   // ----------------------------------------------------------
