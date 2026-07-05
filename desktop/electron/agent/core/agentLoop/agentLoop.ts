@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Agent 循环 — 参考 Codex 的 turn.rs 和 codex_thread.rs 重写
  *
  * 核心流程（参考 Codex run_turn）：
@@ -141,7 +141,6 @@ export interface AgentLoopConfig {
   /** Turn 完成后自动抽取并写入长期记忆。 */
   memoryStore?: LongTermMemoryStore;
 }
-
 // ============================================================
 // Agent Loop — 核心循环
 // ============================================================
@@ -183,21 +182,6 @@ export class AgentLoop {
     });
   }
 
-  private get activeThread(): Thread | null { return this.turnState.activeThread; }
-  private set activeThread(thread: Thread | null) { this.turnState.activeThread = thread; }
-  private get activeTurn(): Turn | null { return this.turnState.activeTurn; }
-  private set activeTurn(turn: Turn | null) { this.turnState.activeTurn = turn; }
-  private get isRunning(): boolean { return this.turnState.isRunning; }
-  private set isRunning(value: boolean) { this.turnState.isRunning = value; }
-  private get abortController(): AbortController | null { return this.turnState.abortController; }
-  private set abortController(value: AbortController | null) { this.turnState.abortController = value; }
-  private get _turnCompletionPromise(): Promise<void> | null { return this.turnState.turnCompletionPromise; }
-  private set _turnCompletionPromise(value: Promise<void> | null) { this.turnState.turnCompletionPromise = value; }
-  private get _resolveTurnCompletion(): (() => void) | null { return this.turnState.resolveTurnCompletion; }
-  private set _resolveTurnCompletion(value: (() => void) | null) { this.turnState.resolveTurnCompletion = value; }
-  private get compactedHistory(): TurnItem[] | null { return this.turnState.compactedHistory; }
-  private set compactedHistory(history: TurnItem[] | null) { this.turnState.compactedHistory = history; }
-
   // ----------------------------------------------------------
   // 公共 API
   // ----------------------------------------------------------
@@ -217,7 +201,7 @@ export class AgentLoop {
 
   /** 获取当前活跃的线程 */
   getThread(): Thread | null {
-    return this.activeThread;
+    return this.turnState.activeThread;
   }
 
   /** 获取当前线程运行态快照，用于状态观察和诊断。 */
@@ -227,7 +211,7 @@ export class AgentLoop {
 
   /** 是否正在运行 */
   getIsRunning(): boolean {
-    return this.isRunning;
+    return this.turnState.isRunning;
   }
 
   /** 当前排队中的中断请求 ID，用于诊断多来源中断。 */
@@ -280,16 +264,16 @@ export class AgentLoop {
     if (!this.usesCustomCompactionProvider) {
       this.compactionProvider = createCompactionProvider(this.aiClient, this.config.compactionConfig);
     }
-    if (this.activeThread) {
-      this.activeThread.metadata.modelProvider = config.provider;
-      this.activeThread.metadata.model = config.model;
-      this.activeThread.metadata.contextWindowSize = config.contextWindowSize ?? this.activeThread.metadata.contextWindowSize;
-      this.activeThread.metadata.compHash = resolveModelCompHash(config);
+    if (this.turnState.activeThread) {
+      this.turnState.activeThread.metadata.modelProvider = config.provider;
+      this.turnState.activeThread.metadata.model = config.model;
+      this.turnState.activeThread.metadata.contextWindowSize = config.contextWindowSize ?? this.turnState.activeThread.metadata.contextWindowSize;
+      this.turnState.activeThread.metadata.compHash = resolveModelCompHash(config);
     }
-    if (this.activeThread && !isModelCompHashCompatible(previous, config)) {
+    if (this.turnState.activeThread && !isModelCompHashCompatible(previous, config)) {
       this.markPendingCompactionReason("model_changed");
     }
-    if (this.activeThread && previous.contextWindowSize !== config.contextWindowSize) {
+    if (this.turnState.activeThread && previous.contextWindowSize !== config.contextWindowSize) {
       this.markPendingCompactionReason("context_window_changed");
     }
   }
@@ -312,9 +296,9 @@ export class AgentLoop {
       turnState: this.turnState,
       sessionStore: this.sessionStore,
       threadStateManager: this.threadStateManager,
-      setActiveThread: (thread: Thread | null) => { this.activeThread = thread; },
-      setActiveTurn: (turn: Turn | null) => { this.activeTurn = turn; },
-      setCompactedHistory: (history: TurnItem[] | null) => { this.compactedHistory = history; },
+      setActiveThread: (thread: Thread | null) => { this.turnState.activeThread = thread; },
+      setActiveTurn: (turn: Turn | null) => { this.turnState.activeTurn = turn; },
+      setCompactedHistory: (history: TurnItem[] | null) => { this.turnState.compactedHistory = history; },
       publishThreadStatus: () => this.publishThreadStatus(),
       scheduleIdleThreadUnload: () => this.scheduleIdleThreadUnload(),
       clearIdleUnloadTimer: () => this.clearIdleUnloadTimer(),
@@ -333,7 +317,7 @@ export class AgentLoop {
   async resetThread(folderId?: string): Promise<void> {
     await resetThreadSession({
       ...this.threadSessionDeps,
-      isRunning: this.isRunning,
+      isRunning: this.turnState.isRunning,
       interrupt: () => this.interrupt(),
       folderId,
     });
@@ -352,8 +336,8 @@ export class AgentLoop {
   async resumeThread(threadId: ThreadId): Promise<boolean> {
     return resumeThreadSession({
       ...this.threadSessionDeps,
-      isRunning: this.isRunning,
-      activeThread: this.activeThread,
+      isRunning: this.turnState.isRunning,
+      activeThread: this.turnState.activeThread,
       threadId,
     });
   }
@@ -363,8 +347,8 @@ export class AgentLoop {
     return sweepIdleThreadSession({
       ...this.threadSessionDeps,
       now,
-      isRunning: this.isRunning,
-      activeThread: this.activeThread,
+      isRunning: this.turnState.isRunning,
+      activeThread: this.turnState.activeThread,
     });
   }
 
@@ -373,27 +357,27 @@ export class AgentLoop {
     input: AgentTurnInput,
     callbacks: AgentTurnCallbacks
   ): Promise<Turn> {
-    if (this.isRunning) {
+    if (this.turnState.isRunning) {
       throw new Error("Agent 正在运行中，请等待当前 Turn 完成或中断");
     }
 
-    this.isRunning = true;
+    this.turnState.isRunning = true;
     this.autoDrainInputQueue = true;
-    this.abortController = new AbortController();
+    this.turnState.abortController = new AbortController();
 
     // 创建 turn 完成 Promise，供 interrupt() 等待清理完毕
-    this._turnCompletionPromise = new Promise((resolve) => {
-      this._resolveTurnCompletion = resolve;
+    this.turnState.turnCompletionPromise = new Promise((resolve) => {
+      this.turnState.resolveTurnCompletion = resolve;
     });
 
     let turnCallbacks = callbacks;
 
     try {
       // 确保有活跃线程
-      if (!this.activeThread) {
+      if (!this.turnState.activeThread) {
         await this.startThread();
       }
-      const thread = this.activeThread!;
+      const thread = this.turnState.activeThread!;
       this.clearIdleUnloadTimer();
       this.threadStateManager.markRunning(thread.metadata.threadId);
       this.publishThreadStatus();
@@ -417,7 +401,7 @@ export class AgentLoop {
 
       // 创建新 Turn
       const turn = createTurn(thread.metadata.threadId);
-      this.activeTurn = turn;
+      this.turnState.activeTurn = turn;
       thread.metadata.activeTurnId = turn.turnId;
       thread.metadata.lastTurnStatus = "in_progress";
       await this.persistThreadSnapshot(thread);
@@ -462,46 +446,46 @@ export class AgentLoop {
 
       return turn;
     } catch (err: any) {
-      if (this.activeTurn) {
-        this.activeTurn.status = err.name === "AbortError" ? "interrupted" : "failed";
-        this.activeTurn.error = err.message;
-        this.activeTurn.completedAt = Date.now();
+      if (this.turnState.activeTurn) {
+        this.turnState.activeTurn.status = err.name === "AbortError" ? "interrupted" : "failed";
+        this.turnState.activeTurn.error = err.message;
+        this.turnState.activeTurn.completedAt = Date.now();
 
-        if (this.activeTurn.status === "interrupted") {
-          turnCallbacks.onEvent({ type: "turn_interrupted", turnId: this.activeTurn.turnId });
+        if (this.turnState.activeTurn.status === "interrupted") {
+          turnCallbacks.onEvent({ type: "turn_interrupted", turnId: this.turnState.activeTurn.turnId });
         } else {
           turnCallbacks.onEvent({
             type: "turn_failed",
-            turnId: this.activeTurn.turnId,
+            turnId: this.turnState.activeTurn.turnId,
             error: err.message,
           });
         }
 
-        this.activeThread?.turns.push(this.activeTurn);
-        if (this.activeThread) {
-          this.activeThread.metadata.updatedAt = this.activeTurn.completedAt ?? Date.now();
-          this.activeThread.metadata.lastTurnStatus = this.activeTurn.status;
-          this.activeThread.metadata.activeTurnId = undefined;
-          await this.persistThreadSnapshot(this.activeThread);
+        this.turnState.activeThread?.turns.push(this.turnState.activeTurn);
+        if (this.turnState.activeThread) {
+          this.turnState.activeThread.metadata.updatedAt = this.turnState.activeTurn.completedAt ?? Date.now();
+          this.turnState.activeThread.metadata.lastTurnStatus = this.turnState.activeTurn.status;
+          this.turnState.activeThread.metadata.activeTurnId = undefined;
+          await this.persistThreadSnapshot(this.turnState.activeThread);
         }
       }
       throw err;
     } finally {
-      this.isRunning = false;
-      this.abortController = null;
-      if (this.activeThread) {
-        this.threadStateManager.markIdle(this.activeThread.metadata.threadId);
+      this.turnState.isRunning = false;
+      this.turnState.abortController = null;
+      if (this.turnState.activeThread) {
+        this.threadStateManager.markIdle(this.turnState.activeThread.metadata.threadId);
         this.publishThreadStatus();
         this.scheduleIdleThreadUnload();
-        await this.persistThreadRuntime(this.activeThread.metadata.threadId);
+        await this.persistThreadRuntime(this.turnState.activeThread.metadata.threadId);
       }
       if (this.autoDrainInputQueue && this.inputQueue.size() > 0) {
         this.scheduleInputQueueDrain();
       }
       // 通知 interrupt() 等待者：Turn 清理已完成
-      this._resolveTurnCompletion?.();
-      this._turnCompletionPromise = null;
-      this._resolveTurnCompletion = null;
+      this.turnState.resolveTurnCompletion?.();
+      this.turnState.turnCompletionPromise = null;
+      this.turnState.resolveTurnCompletion = null;
     }
   }
 
@@ -510,12 +494,12 @@ export class AgentLoop {
     this.pendingInterruptQueue.push(requestId);
     this.autoDrainInputQueue = false;
     this.inputQueue.clear();
-    this.abortController?.abort();
+    this.turnState.abortController?.abort();
     // 等待 runTurn() 的 catch/finally 完全执行完毕，
     // 确保 isRunning=false、activeThread/activeTurn 稳定后才返回。
     try {
-      if (this._turnCompletionPromise) {
-        await this._turnCompletionPromise;
+      if (this.turnState.turnCompletionPromise) {
+        await this.turnState.turnCompletionPromise;
       }
     } finally {
       this.inputQueue.clear();
@@ -524,7 +508,7 @@ export class AgentLoop {
   }
 
   private scheduleInputQueueDrain(): void {
-    if (!this.autoDrainInputQueue || this.isDrainingInputQueue || this.isRunning) return;
+    if (!this.autoDrainInputQueue || this.isDrainingInputQueue || this.turnState.isRunning) return;
     this.isDrainingInputQueue = true;
     queueMicrotask(() => {
       void this.drainInputQueue();
@@ -533,7 +517,7 @@ export class AgentLoop {
 
   private async drainInputQueue(): Promise<void> {
     try {
-      while (!this.isRunning) {
+      while (!this.turnState.isRunning) {
         const next = this.inputQueue.dequeue();
         if (!next) return;
         try {
@@ -544,7 +528,7 @@ export class AgentLoop {
       }
     } finally {
       this.isDrainingInputQueue = false;
-      if (this.autoDrainInputQueue && !this.isRunning && this.inputQueue.size() > 0) {
+      if (this.autoDrainInputQueue && !this.turnState.isRunning && this.inputQueue.size() > 0) {
         this.scheduleInputQueueDrain();
       }
     }
@@ -580,7 +564,7 @@ export class AgentLoop {
 
   private scheduleIdleThreadUnload(): void {
     this.clearIdleUnloadTimer();
-    if (this.isRunning || !this.activeThread) return;
+    if (this.turnState.isRunning || !this.turnState.activeThread) return;
 
     const status = this.threadStateManager.getSnapshot();
     if (status.idleUnloadMs <= 0 || status.lastActiveAt === undefined) return;
@@ -637,10 +621,10 @@ export class AgentLoop {
         aiConfig: this.config.aiConfig,
         configuredReasoningMode: this.config.reasoningMode,
         baseSystemPrompt: this.config.systemPrompt,
-        folderId: this.activeThread?.metadata.folderId,
+        folderId: this.turnState.activeThread?.metadata.folderId,
         stateRuntimeStore: this.stateRuntimeStore,
         toolExecutors: this.config.toolExecutors,
-        signal: this.abortController?.signal,
+        signal: this.turnState.abortController?.signal,
         round,
         resumeContext,
       });
@@ -651,7 +635,7 @@ export class AgentLoop {
         streamResult = await runAIRequestWithRetry({
           phase: "sampling",
           config: this.config.aiRequestRetryConfig?.sampling,
-          signal: this.abortController?.signal,
+          signal: this.turnState.abortController?.signal,
           operation: () => collectStreamEvents(
             this.aiClient.streamChat(streamParams),
             callbacks,
@@ -734,9 +718,9 @@ export class AgentLoop {
       // 7. 没有工具调用 → Turn 结束
       if (streamResult.usage) {
         turn.tokenUsage = streamResult.usage;
-        if (this.activeThread) {
-          this.activeThread.metadata.totalTokenUsage = this.activeThread.metadata.totalTokenUsage
-            ? mergeTokenUsage(this.activeThread.metadata.totalTokenUsage, streamResult.usage)
+        if (this.turnState.activeThread) {
+          this.turnState.activeThread.metadata.totalTokenUsage = this.turnState.activeThread.metadata.totalTokenUsage
+            ? mergeTokenUsage(this.turnState.activeThread.metadata.totalTokenUsage, streamResult.usage)
             : streamResult.usage;
         }
       }
@@ -750,13 +734,13 @@ export class AgentLoop {
   }
 
   private throwIfAborted(): void {
-    if (!this.abortController?.signal.aborted) return;
+    if (!this.turnState.abortController?.signal.aborted) return;
     const error = new Error("aborted");
     error.name = "AbortError";
     throw error;
   }
 
-  private getSessionCompactionConfig(thread = this.activeThread): CompactionConfig {
+  private getSessionCompactionConfig(thread = this.turnState.activeThread): CompactionConfig {
     const globalConfig = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
     const contextWindowSize = thread?.metadata.contextWindowSize
       || globalConfig.contextWindowSize
@@ -781,7 +765,7 @@ export class AgentLoop {
     return runAIRequestWithRetry({
       phase: "compact",
       config: compactRetryConfig,
-      signal: this.abortController?.signal,
+      signal: this.turnState.abortController?.signal,
       operation: () => this.compactionProvider.generateSummary({
         historyPrompt: prompt,
         config,
@@ -866,9 +850,9 @@ export class AgentLoop {
         threshold: this.config.compactionConfig?.archiveRolloutAfterBytes,
       }),
       setCompactedHistory: (history: TurnItem[]) => {
-        this.compactedHistory = history;
+        this.turnState.compactedHistory = history;
       },
-      getActiveThread: () => this.activeThread,
+      getActiveThread: () => this.turnState.activeThread,
       compactionConfig: this.config.compactionConfig,
     };
   }
@@ -889,17 +873,17 @@ export class AgentLoop {
    */
   private getAllTurnItems(): TurnItem[] {
     return collectPromptTurnItems({
-      activeThread: this.activeThread,
-      activeTurn: this.activeTurn,
-      compactedHistory: this.compactedHistory,
+      activeThread: this.turnState.activeThread,
+      activeTurn: this.turnState.activeTurn,
+      compactedHistory: this.turnState.compactedHistory,
     });
   }
 
   private getTurnItemGroups(): TurnItem[][] {
     return collectPromptTurnItemGroups({
-      activeThread: this.activeThread,
-      activeTurn: this.activeTurn,
-      compactedHistory: this.compactedHistory,
+      activeThread: this.turnState.activeThread,
+      activeTurn: this.turnState.activeTurn,
+      compactedHistory: this.turnState.compactedHistory,
     });
   }
 
@@ -916,7 +900,7 @@ export class AgentLoop {
   ): void {
     callbacks.onEvent(buildContextUsageEvent({
       groups: this.getTurnItemGroups(),
-      activeThread: this.activeThread,
+      activeThread: this.turnState.activeThread,
       compactionConfig: this.config.compactionConfig,
       systemPrompt: requestContext?.systemPrompt,
       tools: requestContext?.tools ?? getToolDefs(this.config.toolExecutors),
@@ -932,7 +916,7 @@ export class AgentLoop {
     if (!this.usesCustomCompactionProvider) {
       this.compactionProvider = createCompactionProvider(this.aiClient, config);
     }
-    if (this.activeThread && previousWindow !== config.contextWindowSize) {
+    if (this.turnState.activeThread && previousWindow !== config.contextWindowSize) {
       this.markPendingCompactionReason("context_window_changed");
     }
   }

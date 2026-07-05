@@ -68,6 +68,7 @@
 - 清理 `agentLoop.ts` 中已变成“转一手”的流式结果、压缩进度薄委托包装，减少重复跳转。
 - 从 `agentLoop.ts` 抽出每轮模型请求参数装配：`electron/agent/core/agentLoop/roundStreamParams.ts`。
 - 从 `agentLoop.ts` 抽出线程会话生命周期编排：`electron/agent/core/agentLoop/threadSession.ts`，覆盖重置、新建、恢复和空闲卸载。
+- 移除 `AgentLoop` 内只转发 `turnState` 字段的私有 getter/setter，直接访问 `turnState`，减少主文件噪音。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
