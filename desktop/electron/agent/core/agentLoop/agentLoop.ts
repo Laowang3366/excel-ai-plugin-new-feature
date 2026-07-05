@@ -120,11 +120,10 @@ import {
   mergePendingCompactionReason,
 } from "./configUpdates";
 import {
-  DEFAULT_COMPACT_RETRY_CONFIG,
-  runAIRequestWithRetry,
   type AIRequestPhase,
   type AIRequestRetryConfig,
 } from "./aiRequestRetry";
+import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
 
 // ============================================================
 // Agent Loop 配置
@@ -651,27 +650,12 @@ export class AgentLoop {
   }
 
   private async generateCompactionSummary(prompt: string): Promise<string> {
-    const config = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
-    const retryCount = Math.max(
-      0,
-      Math.floor(config.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount ?? 0)
-    );
-    const compactRetryConfig: AIRequestRetryConfig = {
-      maxRetries: retryCount,
-      baseDelayMs: config.summaryRetryBaseDelayMs ?? DEFAULT_COMPACT_RETRY_CONFIG.baseDelayMs,
-      maxDelayMs: config.summaryRetryMaxDelayMs ?? DEFAULT_COMPACT_RETRY_CONFIG.maxDelayMs,
-      backoffFactor: config.summaryRetryBackoffFactor ?? DEFAULT_COMPACT_RETRY_CONFIG.backoffFactor,
-      ...this.config.aiRequestRetryConfig?.compact,
-    };
-
-    return runAIRequestWithRetry({
-      phase: "compact",
-      config: compactRetryConfig,
+    return generateCompactionSummaryWithRetry({
+      provider: this.compactionProvider,
+      historyPrompt: prompt,
+      compactionConfig: this.config.compactionConfig,
+      retryOverride: this.config.aiRequestRetryConfig?.compact,
       signal: this.turnState.abortController?.signal,
-      operation: () => this.compactionProvider.generateSummary({
-        historyPrompt: prompt,
-        config,
-      }),
     });
   }
 

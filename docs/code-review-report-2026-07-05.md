@@ -74,6 +74,7 @@
 - 从 `agentLoop.ts` 抽出运行中补充输入/中断/队列续跑逻辑：`electron/agent/core/agentLoop/queuedTurns.ts`。
 - 从 `agentLoop.ts` 抽出单轮模型采样、流式错误 item 落库和 usage 合并：`electron/agent/core/agentLoop/streamRound.ts`。
 - 从 `agentLoop.ts` 抽出单轮工具调用处理和 mid-turn 压缩触发判断：`electron/agent/core/agentLoop/toolRound.ts`。
+- 从 `agentLoop.ts` 抽出压缩摘要生成与 compact 请求重试配置：`electron/agent/core/agentLoop/compactionSummary.ts`。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 
@@ -93,6 +94,7 @@
 - `npm exec vitest run electron/agent/core/agentLoop/queuedTurns.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/streamRound.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/toolRound.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
+- `npm exec vitest run electron/agent/core/agentLoop/compactionSummary.test.ts electron/agent/core/agentLoop/agentLoop.test.ts`
 
 ---
 
