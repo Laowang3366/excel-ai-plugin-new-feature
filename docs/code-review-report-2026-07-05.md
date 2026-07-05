@@ -65,6 +65,7 @@
 - 从 `agentLoop.ts` 抽出压缩进度事件、压缩参数 rollout 记录和冷 rollout 归档触发：`electron/agent/core/agentLoop/compactionProgress.ts`。
 - 从 `agentLoop.ts` 抽出线程回调绑定、线程快照/运行态持久化、rollout 事件 sink 绑定和长期记忆抽取调度：`electron/agent/core/agentLoop/threadRuntime.ts`。
 - 从 `agentLoop.ts` 抽出 pre-turn / mid-turn 压缩执行逻辑：`electron/agent/core/agentLoop/compactionRunner.ts`。
+- 清理 `agentLoop.ts` 中已变成“转一手”的流式结果、压缩进度薄委托包装，减少重复跳转。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md`，记录拆分后的模块职责。
 

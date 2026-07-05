@@ -721,7 +721,13 @@ export class AgentLoop {
 
       // 4. 流结束，按 API 真实事件顺序发出 items
       this.throwIfAborted();
-      await this.emitStreamResultItems(streamResult, turn, callbacks);
+      await emitCollectedStreamResultItems({
+        streamResult,
+        turn,
+        callbacks,
+        appendTurnItem: (threadId, turnId, item) =>
+          this.sessionStore.appendTurnItem(threadId, turnId, item),
+      });
       this.throwIfAborted();
 
       // 5. 处理工具调用
@@ -788,34 +794,6 @@ export class AgentLoop {
     error.name = "AbortError";
     throw error;
   }
-
-  // ----------------------------------------------------------
-  // 流式结果事件发出
-  // ----------------------------------------------------------
-
-  /**
-   * 流结束后按正确顺序发出 items
-   *
-   * API 流式响应的真实顺序：reasoning_delta → text_delta → tool_call_begin/end
-   * 因此按真实顺序发出：reasoning → assistant_message → tool_call
-   */
-  private async emitStreamResultItems(
-    streamResult: Awaited<ReturnType<typeof collectStreamEvents>>,
-    turn: Turn,
-    callbacks: AgentTurnCallbacks
-  ): Promise<void> {
-    await emitCollectedStreamResultItems({
-      streamResult,
-      turn,
-      callbacks,
-      appendTurnItem: (threadId, turnId, item) =>
-        this.sessionStore.appendTurnItem(threadId, turnId, item),
-    });
-  }
-
-  // ----------------------------------------------------------
-  // 压缩
-  // ----------------------------------------------------------
 
   private getSessionCompactionConfig(thread = this.activeThread): CompactionConfig {
     const globalConfig = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
@@ -886,85 +864,52 @@ export class AgentLoop {
         reason: CompactionReason,
         items: TurnItem[],
         callbacks: AgentTurnCallbacks
-      ) => this.startCompactionProgress(threadId, reason, items, callbacks),
+      ) => startCompactionProgressHelper({
+        sessionStore: this.sessionStore,
+        threadId,
+        reason,
+        items,
+        callbacks,
+        compactionConfig: this.getSessionCompactionConfig(),
+      }),
       completeCompactionProgress: (
         progress: CompactProgressItem,
         tokensBefore: number,
         tokensAfter: number,
         summary: string,
         callbacks: AgentTurnCallbacks
-      ) => this.completeCompactionProgress(progress, tokensBefore, tokensAfter, summary, callbacks),
+      ) => completeCompactionProgressHelper({
+        progress,
+        tokensBefore,
+        tokensAfter,
+        summary,
+        callbacks,
+      }),
       failCompactionProgress: (
         threadId: ThreadId,
         progress: CompactProgressItem,
         items: TurnItem[],
         error: unknown,
         callbacks: AgentTurnCallbacks
-      ) => this.failCompactionProgress(threadId, progress, items, error, callbacks),
-      archiveRolloutIfConfigured: (threadId: ThreadId) => this.archiveRolloutIfConfigured(threadId),
+      ) => failCompactionProgressHelper({
+        sessionStore: this.sessionStore,
+        threadId,
+        progress,
+        items,
+        error,
+        callbacks,
+      }),
+      archiveRolloutIfConfigured: (threadId: ThreadId) => archiveRolloutIfConfiguredHelper({
+        sessionStore: this.sessionStore,
+        threadId,
+        threshold: this.config.compactionConfig?.archiveRolloutAfterBytes,
+      }),
       setCompactedHistory: (history: TurnItem[]) => {
         this.compactedHistory = history;
       },
       getActiveThread: () => this.activeThread,
       compactionConfig: this.config.compactionConfig,
     };
-  }
-
-  private async startCompactionProgress(
-    threadId: ThreadId,
-    reason: CompactionReason,
-    items: TurnItem[],
-    callbacks: AgentTurnCallbacks
-  ): Promise<CompactProgressItem> {
-    return startCompactionProgressHelper({
-      sessionStore: this.sessionStore,
-      threadId,
-      reason,
-      items,
-      callbacks,
-      compactionConfig: this.getSessionCompactionConfig(),
-    });
-  }
-
-  private completeCompactionProgress(
-    progress: CompactProgressItem,
-    tokensBefore: number,
-    tokensAfter: number,
-    summary: string,
-    callbacks: AgentTurnCallbacks
-  ): void {
-    completeCompactionProgressHelper({
-      progress,
-      tokensBefore,
-      tokensAfter,
-      summary,
-      callbacks,
-    });
-  }
-
-  private async failCompactionProgress(
-    threadId: ThreadId,
-    progress: CompactProgressItem,
-    items: TurnItem[],
-    error: unknown,
-    callbacks: AgentTurnCallbacks
-  ): Promise<void> {
-    await failCompactionProgressHelper({
-      sessionStore: this.sessionStore,
-      threadId,
-      progress,
-      items,
-      error,
-      callbacks,
-    });
-  }
-
-  private async archiveRolloutIfConfigured(threadId: ThreadId): Promise<void> {
-    await archiveRolloutIfConfiguredHelper({
-      sessionStore: this.sessionStore,
-      threadId,
-      threshold: this.config.compactionConfig?.archiveRolloutAfterBytes,
-    });
   }
 
   // ----------------------------------------------------------
