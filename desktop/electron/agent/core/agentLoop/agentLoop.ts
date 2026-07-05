@@ -85,14 +85,6 @@ import {
   sweepIdleThreadSession,
 } from "./threadSession";
 import {
-  beginTurnRun,
-  completeSuccessfulTurn,
-  createStartedTurn,
-  finishTurnRun,
-  handleTurnFailure,
-  prepareThreadForTurn,
-} from "./turnExecution";
-import {
   drainQueuedTurns,
   enqueueQueuedTurn,
   interruptCurrentTurn,
@@ -109,13 +101,13 @@ import {
 } from "./aiRequestRetry";
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
 import { runAgentLoopRounds } from "./agentLoopRunner";
-import { buildPreTurnCompactionPlan } from "./preTurnCompaction";
 import { createCompactionRunnerDeps } from "./compactionRunnerDeps";
 import {
   clearIdleThreadUnloadTimer,
   scheduleIdleThreadUnload as scheduleIdleThreadUnloadTimer,
   type IdleThreadUnloadTimer,
 } from "./idleThreadUnload";
+import { runTurnFlow } from "./turnFlow";
 
 // ============================================================
 // Agent Loop 配置
@@ -354,81 +346,37 @@ export class AgentLoop {
     input: AgentTurnInput,
     callbacks: AgentTurnCallbacks
   ): Promise<Turn> {
-    beginTurnRun(this.turnState);
-    this.autoDrainInputQueue = true;
-
-    let turnCallbacks = callbacks;
-
-    try {
-      const prepared = await prepareThreadForTurn({
-        turnState: this.turnState,
-        startThread: () => this.startThread(),
-        clearIdleUnloadTimer: () => this.clearIdleUnloadTimer(),
-        threadStateManager: this.threadStateManager,
-        publishThreadStatus: () => this.publishThreadStatus(),
-        persistThreadRuntime: (threadId) => this.persistThreadRuntime(threadId),
-        bindCallbacksToThread: (sourceCallbacks, threadId, clientId) =>
-          this.bindCallbacksToThread(sourceCallbacks, threadId, clientId),
-        callbacks,
-        clientId: input.clientId,
-      });
-      const { thread } = prepared;
-      turnCallbacks = prepared.callbacks;
-
-      const allItems = this.getAllTurnItems();
-      const compactionPlan = buildPreTurnCompactionPlan({
-        items: allItems,
-        thread,
-        globalConfig: this.config.compactionConfig,
-        pendingReason: this.pendingCompactionReason,
-      });
-      this.pendingCompactionReason = null;
-      if (compactionPlan.reason) {
-        await this.performAutoCompaction(thread, compactionPlan.reason, turnCallbacks);
-      }
-
-      const turn = await createStartedTurn({
-        turnInput: input,
-        thread,
-        turnState: this.turnState,
-        callbacks: turnCallbacks,
-        sessionStore: this.sessionStore,
-        persistThreadSnapshot: (targetThread) => this.persistThreadSnapshot(targetThread),
-      });
-
-      // 运行 Agent 循环，传入恢复上下文（仅系统内部使用，不显示给用户）
-      const resumeContext = input.isResume ? input.resumeContext : undefined;
-      await this.runAgentLoop(turn, turnCallbacks, input, resumeContext);
-
-      return completeSuccessfulTurn({
-        thread,
-        turn,
-        callbacks: turnCallbacks,
-        sessionStore: this.sessionStore,
-        persistThreadSnapshot: (targetThread) => this.persistThreadSnapshot(targetThread),
-        scheduleTurnMemoryExtraction: (targetThread, completedTurn) =>
-          this.scheduleTurnMemoryExtraction(targetThread, completedTurn),
-      });
-    } catch (err: any) {
-      await handleTurnFailure({
-        error: err,
-        turnState: this.turnState,
-        callbacks: turnCallbacks,
-        persistThreadSnapshot: (thread) => this.persistThreadSnapshot(thread),
-      });
-      throw err;
-    } finally {
-      await finishTurnRun({
-        turnState: this.turnState,
-        threadStateManager: this.threadStateManager,
-        publishThreadStatus: () => this.publishThreadStatus(),
-        scheduleIdleThreadUnload: () => this.scheduleIdleThreadUnload(),
-        persistThreadRuntime: (threadId) => this.persistThreadRuntime(threadId),
-      });
-      if (this.autoDrainInputQueue && this.inputQueue.size() > 0) {
-        this.scheduleInputQueueDrain();
-      }
-    }
+    return runTurnFlow({
+      turnInput: input,
+      callbacks,
+      turnState: this.turnState,
+      sessionStore: this.sessionStore,
+      threadStateManager: this.threadStateManager,
+      setAutoDrainInputQueue: (enabled) => { this.autoDrainInputQueue = enabled; },
+      shouldDrainInputQueue: () => this.autoDrainInputQueue && this.inputQueue.size() > 0,
+      scheduleInputQueueDrain: () => this.scheduleInputQueueDrain(),
+      startThread: () => this.startThread(),
+      clearIdleUnloadTimer: () => this.clearIdleUnloadTimer(),
+      publishThreadStatus: () => this.publishThreadStatus(),
+      persistThreadRuntime: (threadId) => this.persistThreadRuntime(threadId),
+      bindCallbacksToThread: (sourceCallbacks, threadId, clientId) =>
+        this.bindCallbacksToThread(sourceCallbacks, threadId, clientId),
+      getAllTurnItems: () => this.getAllTurnItems(),
+      compactionConfig: this.config.compactionConfig,
+      consumePendingCompactionReason: () => {
+        const reason = this.pendingCompactionReason;
+        this.pendingCompactionReason = null;
+        return reason;
+      },
+      performAutoCompaction: (thread, reason, targetCallbacks) =>
+        this.performAutoCompaction(thread, reason, targetCallbacks),
+      persistThreadSnapshot: (thread) => this.persistThreadSnapshot(thread),
+      runAgentLoop: (turn, targetCallbacks, turnInput, resumeContext) =>
+        this.runAgentLoop(turn, targetCallbacks, turnInput, resumeContext),
+      scheduleTurnMemoryExtraction: (thread, turn) =>
+        this.scheduleTurnMemoryExtraction(thread, turn),
+      scheduleIdleThreadUnload: () => this.scheduleIdleThreadUnload(),
+    });
   }
 
   /** 中断当前 Turn，等待清理完成后返回 */
