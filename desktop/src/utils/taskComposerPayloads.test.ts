@@ -14,7 +14,6 @@ describe("taskComposerPayloads", () => {
       referenceSampleRange: "Sheet1!E1:G3",
       referenceSampleMode: "complete",
       outputRange: "Sheet1!I1",
-      supportsDynamicArrays: true,
       hostEnvironment: "wps",
       task: "按部门汇总金额",
     });
@@ -23,6 +22,7 @@ describe("taskComposerPayloads", () => {
     expect(payload).toContain("当前连接环境：WPS");
     expect(payload).toContain("答案参考样例类型：完整样例");
     expect(payload).toContain("交付要求：必须使用 Excel/WPS 函数公式完成");
+    expect(payload).not.toContain("是否支持动态数组");
   });
 
   it("builds code payload with partial sample and Microsoft Excel host", () => {

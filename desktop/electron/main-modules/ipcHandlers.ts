@@ -25,6 +25,7 @@ import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
 import { buildCompactionConfig, type SavedCompactionConfig } from "../agent/runtime/compactionRuntime";
+import { setDynamicArrayFunctionsEnabled } from "../agent/runtime/agentGlobalSettings";
 import { registerAgentIpcHandlers } from "../agent/interaction/ipcAgentHandlers";
 import {
   getSettingsStore,
@@ -129,6 +130,8 @@ export function setOfficeBridgesRefs(
 // ============================================================
 
 export function registerIpcHandlers(): void {
+  setDynamicArrayFunctionsEnabled(getSettingsStore().get("dynamicArrayFunctionsEnabled"));
+
   registerAgentIpcHandlers({
     mainWindowRef,
     agentLoopRef,
@@ -247,6 +250,9 @@ export function registerIpcHandlers(): void {
     }
     if (key === "windowOpacity") {
       applyWindowOpacity(mainWindowRef());
+    }
+    if (key === "dynamicArrayFunctionsEnabled") {
+      setDynamicArrayFunctionsEnabled(value);
     }
   });
 

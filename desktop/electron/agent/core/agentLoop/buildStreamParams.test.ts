@@ -41,6 +41,8 @@ describe("buildEffectiveSystemPrompt", () => {
 
     expect(prompt.length).toBeLessThan(6_000);
     expect(prompt).toContain("Office 连接预检铁律");
+    expect(prompt).toContain("动态数组函数环境支持：已开启");
+    expect(prompt).toContain("不要反复质疑当前环境是否适配动态数组函数");
     expect(prompt).toContain("## 运行时上下文");
     expect(prompt).not.toContain('expand:"spill"');
     expect(prompt).not.toContain('mode:"invoice"');

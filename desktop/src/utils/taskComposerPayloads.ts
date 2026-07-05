@@ -19,7 +19,6 @@ export interface FormulaPayloadInput extends RangeDraftInput {
   referenceSampleRange: string;
   referenceSampleMode: ReferenceSampleMode;
   outputRange: string;
-  supportsDynamicArrays: boolean;
   hostEnvironment: HostEnvironment;
   task: string;
 }
@@ -93,8 +92,6 @@ export function buildFormulaTaskPayload(input: FormulaPayloadInput): string {
   } else {
     lines.push("答案填入锚点/选区：由 Agent 选择空白区域");
   }
-  lines.push(`是否支持动态数组：${input.supportsDynamicArrays ? "是" : "否"}`);
-
   return lines.join("\n");
 }
 

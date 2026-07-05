@@ -23,6 +23,7 @@ import {
   getWordBridge,
   getPresentationBridge,
 } from "../../runtime/bridgeRegistry";
+import { getAgentGlobalSettings } from "../../runtime/agentGlobalSettings";
 
 export function appendLongTermMemoryContext(
   prompt: string,
@@ -85,6 +86,16 @@ export function appendRuntimeDateContext(prompt: string, now: Date = new Date())
   return `${prompt}\n\n## 运行时上下文\n- 当前日期：${dateFormatter.format(now)}\n- 当前时间：${timeFormatter.format(now)}（Asia/Shanghai）\n- 处理“今天、昨天、最近、近 N 日、最新、今年”等相对时间时，以以上日期和时区为准；搜索时不要自行补入过期年份。`;
 }
 
+export function appendDynamicArrayFunctionSupportContext(
+  prompt: string,
+  enabled = getAgentGlobalSettings().dynamicArrayFunctionsEnabled
+): string {
+  const settingLine = enabled
+    ? "动态数组函数环境支持：已开启。生成 Excel/WPS 公式时默认允许 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP 等动态数组函数；不要反复质疑当前环境是否适配动态数组函数，除非工具回读明确返回 #NAME? 或用户关闭此设置。"
+    : "动态数组函数环境支持：已关闭。生成 Excel/WPS 公式时不要依赖动态数组 spill，优先使用逐格独立公式、传统函数或辅助区域。";
+  return `${prompt}\n\n## 公式函数环境设置\n- ${settingLine}`;
+}
+
 // ============================================================
 // 系统提示词构建
 // ============================================================
@@ -136,6 +147,8 @@ export async function buildEffectiveSystemPrompt(
     /\{\{OFFICE_CONNECTION_STATUS\}\}/g,
     buildOfficeConnectionStatus()
   );
+
+  effectivePrompt = appendDynamicArrayFunctionSupportContext(effectivePrompt);
 
   return appendRuntimeDateContext(effectivePrompt);
 }

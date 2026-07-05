@@ -88,7 +88,6 @@ describe("user-facing chat content", () => {
       "答案参考样例：Sheet1!I4:L7",
       "答案参考样例类型：完整样例",
       "答案填入锚点/选区：由 Agent 选择空白区域",
-      "是否支持动态数组：是",
     ].join("\n"));
 
     expect(visible).toContain("【功能模块：生成公式】");
@@ -96,7 +95,7 @@ describe("user-facing chat content", () => {
     expect(visible).toContain("当前连接环境：WPS");
     expect(visible).toContain("数据源选区：Sheet1!D4:G7");
     expect(visible).toContain("答案参考样例类型：完整样例");
-    expect(visible).toContain("是否支持动态数组：是");
+    expect(visible).not.toContain("是否支持动态数组");
     expect(visible).not.toContain("交付要求：");
     expect(visible).not.toContain("由 Agent 选择空白区域");
   });

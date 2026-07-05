@@ -341,6 +341,8 @@ export interface SettingsState {
   closeToTray: boolean;
   /** Office 操作时是否自动避让为紧凑栏 */
   officeAutoCompactEnabled: boolean;
+  /** 是否默认允许公式助手使用动态数组函数 */
+  dynamicArrayFunctionsEnabled: boolean;
   /** Main window opacity, from 0.55 to 1. */
   windowOpacity: number;
   /** 是否启用上下文自动压缩 */
@@ -386,6 +388,8 @@ export interface SettingsActions {
   setCloseToTray: (enabled: boolean) => void;
   /** 设置 Office 操作时自动避让 */
   setOfficeAutoCompactEnabled: (enabled: boolean) => void;
+  /** 设置动态数组函数环境支持 */
+  setDynamicArrayFunctionsEnabled: (enabled: boolean) => void;
   /** Set main window opacity. */
   setWindowOpacity: (opacity: number) => void;
   /** 设置是否启用上下文自动压缩 */
@@ -418,6 +422,7 @@ const KEY_MAP: Partial<Record<keyof SettingsState, string>> = {
   theme: "theme",
   closeToTray: "closeToTray",
   officeAutoCompactEnabled: "officeAutoCompactEnabled",
+  dynamicArrayFunctionsEnabled: "dynamicArrayFunctionsEnabled",
   windowOpacity: "windowOpacity",
   pinnedFolders: "pinnedFolders",
   knowledgeEnabled: "knowledgeEnabled",
@@ -475,6 +480,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   theme: "light",
   closeToTray: false,
   officeAutoCompactEnabled: false,
+  dynamicArrayFunctionsEnabled: true,
   windowOpacity: MAX_WINDOW_OPACITY,
   compactionEnabled: true,
   autoCompactThresholdPercent: 80,
@@ -532,6 +538,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       if (typeof allSettings.officeAutoCompactEnabled === "boolean") {
         set({ officeAutoCompactEnabled: allSettings.officeAutoCompactEnabled });
       }
+      if (typeof allSettings.dynamicArrayFunctionsEnabled === "boolean") {
+        set({ dynamicArrayFunctionsEnabled: allSettings.dynamicArrayFunctionsEnabled });
+      }
       if (allSettings.windowOpacity !== undefined) {
         set({ windowOpacity: normalizeWindowOpacity(allSettings.windowOpacity) });
       }
@@ -566,7 +575,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   saveSettings: async () => {
-    const { providers, activeProviderId, permissionMode, showReasoning, language, theme, closeToTray, officeAutoCompactEnabled, windowOpacity, compactionEnabled, autoCompactThresholdPercent, pinnedFolders } = get();
+    const { providers, activeProviderId, permissionMode, showReasoning, language, theme, closeToTray, officeAutoCompactEnabled, dynamicArrayFunctionsEnabled, windowOpacity, compactionEnabled, autoCompactThresholdPercent, pinnedFolders } = get();
 
     await ipcApi.settings.set("aiProviders", providers);
     await ipcApi.settings.set("activeProvider", activeProviderId);
@@ -576,6 +585,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
     await ipcApi.settings.set("theme", theme);
     await ipcApi.settings.set("closeToTray", closeToTray);
     await ipcApi.settings.set("officeAutoCompactEnabled", officeAutoCompactEnabled);
+    await ipcApi.settings.set("dynamicArrayFunctionsEnabled", dynamicArrayFunctionsEnabled);
     await ipcApi.settings.set("windowOpacity", normalizeWindowOpacity(windowOpacity));
     // 上下文压缩配置（百分比制，main.ts 会根据当前模型换算为实际 token 阈值）
     const existingCompaction = await ipcApi.settings.get("compactionConfig") as Record<string, unknown> | null;
@@ -679,6 +689,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   setOfficeAutoCompactEnabled: (enabled: boolean) => {
     set({ officeAutoCompactEnabled: enabled });
     savePartial(["officeAutoCompactEnabled"], get);
+  },
+
+  setDynamicArrayFunctionsEnabled: (enabled: boolean) => {
+    set({ dynamicArrayFunctionsEnabled: enabled });
+    savePartial(["dynamicArrayFunctionsEnabled"], get);
   },
 
   setWindowOpacity: (opacity: number) => {

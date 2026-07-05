@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS = {
   theme: "light",
   closeToTray: false,
   officeAutoCompactEnabled: false,
+  dynamicArrayFunctionsEnabled: true,
   windowOpacity: 1,
   dataStoragePath: "",
   mineruApiToken: "",

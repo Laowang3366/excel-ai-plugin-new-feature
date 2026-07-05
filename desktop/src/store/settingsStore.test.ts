@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   set: vi.fn(),
+  getAll: vi.fn(),
 }));
 
 vi.mock("../services/ipcApi", () => ({
@@ -10,6 +11,7 @@ vi.mock("../services/ipcApi", () => ({
     settings: {
       get: mocks.get,
       set: mocks.set,
+      getAll: mocks.getAll,
     },
   },
 }));
@@ -66,5 +68,33 @@ describe("settingsStore window opacity persistence", () => {
 
     expect(useSettingsStore.getState().windowOpacity).toBe(0.55);
     expect(mocks.set).toHaveBeenCalledWith("windowOpacity", 0.55);
+  });
+});
+
+describe("settingsStore dynamic array function support", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSettingsStore.setState({
+      dynamicArrayFunctionsEnabled: true,
+      isLoading: true,
+    });
+  });
+
+  it("defaults dynamic array support to enabled when loading settings without a saved value", async () => {
+    mocks.getAll.mockResolvedValue({});
+
+    await useSettingsStore.getState().loadSettings();
+
+    expect(useSettingsStore.getState().dynamicArrayFunctionsEnabled).toBe(true);
+  });
+
+  it("persists dynamic array support when the setting changes", async () => {
+    mocks.set.mockResolvedValue(undefined);
+
+    useSettingsStore.getState().setDynamicArrayFunctionsEnabled(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(useSettingsStore.getState().dynamicArrayFunctionsEnabled).toBe(false);
+    expect(mocks.set).toHaveBeenCalledWith("dynamicArrayFunctionsEnabled", false);
   });
 });

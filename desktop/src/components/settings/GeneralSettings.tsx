@@ -40,6 +40,9 @@ const GENERAL_TEXT = {
     windowAvoidanceDesc: "控制助手在 Office 操作时的占屏方式。",
     officeAutoCompactEnabled: "Office 操作时自动避让",
     officeAutoCompactHint: "当检测到 Office 已连接并且助手窗口失焦时，自动缩为右侧紧凑栏，减少对表格、文档或幻灯片的遮挡。",
+    dynamicArrayTitle: "公式函数环境",
+    dynamicArrayFunctionsEnabled: "动态数组函数环境支持",
+    dynamicArrayFunctionsHint: "开启后系统会把当前环境视为支持 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP 等动态数组函数，模型不再反复纠结函数兼容性；关闭后公式助手会优先使用逐格公式或传统函数方案。",
     storageTitle: "数据存储",
     storageDesc: "会话历史、模型配置、权限偏好等数据保存在本机目录。",
     storagePath: "数据存储路径",
@@ -90,6 +93,9 @@ const GENERAL_TEXT = {
     windowAvoidanceDesc: "Control how much screen space the assistant uses while working in Office.",
     officeAutoCompactEnabled: "Auto-avoid while using Office",
     officeAutoCompactHint: "When Office is connected and the assistant loses focus, it shrinks into a right-side compact panel to reduce obstruction.",
+    dynamicArrayTitle: "Formula Environment",
+    dynamicArrayFunctionsEnabled: "Dynamic array function support",
+    dynamicArrayFunctionsHint: "When enabled, the system treats the current environment as supporting FILTER, UNIQUE, SORT, SEQUENCE, LET, XLOOKUP, and other dynamic array functions. When disabled, formula tasks prefer per-cell or traditional formulas.",
     storageTitle: "Data storage",
     storageDesc: "Conversation history, model settings, and preferences are stored locally.",
     storagePath: "Data storage path",
@@ -128,6 +134,7 @@ export const GeneralSettings: React.FC = () => {
     theme,
     closeToTray,
     officeAutoCompactEnabled,
+    dynamicArrayFunctionsEnabled,
     windowOpacity,
     compactionEnabled,
     autoCompactThresholdPercent,
@@ -137,6 +144,7 @@ export const GeneralSettings: React.FC = () => {
     setTheme,
     setCloseToTray,
     setOfficeAutoCompactEnabled,
+    setDynamicArrayFunctionsEnabled,
     setWindowOpacity,
     setCompactionEnabled,
     setAutoCompactThresholdPercent,
@@ -323,6 +331,19 @@ export const GeneralSettings: React.FC = () => {
             </span>
           </div>
           <span className="form-hint">{windowOpacityHint}</span>
+        </div>
+
+        <div className="form-group">
+          <label>{text.dynamicArrayTitle}</label>
+          <label className="settings-switch-row">
+            <input
+              type="checkbox"
+              checked={dynamicArrayFunctionsEnabled}
+              onChange={(event) => setDynamicArrayFunctionsEnabled(event.target.checked)}
+            />
+            <span>{text.dynamicArrayFunctionsEnabled}</span>
+          </label>
+          <span className="form-hint">{text.dynamicArrayFunctionsHint}</span>
         </div>
       </div>
 

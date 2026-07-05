@@ -5,8 +5,7 @@
  * 1. 数据源选区（多选，chip 展示）
  * 2. 答案参考样例（单选区）
  * 3. 答案填入锚点/选区
- * 4. 是否支持动态数组（checkbox）
- * 5. 需求说明（textarea）
+ * 4. 需求说明（textarea）
  */
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -27,7 +26,6 @@ export interface FormulaTaskDraft {
   referenceSampleRange: string;
   referenceSampleMode: ReferenceSampleMode;
   outputRange: string;
-  supportsDynamicArrays: boolean;
   hostEnvironment: HostEnvironment;
   task: string;
 }
@@ -52,7 +50,6 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
   const [referenceSampleRange, setReferenceSampleRange] = useState(draft?.referenceSampleRange ?? "");
   const [referenceSampleMode, setReferenceSampleMode] = useState<ReferenceSampleMode>(draft?.referenceSampleMode ?? "partial");
   const [outputRange, setOutputRange] = useState(draft?.outputRange ?? "");
-  const [supportsDynamicArrays, setSupportsDynamicArrays] = useState(draft?.supportsDynamicArrays ?? true);
   const [hostEnvironment, setHostEnvironment] = useState<HostEnvironment>(draft?.hostEnvironment ?? "unknown");
   const [task, setTask] = useState(draft?.task ?? "");
 
@@ -63,7 +60,6 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
       referenceSampleRange,
       referenceSampleMode,
       outputRange,
-      supportsDynamicArrays,
       hostEnvironment,
       task,
     });
@@ -73,7 +69,6 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
     referenceSampleRange,
     referenceSampleMode,
     outputRange,
-    supportsDynamicArrays,
     hostEnvironment,
     task,
     onDraftChange,
@@ -122,7 +117,6 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
       referenceSampleRange,
       referenceSampleMode,
       outputRange,
-      supportsDynamicArrays,
       hostEnvironment,
       task,
     }));
@@ -239,18 +233,6 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
             <Ruler size={13} /> 选区
           </button>
         </div>
-      </div>
-
-      {/* 动态数组 */}
-      <div className="task-field">
-        <label className="task-field-checkbox">
-          <input
-            type="checkbox"
-            checked={supportsDynamicArrays}
-            onChange={(e) => setSupportsDynamicArrays(e.target.checked)}
-          />
-          支持动态数组（Dynamic Array）
-        </label>
       </div>
 
       {/* 需求说明 */}
