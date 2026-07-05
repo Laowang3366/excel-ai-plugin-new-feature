@@ -87,7 +87,6 @@ import {
   runAutoCompaction,
   runMidTurnCompaction,
 } from "./compactionRunner";
-import { buildRoundStreamParams } from "./roundStreamParams";
 import {
   resetThreadSession,
   resumeThreadSession,
@@ -109,12 +108,6 @@ import {
   shouldRescheduleQueueDrain,
 } from "./queuedTurns";
 import {
-  applyStreamUsage,
-  collectRoundStream,
-  emitStreamErrorItem,
-} from "./streamRound";
-import { handleToolRound } from "./toolRound";
-import {
   applyAIConfigUpdate,
   applyCompactionConfigUpdate,
   mergePendingCompactionReason,
@@ -124,6 +117,7 @@ import {
   type AIRequestRetryConfig,
 } from "./aiRequestRetry";
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
+import { runAgentLoopRounds } from "./agentLoopRunner";
 
 // ============================================================
 // Agent Loop 配置
@@ -551,87 +545,36 @@ export class AgentLoop {
     input: AgentTurnInput,
     resumeContext?: string
   ): Promise<void> {
-    let round = 0;
-
-    while (true) {
-      this.throwIfAborted();
-      round++;
-
-      const { streamParams, effectiveSystemPrompt, toolDefs } = await buildRoundStreamParams({
-        turnItemGroups: this.getTurnItemGroups(),
-        turnInput: input,
-        aiConfig: this.config.aiConfig,
-        configuredReasoningMode: this.config.reasoningMode,
-        baseSystemPrompt: this.config.systemPrompt,
-        folderId: this.turnState.activeThread?.metadata.folderId,
-        stateRuntimeStore: this.stateRuntimeStore,
-        toolExecutors: this.config.toolExecutors,
-        signal: this.turnState.abortController?.signal,
-        round,
-        resumeContext,
-      });
-
-      const streamResult = await collectRoundStream({
-        aiClient: this.aiClient,
-        streamParams,
-        callbacks,
-        round,
-        retryConfig: this.config.aiRequestRetryConfig?.sampling,
-        signal: this.turnState.abortController?.signal,
-      });
-
-      if (await emitStreamErrorItem({
-        streamResult,
-        turn,
-        callbacks,
-        appendTurnItem: (threadId, turnId, item) =>
-          this.sessionStore.appendTurnItem(threadId, turnId, item),
-      })) {
-        return;
-      }
-
-      // 4. 流结束，按 API 真实事件顺序发出 items
-      this.throwIfAborted();
-      await emitCollectedStreamResultItems({
-        streamResult,
-        turn,
-        callbacks,
-        appendTurnItem: (threadId, turnId, item) =>
-          this.sessionStore.appendTurnItem(threadId, turnId, item),
-      });
-      this.throwIfAborted();
-
-      if (await handleToolRound({
-        streamResult,
-        turn,
-        toolExecutors: this.config.toolExecutors!,
-        approvalConfig: {
-          permissionMode: this.config.permissionMode || "normal",
-          requestToolApproval: this.config.requestToolApproval,
-        },
-        callbacks,
-        appendTurnItem: (threadId, turnId, item) =>
-          this.sessionStore.appendTurnItem(threadId, turnId, item),
-        appendToolExecutionLog: (record) =>
-          this.stateRuntimeStore?.appendToolExecutionLog(record) ?? Promise.resolve(),
-        turnItemGroups: this.getTurnItemGroups(),
-        effectiveSystemPrompt,
-        toolDefs,
-        compactionConfig: this.getSessionCompactionConfig(),
-        runMidTurnCompaction: () => this.performMidTurnCompaction(turn, callbacks),
-        throwIfAborted: () => this.throwIfAborted(),
-      })) {
-        continue;
-      }
-
-      applyStreamUsage({ streamResult, turn, activeThread: this.turnState.activeThread });
-      // Turn 结束时始终发送上下文使用情况
-      this.emitContextUsage(callbacks, {
-        systemPrompt: effectiveSystemPrompt,
-        tools: toolDefs,
-      });
-      break;
-    }
+    await runAgentLoopRounds({
+      turn,
+      callbacks,
+      turnInput: input,
+      resumeContext,
+      aiClient: this.aiClient,
+      aiConfig: this.config.aiConfig,
+      configuredReasoningMode: this.config.reasoningMode,
+      baseSystemPrompt: this.config.systemPrompt,
+      folderId: this.turnState.activeThread?.metadata.folderId,
+      stateRuntimeStore: this.stateRuntimeStore,
+      toolExecutors: this.config.toolExecutors!,
+      approvalConfig: {
+        permissionMode: this.config.permissionMode || "normal",
+        requestToolApproval: this.config.requestToolApproval,
+      },
+      samplingRetryConfig: this.config.aiRequestRetryConfig?.sampling,
+      signal: this.turnState.abortController?.signal,
+      appendTurnItem: (threadId, turnId, item) =>
+        this.sessionStore.appendTurnItem(threadId, turnId, item),
+      appendToolExecutionLog: (record) =>
+        this.stateRuntimeStore?.appendToolExecutionLog(record) ?? Promise.resolve(),
+      getTurnItemGroups: () => this.getTurnItemGroups(),
+      getActiveThread: () => this.turnState.activeThread,
+      getSessionCompactionConfig: () => this.getSessionCompactionConfig(),
+      runMidTurnCompaction: () => this.performMidTurnCompaction(turn, callbacks),
+      emitContextUsage: (targetCallbacks, requestContext) =>
+        this.emitContextUsage(targetCallbacks, requestContext),
+      throwIfAborted: () => this.throwIfAborted(),
+    });
   }
 
   private throwIfAborted(): void {
