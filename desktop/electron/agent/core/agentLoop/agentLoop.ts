@@ -9,44 +9,22 @@ import {
   type ToolDefinition,
   type CompactionConfig,
   type CompactionReason,
-  type ThreadRuntimeSnapshot,
   DEFAULT_COMPACTION_CONFIG,
 } from "../../shared/types";
-
-import {
-  type AIClientConfig,
-  createAIClient,
-} from "../../providers/aiClient";
 
 import {
   buildResumeContext,
 } from "../../memory/compaction";
 
-import { SessionStore } from "../../memory/sessionStore";
-import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
-
 import { getToolDefinitions as getToolDefs } from "./toolExecutor";
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
-import { TurnState } from "./turnState";
-import {
-  createCompactionProvider,
-  type CompactionProvider,
-} from "./compactionProvider";
-import {
-  DEFAULT_THREAD_IDLE_UNLOAD_MS,
-  ThreadStateManager,
-} from "./threadStateManager";
-import { PendingInterruptQueue, type ConnectionRequestId } from "./pendingInterruptQueue";
-import { ThreadWatchManager } from "./threadWatchManager";
-import { InputQueue } from "./inputQueue";
+import type { ConnectionRequestId } from "./pendingInterruptQueue";
 import {
   buildContextUsageEvent,
   collectPromptTurnItemGroups,
   collectPromptTurnItems,
 } from "./contextUsage";
 import {
-  attachRolloutEventSink as attachRolloutEventSinkHelper,
-  bindCallbacksToThread as bindCallbacksToThreadHelper,
   persistThreadRuntime as persistThreadRuntimeHelper,
   persistThreadSnapshot as persistThreadSnapshotHelper,
   scheduleTurnMemoryExtraction as scheduleTurnMemoryExtractionHelper,
@@ -63,141 +41,25 @@ import {
 } from "./threadSession";
 import {
   drainQueuedTurnsAndReschedule,
-  enqueueQueuedTurn,
   interruptCurrentTurn,
   scheduleQueuedTurnsDrain,
 } from "./queuedTurns";
 import {
-  applyAIConfigUpdate,
   applyCompactionConfigUpdate,
-  mergePendingCompactionReason,
 } from "./configUpdates";
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
 import { createCompactionRunnerDeps } from "./compactionRunnerDeps";
 import {
   clearIdleThreadUnloadTimer,
   scheduleIdleThreadUnload as scheduleIdleThreadUnloadTimer,
-  type IdleThreadUnloadTimer,
 } from "./idleThreadUnload";
 import { runTurnFlow } from "./turnFlow";
-import type { AgentLoopConfig } from "./agentLoopConfig";
 import { runAgentLoopWithDeps } from "./agentLoopRoundDeps";
+import { AgentLoopBase } from "./agentLoopBase";
 
 export type { AgentLoopConfig } from "./agentLoopConfig";
 
-export class AgentLoop {
-  private config: AgentLoopConfig;
-  private aiClient: ReturnType<typeof createAIClient>;
-  private sessionStore: SessionStore;
-  private stateRuntimeStore: StateRuntimeStore | undefined;
-  private readonly turnState = new TurnState();
-  private readonly threadStateManager: ThreadStateManager;
-  private readonly pendingInterruptQueue = new PendingInterruptQueue();
-  private readonly threadWatchManager: ThreadWatchManager;
-  private readonly inputQueue = new InputQueue();
-  private compactionProvider: CompactionProvider;
-  private readonly usesCustomCompactionProvider: boolean;
-  private pendingCompactionReason: CompactionReason | null = null;
-  private idleUnloadTimer: IdleThreadUnloadTimer | null = null;
-  private isDrainingInputQueue = false;
-  private autoDrainInputQueue = true;
-
-  constructor(
-    config: AgentLoopConfig,
-    sessionStore?: SessionStore,
-    stateRuntimeStore?: StateRuntimeStore,
-    threadWatchManager = new ThreadWatchManager()
-  ) {
-    this.config = config;
-    this.aiClient = createAIClient(config.aiConfig);
-    this.usesCustomCompactionProvider = Boolean(config.compactionProvider);
-    this.compactionProvider = config.compactionProvider
-      ?? createCompactionProvider(this.aiClient, config.compactionConfig);
-    this.sessionStore = sessionStore || new SessionStore();
-    this.stateRuntimeStore = stateRuntimeStore;
-    this.threadWatchManager = threadWatchManager;
-    this.attachRolloutEventSink();
-    this.threadStateManager = new ThreadStateManager({
-      idleUnloadMs: config.threadIdleUnloadMs ?? DEFAULT_THREAD_IDLE_UNLOAD_MS,
-    });
-  }
-
-  updateSessionStore(store: SessionStore): void {
-    this.sessionStore = store;
-    this.attachRolloutEventSink();
-  }
-
-  updateStateRuntimeStore(store: StateRuntimeStore): void {
-    this.stateRuntimeStore = store;
-    this.config.memoryStore?.updateRuntime(store);
-    this.attachRolloutEventSink();
-  }
-
-  getThread(): Thread | null {
-    return this.turnState.activeThread;
-  }
-
-  getThreadRuntimeStatus(): ThreadRuntimeSnapshot {
-    return this.threadStateManager.getSnapshot();
-  }
-
-  getIsRunning(): boolean {
-    return this.turnState.isRunning;
-  }
-
-  getPendingInterruptRequestIds(): ConnectionRequestId[] {
-    return this.pendingInterruptQueue.pendingIds();
-  }
-
-  getQueuedInputCount(): number {
-    return this.inputQueue.size();
-  }
-
-  enqueueTurn(
-    input: AgentTurnInput,
-    callbacks: AgentTurnCallbacks
-  ): { queued: true; queueSize: number } {
-    return enqueueQueuedTurn({ autoDrainInputQueue: this.autoDrainInputQueue, inputQueue: this.inputQueue, turnInput: input, callbacks });
-  }
-
-  watchThreadStatus(
-    threadId: ThreadId,
-    connectionId: string,
-    listener: (status: ThreadRuntimeSnapshot) => void
-  ) {
-    return this.threadWatchManager.watch(threadId, connectionId, listener);
-  }
-
-  private attachRolloutEventSink(): void {
-    attachRolloutEventSinkHelper({
-      sessionStore: this.sessionStore,
-      stateRuntimeStore: this.stateRuntimeStore,
-    });
-  }
-
-  updateAIConfig(config: AIClientConfig): void {
-    const result = applyAIConfigUpdate({
-      currentConfig: this.config,
-      nextConfig: config,
-      activeThread: this.turnState.activeThread,
-      usesCustomCompactionProvider: this.usesCustomCompactionProvider,
-    });
-    this.aiClient = result.aiClient;
-    if (result.compactionProvider) this.compactionProvider = result.compactionProvider;
-    this.markPendingCompactionReason(result.pendingReason);
-  }
-
-  updatePermissionMode(mode: "normal" | "auto_approve_safe" | "confirm_all"): void {
-    this.config.permissionMode = mode;
-  }
-
-  private bindCallbacksToThread(
-    callbacks: AgentTurnCallbacks,
-    threadId: ThreadId,
-    clientId?: string
-  ): AgentTurnCallbacks {
-    return bindCallbacksToThreadHelper({ callbacks, threadId, clientId });
-  }
+export class AgentLoop extends AgentLoopBase {
 
   private get threadSessionDeps() {
     return {
@@ -491,16 +353,6 @@ export class AgentLoop {
     });
     if (result.compactionProvider) this.compactionProvider = result.compactionProvider;
     this.markPendingCompactionReason(result.pendingReason);
-  }
-
-  private markPendingCompactionReason(reason: CompactionReason | null): void {
-    this.pendingCompactionReason = mergePendingCompactionReason(this.pendingCompactionReason, reason);
-  }
-
-  private consumePendingCompactionReason(): CompactionReason | null {
-    const reason = this.pendingCompactionReason;
-    this.pendingCompactionReason = null;
-    return reason;
   }
 
   async resumeFromInterruption(
