@@ -84,6 +84,8 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("简单公式");
     expect(prompt).toContain("中高复杂度公式");
     expect(prompt).toContain('expand:"spill"');
+    expect(prompt).toContain("ASCII");
+    expect(prompt).toContain("WPS 原生");
     expect(prompt).toContain("动态数组公式必须用");
     expect(prompt).toContain("允许输出测试报告");
     expect(prompt.length).toBeLessThan(4_000);

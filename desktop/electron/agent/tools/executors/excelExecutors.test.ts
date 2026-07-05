@@ -141,6 +141,25 @@ describe("addExcelExecutors", () => {
     expect(workbookBridge.writeRange).not.toHaveBeenCalled();
   });
 
+  it("rejects WPS-hostile formula typography before writing", async () => {
+    const workbookBridge = {
+      writeRange: vi.fn(),
+    } as unknown as ExcelWorkbookBridge;
+    const target = createExcelExecutors({ workbookBridge });
+
+    const result = await target.get("range.write")!.execute({
+      sheetName: "Sheet1",
+      range: "A1",
+      values: [['=LET(t,A1,—LEFT(t,2))']],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("WPS 公式解析风险");
+    expect(result.error).toContain("—");
+    expect(result.error).toContain("ASCII 减号");
+    expect(workbookBridge.writeRange).not.toHaveBeenCalled();
+  });
+
   it("validates workbook.open filePath before opening", async () => {
     const workbookBridge = {
       openWorkbook: vi.fn(),

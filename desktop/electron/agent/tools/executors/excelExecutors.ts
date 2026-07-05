@@ -22,6 +22,90 @@ export interface ExcelExecutorDeps {
   uiBridge: ExcelUiBridge;
 }
 
+const WPS_HOSTILE_FORMULA_CHARS: Record<string, string> = {
+  "—": "长横线不是减号；请改成 ASCII 减号 '-'，双负号请写成 '--'",
+  "–": "短横线不是减号；请改成 ASCII 减号 '-'，双负号请写成 '--'",
+  "−": "数学负号不是减号；请改成 ASCII 减号 '-'，双负号请写成 '--'",
+  "－": "全角减号不是减号；请改成 ASCII 减号 '-'，双负号请写成 '--'",
+  "＋": "全角加号不是加号；请改成 ASCII 加号 '+'",
+  "＊": "全角星号不是乘号；请改成 ASCII 星号 '*'",
+  "／": "全角斜杠不是除号；请改成 ASCII 斜杠 '/'",
+  "，": "全角逗号不能作为函数参数分隔符；请改成 ASCII 逗号 ','",
+  "；": "全角分号不能作为函数参数分隔符；请改成 ASCII 分号 ';' 或当前环境支持的分隔符",
+  "（": "全角左括号不能作为函数括号；请改成 ASCII 左括号 '('",
+  "）": "全角右括号不能作为函数括号；请改成 ASCII 右括号 ')'",
+  "：": "全角冒号不能作为区域引用符；请改成 ASCII 冒号 ':'",
+  "！": "全角感叹号不能作为工作表引用符；请改成 ASCII 感叹号 '!'",
+  "“": "弯引号不能作为公式字符串定界符；请改成 ASCII 双引号 '\"'",
+  "”": "弯引号不能作为公式字符串定界符；请改成 ASCII 双引号 '\"'",
+  "‘": "弯单引号不能作为工作表名定界符；请改成 ASCII 单引号 \"'\"",
+  "’": "弯单引号不能作为工作表名定界符；请改成 ASCII 单引号 \"'\"",
+  "\u200B": "公式中包含零宽空格，请删除该不可见字符",
+  "\u200C": "公式中包含零宽非连接符，请删除该不可见字符",
+  "\u200D": "公式中包含零宽连接符，请删除该不可见字符",
+  "\uFEFF": "公式中包含 BOM/零宽不换行空格，请删除该不可见字符",
+};
+
+function validateFormulaTypographyForWps(values: unknown): string | null {
+  for (const formula of collectFormulaStrings(values)) {
+    const issue = findWpsHostileFormulaChar(formula);
+    if (issue) {
+      return [
+        `WPS 公式解析风险：公式中包含 ${describeFormulaChar(issue.char)}。`,
+        issue.message,
+        "这类字符会触发 WPS 原生“公式有错误”弹窗，已在写入前拦截；请修正公式后重新调用 range.write。",
+      ].join(" ");
+    }
+  }
+  return null;
+}
+
+function collectFormulaStrings(value: unknown): string[] {
+  if (typeof value === "string" && isFormulaLike(value)) return [value];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => collectFormulaStrings(item));
+}
+
+function isFormulaLike(value: string): boolean {
+  const trimmed = value.trimStart();
+  return trimmed.startsWith("=") || trimmed.startsWith("+") || trimmed.startsWith("-");
+}
+
+function findWpsHostileFormulaChar(formula: string): { char: string; message: string } | null {
+  let inDoubleQuotedText = false;
+  let inSingleQuotedSheetName = false;
+  for (let i = 0; i < formula.length; i++) {
+    const char = formula[i];
+
+    if (char === '"' && !inSingleQuotedSheetName) {
+      if (inDoubleQuotedText && formula[i + 1] === '"') {
+        i++;
+        continue;
+      }
+      inDoubleQuotedText = !inDoubleQuotedText;
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuotedText) {
+      inSingleQuotedSheetName = !inSingleQuotedSheetName;
+      continue;
+    }
+
+    if (inDoubleQuotedText || inSingleQuotedSheetName) continue;
+
+    const message = WPS_HOSTILE_FORMULA_CHARS[char];
+    if (message) return { char, message };
+  }
+  return null;
+}
+
+function describeFormulaChar(char: string): string {
+  if (char.trim() === "") {
+    return `不可见字符 U+${char.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`;
+  }
+  return `"${char}"`;
+}
+
 export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: ExcelExecutorDeps): void {
   const { workbookBridge, vbaBridge, scriptBridge, uiBridge } = deps;
 
@@ -65,6 +149,10 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       }
       if (!Array.isArray(args.values)) {
         return { success: false, error: `参数 values 应为数组，实际为 ${typeof args.values}` };
+      }
+      const formulaTypographyError = validateFormulaTypographyForWps(args.values);
+      if (formulaTypographyError) {
+        return { success: false, error: formulaTypographyError };
       }
       await workbookBridge.writeRange(args.sheetName as string, args.range as string, args.values as unknown[][]);
       return { success: true, data: "写入成功" };
