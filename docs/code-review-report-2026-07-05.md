@@ -1054,6 +1054,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：chatStore 初始状态 helper 拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract chat initial state`
+
+**覆盖范围**：
+- 新增 `src/store/chatInitialState.ts`，集中维护 `createInitialChatState()` 和 `createClearedMessagesPatch()`。
+- `chatStore.ts` 从约 324 行收敛到约 290 行，继续保留事件监听、stream delta 处理、turn action、thread action、工具审批和输入框文件桥接编排。
+- 清空消息仍只清理消息、流式内容、当前 turn、用量、上下文和错误，不清理会话列表、运行中线程、pending tool 或 composer 文件。
+
+**业务链路保护**：
+- 初始状态字段和值与原内联对象保持一致，数组/对象由函数每次新建，避免共享可变引用。
+- `clearMessages` 的 patch 字段与原行为一致，不影响 thread 列表和后台运行态。
+- Agent 事件处理、stream delta 跨轮清理、会话切换/新建/删除/移动和工具审批 IPC 调用未改。
+
+**验证证据**：
+- `npm exec vitest run src/store/chatStore.test.ts src/store/chatThreadRuntimeState.test.ts src/store/chatTurnState.test.ts src/store/threadActions.test.ts src/store/agentEventHandler.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复

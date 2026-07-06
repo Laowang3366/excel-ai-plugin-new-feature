@@ -17,6 +17,7 @@ import { create } from "zustand";
 import type { TurnItem, AgentEvent, TokenUsage, ThreadMetadata, FileAttachment } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { handleAgentEvent } from "./agentEventHandler";
+import { createClearedMessagesPatch, createInitialChatState } from "./chatInitialState";
 import {
   mergeBufferedStreamDeltas,
   setupChatStreamListeners,
@@ -182,29 +183,7 @@ function applyPatches(patches: Array<Partial<ChatState>>): Partial<ChatState> {
 // ============================================================
 
 export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
-  // ---- 初始状态 ----
-  messages: [],
-  isStreaming: false,
-  streamingContent: "",
-  streamingReasoning: "",
-  activeStreamingRound: null,
-  showReasoning: true,
-  reasoningExpanded: {},
-  activeTurnId: null,
-  activeThreadId: null,
-  activeClientId: null,
-  runningThreadIds: {},
-  stoppedThreadIds: {},
-  turnStatus: "idle",
-  lastInterruptContext: null,
-  tokenUsage: null,
-  contextUsage: null,
-  compactionNotice: null,
-  error: null,
-  threads: [],
-  pendingToolCall: null,
-  pendingComposerFiles: [],
-  pendingFolderId: null,
+  ...createInitialChatState(),
 
   // ---- Actions ----
 
@@ -231,20 +210,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  clearMessages: () =>
-    set({
-      messages: [],
-      streamingContent: "",
-      streamingReasoning: "",
-      activeStreamingRound: null,
-      activeTurnId: null,
-      turnStatus: "idle",
-      lastInterruptContext: null,
-      tokenUsage: null,
-      contextUsage: null,
-      compactionNotice: null,
-      error: null,
-    }),
+  clearMessages: () => set(createClearedMessagesPatch()),
 
   // ---- 事件处理 ----
 

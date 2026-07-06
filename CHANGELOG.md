@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **chatStore 初始状态 helper 拆分**：新增 `chatInitialState.ts`，集中维护聊天 store 初始状态和清空消息 patch；`chatStore.ts` 保留事件监听、stream delta 处理、turn action 和 thread action 编排，降至 300 行以内。
 - **settingsStore 加载归一化拆分**：新增 `settingsLoadedState.ts` 与 `settingsValues.ts`，集中维护 electron-store 原始配置到 Zustand state patch 的归一化、provider reasoning 迁移检测和窗口透明度取值约束；`settingsStore.ts` 保留 IPC 读取、迁移写回、持久化 action 和状态编排。
 - **PPT OpenXML 包结构 helper 拆分**：新增 `presentationPackageParts.ts`，集中维护 slide part 编号、presentation 关系、content type、slide entry 收集和 XML 属性读取；`advancedPresentation.ts` 保留 create/applyTheme/deleteSlides/addSlides 的业务流程。
 - **StateRuntime 线程状态表操作收敛**：新增 `stateRuntimeThreads.ts`，集中维护 `thread_snapshots` 与 `thread_runtime` 的 upsert/list/get SQL；`StateRuntimeStore` 保留四库生命周期、跨库事务、thread name 联动和各领域 helper 编排。
