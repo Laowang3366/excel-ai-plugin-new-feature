@@ -899,6 +899,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：设置数据路径职责拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract settings data path helpers`
+
+**覆盖范围**：
+- 新增 `electron/main-modules/settingsDataPath.ts`，集中维护安装目录/用户目录选择、bootstrap 数据路径读取写入、旧默认目录迁移、路径边界判断和同步/异步目录复制工具。
+- `settingsManager.ts` 从约 427 行收敛到约 282 行，继续负责 settings store 实例、SessionStore/AgentGraphStore/StateRuntimeStore 生命周期、数据目录迁移编排、AI 配置读取和窗口主题/透明度应用。
+- 保留 `settingsManager.ts` 对外导出 `getActiveDataPath`，避免影响 `main.ts`、`ipcHandlers.ts` 等既有导入入口。
+
+**业务链路保护**：
+- `migrateDataPath` 的互斥锁、目标路径校验、会话/知识库/日志复制、settings store 切换、日志目录刷新、AgentLoop store 刷新和知识库 runtime 重载顺序保持不变。
+- 旧默认数据目录迁移仍在 settings store 初始化前执行，继续复制 settings、sessions、knowledge、logs 四类数据。
+- bootstrap `dataPath` 写入封装为 `setConfiguredDataPath`，底层仍使用原 `excel-ai-bootstrap` store。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm exec vitest run electron/main-modules/ipcPathSecurity.test.ts electron/main-modules/ipcFileHandlers.test.ts`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复
