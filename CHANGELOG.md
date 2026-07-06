@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **settingsStore Provider 状态收敛**：抽出 `src/store/settingsProviderState.ts`，集中维护供应商模板匹配、reasoning 配置归一化、增删改后的 `isConfigured` 计算和 provider id 生成；`settingsStore.ts` 继续保留持久化、加载、通用设置和 pinned folders 编排。补充单测覆盖更新激活供应商、添加非激活供应商时的配置状态，避免新增 provider 误影响当前激活配置。
+
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。

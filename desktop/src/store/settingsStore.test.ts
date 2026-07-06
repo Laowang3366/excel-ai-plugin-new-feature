@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AiProviderConfig } from "../electronApi";
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -17,6 +18,19 @@ vi.mock("../services/ipcApi", () => ({
 }));
 
 import { useSettingsStore } from "./settingsStore";
+
+function makeProvider(patch: Partial<AiProviderConfig> = {}): AiProviderConfig {
+  return {
+    id: "provider-a",
+    name: "Provider A",
+    provider: "custom",
+    apiKey: "",
+    baseUrl: "",
+    model: "",
+    apiFormat: "openai",
+    ...patch,
+  };
+}
 
 describe("settingsStore compaction config persistence", () => {
   beforeEach(() => {
@@ -96,5 +110,55 @@ describe("settingsStore dynamic array function support", () => {
 
     expect(useSettingsStore.getState().dynamicArrayFunctionsEnabled).toBe(false);
     expect(mocks.set).toHaveBeenCalledWith("dynamicArrayFunctionsEnabled", false);
+  });
+});
+
+describe("settingsStore provider configuration state", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.set.mockResolvedValue(undefined);
+    useSettingsStore.setState({
+      providers: {},
+      activeProviderId: "",
+      isConfigured: false,
+    });
+  });
+
+  it("recomputes configuration from the updated active provider", () => {
+    useSettingsStore.setState({
+      providers: {
+        active: makeProvider({ id: "active" }),
+      },
+      activeProviderId: "active",
+      isConfigured: false,
+    });
+
+    useSettingsStore.getState().updateProvider("active", {
+      apiKey: "sk-test",
+      baseUrl: "https://api.example.test/v1",
+      model: "model-a",
+    });
+
+    expect(useSettingsStore.getState().isConfigured).toBe(true);
+  });
+
+  it("does not mark settings configured when adding a configured inactive provider", () => {
+    useSettingsStore.setState({
+      providers: {
+        active: makeProvider({ id: "active" }),
+      },
+      activeProviderId: "active",
+      isConfigured: false,
+    });
+
+    useSettingsStore.getState().addProvider(makeProvider({
+      id: "inactive",
+      apiKey: "sk-test",
+      baseUrl: "https://api.example.test/v1",
+      model: "model-a",
+    }));
+
+    expect(useSettingsStore.getState().activeProviderId).toBe("active");
+    expect(useSettingsStore.getState().isConfigured).toBe(false);
   });
 });

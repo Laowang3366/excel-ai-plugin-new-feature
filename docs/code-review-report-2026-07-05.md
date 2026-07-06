@@ -2195,3 +2195,25 @@ src/utils/textCleaner.ts
 ---
 
 > **审查完毕。** 建议按第六章的优先级顺序修复，第一周聚焦安全防线加固和最严重的文件拆分。
+
+## 追加修复记录：2026-07-06
+
+### P1 可维护性：settingsStore Provider 状态收敛
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract settings provider state`
+
+**覆盖范围**：
+- 新增 `src/store/settingsProviderState.ts`，集中维护 provider template 匹配、reasoning 配置归一化、provider 增删改状态构造、`isConfigured` 计算和 provider id 生成。
+- `settingsStore.ts` 保留加载、保存、通用设置、透明度、动态数组、知识库开关和 pinned folders 编排，provider action 改为调用纯 helper。
+- 修复 provider 配置状态误判：新增非激活供应商不会把当前设置误标为已配置；更新激活供应商后立即按新配置重算。
+
+**业务链路保护**：
+- `loadSettings` 的迁移和 normalize 链路仍调用同一归一化逻辑。
+- `savePartial` 持久化 key、`aiProviders` / `activeProvider` 写入时机和原有 action 名称保持不变。
+- 新增 helper 仅处理无副作用状态推导，不引入新的 IPC、UI 或模型配置入口。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm exec vitest run src/store/settingsStore.test.ts`

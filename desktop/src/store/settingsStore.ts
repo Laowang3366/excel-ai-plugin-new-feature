@@ -13,9 +13,16 @@
 import { create } from "zustand";
 import type { AiProviderConfig } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
-import { normalizeProviderReasoningConfig } from "../utils/reasoningSupport";
 import { savePartial } from "./settingsPersistence";
-import { PROVIDER_TEMPLATES, type ProviderTemplate } from "./settingsProviderTemplates";
+import {
+  buildAddedProviderState,
+  buildProviderModelsState,
+  buildRemovedProviderState,
+  buildUpdatedProviderState,
+  checkProviderConfigured,
+  generateProviderId,
+  normalizeProviderConfig,
+} from "./settingsProviderState";
 
 export { API_FORMATS, PROVIDER_TEMPLATES } from "./settingsProviderTemplates";
 export type { ProviderCategory, ProviderTemplate, ReasoningOption } from "./settingsProviderTemplates";
@@ -27,14 +34,6 @@ export interface PinnedFolder {
   addedAt: number;
   /** 置顶的文件路径列表（按顺序） */
   pinnedFiles?: string[];
-}
-
-function getProviderTemplate(provider: Pick<AiProviderConfig, "provider">): ProviderTemplate | undefined {
-  return PROVIDER_TEMPLATES.find((template) => template.provider === provider.provider);
-}
-
-function normalizeProviderConfig(provider: AiProviderConfig): AiProviderConfig {
-  return normalizeProviderReasoningConfig(provider, getProviderTemplate(provider));
 }
 
 // ============================================================
@@ -277,61 +276,29 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   updateProvider: (id: string, patch: Partial<AiProviderConfig>) => {
-    set((s) => {
-      const nextProvider = normalizeProviderConfig({ ...s.providers[id], ...patch });
-      return {
-        providers: {
-          ...s.providers,
-          [id]: nextProvider,
-        },
-        isConfigured: get().checkConfigured(),
-      };
-    });
+    set((s) => buildUpdatedProviderState(s, id, patch));
     savePartial(["providers"], get);
   },
 
   addProvider: (config: AiProviderConfig) => {
-    set((s) => {
-      const normalizedConfig = normalizeProviderConfig(config);
-      const newProviders = { ...s.providers, [normalizedConfig.id]: normalizedConfig };
-      const newActiveId = s.activeProviderId || normalizedConfig.id;
-      return {
-        providers: newProviders,
-        activeProviderId: newActiveId,
-        isConfigured: !!(normalizedConfig.apiKey && normalizedConfig.baseUrl && (normalizedConfig.model || normalizedConfig.defaultModel)),
-      };
-    });
+    set((s) => buildAddedProviderState(s, config));
     savePartial(["providers", "activeProviderId"], get);
   },
 
   removeProvider: (id: string) => {
-    set((s) => {
-      const { [id]: _, ...rest } = s.providers;
-      const remainingIds = Object.keys(rest);
-      const newActiveId = s.activeProviderId === id
-        ? (remainingIds.length > 0 ? remainingIds[0] : "")
-        : s.activeProviderId;
-      return {
-        providers: rest,
-        activeProviderId: newActiveId,
-      };
-    });
-    set({ isConfigured: get().checkConfigured() });
+    set((s) => buildRemovedProviderState(s, id));
     savePartial(["providers", "activeProviderId"], get);
   },
 
   setProviderModels: (id: string, models: string[]) => {
     set((s) => ({
-      providers: {
-        ...s.providers,
-        [id]: { ...s.providers[id], models },
-      },
+      providers: buildProviderModelsState(s.providers, id, models),
     }));
     savePartial(["providers"], get);
   },
 
   generateId: () => {
-    return `provider_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    return generateProviderId();
   },
 
   setPermissionMode: (mode: PermissionMode) => {
@@ -386,9 +353,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
 
   checkConfigured: () => {
     const { providers, activeProviderId } = get();
-    if (!activeProviderId) return false;
-    const provider = providers[activeProviderId];
-    return !!(provider?.apiKey && provider?.baseUrl && (provider?.model || provider?.defaultModel));
+    return checkProviderConfigured(providers, activeProviderId);
   },
 
   addPinnedFolder: (folder: PinnedFolder) => {
