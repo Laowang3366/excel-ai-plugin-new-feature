@@ -628,6 +628,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`GeneralSettings` 数据存储卡片拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract general storage card`
+
+**覆盖范围**：
+- 新增 `src/components/settings/GeneralSettingsStorageCard.tsx`，集中常规设置页的数据目录展示、打开、复制和迁移按钮 UI。
+- `GeneralSettings.tsx` 保留 `ipcApi.app.getDataPath/openPath/selectDataPath/migrateDataPath`、剪贴板复制、迁移状态和 `loadSettings()` 回调职责，文件从 318 行降至 282 行。
+- `CHANGELOG.md` 当前测试源基线保持为 149 个测试文件、740 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改数据目录读取、打开、复制、迁移、迁移后重载设置和错误展示逻辑。
+- 保留 `settings-card`、`storage-path-row`、`storage-path-input`、`settings-action-btn` className。
+- MinerU token、透明度、动态数组、自动压缩和当前模型上下文显示链路未改。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复

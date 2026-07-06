@@ -3,12 +3,13 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Copy, Database, FolderOpen, Activity, FileScan, Maximize2 } from "../common/IconMap";
+import { Activity, FileScan, Maximize2 } from "../common/IconMap";
 import { useSettingsStore, type AppLanguage, type AppTheme } from "../../store/settingsStore";
 import { formatTokensAsK, DEFAULT_CONTEXT_WINDOW } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
 import { SettingsSliderField, SettingsSwitchField } from "./SettingsFields";
 import { GENERAL_TEXT, getWindowOpacityText } from "./generalSettingsText";
+import { GeneralSettingsStorageCard } from "./GeneralSettingsStorageCard";
 
 export const GeneralSettings: React.FC = () => {
   const {
@@ -229,53 +230,16 @@ export const GeneralSettings: React.FC = () => {
         </div>
       </div>
 
-      <div className="settings-card">
-        <div className="settings-card-header">
-          <div className="settings-card-title-row">
-            <Database size={16} />
-            <h3>{text.storageTitle}</h3>
-          </div>
-          <p>{text.storageDesc}</p>
-        </div>
-
-        <div className="form-group">
-          <label>{text.storagePath}</label>
-          <div className="storage-path-row">
-            <input
-              className="form-input storage-path-input"
-              value={pathError || dataPath || text.loadingPath}
-              readOnly
-            />
-            <button
-              className="settings-action-btn"
-              onClick={handleOpenDataPath}
-              disabled={!dataPath || Boolean(pathError)}
-              title={text.openTitle}
-            >
-              <FolderOpen size={15} />
-              {text.open}
-            </button>
-            <button
-              className="settings-action-btn"
-              onClick={handleCopyDataPath}
-              disabled={!dataPath || Boolean(pathError)}
-              title={text.copyTitle}
-            >
-              <Copy size={15} />
-              {copied ? text.copied : text.copy}
-            </button>
-            <button
-              className="settings-action-btn primary"
-              onClick={handleChangeDataPath}
-              disabled={isMigrating}
-              title={text.changeTitle}
-            >
-              {isMigrating ? text.migrating : text.change}
-            </button>
-          </div>
-          <span className="form-hint">{text.storageHint}</span>
-        </div>
-      </div>
+      <GeneralSettingsStorageCard
+        language={language}
+        dataPath={dataPath}
+        pathError={pathError}
+        copied={copied}
+        isMigrating={isMigrating}
+        onOpenDataPath={handleOpenDataPath}
+        onCopyDataPath={handleCopyDataPath}
+        onChangeDataPath={handleChangeDataPath}
+      />
 
       <div className="settings-card">
         <div className="settings-card-header">
