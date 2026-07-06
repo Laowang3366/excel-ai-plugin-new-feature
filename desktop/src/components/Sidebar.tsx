@@ -173,13 +173,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setIsResizing(true);
     const startX = e.clientX;
     const startWidth = sidebarWidth;
+    let frameId: number | null = null;
+    let nextWidth = startWidth;
+    const flushWidth = () => {
+      frameId = null;
+      setSidebarWidth(nextWidth);
+    };
     const handleMouseMove = (event: MouseEvent) => {
       if (!resizingRef.current) return;
-      setSidebarWidth(Math.min(400, Math.max(180, startWidth + event.clientX - startX)));
+      nextWidth = Math.min(400, Math.max(180, startWidth + event.clientX - startX));
+      if (frameId === null) frameId = window.requestAnimationFrame(flushWidth);
     };
     const handleMouseUp = () => {
       resizingRef.current = false;
       setIsResizing(false);
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        frameId = null;
+        setSidebarWidth(nextWidth);
+      }
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };

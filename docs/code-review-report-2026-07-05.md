@@ -330,6 +330,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P2 性能：`Sidebar` 拖拽 resize rAF 节流
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `perf: throttle sidebar resize updates`
+
+**覆盖范围**：
+- 将 `Sidebar.tsx` 的 sidebar resize `mousemove` 处理改为 `requestAnimationFrame` 节流。
+- 拖拽中只记录最新目标宽度，每帧最多 `setSidebarWidth()` 一次。
+- `mouseup` 时取消未执行的 rAF 并提交最后一次宽度，避免松手时丢失最终尺寸。
+
+**业务链路保护**：
+- 保留原宽度边界 `180-400px`、`isResizing` 状态和 document 级 mousemove/mouseup 监听清理。
+- 不改 DOM/CSS 和侧边栏折叠/展开行为。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -671,7 +691,7 @@ useEffect(() => {
 
 | # | 位置 | 问题 |
 |---|------|------|
-| 1 | `Sidebar.tsx:190-206` | 拖拽 resize 时 mousemove 高频触发 setState，建议用 rAF 节流 |
+| 1 | `Sidebar.tsx:190-206` | ✅ 已修复：拖拽 resize 改为 rAF 节流 |
 | 2 | `useComposer.ts:326-331` | textarea onChange 每键触发 setState + DOM 写入，可接受 |
 | 3 | `preload.ts:89` | onStreamDelta 回调 data 类型注解缺 clientId，与 electronApi.d.ts 不一致 |
 | 4 | `Sidebar.tsx` 多处 | 代码重复的排序逻辑可提取为公共函数 |
