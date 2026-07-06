@@ -20,7 +20,9 @@ import type {
   KnowledgeResult,
 } from "./types";
 import type { EmbeddingProfile } from "./embeddingService";
+import { ensureSourceSummaries } from "./sqliteSourceSummaries";
 import { cosineSimilarity, entryToRow, rowToEntry, rowToSource } from "./sqliteStoreRows";
+import { initKnowledgeTables } from "./sqliteStoreSchema";
 import {
   openSqliteDatabase,
   runPragma,
@@ -59,69 +61,7 @@ export class SqliteStore {
     // 启用 WAL 模式以提升并发读性能
     runPragma(this.db, "journal_mode = WAL");
 
-    this.initTables();
-  }
-
-  /** 创建表（幂等） */
-  private initTables(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS knowledge_entries (
-        id          TEXT PRIMARY KEY,
-        source      TEXT NOT NULL,
-        source_path TEXT NOT NULL,
-        source_name TEXT NOT NULL,
-        source_type TEXT NOT NULL,
-        chunk_index INTEGER DEFAULT 0,
-        content     TEXT NOT NULL,
-        metadata    TEXT DEFAULT '{}',
-        embedding   TEXT,
-        embedding_provider TEXT,
-        embedding_model TEXT,
-        embedding_dimensions INTEGER,
-        indexed_at  INTEGER NOT NULL,
-        token_count INTEGER DEFAULT 0
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_entries_source
-        ON knowledge_entries(source);
-      CREATE INDEX IF NOT EXISTS idx_entries_source_path
-        ON knowledge_entries(source_path);
-      CREATE INDEX IF NOT EXISTS idx_entries_indexed_at
-        ON knowledge_entries(indexed_at);
-
-      CREATE TABLE IF NOT EXISTS knowledge_sources (
-        source_path   TEXT PRIMARY KEY,
-        source_name   TEXT NOT NULL,
-        source_type   TEXT NOT NULL,
-        entry_count   INTEGER DEFAULT 0,
-        first_indexed INTEGER NOT NULL,
-        last_indexed  INTEGER NOT NULL,
-        file_hash     TEXT DEFAULT ''
-      );
-    `);
-    this.migrateEmbeddingProfileColumns();
-  }
-
-  private migrateEmbeddingProfileColumns(): void {
-    const rows = this.db
-      .prepare("PRAGMA table_info(knowledge_entries)")
-      .all() as Array<{ name: string }>;
-    const columns = new Set(rows.map((row) => row.name));
-
-    if (!columns.has("embedding_provider")) {
-      this.db.exec("ALTER TABLE knowledge_entries ADD COLUMN embedding_provider TEXT");
-    }
-    if (!columns.has("embedding_model")) {
-      this.db.exec("ALTER TABLE knowledge_entries ADD COLUMN embedding_model TEXT");
-    }
-    if (!columns.has("embedding_dimensions")) {
-      this.db.exec("ALTER TABLE knowledge_entries ADD COLUMN embedding_dimensions INTEGER");
-    }
-
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_entries_embedding_profile
-        ON knowledge_entries(embedding_provider, embedding_model, embedding_dimensions);
-    `);
+    initKnowledgeTables(this.db);
   }
 
   // ============================================================
@@ -330,7 +270,7 @@ export class SqliteStore {
 
   /** 列出所有已索引的来源 */
   listSources(): KnowledgeSource[] {
-    this.ensureSourceSummaries();
+    ensureSourceSummaries(this.db);
     const rows = this.db
       .prepare("SELECT * FROM knowledge_sources ORDER BY last_indexed DESC")
       .all() as Record<string, any>[];
@@ -412,57 +352,6 @@ export class SqliteStore {
   /** 判断是否已初始化 */
   isInitialized(): boolean {
     return !!this.db;
-  }
-
-  // ============================================================
-  // 内部工具
-  // ============================================================
-
-  private ensureSourceSummaries(): void {
-    const rows = this.db
-      .prepare(
-        `SELECT
-           source_path,
-           source_name,
-           source_type,
-           COUNT(*) as entry_count,
-           MIN(indexed_at) as first_indexed,
-           MAX(indexed_at) as last_indexed
-         FROM knowledge_entries
-         GROUP BY source_path, source_name, source_type`
-      )
-      .all() as Record<string, any>[];
-
-    if (rows.length === 0) return;
-
-    const existingRows = this.db
-      .prepare("SELECT source_path FROM knowledge_sources")
-      .all() as Array<{ source_path: string }>;
-    const existing = new Set(existingRows.map((row) => row.source_path));
-
-    const insert = this.db.prepare(
-      `INSERT INTO knowledge_sources
-        (source_path, source_name, source_type, entry_count,
-         first_indexed, last_indexed, file_hash)
-       VALUES
-        (?, ?, ?, ?,
-         ?, ?, ?)`
-    );
-
-    runSqliteTransaction(this.db, () => {
-      for (const row of rows) {
-        if (existing.has(row.source_path)) continue;
-        insert.run(
-          row.source_path,
-          row.source_name,
-          row.source_type,
-          row.entry_count,
-          row.first_indexed,
-          row.last_indexed,
-          ""
-        );
-      }
-    });
   }
 
 }

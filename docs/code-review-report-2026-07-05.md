@@ -965,6 +965,29 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：SQLite 知识库 schema 与来源摘要职责拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract sqlite knowledge schema helpers`
+
+**覆盖范围**：
+- 新增 `electron/agent/knowledge/sqliteStoreSchema.ts`，集中维护 `knowledge_entries` / `knowledge_sources` 建表、索引和 `embedding_provider/model/dimensions` 迁移。
+- 新增 `electron/agent/knowledge/sqliteSourceSummaries.ts`，集中维护从 `knowledge_entries` 回填 `knowledge_sources` 的来源摘要逻辑。
+- `sqliteStore.ts` 从约 468 行收敛到约 357 行，继续保留条目写入、批量事务、删除、向量检索、关键词检索、来源 API、统计和维护入口。
+
+**业务链路保护**：
+- `init()` 仍先创建目录、打开 SQLite、设置 WAL，再执行建表与 embedding profile 迁移。
+- `listSources()` 仍在查询前执行来源摘要回填，保留旧索引缺少 `knowledge_sources` 记录时的兼容补全行为。
+- 向量检索的 provider/model/dim 过滤、维度不匹配返回 0、关键词去重和 `topK` 截断语义保持不变。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm exec vitest run electron/agent/knowledge/rag.test.ts`
+- `npm exec vitest run electron/agent/knowledge/knowledgeRegistry.test.ts electron/agent/knowledge/knowledgeWriter.test.ts electron/agent/runtime/knowledgeRuntime.test.ts electron/agent/tools/executors/knowledgeExecutors.test.ts`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复

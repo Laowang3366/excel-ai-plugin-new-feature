@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **SQLite 知识库 schema 与来源摘要职责拆分**：新增 `sqliteStoreSchema.ts` 与 `sqliteSourceSummaries.ts`，分别维护知识库表结构/embedding profile 迁移和来源摘要回填；`sqliteStore.ts` 保留条目写入、向量/关键词检索、来源 API 和维护入口，降至 400 行以内。
 - **IPC Office wrapper 拆分**：新增 `ipcOfficeApi.ts`，集中维护前端 Excel/Word/PPT IPC wrapper 的 fallback 与转发逻辑；`ipcApi.ts` 改为组合 Office、Thread、Knowledge 子 wrapper，保留 `excel.readRange` 第三参 `expand` 透传。
 - **SessionStore 文件扫描职责拆分**：新增 `sessionStoreFiles.ts`，集中维护默认 sessions 路径、rollout 文件路径生成、递归扫描和线程元数据扫描；`sessionStore.ts` 保留线程创建、rollout 写入、数据库投影、压缩搜索、元数据更新和使用统计入口。
 - **设置数据路径职责拆分**：新增 `settingsDataPath.ts`，集中维护数据目录选择、旧默认目录迁移、路径边界判断和目录复制工具；`settingsManager.ts` 保留 settings store、SessionStore/StateRuntimeStore 生命周期、数据目录迁移编排、AI 配置和窗口外观应用。
