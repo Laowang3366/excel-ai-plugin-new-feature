@@ -13,6 +13,7 @@
 - **侧边栏组件接口收束**：将 `FolderSection` 的文件夹动作、线程动作和文件菜单能力合并为语义化 API 对象，减少 prop drilling。
 - **侧边栏拖拽性能优化**：侧边栏宽度拖拽改为 requestAnimationFrame 节流，每帧最多触发一次宽度状态更新。
 - **主进程日志统一**：electron 主进程警告/错误输出改走结构化 logger，保留控制台和文件日志双输出。
+- **shell 执行器测试补强**：覆盖安全策略拒绝、prompt 决策、cwd 重定向、缺失工作目录和超时强杀路径。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
 - **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。

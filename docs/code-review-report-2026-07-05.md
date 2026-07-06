@@ -371,6 +371,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T4：`shellExecutor` 测试覆盖补强
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `test: cover shell executor failure paths`
+
+**覆盖范围**：
+- 将 `shellExecutor.test.ts` 从 1 个用例扩展到 5 个用例。
+- 覆盖 sandbox evaluation 复用、forbidden 决策不 spawn、prompt 决策使用 effective workdir、缺失工作目录返回错误、watchdog 超时调用 `killProcessTree()`。
+- 为 sandbox mock 增加 `@MOCK_INTERFACE` 注释，减少测试 mock 和真实接口漂移风险。
+
+**业务链路保护**：
+- 仅补测试，不修改 `shellExecutor.ts` 运行逻辑。
+- 仍通过 mock 的 sandbox process primitives 避免测试启动真实 shell 进程。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/executors/shellExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -676,6 +697,8 @@ useEffect(() => {
 #### 🟡 T4 — shellExecutor 测试覆盖不足
 
 **位置**：`electron/agent/tools/executors/shellExecutor.test.ts`
+
+**状态**：✅ 已修复（2026-07-06，见“T4：`shellExecutor` 测试覆盖补强”）
 
 **问题**：仅 1 个测试用例，只覆盖"复用 sandbox 评估"正常路径。缺少：拒绝路径、prompt 触发、cwd 重定向、超时强杀。
 
