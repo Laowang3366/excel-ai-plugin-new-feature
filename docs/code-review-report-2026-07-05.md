@@ -656,6 +656,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`OfficePreviewPanel` 样式拆分
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: split office preview panel styles`
+
+**覆盖范围**：
+- 新增 `src/styles/office-preview-panel.css`，集中 ChatPage 顶部预览开关与 `OfficePreviewPanel.tsx` 使用的 `office-preview-*` 样式。
+- `global.css` 在 `chat.css` 与 `floating-task-panel.css` 后导入 Office 预览样式，保持聊天页面基础布局先加载。
+- `chat.css` 从 554 行降至 326 行，低于 CSS 500 行上限；新样式文件为 227 行。
+
+**业务链路保护**：
+- 不改 `ChatPage.tsx` 与 `OfficePreviewPanel.tsx` 的 DOM、className、侧栏开关、紧凑模式和移动端隐藏规则。
+- 顶部预览按钮的 `flex: 0 0 auto`、`margin-left: 0` 等对齐修复随样式整体迁移，不回滚前序 UI 修复。
+- 事件成功色改为直接使用已有 `--success` 主题令牌，避免在新样式文件保留硬编码 fallback。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -772,10 +792,9 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
 | `src/styles/sidebar.css` | **1101** | 500 | +601 | — |
-| `src/styles/chat.css` | **554** | 500 | +54 | 继续按自然职责边界拆分 |
 | `src/styles/composer.css` | **674** | 500 | +174 | — |
 
-**完整超标清单**：共 29 个 TS/TSX 文件 + 4 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 29 个 TS/TSX 文件 + 3 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1136,13 +1155,12 @@ useEffect(() => {
 | 416 | `src/components/settings/UsageStats.tsx` |
 | 404 | `electron/main-modules/mineruOcr.ts` |
 
-### CSS 文件（4 个）
+### CSS 文件（3 个）
 
 | 行数 | 文件 |
 |------|------|
 | 1444 | `src/styles/settings.css` |
 | 1101 | `src/styles/sidebar.css` |
-| 554 | `src/styles/chat.css` |
 | 674 | `src/styles/composer.css` |
 
 ---
