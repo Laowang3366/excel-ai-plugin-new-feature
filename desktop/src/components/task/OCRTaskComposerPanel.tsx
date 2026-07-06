@@ -18,27 +18,23 @@ import { FileScan, Paperclip, FileText, Image, AlertTriangle, Ruler, X } from ".
 import { ipcApi } from "../../services/ipcApi";
 import { pickExcelRange } from "../../utils/chatHelpers";
 import { readFileAsBase64 } from "../../utils/fileBase64";
+import {
+  buildOcrPreviewRows,
+  buildOcrWriteValues,
+  canWriteOcrResult,
+  extractOcrFieldNames,
+  type OcrResult,
+} from "./ocrTaskResultHelpers";
+
+export {
+  buildOcrPreviewRows,
+  buildOcrWriteValues,
+  canWriteOcrResult,
+  extractOcrFieldNames,
+};
+export type { OcrInvoiceItem, OcrResult } from "./ocrTaskResultHelpers";
 
 export type OcrMode = "image" | "invoice";
-
-/** 单张发票识别结果 */
-export interface OcrInvoiceItem {
-  filename: string;
-  text: string;
-  fields: Record<string, string>;
-  rows: string[][];
-  error?: string;
-}
-
-/** OCR 识别结果 */
-export interface OcrResult {
-  kind: "image" | "invoice";
-  text: string;
-  rows: string[][];
-  fields: Record<string, string>;
-  invoices: OcrInvoiceItem[];
-  errors: string[];
-}
 
 export interface OCRTaskDraft {
   ocrMode: OcrMode;
@@ -516,60 +512,6 @@ function parseSheetRange(value: string): { sheetName: string; range: string } {
   };
 }
 
-export function extractOcrFieldNames(result: OcrResult): string[] {
-  if (result.kind === "invoice" && result.invoices.length > 0) {
-    return Array.from(new Set(result.invoices.flatMap((invoice) => Object.keys(invoice.fields || {}))));
-  }
-  if (result.rows.length > 0) return result.rows[0];
-  if (result.fields && Object.keys(result.fields).length > 0) return Object.keys(result.fields);
-  if (result.invoices.length > 0) {
-    return Array.from(new Set(result.invoices.flatMap((invoice) => Object.keys(invoice.fields || {}))));
-  }
-  return [];
-}
-
-export function canWriteOcrResult(result: OcrResult, selectedFields: string[]): boolean {
-  return selectedFields.length > 0 ||
-    (extractOcrFieldNames(result).length === 0 && Boolean(result.text.trim()));
-}
-
-export function buildOcrWriteValues(result: OcrResult, selectedFields: string[]): string[][] {
-  if (selectedFields.length === 0) {
-    return result.text ? [[result.text]] : [];
-  }
-
-  if (result.kind === "invoice" && result.invoices.length > 0) {
-    const rows = result.invoices.map((invoice) =>
-      selectedFields.map((field) => stringifyCell(invoice.fields[field] ?? ""))
-    );
-    return [selectedFields, ...rows];
-  }
-
-  if (result.rows.length > 0) {
-    return filterRowsForFields(result.rows, selectedFields);
-  }
-
-  if (Object.keys(result.fields).length > 0) {
-    return [
-      selectedFields,
-      selectedFields.map((field) => stringifyCell(result.fields[field] ?? "")),
-    ];
-  }
-
-  return [[result.text || ""]];
-}
-
-export function buildOcrPreviewRows(result: OcrResult, selectedFields: string[]): string[][] {
-  const fields = selectedFields.length > 0 ? selectedFields : extractOcrFieldNames(result);
-  const values = buildOcrWriteValues(result, fields);
-  if (values.length > 0) return values;
-  return result.rows.length > 0 ? filterRowsForFields(result.rows, fields) : [];
-}
-
-function stringifyCell(value: unknown): string {
-  return value === null || value === undefined ? "" : String(value);
-}
-
 function isAcceptedOcrFile(file: File): boolean {
   const name = file.name.toLowerCase();
   return ACCEPTED_OCR_MIME_TYPES.has(file.type) ||
@@ -583,18 +525,4 @@ function isAcceptedOcrFile(file: File): boolean {
 
 function isLikelyInvoiceFile(file: File): boolean {
   return /发票|invoice|fapiao|票据/i.test(file.name);
-}
-
-/** 根据选中字段过滤行 */
-function filterRowsForFields(
-  rows: string[][],
-  selectedFields: string[]
-): string[][] {
-  if (rows.length === 0 || selectedFields.length === 0) return rows;
-  const header = rows[0];
-  const colIndices = selectedFields
-    .map((f) => header.indexOf(f))
-    .filter((i) => i >= 0);
-  if (colIndices.length === 0) return rows;
-  return rows.map((row) => colIndices.map((i) => row[i] ?? ""));
 }

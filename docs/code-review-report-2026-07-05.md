@@ -93,6 +93,7 @@
 - 将 `Sidebar.tsx` 的折叠态、展开态主体和底部连接/设置区按 UI 边界抽出到 `components/sidebar/SidebarCollapsed.tsx`、`SidebarExpanded.tsx`、`SidebarFooter.tsx`。父组件保留 store 状态、业务回调和数据编排，避免为了行数继续拆碎。
 - 将 `settingsStore.ts` 的 Provider 模板、API 格式和推理选项静态配置抽出到 `store/settingsProviderTemplates.ts`。`settingsStore.ts` 从 749 行降至 479 行，仍由原入口 re-export `PROVIDER_TEMPLATES`、`API_FORMATS` 和相关类型，保持调用方兼容。
 - 将 `services/ipcApi.ts` 的 `IIpcApi` 类型定义抽出到 `services/ipcApiTypes.ts`，测试 mock 工厂抽出到 `services/ipcApiMock.ts`。`ipcApi.ts` 从 745 行降至 430 行，并继续 re-export `IIpcApi` 与 `createMockIpcApi` 保持测试和调用方兼容。
+- 将 `OCRTaskComposerPanel.tsx` 的 OCR 字段提取、预览行和写入矩阵构建纯函数抽出到 `components/task/ocrTaskResultHelpers.ts`。面板继续 re-export 原 helper 和类型，测试导入路径不变。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md` 与 `electron/main-modules/README.md`，记录拆分后的模块职责。
 
@@ -106,6 +107,7 @@
 - Sidebar 拆分只移动渲染层 JSX，`useChatStore`、`useSettingsStore`、Office 连接检测、文件夹加载、会话切换和文件右键操作仍由父组件统一编排。
 - settingsStore 拆分只移动静态模板配置，`loadSettings` 迁移逻辑、增量保存、provider normalize、窗口透明度和知识库开关持久化链路未改。
 - ipcApi 拆分只移动类型定义和测试 mock，运行时 `ipcApi` wrapper 的 fallback 行为、`readRange` 第三参 `expand` 透传、thread/runtimeStatus 与 threadGraph wrapper 保持不变。
+- OCR 面板拆分只移动纯数据转换函数，拖拽/粘贴上传、静默识别、字段选择、选区获取和写入 Excel/WPS 链路未改。
 - 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar/settingsStore/ipcApi 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续转向其它明确职责边界的超标文件。
 
 **验证证据**：
@@ -132,6 +134,7 @@
 - `npm exec vitest run electron/shared/ipcSchemas.test.ts electron/main-modules/ipcPathSecurity.test.ts src/hooks/useComposer.test.ts`
 - `npm exec vitest run src/store/settingsStore.test.ts`
 - `npm exec vitest run src/services/ipcApi.test.ts`
+- `npm exec vitest run src/components/task/OCRTaskComposerPanel.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
