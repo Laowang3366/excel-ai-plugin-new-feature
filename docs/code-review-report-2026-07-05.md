@@ -208,6 +208,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1 性能：`Sidebar` 排序派生数据 memo
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `perf: memoize sidebar sorted groups`
+
+**覆盖范围**：
+- 为 `src/components/Sidebar.tsx` 中的未分组会话排序结果增加 `useMemo`。
+- 为项目文件夹分组、文件夹内会话排序和项目分组排序结果增加 `useMemo`。
+
+**业务链路保护**：
+- `sortSidebarItems()`、项目排序规则、会话排序规则、搜索过滤条件和传给 `SidebarExpanded` 的 props 结构均未改。
+- memo 依赖显式覆盖 `threads`、`pinnedFolders`、`folderFiles`、排序模式、语言和搜索状态。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）

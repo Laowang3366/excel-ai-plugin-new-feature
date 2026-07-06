@@ -10,7 +10,7 @@
  * - components/sidebar/SidebarExpanded.tsx: 展开态渲染
  */
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
 import type { AppPage } from "../App";
@@ -327,12 +327,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [onNavigate, onOpenSettingsSection]);
 
   const hasSearchQuery = false;
-  const ungroupedThreads = sortSidebarItems(
+  const ungroupedThreads = useMemo(() => sortSidebarItems(
     threads.filter((thread) => !thread.folderId),
     conversationSortMode,
     language
-  );
-  const groupedByFolder = pinnedFolders.map((folder) => ({
+  ), [conversationSortMode, language, threads]);
+  const groupedByFolder = useMemo(() => pinnedFolders.map((folder) => ({
     folder,
     folderMatches: true,
     threads: sortSidebarItems(
@@ -348,7 +348,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (projectSortMode === "nameAsc") return compareSidebarText(a.folder.name, b.folder.name, language);
     if (projectSortMode === "nameDesc") return compareSidebarText(b.folder.name, a.folder.name, language);
     return b.folder.addedAt - a.folder.addedAt;
-  });
+  }), [folderFiles, hasSearchQuery, language, pinnedFolders, projectSortMode, threads]);
   const hasProjectItems = groupedByFolder.length > 0;
   const hasConversationItems = ungroupedThreads.length > 0;
   const showNoSearchResults = hasSearchQuery && !hasProjectItems && !hasConversationItems;
