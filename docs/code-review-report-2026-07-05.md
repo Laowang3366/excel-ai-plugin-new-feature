@@ -88,6 +88,7 @@
 - `agentLoop.ts` 已从 1276 行降至 378 行，低于 400 行规范上限；M1 仍未关闭，后续继续处理 `ipcHandlers.ts`、Sidebar、settingsStore、ipcApi 等其它超标文件。
 - 从 `ipcHandlers.ts` 抽出 OCR IPC 注册、MinerU/本地 fallback、发票字段抽取和 OCR 结果归一化：`electron/main-modules/ipcOcrHandlers.ts`。`ipcHandlers.ts` 从 1115 行降至 723 行，OCR 新模块 397 行。
 - 从 `ipcHandlers.ts` 抽出 AI 模型列表和连接测试 IPC：`electron/main-modules/ipcAiHandlers.ts`。`ipcHandlers.ts` 进一步降至 622 行，AI 新模块 110 行。
+- 从 `ipcHandlers.ts` 抽出沙箱配置 IPC 和运行时规则刷新：`electron/main-modules/ipcSandboxHandlers.ts`。`ipcHandlers.ts` 进一步降至 520 行，沙箱新模块 103 行。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md` 与 `electron/main-modules/README.md`，记录拆分后的模块职责。
 
@@ -96,6 +97,7 @@
 - reasoning、assistant_message、tool_call 的补发顺序保持原逻辑；工具执行、压缩触发、长期记忆写入和线程运行态写入链路未改。
 - OCR 付费 MinerU → 免费 MinerU → 本地解析 fallback 顺序未改；`ocr:recognize` 仍先做 schema 校验和路径授权，再进入识别链路。
 - `ai:listModels` 与 `ai:testConnection` 仅移动注册位置，保留 Anthropic/Responses/Chat Completions 的 endpoint、请求体、超时和错误返回行为。
+- `sandbox:getConfig`、`sandbox:setUserRules`、`sandbox:setWritableRoots` 仅移动注册位置，保留 Zod 校验、规则规范化、electron-store 写入和 `applySandboxConfig()` 刷新行为。
 - 此阶段已关闭 `agentLoop.ts` 单文件超标；M1 仍未关闭，后续还需要继续拆 `ipcHandlers.ts`、Sidebar、settingsStore、ipcApi 等其它超标文件。
 
 **验证证据**：
