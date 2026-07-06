@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **SessionStore 文件扫描职责拆分**：新增 `sessionStoreFiles.ts`，集中维护默认 sessions 路径、rollout 文件路径生成、递归扫描和线程元数据扫描；`sessionStore.ts` 保留线程创建、rollout 写入、数据库投影、压缩搜索、元数据更新和使用统计入口。
 - **设置数据路径职责拆分**：新增 `settingsDataPath.ts`，集中维护数据目录选择、旧默认目录迁移、路径边界判断和目录复制工具；`settingsManager.ts` 保留 settings store、SessionStore/StateRuntimeStore 生命周期、数据目录迁移编排、AI 配置和窗口外观应用。
 - **Excel 连接探测职责拆分**：新增 `excelConnectionProbe.ts`，集中维护 Excel/WPS 进程探测与 COM 可用性验证；`excelComBridge.ts` 保留连接状态机、宿主选择、重试和工作簿/区域/公式编排，避免连接检测脚本与业务桥接逻辑继续混在同一个类中。
 - **Office COM action 脚本模板拆分**：将 `officeComActionBridge.ts` 中 Excel/Word/PowerPoint 的 PowerShell 脚本构建逻辑迁移到 `officeComActionScripts.ts`，参数解析、输出路径、颜色转换和变更描述迁移到 `officeComActionScriptHelpers.ts`；主 bridge 保留支持判断、执行、JSON 解析和结果归一化，COM fallback 行为与测试断言保持不变。

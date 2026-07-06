@@ -921,6 +921,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：SessionStore 文件扫描职责拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract session store file helpers`
+
+**覆盖范围**：
+- 新增 `electron/agent/memory/sessionStoreFiles.ts`，集中维护默认 sessions 根目录、按日期生成 rollout JSONL 路径、递归收集 rollout 文件和扫描线程元数据。
+- `sessionStore.ts` 从约 443 行收敛到约 374 行，继续负责线程创建、rollout 写入、数据库投影、压缩归档搜索、加载/删除/元数据更新和使用统计入口。
+- 保留 `getDefaultSessionsRoot` 从 `sessionStore.ts` re-export，兼容现有导入路径。
+
+**业务链路保护**：
+- `appendRolloutItems` 仍先写数据库投影，再把 JSONL 行交给 `AsyncRolloutWriter`，写入顺序和审计副本语义不变。
+- `listThreads` 仍在 flush 后扫描 `rollout-*.jsonl`，跳过损坏文件，并按 `updatedAt` 降序返回。
+- `findRolloutPath` 仍维护 `threadId -> filePath` 缓存；`getUsageSummary` 与路径查找共用同一递归扫描 helper，避免重复实现再次分叉。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/memory/sessionStore.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复

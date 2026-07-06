@@ -41,35 +41,17 @@ import {
 import type { RuntimeRolloutSearchMatch } from "./stateRuntimeTypes";
 import { parseRolloutContent as parseSessionRolloutContent } from "./sessionRolloutParser";
 import { readUsageSummaryFromRolloutFiles, type TurnStats } from "./sessionUsageStats";
+import {
+  findAllRolloutFiles,
+  getDefaultSessionsRoot,
+  getSessionFilePath,
+  scanThreadMetadata,
+} from "./sessionStoreFiles";
 
 const readFile = promisify(fs.readFile);
-const readdir = promisify(fs.readdir);
-const stat = promisify(fs.stat);
 const unlink = promisify(fs.unlink);
 
-// ============================================================
-// 路径管理
-// ============================================================
-
-/** 获取会话存储根目录 */
-export function getDefaultSessionsRoot(): string {
-  const appData = process.env.APPDATA || path.join(process.env.USERPROFILE || "C:\\", "AppData", "Roaming");
-  return path.join(appData, "excel-ai-assistant", "sessions");
-}
-
-/** 根据日期生成会话文件路径 */
-function getSessionFilePath(sessionsRoot: string, threadId: ThreadId): string {
-  const now = new Date();
-  const year = now.getFullYear().toString();
-  const month = (now.getMonth() + 1).toString().padStart(2, "0");
-  const day = now.getDate().toString().padStart(2, "0");
-
-  const dir = path.join(sessionsRoot, year, month, day);
-  const timestamp = now.toISOString().replace(/:/g, "-").replace(/\.\d+Z$/, "");
-  const filename = `rollout-${timestamp}-${threadId}.jsonl`;
-
-  return path.join(dir, filename);
-}
+export { getDefaultSessionsRoot };
 
 export interface RolloutEventSink {
   appendRolloutItems(threadId: ThreadId, items: RolloutItem[]): Promise<void>;
@@ -269,37 +251,12 @@ export class SessionStore {
   async listThreads(): Promise<ThreadMetadata[]> {
     await this.flushRolloutWrites();
 
-    const threads: ThreadMetadata[] = [];
-    await this.scanDirectory(this.sessionsRoot, threads);
+    const threads = await scanThreadMetadata(this.sessionsRoot, (filePath) =>
+      this.loadThreadByPath(filePath)
+    );
     // 按更新时间降序排列
     threads.sort((a, b) => b.updatedAt - a.updatedAt);
     return threads;
-  }
-
-  private async scanDirectory(dir: string, results: ThreadMetadata[]): Promise<void> {
-    let entries: fs.Dirent[];
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await this.scanDirectory(fullPath, results);
-      } else if (entry.name.endsWith(".jsonl") && entry.name.startsWith("rollout-")) {
-        // 快速读取第一行获取元数据
-        try {
-          const thread = await this.loadThreadByPath(fullPath);
-          if (thread) {
-            results.push(thread.metadata);
-          }
-        } catch {
-          // 跳过损坏的文件
-        }
-      }
-    }
   }
 
   // ----------------------------------------------------------
@@ -383,7 +340,7 @@ export class SessionStore {
     }
 
     // 扫描目录查找匹配的文件
-    const files = await this.findAllRolloutFiles();
+    const files = await findAllRolloutFiles(this.sessionsRoot);
     for (const file of files) {
       if (file.includes(threadId)) {
         this.rolloutPathCache.set(threadId, file);
@@ -391,31 +348,6 @@ export class SessionStore {
       }
     }
     return null;
-  }
-
-  /** 查找所有 Rollout 文件 */
-  private async findAllRolloutFiles(): Promise<string[]> {
-    const files: string[] = [];
-    await this.collectRolloutFiles(this.sessionsRoot, files);
-    return files;
-  }
-
-  private async collectRolloutFiles(dir: string, files: string[]): Promise<void> {
-    let entries: fs.Dirent[];
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await this.collectRolloutFiles(fullPath, files);
-      } else if (entry.name.endsWith(".jsonl")) {
-        files.push(fullPath);
-      }
-    }
   }
 
   // ----------------------------------------------------------
@@ -436,7 +368,7 @@ export class SessionStore {
   async getUsageSummary(): Promise<TurnStats[]> {
     await this.flushRolloutWrites();
 
-    const files = await this.findAllRolloutFiles();
+    const files = await findAllRolloutFiles(this.sessionsRoot);
     return readUsageSummaryFromRolloutFiles(files);
   }
 }
