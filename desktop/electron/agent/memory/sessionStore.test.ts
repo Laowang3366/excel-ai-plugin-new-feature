@@ -28,8 +28,10 @@ function parseRollout(
   content: string,
   threadId: ThreadId
 ): ReturnType<typeof store["parseRolloutContent"]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (store as any).parseRolloutContent(content, threadId);
+  type RolloutParser = {
+    parseRolloutContent: typeof store["parseRolloutContent"];
+  };
+  return (store as unknown as RolloutParser).parseRolloutContent(content, threadId);
 }
 
 /** 构建 JSONL 行 */

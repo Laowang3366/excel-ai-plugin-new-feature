@@ -88,7 +88,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, initialSecti
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [loadSettings]);
 
   useEffect(() => {
     setSection(initialSection);

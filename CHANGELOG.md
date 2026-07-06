@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **lint warning 清零**：移除 `sessionStore.test.ts` 中过期的 `any` 抑制注释，用显式反射类型调用私有解析入口；`App` 与 `SettingsPage` 的 settings 加载 effect 补齐 `loadSettings` 依赖，`npm run lint` 达到 0 warning。
 - **ESLint / Prettier 工具链接入**：新增 `desktop/eslint.config.js`、`.prettierrc`、`.prettierignore` 和 `lint`/`format` 脚本；CI 增加 `npm run lint`，第一版仅启用低扰动静态检查，不执行全仓格式化。
 - **审查优先级状态闭环**：校正 `docs/code-review-report-2026-07-05.md` 顶部总评和第六章优先级表，将历史 IPC/行数风险改为当前完成状态账本，并明确剩余集中协议/桥接文件允许按自然职责边界继续优化，不为单纯行数硬拆。
 - **Office COM 进程探测共享化**：新增 `detectOfficeProcess()`，Word/PPT COM bridge 共用 Office/WPS 进程探测脚本；PPT 专用形状/版式 PowerShell 片段移入 `presentationComScripts.ts`，`presentationComBridge.ts` 降至 386 行。

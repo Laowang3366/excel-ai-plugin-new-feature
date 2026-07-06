@@ -94,7 +94,7 @@
 - 保留现有 `typecheck`、`vitest`、`build` 门禁，Prettier 第一版只作为手动格式化工具，不接入 CI。
 
 **验证证据**：
-- `npm run lint`（0 errors，3 warnings：1 个历史无效 eslint-disable、2 个 hooks 依赖提示）
+- `npm run lint`（0 errors，0 warnings）
 - `npm test`（154 个测试文件、771 个测试通过）
 - `npm run typecheck`
 - `npm run build`

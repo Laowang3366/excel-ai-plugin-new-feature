@@ -71,7 +71,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [loadSettings]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
