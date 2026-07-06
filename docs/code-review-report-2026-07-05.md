@@ -1020,6 +1020,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`toolExecutor` 工具结果 item 构造收敛
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: extract tool result item builder`
+
+**覆盖范围**：
+- 新增 `electron/agent/core/agentLoop/toolResultItems.ts`，统一生成 `tool_result` 的 id、timestamp、result、isError 和工具名字段。
+- 新增 `toolResultItems.test.ts`，覆盖成功结果和错误结果的稳定字段输出。
+- `toolExecutor.ts` 四处重复 `tool_result` 对象字面量改为调用 `createToolResultItem()`。
+
+**业务链路保护**：
+- 不改 sandbox、审批、执行、日志和 callbacks 事件顺序；仅替换结果 item 的结构创建入口。
+- `toolExecutor.test.ts` 继续覆盖审批取消、fallback tool_call、falsy 成功结果、日志、shell alias 和 OCR alias。
+- `toolExecutor.ts` 从约 409 行降至约 398 行，低于 400 行规范上限。
+
+**验证证据**：
+- `npx vitest run electron/agent/core/agentLoop/toolResultItems.test.ts electron/agent/core/agentLoop/toolExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

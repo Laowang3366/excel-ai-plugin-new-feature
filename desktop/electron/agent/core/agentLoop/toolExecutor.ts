@@ -34,6 +34,7 @@ import {
 } from "./toolExecutionLog";
 import { evaluateToolSandboxPolicy } from "./toolSandboxPolicy";
 import { resolveExecutableToolName } from "./toolNameResolution";
+import { createToolResultItem } from "./toolResultItems";
 
 export type { ToolExecutionLogRecord } from "./toolExecutionLog";
 
@@ -245,15 +246,12 @@ export async function processToolCalls(
         item.status = "failed";
         callbacks.onEvent({ type: "item_updated", item });
       }
-      const resultItem: TurnItem = {
-        type: "tool_result",
-        id: `result-${Date.now()}`,
+      const resultItem: TurnItem = createToolResultItem({
         toolCallId: tc.id,
         toolName: canonicalToolName,
         result: sandboxJustification || "命令被安全策略拒绝",
         isError: true,
-        timestamp: Date.now(),
-      };
+      });
       turn.items.push(resultItem);
       await sessionStoreAppend(turn.threadId, turn.turnId, resultItem);
       callbacks.onEvent({ type: "item_started", item: resultItem });
@@ -337,15 +335,12 @@ export async function processToolCalls(
 
         if (!approval.approved) {
           activeItem.status = "failed";
-          const resultItem: TurnItem = {
-            type: "tool_result",
-            id: `result-${Date.now()}`,
+          const resultItem: TurnItem = createToolResultItem({
             toolCallId: tc.id,
             toolName: canonicalToolName,
             result: "用户取消了工具执行",
             isError: true,
-            timestamp: Date.now(),
-          };
+          });
           turn.items.push(resultItem);
           await sessionStoreAppend(turn.threadId, turn.turnId, resultItem);
           callbacks.onEvent({ type: "item_updated", item: activeItem });
@@ -379,15 +374,12 @@ export async function processToolCalls(
         callbacks.onEvent({ type: "item_updated", item: activeItem });
       } catch (err: any) {
         activeItem.status = "failed";
-        const resultItem: TurnItem = {
-          type: "tool_result",
-          id: `result-${Date.now()}`,
+        const resultItem: TurnItem = createToolResultItem({
           toolCallId: tc.id,
           toolName: canonicalToolName,
           result: err.message || "审批过程出错",
           isError: true,
-          timestamp: Date.now(),
-        };
+        });
         turn.items.push(resultItem);
         await sessionStoreAppend(turn.threadId, turn.turnId, resultItem);
         callbacks.onEvent({ type: "item_updated", item: activeItem });
@@ -428,15 +420,12 @@ export async function processToolCalls(
     callbacks.onEvent({ type: "item_updated", item: activeItem });
 
     // 记录工具结果
-    const resultItem: TurnItem = {
-      type: "tool_result",
-      id: `result-${Date.now()}`,
+    const resultItem: TurnItem = createToolResultItem({
       toolCallId: tc.id,
       toolName: canonicalToolName,
       result: result.success ? result.data : result.error,
       isError: !result.success,
-      timestamp: Date.now(),
-    };
+    });
     turn.items.push(resultItem);
     await sessionStoreAppend(turn.threadId, turn.turnId, resultItem);
     callbacks.onEvent({ type: "item_completed", item: activeItem });
