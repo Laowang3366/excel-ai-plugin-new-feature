@@ -54,6 +54,7 @@
 /* 设置页面 */
 @import "./settings.css";
 @import "./open-source-settings.css";
+@import "./usage-stats.css";
 /* 模型配置 + 供应商卡片 + 模板选择 */
 @import "./model-config.css";
 /* 对话框系统 */

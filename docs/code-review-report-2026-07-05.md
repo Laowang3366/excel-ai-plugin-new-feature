@@ -777,6 +777,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`UsageStats` 样式拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: split usage stats styles`
+
+**覆盖范围**：
+- 新增 `src/styles/usage-stats.css`，集中 `UsageStats.tsx` 使用的 `usage-*` 页面、指标卡、热力图、柱状图、tooltip、模型分布和响应式样式。
+- `global.css` 在 `settings.css` 与 `open-source-settings.css` 后导入使用统计样式，保持设置页基础布局先加载。
+- `settings.css` 从 1444 行降至 949 行；新使用统计样式文件为 494 行，低于 CSS 500 行上限。
+
+**业务链路保护**：
+- 不改 `UsageStats.tsx` 的 DOM、className、数据加载、范围切换、刷新、tooltip 和图表计算逻辑。
+- 仅迁移 `usage-*` 及对应 980px 响应式规则，设置页通用表单和其他设置模块样式仍留在 `settings.css`。
+- `settings.css` 仍超 CSS 500 行上限，后续继续按 `ExecPolicySettings`、`KnowledgeSettings` 等自然边界拆分。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -891,7 +911,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
-| `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
+| `src/styles/settings.css` | **949** | 500 | +449 | 按子组件区块拆分 |
 **完整超标清单**：共 29 个 TS/TSX 文件 + 1 个 CSS 文件（详见附录 A）
 
 ---
@@ -1257,7 +1277,7 @@ useEffect(() => {
 
 | 行数 | 文件 |
 |------|------|
-| 1444 | `src/styles/settings.css` |
+| 949 | `src/styles/settings.css` |
 
 ---
 
