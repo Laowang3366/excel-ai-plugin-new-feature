@@ -1041,6 +1041,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：供应商 reasoning 自动适配提示复用
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: reuse provider reasoning hint`
+
+**覆盖范围**：
+- 新增 `src/components/settings/providerReasoningHint.ts`，集中新增/编辑供应商弹窗的 reasoning 自动适配提示文案。
+- 新增 `providerReasoningHint.test.ts`，覆盖中英文提示和既有 ` / ` 选项分隔格式。
+- `AddProviderDialog.tsx` 与 `EditProviderDialog.tsx` 改为复用 `buildReasoningAutoHint()`。
+
+**业务链路保护**：
+- 不改 `resolveReasoningOptionValues()`、`defaultReasoningModeForOptions()`、`coerceReasoningMode()` 和 `ReasoningModeSelect` 的适配逻辑。
+- 不改新增/编辑供应商保存、连接测试、模型列表和聚合平台配置链路。
+- `EditProviderDialog.tsx` 从约 406 行降至约 404 行；本次重点是移除重复文案，不为行数硬拆 UI。
+
+**验证证据**：
+- `npx vitest run src/components/settings/providerReasoningHint.test.ts src/utils/reasoningSupport.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

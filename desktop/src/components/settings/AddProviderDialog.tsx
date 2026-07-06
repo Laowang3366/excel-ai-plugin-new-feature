@@ -47,9 +47,9 @@ import {
   buildReasoningOptions,
   coerceReasoningMode,
   defaultReasoningModeForOptions,
-  formatReasoningOptionLabels,
   resolveReasoningOptionValues,
 } from "../../utils/reasoningSupport";
+import { buildReasoningAutoHint } from "./providerReasoningHint";
 
 // ============================================================
 // 类型定义
@@ -103,9 +103,7 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
     reasoningOptionValues,
     defaultReasoningMode,
   );
-  const reasoningAutoHint = language === "zh-CN"
-    ? `已根据当前供应商/API/模型自动适配：${formatReasoningOptionLabels(reasoningOptionValues, language)}`
-    : `Automatically adapted for this provider/API/model: ${formatReasoningOptionLabels(reasoningOptionValues, language)}`;
+  const reasoningAutoHint = buildReasoningAutoHint(reasoningOptionValues, language);
 
   // 选择模板后自动填充
   const handleSelectTemplate = (templateId: string) => {

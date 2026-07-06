@@ -37,10 +37,10 @@ import {
   buildReasoningOptions,
   coerceReasoningMode,
   defaultReasoningModeForOptions,
-  formatReasoningOptionLabels,
   resolveReasoningOptionValues,
 } from "../../utils/reasoningSupport";
 import { buildEditProviderPatch } from "./editProviderPatch";
+import { buildReasoningAutoHint } from "./providerReasoningHint";
 
 // ============================================================
 // 类型定义
@@ -99,9 +99,7 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
     reasoningOptionValues,
     defaultReasoningMode,
   );
-  const reasoningAutoHint = language === "zh-CN"
-    ? `已根据当前供应商/API/模型自动适配：${formatReasoningOptionLabels(reasoningOptionValues, language)}`
-    : `Automatically adapted for this provider/API/model: ${formatReasoningOptionLabels(reasoningOptionValues, language)}`;
+  const reasoningAutoHint = buildReasoningAutoHint(reasoningOptionValues, language);
 
   // 可选模型列表
   const availableModels = provider.models || [];

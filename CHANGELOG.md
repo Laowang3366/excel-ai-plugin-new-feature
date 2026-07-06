@@ -47,6 +47,7 @@
 - **chatStore turn 启动状态收敛**：将发送消息与恢复中断共用的流式状态重置、`activeClientId` 绑定和 stopped thread 清理抽到 `chatTurnState.ts` 纯 helper，保留两个 action 各自的 compaction/interrupt 清理差异。
 - **chatStore 线程运行态重算收敛**：将 `loadThreads` 中根据线程元数据重算 `runningThreadIds` 的逻辑抽到 `chatThreadRuntimeState.ts`，并用测试锁定用户停止线程不被旧 in-progress 元数据复活的行为。
 - **编辑供应商保存 patch 可测试化**：将 `EditProviderDialog` 中的保存差异计算和旧 `reasoningOptions` 清理抽到 `editProviderPatch.ts`，避免弹窗组件内混杂配置迁移细节。
+- **供应商 reasoning 提示文案复用**：将新增/编辑供应商弹窗中的自动适配提示抽到 `providerReasoningHint.ts`，统一中英文提示和选项标签格式。
 - **侧边栏排序与分组派生收敛**：将会话排序、文件夹分组和空状态判断移到 `sidebarHelpers.ts`，`Sidebar.tsx` 保留状态编排与事件回调，排序规则补充单元测试。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
