@@ -21,6 +21,7 @@
 - **关键 mock 接口标记补齐**：为 chatStore/ipcApi/MinerU/eventForwarder/OpenAI Responses/shellExecutor 等关键测试 mock 增加 `@MOCK_INTERFACE` 说明，降低真实接口与测试替身漂移风险。
 - **运行时状态库事务一致性补强**：`StateRuntimeStore.transaction()` 现在同时覆盖 `state/logs/goals/memories` 四个运行时库，并补充跨库回滚测试，避免事务失败后日志、目标或记忆写入残留。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
+- **StateRuntime row 映射收敛**：将线程快照、工具执行日志、rollout FTS 查询和长期记忆分页 offset 处理下沉到 `stateRuntimeMappers.ts`，让运行时仓储主文件更聚焦数据库读写与事务。
 - **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
 - **OpenAI Responses 流式尾包补齐**：Responses SSE 解析在流结束时会处理未带尾随空行的最后事件，避免正文、usage 或 done 事件被漏掉。
 - **工具执行结果保真修复**：工具成功返回 `false`、`0`、空字符串等假值时不再被误当成无结果，执行日志摘要也能安全处理 `undefined`。

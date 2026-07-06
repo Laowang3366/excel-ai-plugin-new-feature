@@ -9,10 +9,14 @@ import type {
   ThreadRuntimeSnapshot,
 } from "../shared/types";
 import {
+  buildRolloutFtsQuery,
+  clampMemoryListOffset,
   getRolloutTurnId,
   mapGoal,
   mapLongTermMemory,
   mapMemory,
+  mapThreadSnapshot,
+  mapToolExecutionLog,
 } from "./stateRuntimeMappers";
 import { extractRolloutSearchContent } from "./rolloutSearchContent";
 import {
@@ -309,7 +313,7 @@ export class StateRuntimeStore {
         WHERE rollout_events_fts.content MATCH ?
         ORDER BY e.id DESC
         LIMIT ?`
-    ).all(buildFtsQuery(normalized), limit) as Record<string, any>[];
+    ).all(buildRolloutFtsQuery(normalized), limit) as Record<string, any>[];
 
     return rows.map((row) => ({
       id: row.id,
@@ -634,55 +638,4 @@ export class StateRuntimeStore {
     });
     write();
   }
-}
-
-function mapThreadSnapshot(row: Record<string, any>): ThreadMetadata {
-  return {
-    threadId: row.thread_id,
-    preview: row.preview,
-    name: row.name ?? undefined,
-    modelProvider: row.model_provider,
-    model: row.model ?? undefined,
-    contextWindowSize: row.context_window_size ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    activeTurnId: row.active_turn_id ?? undefined,
-    lastTurnStatus: row.last_turn_status ?? undefined,
-    totalTokenUsage: row.total_token_usage ? JSON.parse(row.total_token_usage) : undefined,
-    archivedAt: row.archived_at ?? undefined,
-    folderId: row.folder_id ?? undefined,
-    compactedHistory: row.compacted_history ? JSON.parse(row.compacted_history) : undefined,
-  };
-}
-
-function mapToolExecutionLog(row: Record<string, any>): RuntimeToolExecutionLogRecord {
-  return {
-    id: row.id,
-    threadId: row.thread_id,
-    turnId: row.turn_id,
-    toolCallId: row.tool_call_id,
-    toolName: row.tool_name,
-    status: row.status,
-    durationMs: row.duration_ms,
-    timestamp: row.timestamp,
-    argumentsSummary: row.arguments_summary,
-    resultSummary: row.result_summary,
-    error: row.error ?? undefined,
-    metadata: row.metadata_json ? JSON.parse(row.metadata_json) : undefined,
-  };
-}
-
-function buildFtsQuery(query: string): string {
-  const terms = query.split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return quoteFtsTerm(query);
-  return terms.map(quoteFtsTerm).join(" ");
-}
-
-function quoteFtsTerm(term: string): string {
-  return `"${term.replace(/"/g, '""')}"`;
-}
-
-function clampMemoryListOffset(offset: number | undefined): number {
-  if (!Number.isFinite(offset)) return 0;
-  return Math.max(0, Math.floor(offset as number));
 }

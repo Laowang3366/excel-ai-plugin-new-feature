@@ -1062,6 +1062,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`StateRuntimeStore` row mapper 与查询 helper 下沉
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extend state runtime mappers`
+
+**覆盖范围**：
+- 将 `mapThreadSnapshot()`、`mapToolExecutionLog()`、`buildRolloutFtsQuery()` 和 `clampMemoryListOffset()` 移入 `stateRuntimeMappers.ts`。
+- 新增 `stateRuntimeMappers.test.ts`，覆盖线程快照 JSON 字段解析、工具日志 metadata JSON、FTS term quote 和 offset clamp。
+- `stateRuntimeStore.ts` 改为复用 mapper/helper，保留 SQLite statement、事务和写入编排。
+
+**业务链路保护**：
+- 不改四库初始化、迁移、WAL 配置、恢复备份、事务 begin/commit/rollback 和 `runLogsWrite()` 行为。
+- 不改 thread snapshot、rollout event、tool log、goal、memory、long-term memory 的 SQL 语句和 API 签名。
+- `stateRuntimeStore.ts` 从约 626 行降至约 584 行；剩余体量主要来自仓储 API 和事务边界，后续继续按职责拆。
+
+**验证证据**：
+- `npx vitest run electron/agent/memory/stateRuntimeMappers.test.ts electron/agent/memory/stateRuntimeStore.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
