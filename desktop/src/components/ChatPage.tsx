@@ -26,6 +26,7 @@ import { FormulaTaskComposerPanel } from "./task/FormulaTaskComposerPanel";
 import { CodeTaskComposerPanel } from "./task/CodeTaskComposerPanel";
 import { OCRTaskComposerPanel } from "./task/OCRTaskComposerPanel";
 import { ReportTaskComposerPanel } from "./task/ReportTaskComposerPanel";
+import { SimpleTaskComposerPanel, type SimpleTaskIntent } from "./task/SimpleTaskComposerPanel";
 import { OfficePreviewPanel } from "./office/OfficePreviewPanel";
 import {
   getChatTitleSummary,
@@ -34,7 +35,7 @@ import {
 } from "../utils/chatHelpers";
 import { formatFileSize } from "../utils/fileSize";
 import { useComposer } from "../hooks/useComposer";
-import { useTaskDrafts, type TaskDrafts } from "../hooks/useTaskDrafts";
+import { useTaskDrafts } from "../hooks/useTaskDrafts";
 import type { IntentKind } from "./Sidebar";
 import { getAppText } from "../i18n";
 import { ipcApi } from "../services/ipcApi";
@@ -46,11 +47,8 @@ import {
   Activity,
   FolderOpen,
   FileSpreadsheet,
-  Ruler,
 } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
-
-type SimpleTaskIntent = Extract<ActiveIntentKind, "clean" | "chart">;
 
 interface ChatPageProps {
   onOpenSettings: (section?: SettingsSection) => void;
@@ -126,6 +124,26 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings, activeIntent
     window.setTimeout(() => setInputText(""), 0);
     onIntentClick(null);
   }, [sendMessage, setInputText, onIntentClick]);
+
+  const updateSimpleRange = useCallback((intent: SimpleTaskIntent, range: string) => {
+    setTaskDrafts((prev) => ({
+      ...prev,
+      [intent]: {
+        range,
+        task: prev[intent]?.task ?? "",
+      },
+    }));
+  }, [setTaskDrafts]);
+
+  const updateSimpleTask = useCallback((intent: SimpleTaskIntent, task: string) => {
+    setTaskDrafts((prev) => ({
+      ...prev,
+      [intent]: {
+        range: prev[intent]?.range ?? "",
+        task,
+      },
+    }));
+  }, [setTaskDrafts]);
 
   const isEmpty = messages.length === 0 && !isStreaming;
   const showWelcomeComposer = isEmpty && !activeIntent;
@@ -250,66 +268,16 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings, activeIntent
             />
           )}
           {(activeIntent === "clean" || activeIntent === "chart") && (
-            <div className="task-composer-panel">
-              <div className="task-field">
-                <label className="task-field-label">{text.chat.dataSourceRange}</label>
-                <div className="range-input-row">
-                  <input
-                    className="task-field-input"
-                    placeholder={text.chat.rangePlaceholder}
-                    value={taskDrafts[activeIntent]?.range ?? ""}
-                    onChange={(e) => {
-                      const intent = activeIntent;
-                      setTaskDrafts((prev) => ({
-                        ...prev,
-                        [intent]: {
-                          range: e.target.value,
-                          task: prev[intent]?.task ?? "",
-                        },
-                      }));
-                    }}
-                  />
-                  <button className="btn-pick-range" onClick={() => handleSimplePickRange(activeIntent as SimpleTaskIntent)}><Ruler size={13} /> {text.chat.pickRange}</button>
-                </div>
-              </div>
-              <div className="task-field">
-                <label className="task-field-label">{text.chat.requirement}</label>
-                <textarea
-                  className="task-field-textarea"
-                  value={taskDrafts[activeIntent]?.task ?? ""}
-                  onChange={(e) => {
-                    const intent = activeIntent;
-                    setTaskDrafts((prev) => ({
-                      ...prev,
-                      [intent]: {
-                        range: prev[intent]?.range ?? "",
-                        task: e.target.value,
-                      },
-                    }));
-                  }}
-                  placeholder={
-                    text.chat.simplePlaceholders[activeIntent as SimpleTaskIntent]
-                  }
-                />
-              </div>
-              <button
-                className="task-submit-btn"
-                onClick={() => {
-                  const draft = taskDrafts[activeIntent];
-                  const prefix = text.chat.simplePrefixes[activeIntent as SimpleTaskIntent];
-                  const lines = [prefix];
-                  if (draft?.range.trim()) lines.push(`${text.chat.dataSourceRange}: ${draft.range.trim()}`);
-                  if (draft?.task.trim()) lines.push(`${text.chat.requirement}: ${draft.task.trim()}`);
-                  const payload = lines.join("\n");
-                  setInputText(payload);
-                  sendMessage(payload);
-                  window.setTimeout(() => setInputText(""), 0);
-                  onIntentClick(null);
-                }}
-              >
-                {text.chat.sendToAi}
-              </button>
-            </div>
+            <SimpleTaskComposerPanel
+              intent={activeIntent}
+              range={taskDrafts[activeIntent]?.range ?? ""}
+              task={taskDrafts[activeIntent]?.task ?? ""}
+              text={text.chat}
+              onRangeChange={(range) => updateSimpleRange(activeIntent, range)}
+              onTaskChange={(task) => updateSimpleTask(activeIntent, task)}
+              onPickRange={handleSimplePickRange}
+              onSubmit={handleTaskSubmit}
+            />
           )}
         </FloatingTaskPanel>
       )}

@@ -536,6 +536,30 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`ChatPage` 简单任务面板拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract simple task composer`
+
+**覆盖范围**：
+- 新增 `src/components/task/SimpleTaskComposerPanel.tsx`，承接清洗/图表任务的选区输入、需求输入、选区拾取和提交按钮 UI。
+- `ChatPage.tsx` 只保留 simple task 草稿更新、选区拾取、任务提交和各任务面板编排职责，文件从 341 行降至 309 行。
+- 新增 `SimpleTaskComposerPanel.test.ts`，覆盖 simple task payload 对 range/task 的 trim 和空字段省略规则。
+- 同步 `CHANGELOG.md` 当前测试源基线为 147 个测试文件、734 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改公式、代码、OCR、报告任务面板的渲染和提交链路。
+- 清洗/图表任务仍通过原 `handleTaskSubmit()` 写入输入框、调用 `sendMessage()`、清空输入并关闭意图。
+- 保留原 `task-composer-panel`、`task-field`、`range-input-row`、`btn-pick-range`、`task-submit-btn` className。
+- `ChatPage.tsx` 仍略超 React 300 行上限，剩余内容主要是页面编排；后续只在有自然边界时继续拆。
+
+**验证证据**：
+- `npm exec vitest run src/components/task/SimpleTaskComposerPanel.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
