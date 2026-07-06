@@ -183,6 +183,75 @@ describe("StateRuntimeStore", () => {
     }
   });
 
+  it("rolls back writes across all runtime databases", async () => {
+    const store = new StateRuntimeStore(":memory:");
+    await store.init();
+
+    await expect(
+      store.transaction(async (tx) => {
+        await tx.upsertThreadSnapshot(createMetadata({ threadId: "thread-tx" }));
+        await tx.appendRolloutItems("thread-tx", [
+          {
+            type: "turn_item",
+            turnId: "turn-tx",
+            item: {
+              type: "user_message",
+              id: "msg-tx",
+              content: "transactional rollout",
+              timestamp: 100,
+            },
+          },
+        ]);
+        await tx.appendToolExecutionLog({
+          threadId: "thread-tx",
+          turnId: "turn-tx",
+          toolCallId: "call-tx",
+          toolName: "test.tool",
+          status: "success",
+          durationMs: 1,
+          timestamp: 100,
+          argumentsSummary: "{}",
+          resultSummary: "{}",
+        });
+        await tx.upsertGoal({
+          goalId: "goal-tx",
+          objective: "transactional goal",
+          status: "active",
+          createdAt: 100,
+          updatedAt: 100,
+        });
+        await tx.upsertMemory({
+          memoryId: "memory-tx",
+          namespace: "test",
+          content: "transactional memory",
+          createdAt: 100,
+          updatedAt: 100,
+        });
+        await tx.upsertLongTermMemory({
+          memoryId: "long-memory-tx",
+          namespace: "global",
+          kind: "project_fact",
+          visibility: "user",
+          status: "active",
+          content: "transactional long-term memory",
+          createdAt: 100,
+          updatedAt: 100,
+        });
+        await tx.setMemoryPipelineCursor("pipeline-tx", 42);
+        throw new Error("rollback-all");
+      })
+    ).rejects.toThrow("rollback-all");
+
+    expect(await store.getThreadSnapshot("thread-tx")).toBeNull();
+    expect(await store.listRolloutEvents("thread-tx")).toEqual([]);
+    expect(await store.listToolExecutionLogs("thread-tx")).toEqual([]);
+    expect(await store.getGoal("goal-tx")).toBeNull();
+    expect(await store.listMemories("test")).toEqual([]);
+    expect(await store.getLongTermMemory("long-memory-tx")).toBeNull();
+    expect(await store.getMemoryPipelineCursor("pipeline-tx")).toBe(0);
+    await store.close();
+  });
+
   it("stores rollout events in logs database as primary query data", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "state-runtime-"));
     try {

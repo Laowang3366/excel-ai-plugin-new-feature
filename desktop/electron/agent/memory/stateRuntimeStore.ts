@@ -249,7 +249,7 @@ export class StateRuntimeStore {
       `INSERT INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content, item_json)
        VALUES (?, ?, ?, ?, ?, ?)`
     );
-    const write = (rows: RolloutLine[]) => runSqliteTransaction(this.getDbs().logs, () => {
+    const write = (rows: RolloutLine[]) => this.runLogsWrite(() => {
       for (const line of rows) {
         const itemJson = JSON.stringify(line.item);
         const result = insert.run(
@@ -555,22 +555,34 @@ export class StateRuntimeStore {
   }
 
   async transaction<T>(fn: (tx: StateRuntimeStore) => Promise<T>): Promise<T> {
-    const db = this.getDbs().state;
-    db.prepare("BEGIN").run();
-    this.transactionDepth += 1;
+    if (this.transactionDepth > 0) {
+      return fn(this);
+    }
+
+    const dbs = this.getDbs();
+    const begun: RuntimeDbName[] = [];
+    for (const name of runtimeDbNames()) {
+      dbs[name].prepare("BEGIN").run();
+      begun.push(name);
+    }
+    this.transactionDepth = 1;
     try {
       const result = await fn(this);
-      db.prepare("COMMIT").run();
-      this.transactionDepth -= 1;
+      for (const name of runtimeDbNames()) {
+        dbs[name].prepare("COMMIT").run();
+      }
       return result;
     } catch (error) {
-      this.transactionDepth = Math.max(0, this.transactionDepth - 1);
-      try {
-        db.prepare("ROLLBACK").run();
-      } catch {
-        // SQLite may already have closed the transaction after a failed COMMIT.
+      for (const name of [...begun].reverse()) {
+        try {
+          dbs[name].prepare("ROLLBACK").run();
+        } catch {
+          // SQLite may already have closed the transaction after a failed COMMIT.
+        }
       }
       throw error;
+    } finally {
+      this.transactionDepth = 0;
     }
   }
 
@@ -579,6 +591,11 @@ export class StateRuntimeStore {
       throw new Error("StateRuntimeStore 尚未初始化");
     }
     return this.dbs;
+  }
+
+  private runLogsWrite<T>(fn: () => T): T {
+    if (this.transactionDepth > 0) return fn();
+    return runSqliteTransaction(this.getDbs().logs, fn);
   }
 
   private backfillDerivedIndexes(): void {
@@ -603,7 +620,7 @@ export class StateRuntimeStore {
       `INSERT OR IGNORE INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content, item_json)
        VALUES (?, ?, ?, ?, ?, ?)`
     );
-    const write = () => runSqliteTransaction(dbs.logs, () => {
+    const write = () => this.runLogsWrite(() => {
       for (const row of missingRows) {
         if (indexedIds.has(row.id)) continue;
         let content = row.item_json;

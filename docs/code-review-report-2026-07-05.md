@@ -498,6 +498,27 @@
 
 ---
 
+### 2026-07-06 — T3：StateRuntimeStore 跨库事务一致性补强
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `fix: rollback runtime transactions across databases`
+
+**覆盖范围**：
+- 为 `StateRuntimeStore.transaction()` 补充跨 `state/logs/goals/memories` 四个运行时库的回滚测试，覆盖 thread snapshot、rollout events、tool logs、goals、短期记忆、长期记忆和 pipeline cursor。
+- 将外层事务从仅包裹 `state.db` 调整为同时 `BEGIN/COMMIT/ROLLBACK` 四个运行时库，避免日志、目标或记忆写入在事务失败后残留。
+- `appendRolloutItems()` 与 backfill 继续保留 logs 局部事务；当已经处于外层运行时事务时，改为复用外层事务，避免 SQLite 嵌套 `BEGIN`。
+
+**业务链路保护**：
+- 非事务路径下 logs 写入仍由 `runSqliteTransaction()` 单库保护，rollout FTS 写入和 backfill 行为不变。
+- 嵌套调用 `transaction()` 时复用外层事务语义，不再重复开启 SQLite 事务。
+- 没有拆分 `stateRuntimeStore.ts` 文件结构，本轮只修正真实一致性边界，避免为了行数制造额外模块。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
