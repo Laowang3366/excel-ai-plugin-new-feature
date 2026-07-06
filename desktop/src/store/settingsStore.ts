@@ -14,6 +14,7 @@ import { create } from "zustand";
 import type { AiProviderConfig } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { normalizeProviderReasoningConfig } from "../utils/reasoningSupport";
+import { savePartial } from "./settingsPersistence";
 import { PROVIDER_TEMPLATES, type ProviderTemplate } from "./settingsProviderTemplates";
 
 export { API_FORMATS, PROVIDER_TEMPLATES } from "./settingsProviderTemplates";
@@ -136,64 +137,6 @@ export interface SettingsActions {
   updatePinnedFolder: (folderPath: string, patch: Partial<PinnedFolder>) => void;
   /** 设置知识库是否启用 */
   setKnowledgeEnabled: (enabled: boolean) => void;
-}
-
-// ============================================================
-// 增量持久化 — 只写入变更的 key，避免全量 IPC
-// ============================================================
-
-/** state 字段 → electron-store key 的映射 */
-const KEY_MAP: Partial<Record<keyof SettingsState, string>> = {
-  providers: "aiProviders",
-  activeProviderId: "activeProvider",
-  permissionMode: "permissionMode",
-  showReasoning: "showReasoning",
-  language: "language",
-  theme: "theme",
-  closeToTray: "closeToTray",
-  officeAutoCompactEnabled: "officeAutoCompactEnabled",
-  dynamicArrayFunctionsEnabled: "dynamicArrayFunctionsEnabled",
-  windowOpacity: "windowOpacity",
-  pinnedFolders: "pinnedFolders",
-  knowledgeEnabled: "knowledgeEnabled",
-};
-
-/** 需要组合写入的字段（compactionConfig 是一个嵌套对象） */
-const COMPACTION_FIELDS: (keyof SettingsState)[] = ["compactionEnabled", "autoCompactThresholdPercent"];
-
-/**
- * 将 state 字段增量写入 electron-store。
- * 只触发实际变更 key 的 IPC 调用。
- */
-async function savePartial(keys: (keyof SettingsState)[], get: () => SettingsState & SettingsActions): Promise<void> {
-  const state = get();
-  const toWrite: Array<[string, unknown]> = [];
-  let needCompaction = false;
-
-  for (const key of keys) {
-    if (COMPACTION_FIELDS.includes(key)) {
-      needCompaction = true;
-      continue;
-    }
-    const storeKey = KEY_MAP[key];
-    if (storeKey) {
-      toWrite.push([storeKey, state[key]]);
-    }
-  }
-
-  if (needCompaction) {
-    const existingCompaction = await ipcApi.settings.get("compactionConfig") as Record<string, unknown> | null;
-    toWrite.push(["compactionConfig", {
-      ...(existingCompaction && typeof existingCompaction === "object" ? existingCompaction : {}),
-      enabled: state.compactionEnabled,
-      autoCompactThresholdPercent: state.autoCompactThresholdPercent,
-    }]);
-  }
-
-  // 并行写入，不阻塞 UI
-  await Promise.all(
-    toWrite.map(([k, v]) => ipcApi.settings.set(k, v))
-  );
 }
 
 // ============================================================
