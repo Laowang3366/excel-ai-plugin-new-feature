@@ -311,6 +311,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1 可维护性：Composer 附件解析 helper 拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract composer attachment file helpers`
+
+**覆盖范围**：
+- 新增 `hooks/composerAttachmentFiles.ts`，收拢附件扩展名/MIME 判断、本地路径获取、路径缺失时写入临时文件，以及 `resolveDroppedFiles()`。
+- `useComposer.ts` 改为导入并 re-export `resolveDroppedFiles()`，保留旧测试和外部导入路径兼容。
+- 粘贴附件与拖拽附件统一调用 `resolveDroppedFiles()`，移除 `handlePaste` 中重复的本地路径/临时文件写入循环。
+- 新增 `composerAttachmentFiles.test.ts`，覆盖无 MIME 的图片扩展名识别、本地文件路径优先和路径缺失图片写入临时文件。
+- 同步 `CHANGELOG.md` 当前测试源基线为 137 个测试文件、709 个 `it/test` 用例。
+
+**业务链路保护**：
+- `ipcApi.file.getPathForFile()` 优先、`file:writeTempFile` fallback、图片前缀 `image`、普通附件前缀 `attachment`、去重合并附件列表等行为保持不变。
+- 对话输入框状态、草稿切换、发送/恢复中断、文件/图片/文件夹选择、弹层关闭和拖拽 hover 逻辑未改动。
+
+**验证证据**：
+- `npm exec vitest run src/hooks/composerAttachmentFiles.test.ts src/hooks/useComposer.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
@@ -1572,7 +1595,7 @@ useEffect(() => {
 | 473 | `electron/agent/tools/implementations/excel/excelComBridge.ts` |
 | 470 | `electron/agent/shared/types.ts` |
 | 440 | `src/components/settings/EditProviderDialog.tsx` |
-| 431 | `src/hooks/useComposer.ts` |
+| 336 | `src/hooks/useComposer.ts` |
 | 427 | `electron/agent/tools/implementations/office/presentationComBridge.ts` |
 | 426 | `electron/main-modules/settingsManager.ts` |
 | 423 | `electron/agent/providers/openaiCompatibleClient.ts` |
