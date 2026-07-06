@@ -513,6 +513,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`KnowledgeSettings` 文案与格式化拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract knowledge settings text`
+
+**覆盖范围**：
+- 新增 `src/components/settings/knowledgeSettingsText.ts`，集中知识库设置页双语文案、知识来源类型标签、索引时间、来源统计和文件夹索引结果汇总。
+- `KnowledgeSettings.tsx` 保留知识库开关、来源列表加载、添加文件/文件夹、删除来源、重建索引和 JSX 渲染职责，文件从 378 行降至 255 行。
+- 新增 `knowledgeSettingsText.test.ts`，覆盖来源统计、文件夹索引结果汇总、类型标签映射和时间格式化。
+- 同步 `CHANGELOG.md` 当前测试源基线为 146 个测试文件、732 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 `ipcApi.knowledge.listSources/indexFile/indexFolder/deleteFile/reindexAll` 调用顺序和返回处理。
+- 不改 `useSettingsStore` 的 `knowledgeEnabled/setKnowledgeEnabled` 设置链路。
+- 不改知识库设置页 DOM className、来源列表结构和操作按钮布局。
+
+**验证证据**：
+- `npm exec vitest run src/components/settings/knowledgeSettingsText.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
