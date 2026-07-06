@@ -101,6 +101,7 @@
 - 将 `documentParser.ts` 的 JSON 路径展开 helper 抽出到 `knowledge/jsonFlatten.ts`。`documentParser.ts` 从 544 行降至 510 行，保留 CSV/Excel/DOCX/PPTX/Markdown/Text 解析入口和分块 metadata 行为。
 - 将 `chatStore.ts` 的 stream delta 合并、50ms 缓冲和 IPC listener 安装抽出到 `store/chatStreamBuffer.ts`。`chatStore.ts` 从 549 行降至 490 行，保留 Zustand 状态与用户动作主链路在原 store 中，避免为压线继续拆碎 action。
 - 将 `sqliteStore.ts` 的 KnowledgeEntry/KnowledgeSource 行模型转换和余弦相似度计算抽出到 `knowledge/sqliteStoreRows.ts`。`sqliteStore.ts` 从 459 行降至 393 行，低于 400 行规范上限。
+- 将 `documentParser.ts` 的 Excel OpenXML workbook/sheet/sharedStrings/worksheet 行解析抽出到 `knowledge/excelWorkbookParser.ts`。`documentParser.ts` 进一步降至 281 行，低于 400 行规范上限。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md` 与 `electron/main-modules/README.md`，记录拆分后的模块职责。
 
@@ -122,6 +123,7 @@
 - documentParser 拆分只移动 JSON flatten 纯函数，知识库文件类型支持、OpenXML 文本提取、Excel 行数截断和 metadata 生成链路未改。
 - chatStore 拆分只移动 stream delta 缓冲基础设施，`stream_delta` 合并规则、非流式事件前强制 flush、`onEvent`/`onStreamDelta` 双入口和原测试导入路径均保持不变。
 - sqliteStore 拆分只移动纯行转换和余弦相似度 helper，建表/迁移、provider/model/dim 过滤、`a.length !== b.length` 返回 0 的维度不匹配语义、事务写入和来源汇总补全逻辑未改。
+- Excel 文档解析拆分只移动 OpenXML workbook/sheet/sharedStrings 读取和 worksheet 行解析，`parseExcel` 的 25MB 限制、500 行截断、表头/行列数/tableRange metadata 和 RawChunk 结构未改。
 - 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar/settingsStore/ipcApi 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续转向其它明确职责边界的超标文件。
 
 **验证证据**：
