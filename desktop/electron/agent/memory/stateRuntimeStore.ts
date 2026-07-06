@@ -7,9 +7,6 @@ import type {
   ThreadMetadata,
   ThreadRuntimeSnapshot,
 } from "../shared/types";
-import {
-  mapThreadSnapshot,
-} from "./stateRuntimeMappers";
 import { extractRolloutSearchContent } from "./rolloutSearchContent";
 import {
   defaultStateRuntimeRoot,
@@ -50,6 +47,13 @@ import {
   appendToolExecutionLogToLogs,
   listToolExecutionLogsFromLogs,
 } from "./stateRuntimeToolLogs";
+import {
+  getThreadRuntimeFromDb,
+  getThreadSnapshotFromDb,
+  listThreadSnapshotsFromDb,
+  updateThreadRuntimeInDb,
+  upsertThreadSnapshotInDb,
+} from "./stateRuntimeThreads";
 import type {
   RuntimeConnections,
   RuntimeDatabasePaths,
@@ -164,97 +168,26 @@ export class StateRuntimeStore {
   }
 
   async upsertThreadSnapshot(metadata: ThreadMetadata): Promise<void> {
-    const db = this.getDbs().state;
-    const upsert = db.prepare(
-      `INSERT INTO thread_snapshots (
-        thread_id, preview, name, model_provider, model, context_window_size,
-        created_at, updated_at, active_turn_id, last_turn_status,
-        total_token_usage, archived_at, folder_id, compacted_history
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(thread_id) DO UPDATE SET
-        preview = excluded.preview,
-        name = excluded.name,
-        model_provider = excluded.model_provider,
-        model = excluded.model,
-        context_window_size = excluded.context_window_size,
-        created_at = excluded.created_at,
-        updated_at = excluded.updated_at,
-        active_turn_id = excluded.active_turn_id,
-        last_turn_status = excluded.last_turn_status,
-        total_token_usage = excluded.total_token_usage,
-        archived_at = excluded.archived_at,
-        folder_id = excluded.folder_id,
-        compacted_history = excluded.compacted_history`
-    );
-
-    upsert.run(
-      metadata.threadId,
-      metadata.preview,
-      metadata.name ?? null,
-      metadata.modelProvider,
-      metadata.model ?? null,
-      metadata.contextWindowSize ?? null,
-      metadata.createdAt,
-      metadata.updatedAt,
-      metadata.activeTurnId ?? null,
-      metadata.lastTurnStatus ?? null,
-      metadata.totalTokenUsage ? JSON.stringify(metadata.totalTokenUsage) : null,
-      metadata.archivedAt ?? null,
-      metadata.folderId ?? null,
-      metadata.compactedHistory ? JSON.stringify(metadata.compactedHistory) : null
-    );
+    upsertThreadSnapshotInDb(this.getDbs().state, metadata);
     if (metadata.name) {
       await this.appendThreadName(metadata.threadId, metadata.name, metadata.updatedAt);
     }
   }
 
   async getThreadSnapshot(threadId: ThreadId): Promise<ThreadMetadata | null> {
-    const row = this.getDbs().state.prepare(
-      `SELECT * FROM thread_snapshots WHERE thread_id = ?`
-    ).get(threadId) as Record<string, any> | undefined;
-    return row ? mapThreadSnapshot(row) : null;
+    return getThreadSnapshotFromDb(this.getDbs().state, threadId);
   }
 
   async listThreadSnapshots(): Promise<ThreadMetadata[]> {
-    const rows = this.getDbs().state.prepare(
-      `SELECT * FROM thread_snapshots ORDER BY updated_at DESC`
-    ).all() as Record<string, any>[];
-    return rows.map(mapThreadSnapshot);
+    return listThreadSnapshotsFromDb(this.getDbs().state);
   }
 
   async updateThreadRuntime(snapshot: ThreadRuntimeSnapshot & { threadId: ThreadId }): Promise<void> {
-    this.getDbs().state.prepare(
-      `INSERT INTO thread_runtime (
-        thread_id, status, last_active_at, unloaded_at, idle_unload_ms, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(thread_id) DO UPDATE SET
-        status = excluded.status,
-        last_active_at = excluded.last_active_at,
-        unloaded_at = excluded.unloaded_at,
-        idle_unload_ms = excluded.idle_unload_ms,
-        updated_at = excluded.updated_at`
-    ).run(
-      snapshot.threadId,
-      snapshot.status,
-      snapshot.lastActiveAt ?? null,
-      snapshot.unloadedAt ?? null,
-      snapshot.idleUnloadMs,
-      Date.now()
-    );
+    updateThreadRuntimeInDb(this.getDbs().state, snapshot);
   }
 
   async getThreadRuntime(threadId: ThreadId): Promise<(ThreadRuntimeSnapshot & { threadId: ThreadId }) | null> {
-    const row = this.getDbs().state.prepare(
-      `SELECT * FROM thread_runtime WHERE thread_id = ?`
-    ).get(threadId) as Record<string, any> | undefined;
-    if (!row) return null;
-    return {
-      threadId: row.thread_id,
-      status: row.status,
-      lastActiveAt: row.last_active_at ?? undefined,
-      unloadedAt: row.unloaded_at ?? undefined,
-      idleUnloadMs: row.idle_unload_ms,
-    };
+    return getThreadRuntimeFromDb(this.getDbs().state, threadId);
   }
 
   async appendRolloutItems(threadId: ThreadId, items: RolloutItem[]): Promise<void> {

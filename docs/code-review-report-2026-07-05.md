@@ -988,6 +988,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：StateRuntime 线程状态表操作收敛
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract state runtime thread tables`
+
+**覆盖范围**：
+- 新增 `electron/agent/memory/stateRuntimeThreads.ts`，集中维护 `thread_snapshots` 与 `thread_runtime` 的 upsert/list/get SQL 和行映射调用。
+- `StateRuntimeStore` 从约 428 行收敛到约 361 行，继续负责四库生命周期、恢复报告、迁移/WAL、跨库事务、thread name 联动和 rollout/tool/goal/memory helper 编排。
+- `metadata.name` 写入 `thread_names` 的联动仍保留在主 store 中，避免把跨表业务编排藏进单表 helper。
+
+**业务链路保护**：
+- `upsertThreadSnapshot` 的字段、JSON 序列化、`ON CONFLICT` 更新列和 `metadata.name` 追加逻辑保持不变。
+- `listThreadSnapshots` 仍按 `updated_at DESC` 排序，`getThreadSnapshot` 仍复用 `mapThreadSnapshot`。
+- `updateThreadRuntime` 仍用当前时间写 `updated_at`，`getThreadRuntime` 的 undefined 归一化保持不变。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts electron/agent/memory/stateRuntimeMappers.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复
