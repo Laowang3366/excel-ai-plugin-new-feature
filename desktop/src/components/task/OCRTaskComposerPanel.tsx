@@ -1,24 +1,10 @@
-/**
- * OCR / 发票识别 — 任务编排面板
- *
- * 对齐桌面端任务面板的 OCR 字段：
- * 1. 识别模式（通用 OCR / 发票识别）
- * 2. 文件上传（拖拽/点击，支持图片和 PDF）
- * 3. 识别按钮 → 调用当前模型 API 的视觉能力
- * 4. 字段选择（识别结果出来后，勾选要填入的字段）
- * 5. 目标单元格（填入起始位置）
- * 6. 预览表格 + "写入单元格" 按钮
- *
- * 注意：OCR 流程在功能面板内静默完成，识别结果回填字段选择与预览区；
- * 用户确认后再写入工作表，不向聊天区发送内部任务提示词。
- */
-
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { FileScan, X } from "../common/IconMap";
 import { ipcApi } from "../../services/ipcApi";
 import { pickExcelRange } from "../../utils/chatHelpers";
 import { OCRFileUploadSection } from "./OCRFileUploadSection";
 import { OCRModeSelector } from "./OCRModeSelector";
+import { OCRRecognizeButton } from "./OCRRecognizeButton";
 import { OCRResultSection } from "./OCRResultSection";
 import {
   buildOcrPreviewRows,
@@ -113,12 +99,9 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
     onDraftChange,
   ]);
 
-  // ---- 文件处理 ----
-
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       addOcrFiles(Array.from(e.target.files || []));
-      // 重置 input 以便再次选择同一文件
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
     [addOcrFiles]
@@ -166,8 +149,6 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
     setResult(null);
   }, []);
 
-  // ---- 识别 ----
-
   const handleRecognize = useCallback(async () => {
     if (files.length === 0) return;
     setRecognizing(true);
@@ -205,8 +186,6 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
     }
   }, [files, ocrMode]);
 
-  // ---- 字段选择 ----
-
   const toggleField = useCallback((field: string) => {
     setSelectedFields((prev) =>
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
@@ -221,8 +200,6 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
   const deselectAllFields = useCallback(() => {
     setSelectedFields([]);
   }, []);
-
-  // ---- 写入工作表 ----
 
   const handleWriteToSheet = useCallback(async () => {
     if (!result) return;
@@ -255,8 +232,6 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
     if (range) setOutputRange(range);
     else alert("未获取到选区，请确认已在 Excel/WPS 中选中了单元格");
   }, []);
-
-  // ---- 渲染 ----
 
   const fieldNames = result ? extractOcrFieldNames(result) : [];
   const previewRows = result ? buildOcrPreviewRows(result, selectedFields).slice(0, 20) : [];
@@ -293,16 +268,12 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
         onRemoveFile={removeFile}
       />
 
-      {/* 识别按钮 */}
-      <button
-        className="task-submit-btn"
-        disabled={files.length === 0 || recognizing}
-        onClick={handleRecognize}
-      >
-        {recognizing
-          ? (ocrMode === "invoice" ? "识别并提取字段中..." : "识别中...")
-          : "开始识别"}
-      </button>
+      <OCRRecognizeButton
+        ocrMode={ocrMode}
+        fileCount={files.length}
+        recognizing={recognizing}
+        onRecognize={handleRecognize}
+      />
 
       {result && (
         <OCRResultSection

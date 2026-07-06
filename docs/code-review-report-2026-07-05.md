@@ -1491,8 +1491,9 @@
 **覆盖范围**：
 - 新增 `src/components/task/OCRModeSelector.tsx`，承接通用 OCR / 发票识别模式选择 UI。
 - 新增 `src/components/task/OCRFileUploadSection.tsx`，承接拖拽/点击上传区和已选文件列表。
+- 新增 `src/components/task/OCRRecognizeButton.tsx`，承接识别按钮禁用态与文案展示。
 - 新增 `src/components/task/OCRResultSection.tsx`，承接错误提示、字段勾选、目标单元格、预览表格和写入按钮展示。
-- `OCRTaskComposerPanel.tsx` 从 455 行降至 319 行；剩余体量主要是 OCR 状态、识别调用、字段选择和 Excel 写入编排，暂不为行数继续拆散状态机。
+- `OCRTaskComposerPanel.tsx` 从 455 行降至 297 行；剩余体量主要是 OCR 状态、识别调用、字段选择和 Excel 写入编排，不拆散识别/写入状态机。
 
 **业务链路保护**：
 - 不改 `ipcApi.ocr.recognize(effectiveOcrMode, await resolveOcrFilePaths(files))` 调用和模式判断。
