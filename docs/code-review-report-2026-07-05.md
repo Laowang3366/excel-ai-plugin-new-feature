@@ -895,6 +895,26 @@
 - `npx vitest run src/components/task/ocrTaskFileHelpers.test.ts src/components/task/OCRTaskComposerPanel.test.ts`
 - `npm run typecheck`
 
+### 2026-07-06 — M1：`toolExecutor` sandbox 策略预评估拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract tool sandbox policy`
+
+**覆盖范围**：
+- 新增 `electron/agent/core/agentLoop/toolSandboxPolicy.ts`，集中 shell 工具的 sandbox 预评估、prompt 理由汇总、forbidden/prompt 标志和异常兜底审批。
+- `toolExecutor.ts` 只消费 `evaluateToolSandboxPolicy()` 的结果，主流程继续负责创建/更新 `TurnItem`、审批、执行工具和写执行日志。
+- 新增 `toolSandboxPolicy.test.ts` 覆盖非 shell 跳过评估、prompt 理由汇总和评估异常强制审批。
+
+**业务链路保护**：
+- forbidden 仍在审批和 spawn 前直接拒绝，并写入 blocked 执行日志。
+- prompt 仍覆盖 `permissionMode` 与 always-allowed 工具，强制进入用户审批。
+- shell 工具执行时仍把 `sandboxEvaluation` 透传到 executor context；非 shell 工具仍不产生 sandbox context。
+- `toolExecutor.ts` 从 488 行降至约 458 行；不拆审批/执行主状态机，避免改变工具事件顺序。
+
+**验证证据**：
+- `npx vitest run electron/agent/core/agentLoop/toolSandboxPolicy.test.ts electron/agent/core/agentLoop/toolExecutor.test.ts`
+- `npm run typecheck`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

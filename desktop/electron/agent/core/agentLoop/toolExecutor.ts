@@ -10,7 +10,6 @@
  * - processToolCalls: 批量处理工具调用（执行+审批+事件）
  */
 
-import * as os from "os";
 import {
   type ToolCallItem,
   type ToolDefinition,
@@ -26,7 +25,6 @@ import {
   ALL_TOOL_DEFINITIONS,
 } from "../../tools/registry/toolDefinitions";
 import { type ToolCallInfo } from "./streamCollector";
-import { evaluateCommand, type CommandEvaluation } from "../../security/sandbox";
 import { desanitizeToolName, sanitizeToolName } from "../../providers/openaiCompatibleClient";
 import {
   logToolExecutionSafely,
@@ -34,6 +32,7 @@ import {
   summarizeForLog,
   type ToolExecutionLogRecord,
 } from "./toolExecutionLog";
+import { evaluateToolSandboxPolicy } from "./toolSandboxPolicy";
 
 export type { ToolExecutionLogRecord } from "./toolExecutionLog";
 
@@ -214,43 +213,12 @@ export async function processToolCalls(
     const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedToolName) ?? TOOL_DEFINITIONS_MAP.get(tc.name);
     const canonicalToolName = toolDef?.name ?? resolvedToolName;
 
-    // ============================================================
-    // 沙箱策略前置评估（仅 shell.execute）
-    // ============================================================
-    // 对应 Codex execpolicy：在执行前先评估命令，forbidden 拒绝，prompt 强制审批。
-    // 沙箱决策覆盖 permissionMode 与 alwaysAllowedTools —— forbidden 永拒，prompt 永审。
-    let sandboxEvaluation: CommandEvaluation | null = null;
-    let sandboxJustification: string | undefined;
-    let sandboxForcedForbidden = false;
-    let sandboxForcedApproval = false;
-
-    if (canonicalToolName === "shell.execute") {
-      try {
-        const parsedArgs: Record<string, unknown> = (() => {
-          try { return JSON.parse(tc.arguments || "{}"); } catch { return { _raw: tc.arguments }; }
-        })();
-        const cmd = (parsedArgs.command as string) || "";
-        const workdir = (parsedArgs.workdir as string) || os.homedir();
-        sandboxEvaluation = await evaluateCommand(cmd, workdir);
-
-        if (sandboxEvaluation.decision === "forbidden") {
-          sandboxForcedForbidden = true;
-          sandboxJustification = sandboxEvaluation.violationMessage;
-        } else if (sandboxEvaluation.decision === "prompt") {
-          sandboxForcedApproval = true;
-          sandboxJustification = sandboxEvaluation.evaluation.hits
-            .filter((h) => h.rule.decision === "prompt")
-            .map((h) => h.rule.justification || h.matchedPrefix.join(" "))
-            .filter(Boolean)
-            .join("；")
-            || "命中安全策略 prompt 规则，需要用户确认";
-        }
-      } catch {
-        // 评估自身异常时保守地进入审批流程，不直接放行
-        sandboxForcedApproval = true;
-        sandboxJustification = "命令策略评估异常，需要用户确认";
-      }
-    }
+    // 沙箱决策覆盖 permissionMode 与 alwaysAllowedTools：forbidden 永拒，prompt 强制审批。
+    const sandboxPolicy = await evaluateToolSandboxPolicy(canonicalToolName, tc.arguments);
+    const sandboxEvaluation = sandboxPolicy.evaluation;
+    const sandboxJustification = sandboxPolicy.justification;
+    const sandboxForcedForbidden = sandboxPolicy.forcedForbidden;
+    const sandboxForcedApproval = sandboxPolicy.forcedApproval;
 
     // forbidden：直接拒绝，不进审批、不进 spawn
     if (sandboxForcedForbidden) {

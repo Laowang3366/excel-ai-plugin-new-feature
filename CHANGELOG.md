@@ -5,7 +5,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 124 个测试文件、654 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 128 个测试文件、683 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
@@ -41,6 +41,7 @@
 - **文档级弹层关闭逻辑复用**：扩展 `useDocumentDismiss` 支持 ref 边界，侧边栏搜索面板和模型快速切换下拉统一复用该 hook，减少重复 document listener。
 - **文件大小格式化入口收敛**：`ChatPage` 直接使用共享 `utils/fileSize`，移除 `chatHelpers` 中的薄包装导出，避免格式规则分散。
 - **OCR 面板流程 helper 拆分**：将 OCR 文件类型判断、临时文件落盘和 Excel 写入目标解析移到 `ocrTaskFileHelpers.ts`，面板组件保留状态、识别、写入和渲染职责。
+- **工具执行 sandbox 策略 helper 拆分**：将 `toolExecutor` 中的 shell 命令安全策略预评估抽到 `toolSandboxPolicy.ts`，保留 forbidden 永拒、prompt 强制审批和执行上下文透传语义。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
 - **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。
