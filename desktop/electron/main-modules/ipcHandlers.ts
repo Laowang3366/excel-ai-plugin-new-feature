@@ -15,9 +15,7 @@
  * Agent 会话、线程、工具定义和知识库 IPC 已迁入 agent/interaction。
  */
 
-import { ipcMain, dialog, shell, clipboard, BrowserWindow } from "electron";
-import * as path from "path";
-import * as fs from "fs";
+import { ipcMain, dialog, shell, BrowserWindow } from "electron";
 import { AgentLoop } from "../agent/core/agentLoop";
 import { ensureKnowledgeRuntime, refreshKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
@@ -44,9 +42,6 @@ import {
   ExcelReadRangeInput,
   ExcelSelectHostInput,
   ExcelWriteRangeInput,
-  FilePathInput,
-  FileWriteTempFileInput,
-  FolderPathInput,
   MigrateDataPathInput,
   SettingsGetInput,
   SettingsSetInput,
@@ -58,6 +53,7 @@ import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
 import { registerOcrIpcHandler } from "./ipcOcrHandlers";
 import { registerAiIpcHandlers } from "./ipcAiHandlers";
 import { applySandboxConfig, registerSandboxIpcHandlers } from "./ipcSandboxHandlers";
+import { registerFileIpcHandlers } from "./ipcFileHandlers";
 import {
   getWindowDisplayMode,
   setWindowDisplayMode,
@@ -153,6 +149,7 @@ export function registerIpcHandlers(): void {
   registerOcrIpcHandler(pathAuthorizer);
   registerAiIpcHandlers();
   registerSandboxIpcHandlers();
+  registerFileIpcHandlers({ mainWindowRef, pathAuthorizer });
 
   ipcMain.handle("app:getDataPath", () => getActiveDataPath());
 
@@ -335,176 +332,6 @@ export function registerIpcHandlers(): void {
     if (!bridge) return { success: false, error: "Excel 未连接" };
     try {
       await bridge.writeRange(validated.sheetName, validated.range, validated.values);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  // ---- 文件对话框 ----
-  ipcMain.handle("dialog:openFile", async () => {
-    const mw = mainWindowRef();
-    if (!mw) return { canceled: true, filePaths: [] as string[] };
-    const result = await dialog.showOpenDialog(mw, {
-      properties: ["openFile"],
-      filters: [
-        { name: "Documents", extensions: ["xlsx", "xls", "csv", "doc", "docx", "ppt", "pptx", "json", "txt", "pdf", "md"] },
-        { name: "All Files", extensions: ["*"] },
-      ],
-    });
-    result.filePaths.forEach((filePath) => pathAuthorizer.authorizePath(filePath));
-    return { canceled: result.canceled, filePaths: result.filePaths };
-  });
-
-  ipcMain.handle("dialog:openImage", async () => {
-    const mw = mainWindowRef();
-    if (!mw) return { canceled: true, filePaths: [] as string[] };
-    const result = await dialog.showOpenDialog(mw, {
-      properties: ["openFile"],
-      filters: [
-        { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] },
-      ],
-    });
-    result.filePaths.forEach((filePath) => pathAuthorizer.authorizePath(filePath));
-    return { canceled: result.canceled, filePaths: result.filePaths };
-  });
-
-  ipcMain.handle("dialog:openFolder", async () => {
-    const mw = mainWindowRef();
-    if (!mw) return { canceled: true, filePaths: [] as string[] };
-    const result = await dialog.showOpenDialog(mw, {
-      title: "选择文件夹",
-      properties: ["openDirectory"],
-    });
-    result.filePaths.forEach((folderPath) => pathAuthorizer.authorizeRoot(folderPath));
-    return { canceled: result.canceled, filePaths: result.filePaths };
-  });
-
-  // ---- 文件夹文件列表 ----
-  ipcMain.handle("folder:listFiles", async (_event, folderPath: unknown) => {
-    const validated = validateInput(FolderPathInput, folderPath);
-    try {
-      const authorizedFolderPath = assertAuthorizedPath(pathAuthorizer, validated);
-      const officeExts = new Set([".xlsx", ".xls", ".csv", ".doc", ".docx", ".ppt", ".pptx"]);
-      const entries = await fs.promises.readdir(authorizedFolderPath, { withFileTypes: true });
-      const files = entries
-        .filter((e) => e.isFile() && officeExts.has(path.extname(e.name).toLowerCase()))
-        .map((e) => {
-          const fullPath = path.join(authorizedFolderPath, e.name);
-          pathAuthorizer.authorizePath(fullPath);
-          return { filePath: fullPath, fileName: e.name };
-        });
-      const results = await Promise.all(
-        files.map(async (f) => {
-          try {
-            const stat = await fs.promises.stat(f.filePath);
-            return { ...f, size: stat.size, lastModified: stat.mtimeMs };
-          } catch {
-            return { ...f, size: 0, lastModified: 0 };
-          }
-        })
-      );
-      results.sort((a, b) => a.fileName.localeCompare(b.fileName));
-      return results;
-    } catch {
-      return [];
-    }
-  });
-
-  // ---- 文件读取 ----
-  ipcMain.on("file:authorizePathSync", (event, filePath: unknown) => {
-    try {
-      const validated = validateInput(FilePathInput, filePath);
-      pathAuthorizer.authorizePath(validated);
-      event.returnValue = { success: true };
-    } catch (err: any) {
-      event.returnValue = { success: false, error: err?.message || "授权路径失败" };
-    }
-  });
-
-  ipcMain.handle("file:readAsBase64", async (_event, filePath: unknown) => {
-    try {
-      const validated = validateInput(FilePathInput, filePath);
-      const authorizedFilePath = assertAuthorizedPath(pathAuthorizer, validated);
-      const buffer = await fs.promises.readFile(authorizedFilePath);
-      const ext = path.extname(authorizedFilePath).toLowerCase().replace(".", "");
-      const mimeMap: Record<string, string> = {
-        png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-        gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
-        pdf: "application/pdf", csv: "text/csv", json: "application/json",
-        txt: "text/plain", md: "text/markdown", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        xls: "application/vnd.ms-excel",
-        doc: "application/msword",
-        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ppt: "application/vnd.ms-powerpoint",
-        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      };
-      const mimeType = mimeMap[ext] || "application/octet-stream";
-      return {
-        data: buffer.toString("base64"),
-        mimeType,
-        fileName: path.basename(authorizedFilePath),
-        size: buffer.length,
-      };
-    } catch (err: any) {
-      return { error: err.message };
-    }
-  });
-
-  // ---- 临时文件操作（截图粘贴等） ----
-  ipcMain.handle("file:writeTempFile", async (_event, data: unknown) => {
-    try {
-      const input = validateInput(FileWriteTempFileInput, data);
-      const prefix = input.prefix?.replace(/[^a-zA-Z0-9_-]/g, "") || "clipboard";
-      const suffix = input.suffix?.replace(/[^a-zA-Z0-9.]/g, "") || ".png";
-      const tmpDir = await import("os").then((os) => os.tmpdir());
-      const fileName = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${suffix}`;
-      const filePath = path.join(tmpDir, fileName);
-      const buffer = Buffer.from(input.data, "base64");
-      await fs.promises.writeFile(filePath, buffer);
-      pathAuthorizer.authorizePath(filePath);
-      return { success: true, filePath };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  // ---- 文件操作（回收站/打开/复制路径/显示） ----
-  ipcMain.handle("file:trashFile", async (_event, filePath: unknown) => {
-    try {
-      const validated = validateInput(FilePathInput, filePath);
-      await shell.trashItem(assertAuthorizedPath(pathAuthorizer, validated));
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle("file:openFile", async (_event, filePath: unknown) => {
-    try {
-      const validated = validateInput(FilePathInput, filePath);
-      const result = await shell.openPath(assertAuthorizedPath(pathAuthorizer, validated));
-      if (result) return { success: false, error: result };
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle("file:copyPath", (_event, filePath: unknown) => {
-    try {
-      const validated = validateInput(FilePathInput, filePath);
-      clipboard.writeText(assertAuthorizedPath(pathAuthorizer, validated));
-      return { success: true };
-    } catch (err: any) {
-      return { success: false };
-    }
-  });
-
-  ipcMain.handle("file:revealInExplorer", (_event, filePath: unknown) => {
-    try {
-      const validated = validateInput(FilePathInput, filePath);
-      shell.showItemInFolder(assertAuthorizedPath(pathAuthorizer, validated));
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };

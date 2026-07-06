@@ -8,6 +8,7 @@
 - `ipcOcrHandlers.ts`：OCR IPC 注册、MinerU 付费/免费降级、本地解析兜底、发票字段抽取和 OCR 结果归一化。
 - `ipcAiHandlers.ts`：AI 模型列表读取和连接测试，保留 Anthropic、OpenAI Responses、Chat Completions 三类协议的原有请求逻辑。
 - `ipcSandboxHandlers.ts`：沙箱默认规则展示、用户规则保存、额外可写根保存和运行时 sandbox 单例刷新。
+- `ipcFileHandlers.ts`：文件/图片/文件夹选择、文件夹枚举、Base64 读取、临时文件写入、回收站、打开文件、复制路径和资源管理器定位。
 - `ipcPathSecurity.ts`：主进程文件路径授权和路径范围校验。
 
 ## 拆分约定
