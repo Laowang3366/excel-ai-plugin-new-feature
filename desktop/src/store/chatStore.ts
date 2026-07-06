@@ -31,6 +31,7 @@ import {
   moveThreadToFolder as moveThreadToFolderAction,
 } from "./threadActions";
 import { buildTurnStartPatch } from "./chatTurnState";
+import { reconcileRunningThreadIds } from "./chatThreadRuntimeState";
 
 export { mergeBufferedStreamDeltas, STREAM_DELTA_STORE_FLUSH_MS };
 export type { StreamDeltaInput };
@@ -450,16 +451,11 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     const result = await loadThreadsAction();
     set((state) => ({
       threads: result.threads,
-      runningThreadIds: result.threads.reduce((next, thread) => {
-        if (state.stoppedThreadIds[thread.threadId]) {
-          delete next[thread.threadId];
-        } else if (thread.activeTurnId || thread.lastTurnStatus === "in_progress") {
-          next[thread.threadId] = true;
-        } else {
-          delete next[thread.threadId];
-        }
-        return next;
-      }, { ...state.runningThreadIds }),
+      runningThreadIds: reconcileRunningThreadIds({
+        threads: result.threads,
+        runningThreadIds: state.runningThreadIds,
+        stoppedThreadIds: state.stoppedThreadIds,
+      }),
     }));
   },
 

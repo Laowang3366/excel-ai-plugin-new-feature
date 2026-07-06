@@ -978,6 +978,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`chatStore` 线程运行态重算 helper 抽取
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract chat thread runtime reconciliation`
+
+**覆盖范围**：
+- 新增 `src/store/chatThreadRuntimeState.ts`，集中 `loadThreads` 后根据线程元数据重算 `runningThreadIds` 的逻辑。
+- 新增 `chatThreadRuntimeState.test.ts`，覆盖 activeTurnId / in_progress 元数据恢复运行态、已完成线程移除运行态，以及用户停止线程不被旧元数据复活。
+- `chatStore.ts` 的 `loadThreads` 只负责调用 action、写入 threads 和接入运行态 helper。
+
+**业务链路保护**：
+- 不改 `thread:list` / `loadThreadsAction()` 调用，不改变 `stoppedThreadIds` 对 stale in-progress 的屏蔽语义。
+- 保留旧行为：本次线程列表未返回的既有 running id 不在 helper 中主动删除，避免误伤后台运行态。
+- `chatStore.ts` 从约 467 行降至约 463 行；本次重点是固定运行态合并规则，而不是继续拆 action。
+
+**验证证据**：
+- `npx vitest run src/store/chatThreadRuntimeState.test.ts src/store/chatStore.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
