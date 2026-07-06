@@ -53,6 +53,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T3：Python 执行器测试补强
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `test: cover python executor contract`
+
+**覆盖范围**：
+- 新增 `desktop/electron/agent/tools/executors/pythonExecutor.test.ts`，覆盖 `python.execute` 与兼容别名 `python_execute` 注册到同一 executor。
+- 覆盖缺少 `code` 时在 sandbox 评估和 Python 执行前直接返回参数错误。
+- 覆盖 sandbox `effectiveWorkdir`、`redirected`、`decision`、请求工作目录、默认 `90000ms` timeout 和 `os.homedir()` fallback 的返回结构。
+- 覆盖脚本失败时透出 stderr，避免调用方只能看到泛化失败。
+- 更新测试源静态基线为 152 个测试文件、758 个 `it/test` 用例。
+
+**业务链路保护**：
+- 仅新增测试和文档，不改 `pythonExecutor.ts`、`automation/python.ts` 或 sandbox 执行逻辑。
+- 测试 mock `executePlainPythonScript` 与 `evaluateCommand`，不依赖本机 Python、临时文件执行或真实安全策略状态。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/executors/pythonExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-05 — P0 安全：IPC 校验与路径授权
 
 **状态**：✅ 已修复
@@ -2103,7 +2126,7 @@ useEffect(() => {
 
 #### 🟡 T3 — 74 个 electron/agent 源文件无测试
 
-**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”“T3：知识库分块/检索测试补强”）
+**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”“T3：知识库分块/检索测试补强”“T3：Python 执行器测试补强”）
 
 **高风险无测试文件**（节选）：
 
@@ -2116,7 +2139,7 @@ useEffect(() => {
 | `core/agentLoop/threadStateManager.ts` | 线程状态机 |
 | `knowledge/textChunker.ts` | ✅ 已补独立测试，覆盖文本分块 |
 | `knowledge/retriever.ts` | ✅ 已补独立测试，覆盖知识检索 |
-| `tools/executors/pythonExecutor.ts` | Python 执行器 |
+| `tools/executors/pythonExecutor.ts` | ✅ 已补独立测试，覆盖 Python 执行器 |
 
 **建议**：优先为 `security/sandbox/*`、`core/agentLoop` 状态机、`knowledge` 分块/检索补测试。
 
