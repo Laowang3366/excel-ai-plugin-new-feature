@@ -48,6 +48,7 @@ describe("mineruOcr", () => {
     ].join("\n"));
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
+    // @MOCK_INTERFACE: simulates MinerU signed-url upload, polling, and zip download HTTP endpoints.
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url.endsWith("/file-urls/batch")) {
         expect(init?.method).toBe("POST");
@@ -109,6 +110,7 @@ describe("mineruOcr", () => {
     tempFiles.push(filePath);
     fs.writeFileSync(filePath, "pdf");
 
+    // @MOCK_INTERFACE: simulates MinerU Agent lightweight parse, upload, poll, and markdown download endpoints.
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url.endsWith("/api/v1/agent/parse/file")) {
         expect(init?.method).toBe("POST");

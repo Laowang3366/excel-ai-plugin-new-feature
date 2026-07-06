@@ -454,6 +454,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T5/PR2：关键 mock 接口标记补齐
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `test: mark critical mock interfaces`
+
+**覆盖范围**：
+- 为 `src/store/chatStore.test.ts` 的 `ipcApi.agent/thread` mock 增加 `@MOCK_INTERFACE` 标记。
+- 为 `src/services/ipcApi.test.ts` 的 `window.electronAPI` preload 形状 mock 增加 `@MOCK_INTERFACE` 标记。
+- 为 `electron/main-modules/mineruOcr.test.ts` 的 MinerU 标准/Agent HTTP mock 增加 `@MOCK_INTERFACE` 标记。
+- 为 `electron/agent/interaction/eventForwarder.test.ts` 的 Electron BrowserWindow/ipcMain mock 增加 `@MOCK_INTERFACE` 标记。
+- 为 `electron/agent/providers/openaiResponsesClient.test.ts` 的 OpenAI Responses SSE fetch mock 增加 `@MOCK_INTERFACE` 标记；`shellExecutor.test.ts` 已有 sandbox process primitives 标记。
+
+**业务链路保护**：
+- 仅补测试注释，不修改 mock 行为、断言或生产代码。
+- 标记范围收在报告点名的关键 mock，避免全仓库机械刷注释造成噪音。
+
+**验证证据**：
+- `npm exec vitest run src/store/chatStore.test.ts src/services/ipcApi.test.ts electron/main-modules/mineruOcr.test.ts electron/agent/interaction/eventForwarder.test.ts electron/agent/providers/openaiResponsesClient.test.ts electron/agent/tools/executors/shellExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — P5 性能：`Sidebar` JSX 回调稳定化
 
 **状态**：✅ 已修复
@@ -767,6 +790,8 @@ useEffect(() => {
 
 #### 🟡 T5/PR2 — 全项目 0 个 @MOCK_INTERFACE 标记
 
+**状态**：✅ 阶段性已修复（2026-07-06，见“T5/PR2：关键 mock 接口标记补齐”）
+
 **问题**：规范要求 Mock 数据必须有 `@MOCK_INTERFACE` 注释，但全仓库 grep 返回 0 匹配。
 
 **涉及文件**：
@@ -777,7 +802,7 @@ useEffect(() => {
 - `electron/agent/providers/openaiResponsesClient.test.ts:13`
 - `electron/agent/tools/executors/shellExecutor.test.ts:7`
 
-**建议**：在所有 `vi.mock` / `vi.fn` / `fetchMock` 处补 `// @MOCK_INTERFACE` 注释。
+**建议**：关键 mock 已补标记；后续新增或触碰测试 mock 时继续按接口边界补 `// @MOCK_INTERFACE` 注释，避免为历史所有普通 `vi.fn` 机械刷注释。
 
 ---
 

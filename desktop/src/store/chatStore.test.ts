@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// @MOCK_INTERFACE: mirrors ipcApi.agent/thread methods used by chatStore actions and stream listeners.
 const ipcMocks = vi.hoisted(() => ({
   startTurn: vi.fn(),
   continueTurn: vi.fn(),

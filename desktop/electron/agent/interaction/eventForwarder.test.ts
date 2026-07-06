@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// @MOCK_INTERFACE: provides the Electron BrowserWindow/ipcMain surface consumed by eventForwarder.
 vi.mock("electron", () => ({
   BrowserWindow: class {},
   ipcMain: { handle: vi.fn() },
@@ -12,6 +13,7 @@ import {
 } from "./eventForwarder";
 
 function createMockWindow() {
+  // @MOCK_INTERFACE: minimal BrowserWindow instance contract used for agent event forwarding.
   return {
     isDestroyed: vi.fn(() => false),
     webContents: {

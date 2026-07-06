@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ipcApi } from "./ipcApi";
 
+// @MOCK_INTERFACE: tests install partial window.electronAPI shapes that must stay aligned with preload exposure.
 describe("ipcApi wrapper", () => {
   afterEach(() => {
     const testWindow = (globalThis as any).window;

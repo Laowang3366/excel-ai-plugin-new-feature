@@ -10,6 +10,7 @@ const baseConfig = {
 };
 
 async function collectStreamEvents(client: OpenAIResponsesClient, sse: string) {
+  // @MOCK_INTERFACE: simulates the OpenAI Responses SSE fetch stream consumed by OpenAIResponsesClient.
   const fetchMock = vi.fn(async () => new Response(sse, { status: 200 }));
   vi.stubGlobal("fetch", fetchMock);
 
