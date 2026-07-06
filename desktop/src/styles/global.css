@@ -42,7 +42,9 @@
 /* 模型快速切换 */
 @import "./model-quick-switch.css";
 /* Pill Composer 输入框 */
+@import "./composer-controls.css";
 @import "./composer.css";
+@import "./composer-attachments.css";
 /* 任务编排面板 */
 @import "./task-panel.css";
 /* 设置页面 */

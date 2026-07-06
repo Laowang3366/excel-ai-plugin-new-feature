@@ -30,6 +30,7 @@
 - **开源项目信息样式拆分**：将 `OpenSourceSettings` 专属样式从 `settings.css` 移到 `open-source-settings.css`，保持全局样式入口和设置页面加载顺序不变，并复用暗色主题变量。
 - **浮动任务入口样式拆分**：将功能悬浮入口与任务浮窗样式从 `chat.css` 移到 `floating-task-panel.css`，保留聊天页面、消息列表和 Office 预览样式在原文件中。
 - **Office 预览侧栏样式拆分**：将 `office-preview-*` 样式从 `chat.css` 移到 `office-preview-panel.css`，`chat.css` 降至 CSS 上限以内。
+- **Composer 样式职责拆分**：将输入框附件 chip 与操作控件样式拆到 `composer-attachments.css` / `composer-controls.css`，`composer.css` 降至 CSS 上限以内。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
 - **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。

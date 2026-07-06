@@ -676,6 +676,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：Composer 样式职责拆分
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: split composer control styles`
+
+**覆盖范围**：
+- 新增 `src/styles/composer-attachments.css`，集中 `ComposerArea.tsx` 附件 chip 列表样式。
+- 新增 `src/styles/composer-controls.css`，集中附件/权限/思考按钮、连接状态、popover、发送/停止按钮样式。
+- `global.css` 先导入 `composer-controls.css` 再导入 `composer.css`，让 `composer.css` 中既有紧凑模式和窄屏媒体查询继续覆盖控件基础样式。
+- `composer.css` 从 673 行降至 344 行，低于 CSS 500 行上限；新附件样式为 61 行，控件样式为 274 行。
+
+**业务链路保护**：
+- 不改 `ComposerArea.tsx` 的附件上传/移除、权限切换、思考模式、上下文显示、发送和中止逻辑。
+- 响应式规则仍保留在 `composer.css`，并通过 import 顺序保证窄屏隐藏文字、按钮尺寸和紧凑模式行为不被基础控件样式覆盖。
+- 权限模式颜色改用已有 `--success` / `--warning` 令牌；发送按钮状态色先保持原视觉，避免引入 UI 状态回归。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -792,9 +813,8 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
 | `src/styles/sidebar.css` | **1101** | 500 | +601 | — |
-| `src/styles/composer.css` | **674** | 500 | +174 | — |
 
-**完整超标清单**：共 29 个 TS/TSX 文件 + 3 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 29 个 TS/TSX 文件 + 2 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1155,13 +1175,12 @@ useEffect(() => {
 | 416 | `src/components/settings/UsageStats.tsx` |
 | 404 | `electron/main-modules/mineruOcr.ts` |
 
-### CSS 文件（3 个）
+### CSS 文件（2 个）
 
 | 行数 | 文件 |
 |------|------|
 | 1444 | `src/styles/settings.css` |
 | 1101 | `src/styles/sidebar.css` |
-| 674 | `src/styles/composer.css` |
 
 ---
 
