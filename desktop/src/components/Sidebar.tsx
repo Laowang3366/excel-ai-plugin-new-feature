@@ -27,6 +27,11 @@ import type { ContextMenuState } from "./sidebar/ThreadContextMenu";
 import type { FileContextMenuState } from "./sidebar/FileContextMenu";
 import { SidebarSearchPalette } from "./sidebar/SidebarSearchPalette";
 import { SidebarCollapsed } from "./sidebar/SidebarCollapsed";
+import type {
+  FolderSectionActions,
+  FolderSectionFileMenuApi,
+  FolderSectionThreadActions,
+} from "./sidebar/FolderSection";
 import {
   SidebarExpanded,
   type SidebarSortMode,
@@ -320,6 +325,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
     updatePinnedFolder(folderPath, { pinnedFiles: nextPinned });
   }, [folderFiles, pinnedFolders, updatePinnedFolder]);
 
+  const folderActions = useMemo<FolderSectionActions>(() => ({
+    toggle: handleToggleFolder,
+    createThread: handleCreateFolderThread,
+    remove: removePinnedFolder,
+  }), [handleCreateFolderThread, handleToggleFolder, removePinnedFolder]);
+
+  const folderThreadActions = useMemo<FolderSectionThreadActions>(() => ({
+    switchThread: handleSwitchThread,
+    openContextMenu: handleThreadContextMenu,
+  }), [handleSwitchThread, handleThreadContextMenu]);
+
+  const folderFileMenuApi = useMemo<FolderSectionFileMenuApi>(() => ({
+    state: fileContextMenu,
+    addFile: handleAddFile,
+    openContextMenu: handleFileContextMenu,
+    close: () => setFileContextMenu(null),
+    trashFile: handleTrashFile,
+    openFile: handleOpenFile,
+    copyPath: handleCopyPath,
+    revealInExplorer: handleRevealInExplorer,
+    pinFile: handlePinFile,
+  }), [
+    fileContextMenu,
+    handleAddFile,
+    handleCopyPath,
+    handleFileContextMenu,
+    handleOpenFile,
+    handlePinFile,
+    handleRevealInExplorer,
+    handleTrashFile,
+  ]);
+
   useDocumentDismiss({ active: contextMenu !== null, onDismiss: () => setContextMenu(null) });
   useDocumentDismiss({ active: fileContextMenu !== null, onDismiss: () => setFileContextMenu(null) });
   useDocumentDismiss({ active: settingsMenuOpen, onDismiss: () => setSettingsMenuOpen(false) });
@@ -414,7 +451,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       creatingFolderThread={creatingFolderThread}
       viewedThreadStatusAt={viewedThreadStatusAt}
       expandedFolders={expandedFolders}
-      fileContextMenu={fileContextMenu}
       contextMenu={contextMenu}
       pinnedFolders={pinnedFolders}
       sortMenu={sortMenu}
@@ -435,19 +471,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onToggleConversationsExpanded={() => setConversationsExpanded((expanded) => !expanded)}
       onOpenSortMenu={handleOpenSortMenu}
       onAddFolder={handleAddFolder}
-      onToggleFolder={handleToggleFolder}
-      onCreateFolderThread={handleCreateFolderThread}
-      onRemoveFolder={removePinnedFolder}
-      onAddFile={handleAddFile}
+      folderActions={folderActions}
+      folderFileMenuApi={folderFileMenuApi}
+      folderThreadActions={folderThreadActions}
       onSwitchThread={handleSwitchThread}
       onThreadContextMenu={handleThreadContextMenu}
-      onFileContextMenu={handleFileContextMenu}
-      onFileContextMenuClose={() => setFileContextMenu(null)}
-      onTrashFile={handleTrashFile}
-      onOpenFile={handleOpenFile}
-      onCopyPath={handleCopyPath}
-      onRevealInExplorer={handleRevealInExplorer}
-      onPinFile={handlePinFile}
       onSelectSortMode={handleSelectSortMode}
       onConfirmDelete={handleConfirmDelete}
       onMoveToFolder={handleMoveToFolder}

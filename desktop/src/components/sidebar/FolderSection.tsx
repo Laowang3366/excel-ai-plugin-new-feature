@@ -43,21 +43,32 @@ interface FolderSectionProps {
   creatingFolderThread: string | null;
   viewedThreadStatusAt: Record<string, number>;
   language: AppLanguage;
-  onToggleFolder: (folderPath: string) => void;
-  onCreateFolderThread: (folderPath: string) => void;
-  onRemoveFolder: (folderPath: string) => void;
-  onAddFile: (file: FolderFileInfo) => void;
-  onSwitchThread: (threadId: string) => void;
-  onThreadContextMenu: (e: React.MouseEvent, threadId: string, inFolder?: boolean) => void;
-  /** 文件右键菜单状态 */
-  fileContextMenu: FileContextMenuState | null;
-  onFileContextMenu: (e: React.MouseEvent, file: FolderFileInfo, isPinned: boolean) => void;
-  onFileContextMenuClose: () => void;
-  onTrashFile: (filePath: string) => void;
-  onOpenFile: (filePath: string) => void;
-  onCopyPath: (filePath: string) => void;
-  onRevealInExplorer: (filePath: string) => void;
-  onPinFile: (filePath: string) => void;
+  folderActions: FolderSectionActions;
+  threadActions: FolderSectionThreadActions;
+  fileMenuApi: FolderSectionFileMenuApi;
+}
+
+export interface FolderSectionActions {
+  toggle: (folderPath: string) => void;
+  createThread: (folderPath: string) => void;
+  remove: (folderPath: string) => void;
+}
+
+export interface FolderSectionThreadActions {
+  switchThread: (threadId: string) => void;
+  openContextMenu: (e: React.MouseEvent, threadId: string, inFolder?: boolean) => void;
+}
+
+export interface FolderSectionFileMenuApi {
+  state: FileContextMenuState | null;
+  addFile: (file: FolderFileInfo) => void;
+  openContextMenu: (e: React.MouseEvent, file: FolderFileInfo, isPinned: boolean) => void;
+  close: () => void;
+  trashFile: (filePath: string) => void;
+  openFile: (filePath: string) => void;
+  copyPath: (filePath: string) => void;
+  revealInExplorer: (filePath: string) => void;
+  pinFile: (filePath: string) => void;
 }
 
 export function FolderSection({
@@ -71,20 +82,9 @@ export function FolderSection({
   creatingFolderThread,
   viewedThreadStatusAt,
   language,
-  onToggleFolder,
-  onCreateFolderThread,
-  onRemoveFolder,
-  onAddFile,
-  onSwitchThread,
-  onThreadContextMenu,
-  fileContextMenu,
-  onFileContextMenu,
-  onFileContextMenuClose,
-  onTrashFile,
-  onOpenFile,
-  onCopyPath,
-  onRevealInExplorer,
-  onPinFile,
+  folderActions,
+  threadActions,
+  fileMenuApi,
 }: FolderSectionProps) {
   const text = getAppText(language);
   const pinnedFiles = folder.pinnedFiles || [];
@@ -109,7 +109,7 @@ export function FolderSection({
       <div className="sidebar-folder-header">
         <button
           className="sidebar-folder-toggle"
-          onClick={() => onToggleFolder(folder.path)}
+          onClick={() => folderActions.toggle(folder.path)}
         >
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <FolderOpen size={14} />
@@ -121,7 +121,7 @@ export function FolderSection({
         <div className="sidebar-folder-actions">
           <button
             className={`sidebar-folder-action-btn${creatingFolderThread === folder.path ? " creating" : ""}`}
-            onClick={() => onCreateFolderThread(folder.path)}
+            onClick={() => folderActions.createThread(folder.path)}
             title={text.sidebar.newThreadInFolder}
           >
             {creatingFolderThread === folder.path ? (
@@ -141,7 +141,7 @@ export function FolderSection({
           )}
           <button
             className="sidebar-folder-action-btn danger"
-            onClick={() => onRemoveFolder(folder.path)}
+            onClick={() => folderActions.remove(folder.path)}
             title={text.sidebar.removeFolder}
           >
             <Trash2 size={12} />
@@ -158,8 +158,8 @@ export function FolderSection({
                 <button
                   key={file.filePath}
                   className="sidebar-file-item"
-                  onClick={() => onAddFile(file)}
-                  onContextMenu={(e) => onFileContextMenu(e, file, pinnedFiles.includes(file.filePath))}
+                  onClick={() => fileMenuApi.addFile(file)}
+                  onContextMenu={(e) => fileMenuApi.openContextMenu(e, file, pinnedFiles.includes(file.filePath))}
                   title={text.sidebar.addFileToChat}
                 >
                   <FileSpreadsheet size={13} />
@@ -185,8 +185,8 @@ export function FolderSection({
                   <div
                     key={thread.threadId}
                     className={`sidebar-thread-item sidebar-thread-in-folder ${activeThreadId === thread.threadId ? "active" : ""}`}
-                    onClick={() => onSwitchThread(thread.threadId)}
-                    onContextMenu={(e) => onThreadContextMenu(e, thread.threadId, true)}
+                    onClick={() => threadActions.switchThread(thread.threadId)}
+                    onContextMenu={(e) => threadActions.openContextMenu(e, thread.threadId, true)}
                   >
                     <div className="thread-item-main">
                       <MessageSquare size={12} className="thread-item-icon" />
@@ -215,16 +215,16 @@ export function FolderSection({
       )}
 
       {/* 文件右键菜单 */}
-      {fileContextMenu && (
+      {fileMenuApi.state && (
         <FileContextMenu
-          state={fileContextMenu}
+          state={fileMenuApi.state}
           language={language}
-          onClose={onFileContextMenuClose}
-          onDelete={onTrashFile}
-          onOpen={onOpenFile}
-          onCopyPath={onCopyPath}
-          onRevealInExplorer={onRevealInExplorer}
-          onPinFile={onPinFile}
+          onClose={fileMenuApi.close}
+          onDelete={fileMenuApi.trashFile}
+          onOpen={fileMenuApi.openFile}
+          onCopyPath={fileMenuApi.copyPath}
+          onRevealInExplorer={fileMenuApi.revealInExplorer}
+          onPinFile={fileMenuApi.pinFile}
         />
       )}
     </div>

@@ -6,9 +6,14 @@ import type { ExcelStatus } from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";
 import type { getAppText } from "../../i18n";
 import type { SettingsSection } from "../SettingsPage";
-import { FolderSection, UngroupedThreadList } from "./FolderSection";
+import {
+  FolderSection,
+  UngroupedThreadList,
+  type FolderSectionActions,
+  type FolderSectionFileMenuApi,
+  type FolderSectionThreadActions,
+} from "./FolderSection";
 import { ThreadContextMenu, type ContextMenuState } from "./ThreadContextMenu";
-import type { FileContextMenuState } from "./FileContextMenu";
 import { SidebarFooter } from "./SidebarFooter";
 import {
   Check,
@@ -53,7 +58,6 @@ interface SidebarExpandedProps {
   creatingFolderThread: string | null;
   viewedThreadStatusAt: Record<string, number>;
   expandedFolders: Record<string, boolean>;
-  fileContextMenu: FileContextMenuState | null;
   contextMenu: ContextMenuState | null;
   pinnedFolders: PinnedFolder[];
   sortMenu: { section: SidebarSortSection; x: number; y: number } | null;
@@ -74,19 +78,11 @@ interface SidebarExpandedProps {
   onToggleConversationsExpanded: () => void;
   onOpenSortMenu: (event: React.MouseEvent, section: SidebarSortSection) => void;
   onAddFolder: () => void;
-  onToggleFolder: (folderPath: string) => void;
-  onCreateFolderThread: (folderPath: string) => void;
-  onRemoveFolder: (folderPath: string) => void;
-  onAddFile: (file: FolderFileInfo) => void;
+  folderActions: FolderSectionActions;
+  folderFileMenuApi: FolderSectionFileMenuApi;
+  folderThreadActions: FolderSectionThreadActions;
   onSwitchThread: (threadId: string) => void;
   onThreadContextMenu: (event: React.MouseEvent, threadId: string, inFolder?: boolean) => void;
-  onFileContextMenu: (event: React.MouseEvent, file: FolderFileInfo, isPinned: boolean) => void;
-  onFileContextMenuClose: () => void;
-  onTrashFile: (filePath: string) => void;
-  onOpenFile: (filePath: string) => void;
-  onCopyPath: (filePath: string) => void;
-  onRevealInExplorer: (filePath: string) => void;
-  onPinFile: (filePath: string) => void;
   onSelectSortMode: (section: SidebarSortSection, mode: SidebarSortMode) => void;
   onConfirmDelete: (threadId: string) => void;
   onMoveToFolder: (threadId: string, folderId?: string) => void;
@@ -123,7 +119,6 @@ export function SidebarExpanded({
   creatingFolderThread,
   viewedThreadStatusAt,
   expandedFolders,
-  fileContextMenu,
   contextMenu,
   pinnedFolders,
   sortMenu,
@@ -144,19 +139,11 @@ export function SidebarExpanded({
   onToggleConversationsExpanded,
   onOpenSortMenu,
   onAddFolder,
-  onToggleFolder,
-  onCreateFolderThread,
-  onRemoveFolder,
-  onAddFile,
+  folderActions,
+  folderFileMenuApi,
+  folderThreadActions,
   onSwitchThread,
   onThreadContextMenu,
-  onFileContextMenu,
-  onFileContextMenuClose,
-  onTrashFile,
-  onOpenFile,
-  onCopyPath,
-  onRevealInExplorer,
-  onPinFile,
   onSelectSortMode,
   onConfirmDelete,
   onMoveToFolder,
@@ -222,20 +209,9 @@ export function SidebarExpanded({
                   creatingFolderThread={creatingFolderThread}
                   viewedThreadStatusAt={viewedThreadStatusAt}
                   language={language}
-                  onToggleFolder={onToggleFolder}
-                  onCreateFolderThread={onCreateFolderThread}
-                  onRemoveFolder={onRemoveFolder}
-                  onAddFile={onAddFile}
-                  onSwitchThread={onSwitchThread}
-                  onThreadContextMenu={onThreadContextMenu}
-                  fileContextMenu={fileContextMenu}
-                  onFileContextMenu={onFileContextMenu}
-                  onFileContextMenuClose={onFileContextMenuClose}
-                  onTrashFile={onTrashFile}
-                  onOpenFile={onOpenFile}
-                  onCopyPath={onCopyPath}
-                  onRevealInExplorer={onRevealInExplorer}
-                  onPinFile={onPinFile}
+                  folderActions={folderActions}
+                  threadActions={folderThreadActions}
+                  fileMenuApi={folderFileMenuApi}
                 />
               ))}
               {groupedByFolder.length === 0 && !hasSearchQuery && (

@@ -309,6 +309,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M3：`FolderSection` props 语义分组
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: group folder section props`
+
+**覆盖范围**：
+- 将 `FolderSection` 的文件夹操作合并为 `folderActions`。
+- 将文件夹内线程切换和右键菜单合并为 `threadActions`。
+- 将文件添加、文件右键菜单状态、关闭、打开、复制路径、资源管理器定位、删除和置顶合并为 `fileMenuApi`。
+- `SidebarExpanded` 同步改为透传上述三个语义对象，`Sidebar.tsx` 使用 `useMemo` 组装，减少中间层 prop drilling。
+
+**业务链路保护**：
+- 仅调整 React props 形状，不改动菜单行为、文件操作 IPC、线程切换、文件夹展开和置顶逻辑。
+- 未拆分组件或改变 DOM/CSS 结构，避免引出布局回归。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -526,6 +547,8 @@ useEffect(() => {
 #### 🟡 M3 — FolderSection 组件 21 个 Props
 
 **位置**：`src/components/sidebar/FolderSection.tsx:35-61`
+
+**状态**：✅ 已修复（2026-07-06，见“M3：`FolderSection` props 语义分组”）
 
 **问题**：Props 数量远超 10 个上限，是典型 prop drilling。
 

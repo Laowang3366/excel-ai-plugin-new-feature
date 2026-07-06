@@ -10,6 +10,7 @@
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
 - **AgentLoop 与主进程模块继续拆分**：将 Agent loop 状态、队列、单轮执行、工具执行日志、IPC OCR/AI/沙箱/文件处理等职责拆到独立模块，保留原入口兼容。
+- **侧边栏组件接口收束**：将 `FolderSection` 的文件夹动作、线程动作和文件菜单能力合并为语义化 API 对象，减少 prop drilling。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
 - **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
