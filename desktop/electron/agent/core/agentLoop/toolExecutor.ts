@@ -28,6 +28,14 @@ import {
 import { type ToolCallInfo } from "./streamCollector";
 import { evaluateCommand, type CommandEvaluation } from "../../security/sandbox";
 import { desanitizeToolName, sanitizeToolName } from "../../providers/openaiCompatibleClient";
+import {
+  logToolExecutionSafely,
+  parseToolArguments,
+  summarizeForLog,
+  type ToolExecutionLogRecord,
+} from "./toolExecutionLog";
+
+export type { ToolExecutionLogRecord } from "./toolExecutionLog";
 
 // ============================================================
 // 类型
@@ -46,24 +54,6 @@ export interface ToolApprovalConfig {
     sandboxJustification?: string;
   }) => Promise<{ approved: boolean; alwaysAllow?: boolean }>;
 }
-
-export interface ToolExecutionLogRecord {
-  threadId: string;
-  turnId: string;
-  toolCallId: string;
-  toolName: string;
-  status: "success" | "error" | "cancelled" | "blocked";
-  durationMs: number;
-  timestamp: number;
-  argumentsSummary: string;
-  resultSummary: string;
-  error?: string;
-  metadata?: Record<string, unknown>;
-}
-
-// ============================================================
-// 单工具执行
-// ============================================================
 
 /**
  * 执行单个工具
@@ -520,47 +510,4 @@ function resolveExecutableToolName(
     if (executors?.has(candidate)) return candidate;
   }
   return null;
-}
-
-function parseToolArguments(argsJson: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(argsJson || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : { value: parsed };
-  } catch {
-    return { _raw: argsJson };
-  }
-}
-
-function summarizeForLog(value: unknown, maxLength = 2000): string {
-  let summary: string;
-  if (typeof value === "string") {
-    summary = value;
-  } else {
-    try {
-      summary = JSON.stringify(value);
-    } catch {
-      summary = String(value);
-    }
-  }
-  if (summary.length <= maxLength) return summary;
-  return `${summary.slice(0, maxLength)}...`;
-}
-
-async function logToolExecutionSafely(
-  appendToolExecutionLog: ((record: ToolExecutionLogRecord) => Promise<void>) | undefined,
-  record: ToolExecutionLogRecord,
-  callbacks: AgentTurnCallbacks
-): Promise<void> {
-  if (!appendToolExecutionLog) return;
-  try {
-    await appendToolExecutionLog(record);
-  } catch (err: any) {
-    callbacks.onEvent({
-      type: "warning",
-      message: `工具执行日志写入失败：${err?.message || String(err)}`,
-      threadId: record.threadId,
-    });
-  }
 }
