@@ -490,6 +490,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：供应商模型选择器复用
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: share provider model selector`
+
+**覆盖范围**：
+- 新增 `src/components/settings/ProviderModelSelector.tsx`，集中聚合平台模型下拉、预设模型下拉、自定义模型输入三种 UI 分支。
+- `AddProviderDialog.tsx` 与 `EditProviderDialog.tsx` 改为复用共享选择器，分别从 409/429 行降至 379/393 行。
+- 新增 `ProviderModelSelector.test.ts`，覆盖选择器类型判定、聚合平台空模型选项和编辑时保留不在预设列表内的当前模型。
+- 同步 `CHANGELOG.md` 当前测试源基线为 145 个测试文件、728 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改新增供应商的模板选择、草稿构造、连接测试和添加逻辑。
+- 不改编辑供应商的 `applyModelConfig()` per-model 上下文窗口/推理模式同步、模型刷新按钮、保存 patch 和聚合模型列表管理。
+- 两个弹窗仍使用原有 CSS className，避免改变设置页布局样式。
+
+**验证证据**：
+- `npm exec vitest run src/components/settings/ProviderModelSelector.test.ts src/components/settings/addProviderDraft.test.ts src/components/settings/editProviderPatch.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
@@ -1748,11 +1771,11 @@ useEffect(() => {
 | 481 | `electron/agent/providers/openaiResponsesClient.ts` |
 | 473 | `electron/agent/tools/implementations/excel/excelComBridge.ts` |
 | 470 | `electron/agent/shared/types.ts` |
-| 440 | `src/components/settings/EditProviderDialog.tsx` |
+| 393 | `src/components/settings/EditProviderDialog.tsx` |
 | 336 | `src/hooks/useComposer.ts` |
 | 427 | `electron/agent/tools/implementations/office/presentationComBridge.ts` |
 | 426 | `electron/main-modules/settingsManager.ts` |
-| 409 | `src/components/settings/AddProviderDialog.tsx` |
+| 379 | `src/components/settings/AddProviderDialog.tsx` |
 | 252 | `src/components/settings/UsageStats.tsx` |
 
 ### CSS 文件（0 个）

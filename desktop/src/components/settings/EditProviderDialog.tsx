@@ -21,7 +21,6 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  ChevronDown,
   RotateCcw,
   Zap,
   X,
@@ -41,6 +40,7 @@ import {
 } from "../../utils/reasoningSupport";
 import { buildEditProviderPatch } from "./editProviderPatch";
 import { buildReasoningAutoHint } from "./providerReasoningHint";
+import { ProviderModelSelector } from "./ProviderModelSelector";
 
 // ============================================================
 // 类型定义
@@ -147,6 +147,11 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
     const fallbackMode = defaultReasoningModeForOptions(optionValues, template?.defaultReasoningMode);
     setReasoningMode(coerceReasoningMode(mc?.reasoningMode || reasoningMode, optionValues, fallbackMode));
   }, [apiFormat, modelConfigs, provider, reasoningMode, template]);
+
+  const handleModelChange = useCallback((newModel: string) => {
+    setModel(newModel);
+    applyModelConfig(newModel);
+  }, [applyModelConfig]);
 
   // 保存：收集所有变更并提交
   const handleSave = () => {
@@ -272,60 +277,19 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
           <div className="form-group">
             <label>{text.model}</label>
             <div className="input-with-action">
-              {isAggregation ? (
-                <div className="model-select-wrapper">
-                  <select
-                    className="form-input model-select"
-                    value={model}
-                    onChange={(e) => {
-                      const newModel = e.target.value;
-                      setModel(newModel);
-                      applyModelConfig(newModel);
-                    }}
-                  >
-                    {!model && <option value="">-- {text.noModel} --</option>}
-                    {modelConfigs.map((m) => (
-                      <option key={m.name} value={m.name}>{m.name}</option>
-                    ))}
-                    {model && !modelConfigs.some(m => m.name === model) && (
-                      <option value={model}>{model}</option>
-                    )}
-                  </select>
-                  <ChevronDown size={14} className="select-arrow" />
-                </div>
-              ) : modelOptions.length > 0 ? (
-                <div className="model-select-wrapper">
-                  <select
-                    className="form-input model-select"
-                    value={model}
-                    onChange={(e) => {
-                      const newModel = e.target.value;
-                      setModel(newModel);
-                      applyModelConfig(newModel);
-                    }}
-                  >
-                    {model && !modelOptions.includes(model) && (
-                      <option value={model}>{model}</option>
-                    )}
-                    {modelOptions.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="select-arrow" />
-                </div>
-              ) : (
+              <ProviderModelSelector
+                value={model}
+                onChange={handleModelChange}
+                isAggregation={isAggregation}
+                modelConfigs={modelConfigs}
+                modelOptions={modelOptions}
+                noModelLabel={text.noModel}
+                placeholder={provider.defaultModel || "model-name"}
+                showEmptyOption={isAggregation && !model}
+                preserveCurrentValue
+              />
+              {!isAggregation && modelOptions.length === 0 && (
                 <>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={model}
-                    onChange={(e) => {
-                      const newModel = e.target.value;
-                      setModel(newModel);
-                      applyModelConfig(newModel);
-                    }}
-                    placeholder={provider.defaultModel || "model-name"}
-                  />
                   <button
                     className="btn-refresh"
                     onClick={fetchModels}

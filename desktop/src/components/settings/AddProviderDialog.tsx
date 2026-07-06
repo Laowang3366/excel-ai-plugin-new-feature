@@ -30,7 +30,6 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  ChevronDown,
   Zap,
   X,
 } from "../common/IconMap";
@@ -56,6 +55,7 @@ import {
   providerDraftFromTemplate,
   type AddProviderDraft,
 } from "./addProviderDraft";
+import { ProviderModelSelector } from "./ProviderModelSelector";
 
 // ============================================================
 // 类型定义
@@ -283,46 +283,15 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
             {/* 模型选择/输入 */}
             <div className="form-group">
               <label>{text.model}</label>
-              {isAggregation ? (
-                // 聚合类供应商：当前模型选择（从 modelConfigs 中选择）
-                <div className="model-select-wrapper">
-                  <select
-                    className="form-input model-select"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                  >
-                    <option value="">-- {text.noModel} --</option>
-                    {modelConfigs.map((m) => (
-                      <option key={m.name} value={m.name}>{m.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="select-arrow" />
-                </div>
-              ) : selectedTemplate?.presetModels && selectedTemplate.presetModels.length > 0 ? (
-                // 直连供应商：下拉选择
-                <div className="model-select-wrapper">
-                  <select
-                    className="form-input model-select"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                  >
-                    <option value="">-- {text.noModel} --</option>
-                    {selectedTemplate.presetModels.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="select-arrow" />
-                </div>
-              ) : (
-                // 自定义/无预设：文本输入
-                <input
-                  type="text"
-                  className="form-input"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="model-name"
-                />
-              )}
+              <ProviderModelSelector
+                value={model}
+                onChange={setModel}
+                isAggregation={isAggregation}
+                modelConfigs={modelConfigs}
+                modelOptions={selectedTemplate?.presetModels || []}
+                noModelLabel={text.noModel}
+                showEmptyOption
+              />
             </div>
 
             {/* 上下文窗口大小 */}
