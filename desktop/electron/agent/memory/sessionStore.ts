@@ -20,14 +20,12 @@ import {
   type ThreadId,
   type TurnId,
   type TurnItem,
-  type Turn,
   type Thread,
   type ThreadMetadata,
   type TurnStatus,
   type RolloutLine,
   type RolloutItem,
   type TokenUsage,
-  mergeTokenUsage,
   generateThreadId,
   generateTurnId,
 } from "../shared/types";
@@ -41,6 +39,7 @@ import {
   type RolloutCompressionWorkerResult,
 } from "./rolloutArchive";
 import type { RuntimeRolloutSearchMatch } from "./stateRuntimeTypes";
+import { parseRolloutContent as parseSessionRolloutContent } from "./sessionRolloutParser";
 import { readUsageSummaryFromRolloutFiles, type TurnStats } from "./sessionUsageStats";
 
 const readFile = promisify(fs.readFile);
@@ -258,133 +257,9 @@ export class SessionStore {
     }
   }
 
-  /** 解析 JSONL 内容为 Thread 对象 */
+  /** Parse JSONL content into a Thread object. */
   private parseRolloutContent(content: string, threadId: ThreadId): Thread {
-    const lines = content.split("\n").filter((line) => line.trim());
-    let metadata: ThreadMetadata = {
-      threadId,
-      preview: "",
-      modelProvider: "unknown",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    const turnsMap = new Map<TurnId, Turn>();
-    /** 按时间顺序记录所有遇到的 turnId，用于压缩后清理 */
-    const turnOrder: TurnId[] = [];
-    let currentTurnId: TurnId | null = null;
-
-    for (const line of lines) {
-      try {
-        const parsed: RolloutLine = JSON.parse(line);
-        const { item } = parsed;
-
-        switch (item.type) {
-          case "session_meta": {
-            metadata = {
-              ...metadata,
-              threadId: item.meta.id,
-              modelProvider: item.meta.modelProvider,
-              model: item.meta.model,
-              createdAt: new Date(item.meta.timestamp).getTime(),
-              folderId: item.meta.folderId,
-            };
-            break;
-          }
-          case "turn_context": {
-            currentTurnId = item.turnId;
-            if (!turnsMap.has(item.turnId)) {
-              turnsMap.set(item.turnId, {
-                turnId: item.turnId,
-                threadId: metadata.threadId,
-                status: "in_progress",
-                items: [],
-                startedAt: Date.now(),
-              });
-              turnOrder.push(item.turnId);
-            }
-            break;
-          }
-          case "turn_item": {
-            const turnId = item.turnId;
-            if (!turnsMap.has(turnId)) {
-              turnsMap.set(turnId, {
-                turnId,
-                threadId: metadata.threadId,
-                status: "in_progress",
-                items: [],
-                startedAt: Date.now(),
-              });
-              turnOrder.push(turnId);
-            }
-            const turn = turnsMap.get(turnId)!;
-            turn.items.push(item.item);
-
-            // 更新元数据
-            if (item.item.type === "user_message" && !metadata.preview) {
-              metadata.preview = item.item.content.slice(0, 100);
-            }
-            if (item.item.type === "assistant_message") {
-              metadata.updatedAt = item.item.timestamp;
-            }
-            break;
-          }
-          case "turn_usage": {
-            if (!turnsMap.has(item.turnId)) {
-              turnsMap.set(item.turnId, {
-                turnId: item.turnId,
-                threadId: metadata.threadId,
-                status: "in_progress",
-                items: [],
-                startedAt: Date.now(),
-              });
-              turnOrder.push(item.turnId);
-            }
-            const turn = turnsMap.get(item.turnId)!;
-            turn.tokenUsage = item.usage;
-            metadata.totalTokenUsage = metadata.totalTokenUsage
-              ? mergeTokenUsage(metadata.totalTokenUsage, item.usage)
-              : item.usage;
-            break;
-          }
-          case "compacted": {
-            // 压缩记录：线程级别的历史替代点
-            // 1. 保存 replacementHistory 到 metadata，供 AgentLoop 恢复时使用
-            metadata.compactedHistory = item.replacementHistory;
-            // 2. 清除压缩点之前的所有 turns（它们已被摘要替代）
-            //    保留压缩点之后仍在 turnsMap 中的 turns
-            for (const tId of turnOrder) {
-              turnsMap.delete(tId);
-            }
-            turnOrder.length = 0;
-            break;
-          }
-        }
-      } catch {
-        // 跳过解析失败的行（参考 Codex 的容错处理）
-        continue;
-      }
-    }
-
-    // 确定每个 Turn 的最终状态
-    const turns = Array.from(turnsMap.values());
-    for (const turn of turns) {
-      if (turn.status === "in_progress") {
-        // 如果最后一轮是 in_progress，说明是中断的
-        const hasFinalMessage = turn.items.some(
-          (item) => item.type === "assistant_message" && item.phase === "final"
-        );
-        turn.status = hasFinalMessage ? "completed" : "interrupted";
-      }
-    }
-    const lastTurn = turns.length > 0 ? turns[turns.length - 1] : undefined;
-    if (lastTurn) {
-      metadata.lastTurnStatus = lastTurn.status;
-    }
-
-    return {
-      metadata,
-      turns,
-    };
+    return parseSessionRolloutContent(content, threadId);
   }
 
   // ----------------------------------------------------------

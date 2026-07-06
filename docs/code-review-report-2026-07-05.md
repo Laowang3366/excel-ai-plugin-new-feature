@@ -105,6 +105,7 @@
 - 将 `advancedExcel.ts` 的工作簿基础部件、worksheet XML、sheetData 合并和单元格 XML 生成抽出到 `officeOpenXml/excelSheetXml.ts`。`advancedExcel.ts` 进一步降至 303 行，低于 400 行规范上限。
 - 将 `settingsStore.ts` 的增量持久化 key 映射、compactionConfig 组合写入和 `savePartial` 抽出到 `store/settingsPersistence.ts`。`settingsStore.ts` 从 418 行降至 380 行，低于 400 行规范上限。
 - 将 `ipcApi.ts` 的知识库 IPC wrapper 抽出到 `services/ipcKnowledgeApi.ts`。`ipcApi.ts` 从 408 行降至 378 行，低于 400 行规范上限。
+- 将 `sessionStore.ts` 的 JSONL rollout → Thread 投影解析抽出到 `memory/sessionRolloutParser.ts`，原私有 `parseRolloutContent` 保留为委托入口兼容测试和调用路径。`sessionStore.ts` 从 469 行降至 353 行，低于 400 行规范上限。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md` 与 `electron/main-modules/README.md`，记录拆分后的模块职责。
 
@@ -130,6 +131,7 @@
 - Excel OpenXML 写入拆分只移动 workbook/sheet XML 生成和 sheetData 合并 helper，`createWorkbook`/`writeRange` 输入归一化、动态数组判定、目标 sheet 解析、数据验证、条件格式、表格样式和 `excelDone` 返回结构未改。
 - settingsStore 拆分只移动增量持久化适配层，`loadSettings` 迁移、`saveSettings` 全量保存、provider normalize、透明度、动态数组、知识库开关和 pinned folders action 均未改。
 - ipcApi 拆分只移动知识库域 wrapper，`listSources/search/indexFile/indexFolder/deleteFile/reindexAll` 的无 IPC fallback 返回值和运行时调用路径未改。
+- sessionStore 拆分只移动 JSONL rollout 解析纯逻辑，`appendRolloutItems`、`loadThread`、`loadThreadByPath`、压缩归档搜索、删除、metadata 追加和 usage 统计链路未改。
 - 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar/settingsStore/ipcApi 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续转向其它明确职责边界的超标文件。
 
 **验证证据**：
