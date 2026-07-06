@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **知识库分块/检索测试补强**：新增 `textChunker.test.ts` 和 `retriever.test.ts`，独立覆盖文本分块、表格表头保留、Markdown 标题切分、超长段落截断、向量检索 profile/filter、低分/embedding 失败关键词降级和提示词/工具结果格式化契约。
 - **审查报告 M1 状态闭环**：根据当前代码状态关闭 `docs/code-review-report-2026-07-05.md` 中 P0/M1 “agentLoop 阶段性拆分”进行中标记，记录 `agentLoop.ts`、`ipcHandlers.ts`、Sidebar/settingsStore/ipcApi/chatStore 等主入口已收敛到上限内，后续只按自然职责边界继续优化。
 - **chatStore 初始状态 helper 拆分**：新增 `chatInitialState.ts`，集中维护聊天 store 初始状态和清空消息 patch；`chatStore.ts` 保留事件监听、stream delta 处理、turn action 和 thread action 编排，降至 300 行以内。
 - **settingsStore 加载归一化拆分**：新增 `settingsLoadedState.ts` 与 `settingsValues.ts`，集中维护 electron-store 原始配置到 Zustand state patch 的归一化、provider reasoning 迁移检测和窗口透明度取值约束；`settingsStore.ts` 保留 IPC 读取、迁移写回、持久化 action 和状态编排。
@@ -21,7 +22,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 149 个测试文件、740 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 151 个测试文件、753 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。

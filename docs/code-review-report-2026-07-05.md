@@ -32,6 +32,27 @@
 
 > 记录规则：每完成一个审查项，回写修复范围、验证证据和关联提交，避免只在代码里静默修复。
 
+### 2026-07-06 — T3：知识库分块/检索测试补强
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `test: cover knowledge chunking and retrieval`
+
+**覆盖范围**：
+- 新增 `desktop/electron/agent/knowledge/textChunker.test.ts`，独立覆盖小文本元数据保真、CSV/表格每 100 行分块且重复表头、Markdown 二到四级标题切分、超长纯文本段落按 token budget 截断，以及普通段落合并。
+- 新增 `desktop/electron/agent/knowledge/retriever.test.ts`，独立覆盖向量检索传递当前 embedding profile/source/path filter、低分过滤后按 topK 返回、embedding 失败或向量低分时关键词降级、prompt 注入去重来源，以及工具结果空状态文案。
+- 更新测试源静态基线为 151 个测试文件、753 个 `it/test` 用例。
+
+**业务链路保护**：
+- 仅新增测试和文档，不改 `TextChunker`、`Retriever`、`SqliteStore`、`EmbeddingService` 的生产逻辑。
+- 检索测试使用最小 mock 锁定调用契约，避免引入 SQLite/网络依赖；已有 `rag.test.ts` 集成覆盖继续保留。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/knowledge/textChunker.test.ts electron/agent/knowledge/retriever.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-05 — P0 安全：IPC 校验与路径授权
 
 **状态**：✅ 已修复
@@ -2082,7 +2103,7 @@ useEffect(() => {
 
 #### 🟡 T3 — 74 个 electron/agent 源文件无测试
 
-**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”）
+**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”“T3：知识库分块/检索测试补强”）
 
 **高风险无测试文件**（节选）：
 
@@ -2093,8 +2114,8 @@ useEffect(() => {
 | `security/sandbox/defaultRules.ts` | 默认安全规则 |
 | `core/agentLoop/turnRunner.ts` | 轮次调度 |
 | `core/agentLoop/threadStateManager.ts` | 线程状态机 |
-| `knowledge/textChunker.ts` | 文本分块 |
-| `knowledge/retriever.ts` | 知识检索 |
+| `knowledge/textChunker.ts` | ✅ 已补独立测试，覆盖文本分块 |
+| `knowledge/retriever.ts` | ✅ 已补独立测试，覆盖知识检索 |
 | `tools/executors/pythonExecutor.ts` | Python 执行器 |
 
 **建议**：优先为 `security/sandbox/*`、`core/agentLoop` 状态机、`knowledge` 分块/检索补测试。
