@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **AgentLoop 状态机测试补强**：新增 `threadStateManager.test.ts` 和 `turnRunner.test.ts`，覆盖线程运行态 idle unload、running/active/unloaded/clear 状态转换，以及 Turn/UserMessage/complete 的结构契约。
 - **Python 执行器测试补强**：新增 `pythonExecutor.test.ts`，覆盖 `python.execute`/`python_execute` 注册兼容、参数校验、sandbox 有效工作目录透传、默认 timeout/home workdir、成功结果 metadata 和失败 stderr 归一化。
 - **知识库分块/检索测试补强**：新增 `textChunker.test.ts` 和 `retriever.test.ts`，独立覆盖文本分块、表格表头保留、Markdown 标题切分、超长段落截断、向量检索 profile/filter、低分/embedding 失败关键词降级和提示词/工具结果格式化契约。
 - **审查报告 M1 状态闭环**：根据当前代码状态关闭 `docs/code-review-report-2026-07-05.md` 中 P0/M1 “agentLoop 阶段性拆分”进行中标记，记录 `agentLoop.ts`、`ipcHandlers.ts`、Sidebar/settingsStore/ipcApi/chatStore 等主入口已收敛到上限内，后续只按自然职责边界继续优化。
@@ -23,7 +24,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 152 个测试文件、758 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 154 个测试文件、766 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。

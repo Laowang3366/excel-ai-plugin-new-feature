@@ -76,6 +76,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T3：AgentLoop 状态机测试补强
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `test: cover agent loop state helpers`
+
+**覆盖范围**：
+- 新增 `desktop/electron/agent/core/agentLoop/threadStateManager.test.ts`，覆盖初始 `not_loaded` 快照、active idle unload 阈值、running 状态不卸载、markIdle 重置活跃时间、markUnloaded/clear 状态转换，以及 0/负数阈值禁用 idle unload。
+- 新增 `desktop/electron/agent/core/agentLoop/turnRunner.test.ts`，覆盖 `createTurn`、`createUserMessageItem`、`completeTurn` 的结构契约、时间戳、附件与 clientId 保留。
+- 更新测试源静态基线为 154 个测试文件、766 个 `it/test` 用例。
+
+**业务链路保护**：
+- 仅新增测试和文档，不改 AgentLoop 生产逻辑。
+- 测试只控制 `Date.now()`，不接入真实模型、工具执行、rollout 写入或线程持久化。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/core/agentLoop/threadStateManager.test.ts electron/agent/core/agentLoop/turnRunner.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-05 — P0 安全：IPC 校验与路径授权
 
 **状态**：✅ 已修复
@@ -2126,7 +2147,7 @@ useEffect(() => {
 
 #### 🟡 T3 — 74 个 electron/agent 源文件无测试
 
-**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”“T3：知识库分块/检索测试补强”“T3：Python 执行器测试补强”）
+**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”“T3：知识库分块/检索测试补强”“T3：Python 执行器测试补强”“T3：AgentLoop 状态机测试补强”）
 
 **高风险无测试文件**（节选）：
 
@@ -2135,8 +2156,8 @@ useEffect(() => {
 | `security/sandbox/parseCommand.ts` | ✅ 已有 sandbox.test 覆盖，并补充解析失败边界 |
 | `security/sandbox/execPolicy.ts` | ✅ 已有 sandbox.test 覆盖，并补充组合命令/大小写边界 |
 | `security/sandbox/defaultRules.ts` | 默认安全规则 |
-| `core/agentLoop/turnRunner.ts` | 轮次调度 |
-| `core/agentLoop/threadStateManager.ts` | 线程状态机 |
+| `core/agentLoop/turnRunner.ts` | ✅ 已补独立测试，覆盖轮次调度结构 |
+| `core/agentLoop/threadStateManager.ts` | ✅ 已补独立测试，覆盖线程状态机 |
 | `knowledge/textChunker.ts` | ✅ 已补独立测试，覆盖文本分块 |
 | `knowledge/retriever.ts` | ✅ 已补独立测试，覆盖知识检索 |
 | `tools/executors/pythonExecutor.ts` | ✅ 已补独立测试，覆盖 Python 执行器 |
