@@ -5,7 +5,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 143 个测试文件、723 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 144 个测试文件、725 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
@@ -26,6 +26,7 @@
 - **Composer 附件解析 helper 拆分**：将 `useComposer.ts` 中的拖拽/粘贴附件类型判断、本地路径解析和临时文件落盘抽到 `composerAttachmentFiles.ts`，拖拽与粘贴共用同一解析链路，hook 主文件降至 336 行。
 - **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
 - **OpenAI Responses 流式尾包补齐**：Responses SSE 解析在流结束时会处理未带尾随空行的最后事件，避免正文、usage 或 done 事件被漏掉。
+- **OpenAI 兼容工具名解析拆分**：将 Chat Completions 工具名点号/下划线清洗与还原逻辑抽到 `openaiToolNames.ts`，保留 `openaiCompatibleClient.ts` re-export 兼容入口。
 - **工具执行结果保真修复**：工具成功返回 `false`、`0`、空字符串等假值时不再被误当成无结果，执行日志摘要也能安全处理 `undefined`。
 - **消息与工具详情样式令牌化**：工作详情、工具调用和设置按钮的剩余硬编码灰色/暗色背景改为复用主题变量，减少暗色主题漂移风险。
 - **常规设置职责收敛**：抽出通用开关/滑块字段与双语文案模块，`GeneralSettings.tsx` 降至 318 行，同时保留透明度、动态数组、压缩、OCR token 和数据目录设置链路不变。

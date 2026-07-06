@@ -456,7 +456,7 @@
 - 新增 `src/components/settings/generalSettingsText.ts`，集中常规设置页中英文文案和窗口透明度标签/提示文案。
 - `GeneralSettings.tsx` 保留设置状态、IPC 读取/迁移、MinerU token 保存、store action 和 JSX 渲染职责，文件从 427 行降至 318 行。
 - 新增 `generalSettingsText.test.ts`，覆盖中英文文案可用性、动态数组设置文案和窗口透明度提示。
-- 同步 `CHANGELOG.md` 当前测试源基线为 143 个测试文件、723 个 `it/test` 用例。
+- 同步 `CHANGELOG.md` 阶段性测试源基线为 143 个测试文件、723 个 `it/test` 用例。
 
 **业务链路保护**：
 - 不改 `ipcApi.app.getDataPath/selectDataPath/migrateDataPath/openPath`、`ipcApi.settings.get/set`、`useSettingsStore` action、设置卡片 DOM/className 和现有开关/滑块交互。
@@ -464,6 +464,28 @@
 
 **验证证据**：
 - `npm exec vitest run src/components/settings/generalSettingsText.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+### 2026-07-06 — M1 可维护性：OpenAI 兼容工具名解析拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract openai tool names`
+
+**覆盖范围**：
+- 新增 `electron/agent/providers/openaiToolNames.ts`，集中 Chat Completions 工具名点号转下划线、以及 provider 返回工具名还原逻辑。
+- `openaiCompatibleClient.ts` 改为导入并 re-export `sanitizeToolName` / `desanitizeToolName`，保留旧导入路径兼容，文件从 423 行降至 385 行。
+- 新增 `openaiToolNames.test.ts`，覆盖 Office 复合前缀、常规命名空间、未知工具名保留；保留 `openaiCompatibleClient.test.ts` 对兼容导出与 SSE/tool call 行为覆盖。
+- 同步 `CHANGELOG.md` 当前测试源基线为 144 个测试文件、725 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 Chat Completions 请求体、SSE 解析、reasoning 配置、工具调用 begin/delta/end 事件顺序和错误格式化。
+- 旧的 `import { sanitizeToolName } from "./openaiCompatibleClient"` 继续可用。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/providers/openaiToolNames.test.ts electron/agent/providers/openaiCompatibleClient.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
@@ -1376,7 +1398,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **355** | 400 | -45 | 已低于上限 |
-**完整超标清单**：共 26 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 25 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1703,7 +1725,7 @@ useEffect(() => {
 
 ## 附录 A：超过行数限制的文件完整列表
 
-### TS/TSX 文件（26 个）
+### TS/TSX 文件（25 个）
 
 | 行数 | 文件 |
 |------|------|
@@ -1730,7 +1752,6 @@ useEffect(() => {
 | 336 | `src/hooks/useComposer.ts` |
 | 427 | `electron/agent/tools/implementations/office/presentationComBridge.ts` |
 | 426 | `electron/main-modules/settingsManager.ts` |
-| 423 | `electron/agent/providers/openaiCompatibleClient.ts` |
 | 409 | `src/components/settings/AddProviderDialog.tsx` |
 | 252 | `src/components/settings/UsageStats.tsx` |
 

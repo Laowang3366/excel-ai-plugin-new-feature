@@ -17,6 +17,9 @@ import type {
 } from "./aiClientTypes";
 import type { TokenUsage } from "../shared/types";
 import { formatProviderHttpError } from "./providerErrors";
+import { desanitizeToolName, sanitizeToolName } from "./openaiToolNames";
+
+export { desanitizeToolName, sanitizeToolName } from "./openaiToolNames";
 
 type ChatCompletionToolState = {
   id: string;
@@ -29,47 +32,6 @@ type ChatCompletionsParserState = {
   currentToolCalls: Map<number, ChatCompletionToolState>;
   emittedText: string;
 };
-
-// ============================================================
-// 工具名称清洗 — 兼容 DeepSeek 等要求 ^[a-zA-Z0-9_-]+$ 的 API
-// ============================================================
-
-/**
- * 将内部工具名（含点号，如 workbook.inspect）转换为 API 安全格式（下划线）
- * DeepSeek V4 等要求 function name 匹配 ^[a-zA-Z0-9_-]+$
- */
-export function sanitizeToolName(name: string): string {
-  return name.replace(/\./g, "_");
-}
-
-/**
- * 将 API 返回的工具名还原为内部格式（下划线→点号）
- */
-export function desanitizeToolName(name: string): string {
-  const compoundPrefixes: Record<string, string> = {
-    office_action_: "office.action.",
-    office_script_: "office.script.",
-  };
-  for (const [safePrefix, internalPrefix] of Object.entries(compoundPrefixes)) {
-    if (name.startsWith(safePrefix)) {
-      return internalPrefix + name.slice(safePrefix.length);
-    }
-  }
-
-  // 还原已知前缀: workbook_ → workbook., word_ → word., 等
-  // 通用策略：第一个下划线如果是已知命名空间则还原。
-  const prefixes = [
-    "workbook", "range", "selection", "formula", "vba", "sheet",
-    "script", "ui", "file", "shell", "word", "presentation", "office", "knowledge",
-    "web", "ocr", "memory", "python",
-  ];
-  for (const prefix of prefixes) {
-    if (name.startsWith(prefix + "_")) {
-      return prefix + "." + name.slice(prefix.length + 1);
-    }
-  }
-  return name;
-}
 
 // ============================================================
 // OpenAI 兼容客户端（覆盖大部分国内厂商）
