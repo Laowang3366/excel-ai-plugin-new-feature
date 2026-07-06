@@ -411,7 +411,7 @@
 - `mineruOcr.ts` 改为消费共享解析函数，文件从 404 行降至 367 行，低于 400 行上限。
 - `localDocumentParser.ts` 不再从 `main-modules/mineruOcr` 导入通用 helper，改为依赖 `electron/shared/markdownTables.ts`，解除 agent executor 对主进程 OCR 模块的反向依赖。
 - 新增 `markdownTables.test.ts`，并保留 `mineruOcr.test.ts` 对 MinerU 付费/免费流程和表格结果结构的覆盖。
-- 同步 `CHANGELOG.md` 当前测试源基线为 141 个测试文件、719 个 `it/test` 用例。
+- 同步 `CHANGELOG.md` 阶段性测试源基线为 141 个测试文件、719 个 `it/test` 用例。
 
 **业务链路保护**：
 - 不改 MinerU 付费批量流程、Agent 免费流程、签名上传、轮询、ZIP/Markdown 下载、错误格式化和本地文档解析策略。
@@ -419,6 +419,29 @@
 
 **验证证据**：
 - `npm exec vitest run electron/shared/markdownTables.test.ts electron/main-modules/mineruOcr.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+### 2026-07-06 — M1 可维护性：线程 IPC wrapper 域拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract thread ipc wrapper`
+
+**覆盖范围**：
+- 新增 `src/services/ipcThreadApi.ts`，集中 `thread` 与 `threadGraph` wrapper 的转发、fallback 和错误兜底行为。
+- `ipcApi.ts` 改为组合 `createThreadIpcApi(getRaw)`，保留原 `ipcApi.thread.*` 与 `ipcApi.threadGraph.*` 调用面不变，文件从 414 行降至 354 行。
+- 新增 `ipcThreadApi.test.ts`，覆盖 runtimeStatus / upsertSpawnEdge 转发，以及 raw IPC 不可用时的安全 fallback。
+- 保留 `ipcApi.test.ts` 对整体 wrapper 的 thread runtime、threadGraph 和 fallback 行为覆盖。
+- 同步 `CHANGELOG.md` 当前测试源基线为 142 个测试文件、721 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 preload 暴露、`IIpcApi` 类型、线程加载/删除/恢复/新建/metadata 更新、线程图边创建/关闭/后代列表的参数与返回值。
+- 仍由 `getRaw()` 统一读取 `window.electronAPI`，缺失 IPC 时继续返回原有安全空值或抛出原有错误。
+
+**验证证据**：
+- `npm exec vitest run src/services/ipcThreadApi.test.ts src/services/ipcApi.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
@@ -1331,7 +1354,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **355** | 400 | -45 | 已低于上限 |
-**完整超标清单**：共 28 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 27 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1658,7 +1681,7 @@ useEffect(() => {
 
 ## 附录 A：超过行数限制的文件完整列表
 
-### TS/TSX 文件（28 个）
+### TS/TSX 文件（27 个）
 
 | 行数 | 文件 |
 |------|------|
@@ -1666,7 +1689,6 @@ useEffect(() => {
 | 1057 | `electron/main-modules/ipcHandlers.ts` |
 | 775 | `src/components/Sidebar.tsx` |
 | 749 | `src/store/settingsStore.ts` |
-| 745 | `src/services/ipcApi.ts` |
 | 674 | `electron/agent/memory/sessionStore.ts` |
 | 671 | `electron/agent/memory/stateRuntimeStore.ts` |
 | 662 | `electron/agent/tools/implementations/officeOpenXml/advancedExcel.ts` |
