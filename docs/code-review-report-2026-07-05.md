@@ -697,6 +697,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：侧边栏搜索样式拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: split sidebar search styles`
+
+**覆盖范围**：
+- 新增 `src/styles/sidebar-search.css`，集中侧边栏搜索框、搜索弹层、结果列表、空状态和搜索弹层动画。
+- `global.css` 在 `sidebar.css` 后导入搜索样式，保持侧边栏基础布局先加载。
+- `sidebar.css` 从 1100 行降至 891 行；新搜索样式文件为 210 行。
+
+**业务链路保护**：
+- 不改 `SidebarSearchPalette.tsx` 的 DOM、className、搜索 tab、结果点击、空状态和弹层关闭逻辑。
+- 不改搜索框尺寸、弹层 z-index、玻璃背景、暗色覆盖和动画表现，只按搜索交互职责移动样式。
+- `sidebar.css` 仍超 CSS 500 行上限，后续继续按文件夹分组、意图入口、footer 等自然边界拆分。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -812,7 +832,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
-| `src/styles/sidebar.css` | **1101** | 500 | +601 | — |
+| `src/styles/sidebar.css` | **891** | 500 | +391 | 继续按自然职责边界拆分 |
 
 **完整超标清单**：共 29 个 TS/TSX 文件 + 2 个 CSS 文件（详见附录 A）
 
@@ -1180,7 +1200,7 @@ useEffect(() => {
 | 行数 | 文件 |
 |------|------|
 | 1444 | `src/styles/settings.css` |
-| 1101 | `src/styles/sidebar.css` |
+| 891 | `src/styles/sidebar.css` |
 
 ---
 
