@@ -434,6 +434,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T3：sandbox 策略安全边界测试补强
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `test: cover sandbox safety boundaries`
+
+**覆盖范围**：
+- 将 `electron/agent/security/sandbox/sandbox.test.ts` 从 15 个用例扩展到 19 个用例。
+- 补充未闭合引号解析失败、解析失败命令进入 prompt、管道/分号后的危险子命令仍 forbidden、Windows 语义下默认规则大小写不敏感等回归测试。
+
+**业务链路保护**：
+- 仅补高风险沙箱模块测试，不修改 `parseCommand`、`ExecPolicy` 或默认规则运行逻辑。
+- 覆盖的是 shell.execute 前置安全评估边界，确保危险命令不会因为组合命令、解析失败或大小写差异绕过策略。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/security/sandbox/sandbox.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — P5 性能：`Sidebar` JSX 回调稳定化
 
 **状态**：✅ 已修复
@@ -716,12 +736,14 @@ useEffect(() => {
 
 #### 🟡 T3 — 74 个 electron/agent 源文件无测试
 
+**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”）
+
 **高风险无测试文件**（节选）：
 
 | 文件 | 风险说明 |
 |------|----------|
-| `security/sandbox/parseCommand.ts` | 沙箱命令解析核心 |
-| `security/sandbox/execPolicy.ts` | 策略评估引擎 |
+| `security/sandbox/parseCommand.ts` | ✅ 已有 sandbox.test 覆盖，并补充解析失败边界 |
+| `security/sandbox/execPolicy.ts` | ✅ 已有 sandbox.test 覆盖，并补充组合命令/大小写边界 |
 | `security/sandbox/defaultRules.ts` | 默认安全规则 |
 | `core/agentLoop/turnRunner.ts` | 轮次调度 |
 | `core/agentLoop/threadStateManager.ts` | 线程状态机 |

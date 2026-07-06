@@ -40,6 +40,12 @@ describe("parseCommand", () => {
     expect(r[0].tokens).toEqual(["cp", "my file.txt", "dest"]);
   });
 
+  it("未闭合引号标记为解析失败", () => {
+    const r = parseCommand('echo "unterminated');
+    expect(r).toHaveLength(1);
+    expect(r[0].parseFailed).toBe(true);
+  });
+
   it("空命令返回空数组", () => {
     expect(parseCommand("")).toEqual([]);
     expect(parseCommand("   ")).toEqual([]);
@@ -99,6 +105,23 @@ describe("ExecPolicy 默认规则决策", () => {
     ];
     const eng = new ExecPolicy(rules, true);
     expect(eng.evaluate(parseCommand("rm -rf /")).decision).toBe("forbidden");
+  });
+
+  it("管道和分号后的危险子命令仍会被拦截", () => {
+    expect(decide("echo ok | Remove-Item -Recurse -Force C:\\foo")).toBe("forbidden");
+    expect(decide("echo ok; reg delete HKCU\\Software\\X /f")).toBe("forbidden");
+  });
+
+  it("解析失败的命令进入 prompt 而不是 allow", () => {
+    const evaluation = engine.evaluate(parseCommand('echo "unterminated'));
+
+    expect(evaluation.decision).toBe("prompt");
+    expect(evaluation.unparseable).toHaveLength(1);
+  });
+
+  it("Windows 语义下默认规则大小写不敏感", () => {
+    expect(decide("remove-item -R -f C:\\foo")).toBe("forbidden");
+    expect(decide("FORMAT C:")).toBe("forbidden");
   });
 
   it("未命中规则 → allow（保持默认审批流程）", () => {
