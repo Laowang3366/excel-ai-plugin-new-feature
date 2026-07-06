@@ -26,7 +26,6 @@ import {
   type TurnStatus,
   type RolloutLine,
   type RolloutItem,
-  type SessionMeta,
   type TokenUsage,
   mergeTokenUsage,
   generateThreadId,
@@ -42,6 +41,7 @@ import {
   type RolloutCompressionWorkerResult,
 } from "./rolloutArchive";
 import type { RuntimeRolloutSearchMatch } from "./stateRuntimeTypes";
+import { readUsageSummaryFromRolloutFiles, type TurnStats } from "./sessionUsageStats";
 
 const readFile = promisify(fs.readFile);
 const readdir = promisify(fs.readdir);
@@ -70,21 +70,6 @@ function getSessionFilePath(sessionsRoot: string, threadId: ThreadId): string {
   const filename = `rollout-${timestamp}-${threadId}.jsonl`;
 
   return path.join(dir, filename);
-}
-
-// ============================================================
-// 使用统计类型
-// ============================================================
-
-/** 单个 Turn 的统计摘要 */
-interface TurnStats {
-  turnId: string;
-  threadId: string;
-  model: string;
-  timestamp: number;
-  messages: number;
-  tokens: number;
-  estimated: boolean;
 }
 
 export interface RolloutEventSink {
@@ -577,98 +562,6 @@ export class SessionStore {
     await this.flushRolloutWrites();
 
     const files = await this.findAllRolloutFiles();
-    const results: TurnStats[] = [];
-
-    for (const filePath of files) {
-      try {
-        const content = await readFile(filePath, "utf-8");
-        const filename = path.basename(filePath, ".jsonl");
-        const threadIdMatch = filename.match(/thread-(.+)$/);
-        const threadId = threadIdMatch ? `thread-${threadIdMatch[1]}` : filename;
-
-        const turns = this.parseRolloutForStats(content, threadId);
-        results.push(...turns);
-      } catch {
-        // 跳过损坏的文件
-      }
-    }
-
-    return results;
-  }
-
-  /** 从 JSONL 中轻量提取每个 Turn 的统计数据 */
-  private parseRolloutForStats(content: string, threadId: string): TurnStats[] {
-    const lines = content.split("\n").filter((line) => line.trim());
-    let model = "unknown";
-
-    // 用于聚合 turn_usage（可能有多个 turn_usage 行）
-    const turnUsageMap = new Map<string, TokenUsage>();
-    // 用于追踪每个 turn 的 items
-    const turnMessagesMap = new Map<string, number>();
-    const turnTimestampMap = new Map<string, number>();
-
-    for (const line of lines) {
-      try {
-        const parsed: RolloutLine = JSON.parse(line);
-        const { item } = parsed;
-
-        switch (item.type) {
-          case "session_meta":
-            if (item.meta.model) model = item.meta.model;
-            break;
-
-          case "turn_item": {
-            const turnId = item.turnId;
-            const itemType = item.item.type;
-            // 统计用户和助手消息数量
-            if (itemType === "user_message" || itemType === "assistant_message") {
-              turnMessagesMap.set(turnId, (turnMessagesMap.get(turnId) || 0) + 1);
-            }
-            // 用 item 的 timestamp 更新 turn 时间
-            const ts = (item.item as any).timestamp as number | undefined;
-            if (ts && ts > 0) {
-              turnTimestampMap.set(turnId, Math.max(turnTimestampMap.get(turnId) || 0, ts));
-            }
-            break;
-          }
-
-          case "turn_usage": {
-            const turnId = item.turnId;
-            const existing = turnUsageMap.get(turnId);
-            turnUsageMap.set(turnId, existing ? mergeTokenUsage(existing, item.usage) : item.usage);
-            break;
-          }
-
-          case "turn_context": {
-            // 用于初始化 turn 的时间戳
-            if (!turnTimestampMap.has(item.turnId)) {
-              turnTimestampMap.set(item.turnId, Date.now());
-            }
-            break;
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    // 将聚合数据转换为 TurnStats 数组
-    const results: TurnStats[] = [];
-    for (const [turnId, usage] of turnUsageMap) {
-      const tokens = usage.inputTokens + usage.outputTokens + (usage.reasoningOutputTokens ?? 0);
-      if (tokens === 0) continue;
-
-      results.push({
-        turnId,
-        threadId,
-        model,
-        timestamp: turnTimestampMap.get(turnId) || Date.now(),
-        messages: turnMessagesMap.get(turnId) || 0,
-        tokens,
-        estimated: false,
-      });
-    }
-
-    return results;
+    return readUsageSummaryFromRolloutFiles(files);
   }
 }
