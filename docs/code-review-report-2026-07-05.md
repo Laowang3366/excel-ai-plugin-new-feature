@@ -1032,6 +1032,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：settingsStore 加载归一化拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract settings loaded state`
+
+**覆盖范围**：
+- 新增 `src/store/settingsLoadedState.ts`，集中维护 `settings.getAll()` 原始对象到 Zustand state patch 的归一化，并检测 provider `enableReasoning -> reasoningMode` 迁移。
+- 新增 `src/store/settingsValues.ts`，集中维护窗口透明度上下限与 `normalizeWindowOpacity()`，`settingsStore.ts` 保留 re-export 兼容原导入路径。
+- `settingsStore.ts` 从约 347 行收敛到约 317 行，`loadSettings` 改为一次构建 patch、一次 `set()`，继续负责 IPC 读取、迁移写回、`isConfigured` 计算和所有 setter 持久化。
+
+**业务链路保护**：
+- 动态数组函数支持仍在缺省时保持开启；保存/切换仍写入 `dynamicArrayFunctionsEnabled`。
+- provider 迁移仍会规范化 reasoning 配置并写回 `aiProviders`，`isConfigured` 仍按 active provider 计算。
+- 透明度归一化上下限仍为 `0.55` 到 `1`，原 `settingsStore` 导出的常量和函数路径保持可用。
+
+**验证证据**：
+- `npm exec vitest run src/store/settingsStore.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复

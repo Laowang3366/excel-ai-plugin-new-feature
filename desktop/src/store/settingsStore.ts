@@ -13,6 +13,7 @@
 import { create } from "zustand";
 import type { AiProviderConfig } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
+import { buildLoadedSettingsState } from "./settingsLoadedState";
 import { savePartial } from "./settingsPersistence";
 import {
   buildAddedProviderState,
@@ -21,11 +22,12 @@ import {
   buildUpdatedProviderState,
   checkProviderConfigured,
   generateProviderId,
-  normalizeProviderConfig,
 } from "./settingsProviderState";
+import { MAX_WINDOW_OPACITY, normalizeWindowOpacity } from "./settingsValues";
 
 export { API_FORMATS, PROVIDER_TEMPLATES } from "./settingsProviderTemplates";
 export type { ProviderCategory, ProviderTemplate, ReasoningOption } from "./settingsProviderTemplates";
+export { MAX_WINDOW_OPACITY, MIN_WINDOW_OPACITY, normalizeWindowOpacity } from "./settingsValues";
 
 /** 固定的文件夹 */
 export interface PinnedFolder {
@@ -43,16 +45,6 @@ export interface PinnedFolder {
 export type PermissionMode = "normal" | "auto_approve_safe" | "confirm_all";
 export type AppLanguage = "zh-CN" | "en-US";
 export type AppTheme = "light" | "dark";
-
-export const MIN_WINDOW_OPACITY = 0.55;
-export const MAX_WINDOW_OPACITY = 1;
-
-export function normalizeWindowOpacity(value: unknown): number {
-  const numericValue = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numericValue)) return MAX_WINDOW_OPACITY;
-  const clamped = Math.min(Math.max(numericValue, MIN_WINDOW_OPACITY), MAX_WINDOW_OPACITY);
-  return Math.round(clamped * 100) / 100;
-}
 
 export interface SettingsState {
   /** 所有已配置的提供商（用户自行添加） */
@@ -166,81 +158,19 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   loadSettings: async () => {
     try {
       const allSettings = await ipcApi.settings.getAll() as Record<string, any>;
-
-      if (allSettings.aiProviders) {
-        // 数据迁移：enableReasoning → reasoningMode
-        const providers = allSettings.aiProviders as Record<string, AiProviderConfig>;
-        let needsMigration = false;
-        for (const id of Object.keys(providers)) {
-          let p = providers[id];
-          if (!p.reasoningMode) {
-            needsMigration = true;
-            p = { ...p, reasoningMode: p.enableReasoning ? "high" : "off" };
-          }
-          const normalized = normalizeProviderConfig(p);
-          if (JSON.stringify(normalized) !== JSON.stringify(providers[id])) {
-            needsMigration = true;
-            providers[id] = normalized;
-          }
-        }
-        set({ providers });
-        // 如果有迁移，立即保存
-        if (needsMigration) {
-          await ipcApi.settings.set("aiProviders", providers);
-        }
-      }
-      if (allSettings.activeProvider) {
-        set({ activeProviderId: allSettings.activeProvider });
-      }
-      if (allSettings.permissionMode) {
-        set({ permissionMode: allSettings.permissionMode });
-      }
-      if (typeof allSettings.showReasoning === "boolean") {
-        set({ showReasoning: allSettings.showReasoning });
-      }
-      if (allSettings.language === "zh-CN" || allSettings.language === "en-US") {
-        set({ language: allSettings.language });
-      }
-      if (allSettings.theme === "light" || allSettings.theme === "dark") {
-        set({ theme: allSettings.theme });
-      }
-      if (typeof allSettings.closeToTray === "boolean") {
-        set({ closeToTray: allSettings.closeToTray });
-      }
-      if (typeof allSettings.officeAutoCompactEnabled === "boolean") {
-        set({ officeAutoCompactEnabled: allSettings.officeAutoCompactEnabled });
-      }
-      if (typeof allSettings.dynamicArrayFunctionsEnabled === "boolean") {
-        set({ dynamicArrayFunctionsEnabled: allSettings.dynamicArrayFunctionsEnabled });
-      }
-      if (allSettings.windowOpacity !== undefined) {
-        set({ windowOpacity: normalizeWindowOpacity(allSettings.windowOpacity) });
-      }
-      // 上下文压缩配置
-      const compactionConfig = allSettings.compactionConfig;
-      if (compactionConfig && typeof compactionConfig === "object") {
-        if (typeof compactionConfig.enabled === "boolean") {
-          set({ compactionEnabled: compactionConfig.enabled });
-        }
-        if (typeof compactionConfig.autoCompactThresholdPercent === "number") {
-          set({ autoCompactThresholdPercent: compactionConfig.autoCompactThresholdPercent });
-        }
-      }
-
-      // 固定文件夹
-      if (Array.isArray(allSettings.pinnedFolders)) {
-        set({ pinnedFolders: allSettings.pinnedFolders });
-      }
-
-      // 知识库
-      if (typeof allSettings.knowledgeEnabled === "boolean") {
-        set({ knowledgeEnabled: allSettings.knowledgeEnabled });
-      }
+      const loaded = buildLoadedSettingsState(allSettings);
 
       set({
+        ...loaded.patch,
         isLoading: false,
-        isConfigured: get().checkConfigured(),
+        isConfigured: checkProviderConfigured(
+          loaded.patch.providers ?? get().providers,
+          loaded.patch.activeProviderId ?? get().activeProviderId
+        ),
       });
+      if (loaded.migratedProviders) {
+        await ipcApi.settings.set("aiProviders", loaded.migratedProviders);
+      }
     } catch {
       set({ isLoading: false });
     }
