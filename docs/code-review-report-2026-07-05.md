@@ -392,6 +392,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P5 性能：`Sidebar` JSX 回调稳定化
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `perf: stabilize sidebar callbacks`
+
+**覆盖范围**：
+- 将 `Sidebar.tsx` 中传给 `SidebarCollapsed`、`SidebarExpanded`、`SidebarSearchPalette`、`HostSelectionDialog` 的搜索、展开、关闭、设置菜单、上下文菜单状态更新等内联箭头函数提取为 `useCallback`。
+- `folderFileMenuApi.close` 改为复用稳定的 `closeFileContextMenu`，避免每次 render 生成新闭包。
+
+**业务链路保护**：
+- 仅稳定回调引用，不改动状态更新逻辑、菜单行为、搜索开关、设置入口或 Host 选择弹窗。
+- `onPinThread` / `onRenameThread` 仍维持原先“关闭菜单”的占位行为。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -601,6 +620,8 @@ useEffect(() => {
 #### 🟡 P5-perf — Sidebar 多处内联箭头函数
 
 **位置**：`src/components/Sidebar.tsx:543, 547, 645-647, 765-770`
+
+**状态**：✅ 已修复（2026-07-06，见“P5 性能：`Sidebar` JSX 回调稳定化”）
 
 **问题**：内联箭头函数导致子组件 memo 失效。
 

@@ -337,6 +337,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     updatePinnedFolder(folderPath, { pinnedFiles: nextPinned });
   }, [folderFiles, pinnedFolders, updatePinnedFolder]);
 
+  const closeFileContextMenu = useCallback(() => {
+    setFileContextMenu(null);
+  }, []);
+
   const folderActions = useMemo<FolderSectionActions>(() => ({
     toggle: handleToggleFolder,
     createThread: handleCreateFolderThread,
@@ -352,13 +356,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     state: fileContextMenu,
     addFile: handleAddFile,
     openContextMenu: handleFileContextMenu,
-    close: () => setFileContextMenu(null),
+    close: closeFileContextMenu,
     trashFile: handleTrashFile,
     openFile: handleOpenFile,
     copyPath: handleCopyPath,
     revealInExplorer: handleRevealInExplorer,
     pinFile: handlePinFile,
   }), [
+    closeFileContextMenu,
     fileContextMenu,
     handleAddFile,
     handleCopyPath,
@@ -369,10 +374,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     handleTrashFile,
   ]);
 
-  useDocumentDismiss({ active: contextMenu !== null, onDismiss: () => setContextMenu(null) });
-  useDocumentDismiss({ active: fileContextMenu !== null, onDismiss: () => setFileContextMenu(null) });
-  useDocumentDismiss({ active: settingsMenuOpen, onDismiss: () => setSettingsMenuOpen(false) });
-  useDocumentDismiss({ active: sortMenu !== null, onDismiss: () => setSortMenu(null) });
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const closeSettingsMenu = useCallback(() => {
+    setSettingsMenuOpen(false);
+  }, []);
+
+  const closeSortMenu = useCallback(() => {
+    setSortMenu(null);
+  }, []);
+
+  useDocumentDismiss({ active: contextMenu !== null, onDismiss: closeContextMenu });
+  useDocumentDismiss({ active: fileContextMenu !== null, onDismiss: closeFileContextMenu });
+  useDocumentDismiss({ active: settingsMenuOpen, onDismiss: closeSettingsMenu });
+  useDocumentDismiss({ active: sortMenu !== null, onDismiss: closeSortMenu });
 
   const handleSelectSortMode = useCallback((section: SidebarSortSection, mode: SidebarSortMode) => {
     if (section === "projects") {
@@ -391,6 +408,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onNavigate("settings");
     }
   }, [onNavigate, onOpenSettingsSection]);
+
+  const openGeneralSettings = useCallback(() => {
+    openSettingsSection("general");
+  }, [openSettingsSection]);
+
+  const toggleSearch = useCallback(() => {
+    setSearchOpen((open) => !open);
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+  }, []);
+
+  const toggleProjectsExpanded = useCallback(() => {
+    setProjectsExpanded((expanded) => !expanded);
+  }, []);
+
+  const toggleConversationsExpanded = useCallback(() => {
+    setConversationsExpanded((expanded) => !expanded);
+  }, []);
+
+  const setContextMoveMenu = useCallback((show: boolean) => {
+    setContextMenu((menu) => menu ? { ...menu, showMoveMenu: show } : menu);
+  }, []);
+
+  const setContextConfirming = useCallback((confirming: boolean) => {
+    setContextMenu((menu) => menu ? { ...menu, confirming } : menu);
+  }, []);
+
+  const toggleSettingsMenu = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSettingsMenuOpen((open) => !open);
+  }, []);
+
+  const dismissPendingHosts = useCallback(() => {
+    setPendingHosts(null);
+  }, [setPendingHosts]);
 
   const hasSearchQuery = false;
   const ungroupedThreads = useMemo(() => sortSidebarItems(
@@ -423,7 +477,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <HostSelectionDialog
       availableHosts={pendingHosts}
       onSelect={handleSelectHost}
-      onDismiss={() => setPendingHosts(null)}
+      onDismiss={dismissPendingHosts}
     />
   ) : null;
 
@@ -436,9 +490,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       wordStatus={wordStatus}
       presentationStatus={presentationStatus}
       onCreateNewThread={handleCreateNewThread}
-      onToggleSearch={() => setSearchOpen((open) => !open)}
+      onToggleSearch={toggleSearch}
       onAddFolder={handleAddFolder}
-      onOpenSettings={() => openSettingsSection("general")}
+      onOpenSettings={openGeneralSettings}
     />
   ) : (
     <SidebarExpanded
@@ -478,9 +532,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       pulseDot={pulseDot}
       onResizeStart={handleResizeStart}
       onCreateNewThread={handleCreateNewThread}
-      onToggleSearch={() => setSearchOpen((open) => !open)}
-      onToggleProjectsExpanded={() => setProjectsExpanded((expanded) => !expanded)}
-      onToggleConversationsExpanded={() => setConversationsExpanded((expanded) => !expanded)}
+      onToggleSearch={toggleSearch}
+      onToggleProjectsExpanded={toggleProjectsExpanded}
+      onToggleConversationsExpanded={toggleConversationsExpanded}
       onOpenSortMenu={handleOpenSortMenu}
       onAddFolder={handleAddFolder}
       folderActions={folderActions}
@@ -491,18 +545,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onSelectSortMode={handleSelectSortMode}
       onConfirmDelete={handleConfirmDelete}
       onMoveToFolder={handleMoveToFolder}
-      onPinThread={() => setContextMenu(null)}
-      onRenameThread={() => setContextMenu(null)}
-      onCloseContextMenu={() => setContextMenu(null)}
-      onSetContextMoveMenu={(show) => setContextMenu((menu) => menu ? { ...menu, showMoveMenu: show } : menu)}
-      onSetContextConfirming={(confirming) => setContextMenu((menu) => menu ? { ...menu, confirming } : menu)}
+      onPinThread={closeContextMenu}
+      onRenameThread={closeContextMenu}
+      onCloseContextMenu={closeContextMenu}
+      onSetContextMoveMenu={setContextMoveMenu}
+      onSetContextConfirming={setContextConfirming}
       onConnect={handleConnect}
-      onToggleSettingsMenu={(event) => {
-        event.stopPropagation();
-        setSettingsMenuOpen((open) => !open);
-      }}
+      onToggleSettingsMenu={toggleSettingsMenu}
       onOpenSettingsSection={openSettingsSection}
-      onCloseSettingsMenu={() => setSettingsMenuOpen(false)}
+      onCloseSettingsMenu={closeSettingsMenu}
     />
   );
 
@@ -516,12 +567,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         folderFiles={folderFiles}
         language={language}
         activeThreadId={activeThreadId}
-        onClose={() => setSearchOpen(false)}
+        onClose={closeSearch}
         onSwitchThread={handleSwitchThread}
         onAddFile={handleAddFile}
         onCreateNewThread={handleCreateNewThread}
         onAddFolder={handleAddFolder}
-        onOpenSettings={() => openSettingsSection("general")}
+        onOpenSettings={openGeneralSettings}
       />
       {hostSelectionDialog}
     </>

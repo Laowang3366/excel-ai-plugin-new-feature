@@ -12,6 +12,7 @@
 - **AgentLoop 与主进程模块继续拆分**：将 Agent loop 状态、队列、单轮执行、工具执行日志、IPC OCR/AI/沙箱/文件处理等职责拆到独立模块，保留原入口兼容。
 - **侧边栏组件接口收束**：将 `FolderSection` 的文件夹动作、线程动作和文件菜单能力合并为语义化 API 对象，减少 prop drilling。
 - **侧边栏拖拽性能优化**：侧边栏宽度拖拽改为 requestAnimationFrame 节流，每帧最多触发一次宽度状态更新。
+- **侧边栏回调稳定化**：将搜索、展开、设置菜单和上下文菜单等 JSX 内联回调提取为 `useCallback`，减少子组件无效更新。
 - **主进程日志统一**：electron 主进程警告/错误输出改走结构化 logger，保留控制台和文件日志双输出。
 - **shell 执行器测试补强**：覆盖安全策略拒绝、prompt 决策、cwd 重定向、缺失工作目录和超时强杀路径。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
