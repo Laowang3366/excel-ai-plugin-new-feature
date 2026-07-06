@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **PPT OpenXML 包结构 helper 拆分**：新增 `presentationPackageParts.ts`，集中维护 slide part 编号、presentation 关系、content type、slide entry 收集和 XML 属性读取；`advancedPresentation.ts` 保留 create/applyTheme/deleteSlides/addSlides 的业务流程。
 - **StateRuntime 线程状态表操作收敛**：新增 `stateRuntimeThreads.ts`，集中维护 `thread_snapshots` 与 `thread_runtime` 的 upsert/list/get SQL；`StateRuntimeStore` 保留四库生命周期、跨库事务、thread name 联动和各领域 helper 编排。
 - **SQLite 知识库 schema 与来源摘要职责拆分**：新增 `sqliteStoreSchema.ts` 与 `sqliteSourceSummaries.ts`，分别维护知识库表结构/embedding profile 迁移和来源摘要回填；`sqliteStore.ts` 保留条目写入、向量/关键词检索、来源 API 和维护入口，降至 400 行以内。
 - **IPC Office wrapper 拆分**：新增 `ipcOfficeApi.ts`，集中维护前端 Excel/Word/PPT IPC wrapper 的 fallback 与转发逻辑；`ipcApi.ts` 改为组合 Office、Thread、Knowledge 子 wrapper，保留 `excel.readRange` 第三参 `expand` 透传。

@@ -1010,6 +1010,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：PPT OpenXML 包结构 helper 拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract presentation package helpers`
+
+**覆盖范围**：
+- 新增 `electron/agent/tools/implementations/officeOpenXml/presentationPackageParts.ts`，集中维护 slide part 编号、presentation slide id、relationship id、content type override、slide entry 收集和 XML 属性读取。
+- `advancedPresentation.ts` 从约 409 行收敛到约 323 行，继续保留 `createPresentation`、`applyTheme`、`deleteSlides`、`addSlides` 和 COM fallback 判定等业务流程。
+- `[Content_Types].xml` 部件名改为复用同一 `CONTENT_TYPES_PART` 常量，避免新增 helper 后继续双写。
+
+**业务链路保护**：
+- `addSlides` 的 slide XML、rels XML、content type 更新顺序和返回 changed parts 保持不变。
+- `deleteSlides` 的 slide id 删除、relationship 删除、content type override 移除和“至少保留一张”校验保持不变。
+- `applyTheme` 的 run 颜色替换逻辑仍留在主业务文件中，避免把主题操作与包结构 helper 混在一起。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/implementations/officeOpenXml/advancedPresentation.test.ts electron/agent/tools/implementations/officeOpenXml/presentationSlideContent.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复

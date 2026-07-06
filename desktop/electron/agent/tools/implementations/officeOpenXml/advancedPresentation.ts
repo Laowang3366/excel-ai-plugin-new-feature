@@ -11,6 +11,18 @@ import path from "path";
 import JSZip from "jszip";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
+import {
+  collectSlideEntries,
+  CONTENT_TYPES_PART,
+  contentTypesXmlOrDefault,
+  ensureSlideContentType,
+  getXmlAttr,
+  insertPresentationRelationship,
+  insertSlideId,
+  nextPresentationSlideId,
+  nextRelationshipNumber,
+  nextSlidePartNumber,
+} from "./presentationPackageParts";
 import { createBasicPresentationPackage } from "./presentationTemplate";
 import { contentSlideXml, emptySlideRelsXml, normalizeSlidesParam } from "./presentationSlideContent";
 
@@ -26,9 +38,6 @@ export interface PresentationAdvancedActionInput {
 const PRESENTATION_SLIDE_RE = /^ppt\/slides\/slide\d+\.xml$/;
 const PRESENTATION_PART = "ppt/presentation.xml";
 const PRESENTATION_RELS_PART = "ppt/_rels/presentation.xml.rels";
-const CONTENT_TYPES_PART = "[Content_Types].xml";
-const SLIDE_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
-const SLIDE_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml";
 const ADD_SLIDE_OPERATIONS = new Set(["addSlide", "addSlides", "appendSlide", "appendSlides", "addSlideContent"]);
 
 export async function applyPresentationAdvancedAction(
@@ -213,90 +222,6 @@ function applyRunColor(xml: string, color: string): string {
   });
 }
 
-interface SlideEntry {
-  index: number;
-  relId: string;
-  partName?: string;
-}
-
-function collectSlideEntries(presentationXml: string, relsXml: string): SlideEntry[] {
-  const relationshipTargets = new Map<string, string>();
-  for (const match of relsXml.matchAll(/<Relationship\b[^>]*(?:\/>|><\/Relationship>)/g)) {
-    const relId = getXmlAttr(match[0], "Id");
-    const target = getXmlAttr(match[0], "Target");
-    if (relId && target) relationshipTargets.set(relId, normalizeSlidePartName(target));
-  }
-
-  const entries: SlideEntry[] = [];
-  for (const match of presentationXml.matchAll(/<p:sldId\b[^>]*(?:\/>|><\/p:sldId>)/g)) {
-    const relId = getXmlAttr(match[0], "r:id");
-    if (!relId) continue;
-    entries.push({
-      index: entries.length + 1,
-      relId,
-      partName: relationshipTargets.get(relId),
-    });
-  }
-  return entries;
-}
-
-function nextSlidePartNumber(zip: JSZip): number {
-  const used = Object.keys(zip.files)
-    .map((name) => /^ppt\/slides\/slide(\d+)\.xml$/.exec(name)?.[1])
-    .filter((value): value is string => Boolean(value))
-    .map(Number);
-  return Math.max(0, ...used) + 1;
-}
-
-function nextPresentationSlideId(presentationXml: string): number {
-  const ids = [...presentationXml.matchAll(/<p:sldId\b[^>]*\bid=["'](\d+)["']/g)]
-    .map((match) => Number(match[1]))
-    .filter((value) => Number.isFinite(value));
-  return Math.max(255, ...ids) + 1;
-}
-
-function nextRelationshipNumber(relsXml: string): number {
-  const ids = [...relsXml.matchAll(/\bId=["']rId(\d+)["']/g)]
-    .map((match) => Number(match[1]))
-    .filter((value) => Number.isFinite(value));
-  return Math.max(0, ...ids) + 1;
-}
-
-function insertSlideId(presentationXml: string, slideId: number, relId: string): string {
-  const slideXml = `<p:sldId id="${slideId}" r:id="${relId}"/>`;
-  if (presentationXml.includes("</p:sldIdLst>")) {
-    return presentationXml.replace("</p:sldIdLst>", `${slideXml}</p:sldIdLst>`);
-  }
-  const slideListXml = `<p:sldIdLst>${slideXml}</p:sldIdLst>`;
-  return presentationXml.includes("<p:sldSz")
-    ? presentationXml.replace("<p:sldSz", `${slideListXml}<p:sldSz`)
-    : presentationXml.replace("</p:presentation>", `${slideListXml}</p:presentation>`);
-}
-
-function insertPresentationRelationship(relsXml: string, relId: string, target: string): string {
-  const relXml = `<Relationship Id="${relId}" Type="${SLIDE_REL_TYPE}" Target="${target}"/>`;
-  return relsXml.includes("</Relationships>")
-    ? relsXml.replace("</Relationships>", `${relXml}</Relationships>`)
-    : `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relXml}</Relationships>`;
-}
-
-async function contentTypesXmlOrDefault(zip: JSZip): Promise<string> {
-  const part = zip.file(CONTENT_TYPES_PART);
-  if (part) return part.async("text");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>`;
-}
-
-function ensureSlideContentType(contentTypesXml: string, slidePartName: string): string {
-  const partName = `/${slidePartName}`;
-  if (contentTypesXml.includes(`PartName="${partName}"`) || contentTypesXml.includes(`PartName='${partName}'`)) {
-    return contentTypesXml;
-  }
-  const overrideXml = `<Override PartName="${partName}" ContentType="${SLIDE_CONTENT_TYPE}"/>`;
-  return contentTypesXml.includes("</Types>")
-    ? contentTypesXml.replace("</Types>", `${overrideXml}</Types>`)
-    : `${contentTypesXml}${overrideXml}`;
-}
-
 function resolveDeleteSlideIndexes(input: PresentationAdvancedActionInput, slideCount: number): number[] {
   const explicitSlides = arrayNumberParam(input.params?.slides);
   const range = explicitSlides.length > 0
@@ -346,19 +271,8 @@ function numberParam(params: Record<string, unknown> | undefined, key: string): 
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function getXmlAttr(xml: string, attrName: string): string | undefined {
-  const escapedName = attrName.replace(/:/g, "\\:");
-  const match = xml.match(new RegExp(`\\b${escapedName}=["']([^"']+)["']`));
-  return match?.[1];
-}
-
-function normalizeSlidePartName(target: string): string {
-  const normalized = target.replace(/^\/+/, "");
-  return normalized.startsWith("ppt/") ? normalized : `ppt/${normalized}`;
-}
-
 async function removeSlideContentTypeOverrides(zip: JSZip, deletedParts: string[]): Promise<string | undefined> {
-  const contentTypesPart = zip.file("[Content_Types].xml");
+  const contentTypesPart = zip.file(CONTENT_TYPES_PART);
   if (!contentTypesPart || deletedParts.length === 0) return undefined;
   const deletedNames = new Set(deletedParts.map((partName) => `/${partName}`));
   const xml = await contentTypesPart.async("text");
