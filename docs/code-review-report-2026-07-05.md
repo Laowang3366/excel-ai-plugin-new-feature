@@ -999,6 +999,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`toolExecutor` 工具名解析 helper 抽取
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract tool name resolution`
+
+**覆盖范围**：
+- 新增 `electron/agent/core/agentLoop/toolNameResolution.ts`，集中点号/下划线工具名、OpenAI compatible sanitize/desanitize 候选解析。
+- 新增 `toolNameResolution.test.ts`，覆盖原 executor 名优先、`ocr_parseDocument` 解析到 `ocr.parseDocument`、无匹配返回 `null`。
+- `toolExecutor.ts` 改为复用 `resolveExecutableToolName()`，保留 `desanitizeToolName()` 用于缺 executor 时的 fallback 展示。
+
+**业务链路保护**：
+- 不改 `processToolCalls` 的 sandbox forbidden/prompt、审批、执行、日志和 `TurnItem` 事件顺序。
+- 不改 `executeTool()` 的未知工具错误和 executor context 透传行为；既有 `toolExecutor.test.ts` 覆盖 shell/OCR alias、falsy result 和日志链路。
+- `toolExecutor.ts` 从约 426 行降至约 409 行；仍略超 400 行，后续只在明确职责边界处继续拆。
+
+**验证证据**：
+- `npx vitest run electron/agent/core/agentLoop/toolNameResolution.test.ts electron/agent/core/agentLoop/toolExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
