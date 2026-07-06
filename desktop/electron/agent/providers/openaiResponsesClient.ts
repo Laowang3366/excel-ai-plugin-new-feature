@@ -180,22 +180,32 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
         buffer = chunks.pop() || "";
 
         for (const chunk of chunks) {
-          const dataLine = chunk
-            .split("\n")
-            .map((line) => line.trim())
-            .find((line) => line.startsWith("data: "));
-          if (!dataLine || dataLine === "data: [DONE]") continue;
-
-          try {
-            const data = JSON.parse(dataLine.slice(6));
-            yield* this.processResponsesEvent(data, state);
-          } catch {
-            // Ignore malformed stream chunks and continue reading.
-          }
+          yield* this.processResponsesSSEChunk(chunk, state);
         }
+      }
+      if (buffer.trim()) {
+        yield* this.processResponsesSSEChunk(buffer, state);
       }
     } finally {
       reader.releaseLock();
+    }
+  }
+
+  private *processResponsesSSEChunk(
+    chunk: string,
+    state: ResponseParserState
+  ): Generator<AIStreamEvent> {
+    const dataLine = chunk
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.startsWith("data: "));
+    if (!dataLine || dataLine === "data: [DONE]") return;
+
+    try {
+      const data = JSON.parse(dataLine.slice(6));
+      yield* this.processResponsesEvent(data, state);
+    } catch {
+      // Ignore malformed stream chunks and continue reading.
     }
   }
 

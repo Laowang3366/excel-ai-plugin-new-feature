@@ -558,6 +558,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T3：OpenAI Responses SSE 末尾事件 flush
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `fix: flush trailing responses sse event`
+
+**覆盖范围**：
+- 为 `OpenAIResponsesClient` 增加无尾随空行的最后一个 SSE 事件回归测试，覆盖 `response.completed` 中的正文、usage 和 done 事件。
+- 将 Responses SSE 单块解析抽出为 `processResponsesSSEChunk()`，正常 chunk 与结束时剩余 buffer 共用同一路径。
+- 在 reader 完成后处理 `buffer.trim()` 仍有内容的最后事件，避免供应商流缺少结尾 `\n\n` 时丢正文或 done。
+
+**业务链路保护**：
+- 不改变现有 `response.output_text.delta`、`output_text.done`、`content_part.done`、工具调用和 usage 事件顺序。
+- 保留畸形 chunk 忽略策略；仅补齐原本未处理的完整尾部 chunk。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/providers/openaiResponsesClient.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

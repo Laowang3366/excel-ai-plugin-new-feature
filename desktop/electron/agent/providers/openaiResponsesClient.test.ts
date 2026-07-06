@@ -184,6 +184,27 @@ describe("OpenAIResponsesClient", () => {
     expect(events[events.length - 1]).toEqual({ type: "done", finishReason: "stop" });
   });
 
+  it("flushes the final SSE event even without a trailing blank line", async () => {
+    const sse = "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output_text\":\"No trailing newline\",\"usage\":{\"input_tokens\":2,\"output_tokens\":4}}}";
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+    const { events } = await collectStreamEvents(client, sse);
+
+    expect(events).toEqual([
+      { type: "text_delta", delta: "No trailing newline" },
+      {
+        type: "usage",
+        usage: {
+          inputTokens: 2,
+          outputTokens: 4,
+          cachedInputTokens: 0,
+          reasoningOutputTokens: 0,
+        },
+      },
+      { type: "done", finishReason: "stop" },
+    ]);
+  });
+
   it("parses Responses streaming function calls into internal tool events", async () => {
     const sse = [
       "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"range_read\"}}",
