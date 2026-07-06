@@ -4,7 +4,7 @@
 > **审查依据**：`docs/code-review-standards.md`
 > **审查范围**：desktop/ 全部核心源码（electron/ + src/）
 > **审查维度**：安全性 · 正确性 · 可维护性 · 性能 · 测试 · 项目特定规范
-> **测试基线**：105 文件 / 609 测试全绿 · typecheck 双通过
+> **原始测试基线**：105 文件 / 609 测试全绿 · typecheck 双通过
 
 ---
 
@@ -17,7 +17,7 @@
 1. **IPC 安防线历史风险** — 高风险 IPC 已接入 Zod 校验与路径授权，后续新增通道继续保持 schema、handler、preload/type wrapper 同步。
 2. **文件行数历史超标** — 主入口和高风险大文件已阶段性收敛；当前仅剩少量集中协议/桥接边界略超，按自然职责边界继续优化，不为压线硬拆。
 
-### 问题统计
+### 原始问题统计
 
 | 级别 | 数量 | 说明 |
 |------|------|------|
@@ -2330,7 +2330,7 @@ useEffect(() => {
 
 3. **✅ IPC 抽象层完整** — `desktop/src/` 中 0 处直接 `window.electronAPI` 调用，全部通过 `ipcApi` 抽象层。
 
-4. **✅ IPC schema 单一事实来源** — `ipcSchemas.ts` 集中定义 + `validateInput` 工具 + `z.infer` 推导类型（架构方向正确，只是接入不完整）。
+4. **✅ IPC schema 单一事实来源** — `ipcSchemas.ts` 集中定义 + `validateInput` 工具 + `z.infer` 推导类型；历史接入缺口已补齐，后续新增 IPC 按 schema、handler、preload/type wrapper 三处同步维护。
 
 ### 性能优化
 
@@ -2395,9 +2395,11 @@ useEffect(() => {
 
 ---
 
-## 附录 A：超过行数限制的文件完整列表
+## 附录 A：超过行数限制的生产源码文件
 
-### TS/TSX 文件（3 个）
+> 本附录按生产源码口径统计，排除 `*.test.ts` / `*.test.tsx`。测试文件可因覆盖复杂契约而略大，后续只在出现重复 fixture、难以定位断言或自然职责边界时拆分，不为行数硬拆。
+
+### TS/TSX 生产源码文件（3 个）
 
 | 行数 | 文件 |
 |------|------|
@@ -2410,9 +2412,21 @@ useEffect(() => {
 | 行数 | 文件 |
 |------|------|
 
+### 测试文件观察项（5 个）
+
+| 行数 | 文件 | 处理口径 |
+|------|------|----------|
+| 1378 | `electron/agent/core/agentLoop/agentLoop.test.ts` | 覆盖 Agent 主循环多阶段契约，后续按场景自然拆分 |
+| 1133 | `electron/agent/knowledge/rag.test.ts` | 覆盖知识库/RAG 集成行为，后续按检索、索引、注入边界拆分 |
+| 764 | `electron/agent/tools/registry/officeTools.test.ts` | 覆盖 Office 工具注册契约，后续按 Excel/Word/PPT 工具域拆分 |
+| 593 | `electron/agent/memory/stateRuntimeStore.test.ts` | 覆盖 StateRuntime 跨库事务与持久化，后续按表域拆分 |
+| 410 | `src/store/agentEventHandler.test.ts` | 覆盖流式事件归并，轻微超出，暂不拆 |
+
 ---
 
-## 附录 B：未覆盖测试的文件列表
+## 附录 B：原始审查时未覆盖测试的文件列表
+
+> 本附录是 2026-07-05 原始审查快照，不代表当前未覆盖状态。高风险节选已在 T3 修复记录中补测或阶段性关闭；后续新增行为继续按风险补契约测试。
 
 ### electron/agent 下无 .test.ts 的源文件（74 个）
 
