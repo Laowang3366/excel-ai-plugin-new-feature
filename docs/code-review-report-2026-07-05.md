@@ -636,6 +636,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：浮动任务入口样式拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: split floating task panel styles`
+
+**覆盖范围**：
+- 新增 `src/styles/floating-task-panel.css`，集中 `FeatureFloatingDock` 与 `FloatingTaskPanel` 使用的 `feature-floating-*` / `task-floating-*` 样式和对应 keyframes。
+- `global.css` 在 `chat.css` 后导入浮动任务样式，保持聊天页面基础布局先加载、浮动入口组件样式后加载。
+- `chat.css` 从 841 行降至 554 行；新样式文件为 286 行。
+
+**业务链路保护**：
+- 不改 `FeatureFloatingDock.tsx`、`FloatingTaskPanel.tsx` 和 `ChatPage.tsx` 的 DOM、className、拖拽/折叠/关闭逻辑。
+- `.icon-btn`、聊天消息列表和 Office 预览样式仍留在 `chat.css`，避免通用按钮和聊天页面主体样式被误拆。
+- `chat.css` 仍超 CSS 500 行上限 54 行，后续只在找到清晰职责边界时继续拆分。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -752,7 +772,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
 | `src/styles/sidebar.css` | **1101** | 500 | +601 | — |
-| `src/styles/chat.css` | **841** | 500 | +341 | — |
+| `src/styles/chat.css` | **554** | 500 | +54 | 继续按自然职责边界拆分 |
 | `src/styles/composer.css` | **674** | 500 | +174 | — |
 
 **完整超标清单**：共 29 个 TS/TSX 文件 + 4 个 CSS 文件（详见附录 A）
@@ -1122,7 +1142,7 @@ useEffect(() => {
 |------|------|
 | 1444 | `src/styles/settings.css` |
 | 1101 | `src/styles/sidebar.css` |
-| 841 | `src/styles/chat.css` |
+| 554 | `src/styles/chat.css` |
 | 674 | `src/styles/composer.css` |
 
 ---
