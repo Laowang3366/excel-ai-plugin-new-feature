@@ -1,29 +1,15 @@
 /**
  * EditProviderDialog — 编辑供应商弹窗子组件
  *
- * 以弹窗形式编辑供应商配置，所有修改保存在本地草稿状态，
- * 点击"保存"按钮后一次性提交到 settingsStore。
- *
- * 关联模块：
- * - modelSettingsI18n.ts — 提供 MODEL_TEXT 双语文本
- * - settingsStore — PROVIDER_TEMPLATES、API_FORMATS、useSettingsStore
- * - useTestConnection — 测试连接共享 hook
- * - ReasoningModeSelect — 思考等级共享组件
- * - ModelConfigList — 聚合模型列表共享组件
+ * 负责编辑供应商本地草稿、连接测试和保存 patch 编排。
  */
 
 import React, { useState, useCallback } from "react";
 import { useSettingsStore, PROVIDER_TEMPLATES, API_FORMATS } from "../../store/settingsStore";
 import type { AiProviderConfig, ModelConfig, ReasoningMode } from "../../electronApi";
 import {
-  Eye,
-  EyeOff,
-  CheckCircle,
-  XCircle,
   Loader2,
   RotateCcw,
-  Zap,
-  X,
   RefreshCw,
 } from "../common/IconMap";
 import { MODEL_TEXT } from "./modelSettingsI18n";
@@ -41,20 +27,24 @@ import {
 import { buildEditProviderPatch } from "./editProviderPatch";
 import { buildReasoningAutoHint } from "./providerReasoningHint";
 import { ProviderModelSelector } from "./ProviderModelSelector";
-
-// ============================================================
-// 类型定义
-// ============================================================
+import {
+  ProviderApiFormatField,
+  ProviderApiKeyField,
+  ProviderBaseUrlField,
+  ProviderContextWindowField,
+  ProviderModelField,
+  ProviderNameField,
+  ProviderTestButton,
+  ProviderTestResult,
+} from "./ProviderDialogFields";
+import { ProviderDialogFrame } from "./ProviderDialogFrame";
+import { EditProviderDialogActions } from "./ProviderDialogActions";
 
 export interface EditProviderDialogProps {
   provider: AiProviderConfig;
   onSave: (patch: Partial<AiProviderConfig>) => void;
   onClose: () => void;
 }
-
-// ============================================================
-// 组件实现
-// ============================================================
 
 export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
   provider,
@@ -64,7 +54,6 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
   const { language } = useSettingsStore();
   const text = MODEL_TEXT[language];
 
-  // 本地草稿状态 — 所有修改保存在此，不直接写入 store
   const [name, setName] = useState(provider.name);
   const [apiFormat, setApiFormat] = useState(provider.apiFormat || "openai");
   const [baseUrl, setBaseUrl] = useState(provider.baseUrl);
@@ -80,7 +69,6 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
     testFailedText: text.testFailed,
   });
 
-  // 判断是否为聚合类供应商（无预设模型）
   const template = PROVIDER_TEMPLATES.find((t) => t.provider === provider.provider);
   const isAggregation = template?.category === "aggregation";
 
@@ -101,12 +89,10 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
   );
   const reasoningAutoHint = buildReasoningAutoHint(reasoningOptionValues, language);
 
-  // 可选模型列表
   const availableModels = provider.models || [];
   const presetModels = template?.presetModels || [];
   const modelOptions = availableModels.length > 0 ? availableModels : presetModels;
 
-  // 获取模型列表
   const fetchModels = useCallback(async () => {
     if (!apiKey || !baseUrl) return;
     setFetchingModels(true);
@@ -126,7 +112,6 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
     }
   }, [baseUrl, apiKey, apiFormat, template]);
 
-  // 测试连接
   const handleTestConnection = useCallback(() => {
     if (!apiKey || !baseUrl) return;
     testConnection(baseUrl, apiKey, apiFormat, model);
@@ -153,7 +138,6 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
     applyModelConfig(newModel);
   }, [applyModelConfig]);
 
-  // 保存：收集所有变更并提交
   const handleSave = () => {
     onSave(buildEditProviderPatch(provider, {
       name,
@@ -168,115 +152,82 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog edit-provider-dialog" onClick={(e) => e.stopPropagation()}>
-        {/* 标题栏 */}
-        <div className="dialog-header">
-          <h3>{text.editDialogTitle(name || provider.name)}</h3>
-          <button className="dialog-close" onClick={onClose}><X size={16} /></button>
-        </div>
+    <ProviderDialogFrame
+      dialogClassName="edit-provider-dialog"
+      title={text.editDialogTitle(name || provider.name)}
+      onClose={onClose}
+      actions={(
+        <EditProviderDialogActions
+          testing={testing}
+          canTest={Boolean(apiKey && baseUrl)}
+          testConnectionLabel={text.testConnection}
+          cancelLabel={text.cancel}
+          saveLabel={text.save}
+          onTest={handleTestConnection}
+          onCancel={onClose}
+          onSave={handleSave}
+        />
+      )}
+    >
+          <ProviderNameField
+            label="供应商名称"
+            value={name}
+            placeholder="如：我的 DeepSeek"
+            onChange={setName}
+          />
 
-        {/* 表单内容 */}
-        <div className="dialog-body">
-          {/* 供应商名称 */}
-          <div className="form-group">
-            <label>供应商名称</label>
-            <input
-              type="text"
-              className="form-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="如：我的 DeepSeek"
-            />
-          </div>
+          <ProviderApiFormatField
+            label="API 格式"
+            value={apiFormat}
+            options={API_FORMATS}
+            hint="选择 API 协议格式，影响请求方式和认证方式"
+            onChange={setApiFormat}
+          />
 
-          {/* API 格式 */}
-          <div className="form-group">
-            <label>API 格式</label>
-            <select
-              className="form-input"
-              value={apiFormat}
-              onChange={(e) => setApiFormat(e.target.value)}
-            >
-              {API_FORMATS.map((f) => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-            <span className="form-hint">选择 API 协议格式，影响请求方式和认证方式</span>
-          </div>
-
-          {/* API 地址 */}
-          <div className="form-group">
-            <label>API 地址</label>
-            <div className="input-with-action">
-              <input
-                type="text"
-                className="form-input"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://api.example.com/v1"
-              />
-              {provider.defaultBaseUrl && (
-                <button
-                  className="btn-icon-hint"
-                  onClick={() => setBaseUrl(provider.defaultBaseUrl!)}
-                  title={`恢复默认: ${provider.defaultBaseUrl}`}
-                >
-                  <RotateCcw size={13} />
-                </button>
-              )}
-            </div>
-            {provider.defaultBaseUrl && (
-              <span className="form-hint">{text.defaultValue}: {provider.defaultBaseUrl}</span>
-            )}
-          </div>
-
-          {/* API 密钥 */}
-          <div className="form-group">
-            <label>{text.apiKey}</label>
-            <div className="input-with-action">
-              <div className="input-with-toggle">
-                <input
-                  type={showApiKey ? "text" : "password"}
-                  className="form-input"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                />
-                <button
-                  className="toggle-visibility"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                >
-                  {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
+          <ProviderBaseUrlField
+            label="API 地址"
+            value={baseUrl}
+            placeholder="https://api.example.com/v1"
+            hint={provider.defaultBaseUrl ? `${text.defaultValue}: ${provider.defaultBaseUrl}` : undefined}
+            action={provider.defaultBaseUrl ? (
               <button
+                className="btn-icon-hint"
+                onClick={() => setBaseUrl(provider.defaultBaseUrl!)}
+                title={`恢复默认: ${provider.defaultBaseUrl}`}
+              >
+                <RotateCcw size={13} />
+              </button>
+            ) : undefined}
+            onChange={setBaseUrl}
+          />
+
+          <ProviderApiKeyField
+            label={text.apiKey}
+            value={apiKey}
+            showApiKey={showApiKey}
+            action={(
+              <ProviderTestButton
                 className="btn-test"
-                onClick={handleTestConnection}
+                testing={testing}
+                label={text.test}
                 disabled={testing || !apiKey || !baseUrl}
                 title={text.testConnection}
-              >
-                {testing ? <Loader2 size={14} className="spin" /> : <Zap size={14} />}
-                {text.test}
-              </button>
-            </div>
-          </div>
+                onClick={handleTestConnection}
+              />
+            )}
+            onChange={setApiKey}
+            onToggleVisibility={() => setShowApiKey(!showApiKey)}
+          />
 
-          {/* 测试结果 */}
-          {testResult && (
-            <div className={`test-result ${testResult.success ? "success" : "error"}`}>
-              {testResult.success ? (
-                <><CheckCircle size={14} /> {text.connectionOk(testResult.latency)}</>
-              ) : (
-                <><XCircle size={14} /> {testResult.error || text.connectionFailed}</>
-              )}
-            </div>
-          )}
+          <ProviderTestResult
+            result={testResult}
+            successText={text.connectionOk}
+            errorFallback={text.connectionFailed}
+          />
 
-          {/* 模型选择/输入 */}
-          <div className="form-group">
-            <label>{text.model}</label>
-            <div className="input-with-action">
+          <ProviderModelField
+            label={text.model}
+            selector={(
               <ProviderModelSelector
                 value={model}
                 onChange={handleModelChange}
@@ -288,67 +239,39 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
                 showEmptyOption={isAggregation && !model}
                 preserveCurrentValue
               />
-              {!isAggregation && modelOptions.length === 0 && (
-                <>
-                  <button
-                    className="btn-refresh"
-                    onClick={fetchModels}
-                    disabled={fetchingModels || !apiKey || !baseUrl}
-                    title={text.refreshModels}
-                  >
-                    {fetchingModels ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-                  </button>
-                </>
-              )}
-              {!isAggregation && modelOptions.length > 0 && (
-                <button
-                  className="btn-refresh"
-                  onClick={fetchModels}
-                  disabled={fetchingModels || !apiKey || !baseUrl}
-                  title={text.refreshModels}
-                >
-                  {fetchingModels ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-                </button>
-              )}
-            </div>
-            {provider.defaultModel && (
-              <span className="form-hint">{text.defaultValue}: {provider.defaultModel}</span>
             )}
-            {modelOptions.length > 0 && (
-              <span className="form-hint">{text.availableModels(modelOptions.length)}</span>
-            )}
-          </div>
+            action={!isAggregation ? (
+              <button
+                className="btn-refresh"
+                onClick={fetchModels}
+                disabled={fetchingModels || !apiKey || !baseUrl}
+                title={text.refreshModels}
+              >
+                {fetchingModels ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+              </button>
+            ) : undefined}
+            hints={[
+              ...(provider.defaultModel ? [`${text.defaultValue}: ${provider.defaultModel}`] : []),
+              ...(modelOptions.length > 0 ? [text.availableModels(modelOptions.length)] : []),
+            ]}
+          />
 
-          {/* 上下文窗口大小 */}
-          <div className="form-group">
-            <label>{text.contextWindowSize}</label>
-            <div className="input-with-action">
-              <input
-                type="number"
-                className="form-input context-window-input"
-                value={contextWindowSize || ""}
-                onChange={(e) => {
-                  const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
-                  setContextWindowSize(val && val > 0 ? val : undefined);
-                }}
-                placeholder={text.contextWindowPlaceholder}
-                min={1000}
-                step={1000}
-              />
-              {template?.defaultContextWindowSize && (
-                <button
-                  className="btn-icon-hint"
-                  onClick={() => setContextWindowSize(template.defaultContextWindowSize)}
-                  title={`恢复默认: ${formatTokensAsK(template.defaultContextWindowSize)}`}
-                >
-                  <RotateCcw size={13} />
-                </button>
-              )}
-            </div>
-            {template?.defaultContextWindowSize && (
-              <span className="form-hint">{text.contextWindowHint(template.defaultContextWindowSize)}</span>
-            )}
-          </div>
+          <ProviderContextWindowField
+            label={text.contextWindowSize}
+            value={contextWindowSize}
+            placeholder={text.contextWindowPlaceholder}
+            hint={template?.defaultContextWindowSize ? text.contextWindowHint(template.defaultContextWindowSize) : undefined}
+            action={template?.defaultContextWindowSize ? (
+              <button
+                className="btn-icon-hint"
+                onClick={() => setContextWindowSize(template.defaultContextWindowSize)}
+                title={`恢复默认: ${formatTokensAsK(template.defaultContextWindowSize)}`}
+              >
+                <RotateCcw size={13} />
+              </button>
+            ) : undefined}
+            onChange={setContextWindowSize}
+          />
 
           {/* 思考等级 — 自动根据供应商/API/模型适配 */}
           {reasoningOptionValues.length > 0 && (
@@ -372,26 +295,6 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
               />
             </div>
           )}
-        </div>
-
-        {/* 操作按钮：测试 + 保存 + 取消 */}
-        <div className="dialog-actions">
-          <button
-            className="btn-test-full"
-            onClick={handleTestConnection}
-            disabled={testing || !apiKey || !baseUrl}
-          >
-            {testing ? <Loader2 size={14} className="spin" /> : <Zap size={14} />}
-            {text.testConnection}
-          </button>
-          <div className="dialog-actions-right">
-            <button className="btn-secondary" onClick={onClose}>{text.cancel}</button>
-            <button className="btn-primary" onClick={handleSave}>
-              {text.save}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ProviderDialogFrame>
   );
 };

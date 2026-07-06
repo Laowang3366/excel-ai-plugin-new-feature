@@ -1505,6 +1505,28 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：新增/编辑供应商弹窗表单块复用
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: share provider dialog fields`
+
+**覆盖范围**：
+- 新增 `src/components/settings/ProviderDialogFields.tsx`，复用供应商名称、API 格式、API 地址、API Key、上下文窗口、模型字段、测试按钮和测试结果展示。
+- 新增 `src/components/settings/ProviderDialogFrame.tsx` 与 `ProviderDialogActions.tsx`，复用弹窗外壳和新增/编辑底部操作区。
+- 新增 `src/components/settings/AddProviderTemplateSelect.tsx`，承接新增供应商模板分组下拉。
+- `AddProviderDialog.tsx` 从 379 行降至 295 行，`EditProviderDialog.tsx` 从 393 行降至 299 行。
+
+**业务链路保护**：
+- 不改 `providerDraftFromTemplate()`、`createEmptyProviderDraft()`、`buildProviderConfigFromDraft()` 和 `buildEditProviderPatch()` 的配置构造链路。
+- 不改 `useTestConnection()`、`ipcApi.ai.testConnection()`、`ipcApi.ai.listModels()` 的调用条件和回调入口。
+- 保留新增弹窗“添加 / 测试并添加”、编辑弹窗“测试连接 / 保存”、聚合模型列表和 reasoning 自动适配语义。
+
+**验证证据**：
+- `npm exec vitest run src/components/settings/addProviderDraft.test.ts src/components/settings/editProviderPatch.test.ts src/components/settings/ProviderModelSelector.test.ts src/components/settings/providerReasoningHint.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

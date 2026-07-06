@@ -1,19 +1,7 @@
 /**
  * AddProviderDialog — 添加供应商弹窗子组件
  *
- * 从 ModelSettings.tsx 提取，负责：
- * - 供应商模板选择（直连/聚合/自定义）
- * - 配置表单（名称、API 格式、地址、密钥、模型、上下文窗口、思考等级）
- * - 测试连接 / 测试并添加
- * - 聚合平台的模型列表管理
- *
- * 关联模块：
- * - modelSettingsI18n.ts — 提供 MODEL_TEXT、DIRECT_TEMPLATES、AGGREGATION_TEMPLATES、OTHER_TEMPLATES
- * - settingsStore — PROVIDER_TEMPLATES、API_FORMATS、useSettingsStore
- * - electronApi — AiProviderConfig、ModelConfig、ReasoningMode 类型
- * - useTestConnection — 测试连接共享 hook
- * - ReasoningModeSelect — 思考等级共享组件
- * - ModelConfigList — 聚合模型列表共享组件
+ * 负责供应商模板选择、本地草稿、连接测试和新增提交编排。
  */
 
 import React, { useState } from "react";
@@ -25,20 +13,12 @@ import {
 import type { AiProviderConfig, ModelConfig, ReasoningMode } from "../../electronApi";
 import { ipcApi } from "../../services/ipcApi";
 import {
-  Eye,
-  EyeOff,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  Zap,
-  X,
-} from "../common/IconMap";
-import {
   MODEL_TEXT,
   DIRECT_TEMPLATES,
   AGGREGATION_TEMPLATES,
   OTHER_TEMPLATES,
 } from "./modelSettingsI18n";
+import { AddProviderTemplateSelect } from "./AddProviderTemplateSelect";
 import { useTestConnection } from "./useTestConnection";
 import { ReasoningModeSelect } from "./ReasoningModeSelect";
 import { ModelConfigList } from "./ModelConfigList";
@@ -56,20 +36,24 @@ import {
   type AddProviderDraft,
 } from "./addProviderDraft";
 import { ProviderModelSelector } from "./ProviderModelSelector";
-
-// ============================================================
-// 类型定义
-// ============================================================
+import {
+  ProviderApiFormatField,
+  ProviderApiKeyField,
+  ProviderBaseUrlField,
+  ProviderContextWindowField,
+  ProviderModelField,
+  ProviderNameField,
+  ProviderTestButton,
+  ProviderTestResult,
+} from "./ProviderDialogFields";
+import { ProviderDialogFrame } from "./ProviderDialogFrame";
+import { AddProviderDialogActions } from "./ProviderDialogActions";
 
 export interface AddProviderDialogProps {
   onAdd: (config: AiProviderConfig) => void;
   onClose: () => void;
   generateId: () => string;
 }
-
-// ============================================================
-// 组件实现
-// ============================================================
 
 export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onClose, generateId }) => {
   const { language } = useSettingsStore();
@@ -89,7 +73,6 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
     testFailedText: text.testFailed,
   });
 
-  // 当前选中的模板
   const selectedTemplate = PROVIDER_TEMPLATES.find((t) => t.id === selectedTemplateId) || null;
   const isAggregation = selectedTemplate?.category === "aggregation";
   const reasoningOptionValues = resolveReasoningOptionValues(
@@ -122,7 +105,6 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
     setModelConfigs(draft.modelConfigs);
   };
 
-  // 选择模板后自动填充
   const handleSelectTemplate = (templateId: string) => {
     const template = PROVIDER_TEMPLATES.find((t) => t.id === templateId);
     if (!template) {
@@ -132,13 +114,11 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
     applyDraft(providerDraftFromTemplate(template));
   };
 
-  // 测试模型可用性
   const handleTestModel = () => {
     if (!apiKey || !baseUrl || !model) return;
     testConnection(baseUrl, apiKey, apiFormat, model);
   };
 
-  // 测试并添加
   const handleAddWithTest = async () => {
     if (!apiKey || !baseUrl) return;
     const resolvedModel = model || selectedTemplate?.defaultModel || "";
@@ -160,7 +140,6 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
     }
   };
 
-  // 直接添加（不测试）
   const handleAdd = (resolvedModel?: string) => {
     const config: AiProviderConfig = buildProviderConfigFromDraft({
       id: generateId(),
@@ -187,145 +166,100 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
   const canTestModel = canAdd && model.trim().length > 0;
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog add-provider-dialog" onClick={(e) => e.stopPropagation()}>
-        {/* 标题栏 */}
-        <div className="dialog-header">
-          <h3>{text.addDialogTitle}</h3>
-          <button className="dialog-close" onClick={onClose}><X size={16} /></button>
-        </div>
-
-        {/* 表单内容 */}
-        <div className="dialog-body">
-          {/* 供应商类型下拉选择 */}
-          <div className="form-group">
-            <label className="form-label">{text.providerType}</label>
-            <select
-              className="form-input template-select"
-              value={selectedTemplateId}
-              onChange={(e) => handleSelectTemplate(e.target.value)}
-            >
-              <option value="">{text.customProvider}</option>
-              <optgroup label={text.directProviders}>
-                {DIRECT_TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </optgroup>
-              <optgroup label={text.aggregationProviders}>
-                {AGGREGATION_TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </optgroup>
-              <optgroup label={text.other}>
-                {OTHER_TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
+    <ProviderDialogFrame
+      dialogClassName="add-provider-dialog"
+      title={text.addDialogTitle}
+      onClose={onClose}
+      actions={(
+        <AddProviderDialogActions
+          canAdd={canAdd}
+          testing={testing}
+          cancelLabel={text.cancel}
+          addLabel={text.add}
+          addAndTestLabel={text.addAndTest}
+          testingLabel={text.testing}
+          onCancel={onClose}
+          onAdd={() => handleAdd()}
+          onAddWithTest={handleAddWithTest}
+        />
+      )}
+    >
+          <AddProviderTemplateSelect
+            label={text.providerType}
+            value={selectedTemplateId}
+            customProviderLabel={text.customProvider}
+            directProvidersLabel={text.directProviders}
+            aggregationProvidersLabel={text.aggregationProviders}
+            otherLabel={text.other}
+            directTemplates={DIRECT_TEMPLATES}
+            aggregationTemplates={AGGREGATION_TEMPLATES}
+            otherTemplates={OTHER_TEMPLATES}
+            onChange={handleSelectTemplate}
+          />
 
           {/* 配置表单 */}
           <div className="add-provider-form">
-            <div className="form-group">
-              <label>{text.providerName}</label>
-              <input
-                type="text"
-                className="form-input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={text.providerNamePlaceholder}
-              />
-            </div>
+            <ProviderNameField
+              label={text.providerName}
+              value={name}
+              placeholder={text.providerNamePlaceholder}
+              onChange={setName}
+            />
 
-            <div className="form-group">
-              <label>{text.apiFormat}</label>
-              <select
-                className="form-input"
-                value={apiFormat}
-                onChange={(e) => setApiFormat(e.target.value)}
-              >
-                {API_FORMATS.map((f) => (
-                  <option key={f.value} value={f.value}>{f.label}</option>
-                ))}
-              </select>
-            </div>
+            <ProviderApiFormatField
+              label={text.apiFormat}
+              value={apiFormat}
+              options={API_FORMATS}
+              onChange={setApiFormat}
+            />
 
-            <div className="form-group">
-              <label>{text.apiUrl}</label>
-              <input
-                type="text"
-                className="form-input"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://api.example.com/v1"
-              />
-            </div>
+            <ProviderBaseUrlField
+              label={text.apiUrl}
+              value={baseUrl}
+              placeholder="https://api.example.com/v1"
+              onChange={setBaseUrl}
+            />
 
-            <div className="form-group">
-              <label>{text.apiKey}</label>
-              <div className="input-with-toggle">
-                <input
-                  type={showApiKey ? "text" : "password"}
-                  className="form-input"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
+            <ProviderApiKeyField
+              label={text.apiKey}
+              value={apiKey}
+              showApiKey={showApiKey}
+              onChange={setApiKey}
+              onToggleVisibility={() => setShowApiKey(!showApiKey)}
+            />
+
+            <ProviderModelField
+              label={text.model}
+              selector={(
+                <ProviderModelSelector
+                  value={model}
+                  onChange={setModel}
+                  isAggregation={isAggregation}
+                  modelConfigs={modelConfigs}
+                  modelOptions={selectedTemplate?.presetModels || []}
+                  noModelLabel={text.noModel}
+                  showEmptyOption
                 />
-                <button
-                  className="toggle-visibility"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                >
-                  {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
+              )}
+            />
 
-            {/* 模型选择/输入 */}
-            <div className="form-group">
-              <label>{text.model}</label>
-              <ProviderModelSelector
-                value={model}
-                onChange={setModel}
-                isAggregation={isAggregation}
-                modelConfigs={modelConfigs}
-                modelOptions={selectedTemplate?.presetModels || []}
-                noModelLabel={text.noModel}
-                showEmptyOption
-              />
-            </div>
-
-            {/* 上下文窗口大小 */}
-            <div className="form-group">
-              <label>{text.contextWindowSize}</label>
-              <div className="input-with-action">
-                <input
-                  type="number"
-                  className="form-input context-window-input"
-                  value={contextWindowSize ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
-                    setContextWindowSize(val && val > 0 ? val : undefined);
-                  }}
-                  placeholder={text.contextWindowPlaceholder}
-                  min={1000}
-                  step={1000}
-                />
-                <button
+            <ProviderContextWindowField
+              label={text.contextWindowSize}
+              value={contextWindowSize}
+              placeholder={text.contextWindowPlaceholder}
+              hint={selectedTemplate?.defaultContextWindowSize ? text.contextWindowHint(selectedTemplate.defaultContextWindowSize) : undefined}
+              action={(
+                <ProviderTestButton
                   className="btn-test"
-                  onClick={handleTestModel}
+                  testing={testing}
+                  label={text.testModel}
                   disabled={!canTestModel || testing}
                   title={text.testModel}
-                >
-                  {testing ? <Loader2 size={14} className="spin" /> : <Zap size={14} />}
-                  {text.testModel}
-                </button>
-              </div>
-              {selectedTemplate?.defaultContextWindowSize && (
-                <span className="form-hint">
-                  {text.contextWindowHint(selectedTemplate.defaultContextWindowSize)}
-                </span>
+                  onClick={handleTestModel}
+                />
               )}
-            </div>
+              onChange={setContextWindowSize}
+            />
 
             {/* 思考等级 */}
             {reasoningOptionValues.length > 0 && (
@@ -354,37 +288,11 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
             )}
           </div>
 
-          {/* 测试结果 */}
-          {testResult && (
-            <div className={`test-result ${testResult.success ? "success" : "error"}`}>
-              {testResult.success ? (
-                <><CheckCircle size={14} /> {text.connectionOk(testResult.latency)}</>
-              ) : (
-                <><XCircle size={14} /> {testResult.error || text.connectionFailed}</>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 操作按钮 */}
-        <div className="dialog-actions">
-          <button className="btn-secondary" onClick={onClose}>{text.cancel}</button>
-          <button
-            className="btn-primary"
-            onClick={() => handleAdd()}
-            disabled={!canAdd}
-          >
-            {text.add}
-          </button>
-          <button
-            className="btn-primary"
-            onClick={handleAddWithTest}
-            disabled={!canAdd || testing}
-          >
-            {testing ? <><Loader2 size={14} className="spin" /> {text.testing}</> : <><Zap size={14} /> {text.addAndTest}</>}
-          </button>
-        </div>
-      </div>
-    </div>
+          <ProviderTestResult
+            result={testResult}
+            successText={text.connectionOk}
+            errorFallback={text.connectionFailed}
+          />
+    </ProviderDialogFrame>
   );
 };

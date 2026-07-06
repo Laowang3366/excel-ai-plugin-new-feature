@@ -43,6 +43,7 @@
 - **使用统计数据 helper 拆分**：将 `UsageStats.tsx` 中的文案、数字格式化、stats 行转换和时间范围聚合抽到 `usageStatsData.ts`，补充纯函数测试，页面组件降至 252 行。
 - **新增供应商草稿 helper 拆分**：将 `AddProviderDialog.tsx` 中的模板草稿初始化、空白重置和 `AiProviderConfig` 构造抽到 `addProviderDraft.ts`，补充纯函数测试，保留表单状态、测试连接和渲染链路不变。
 - **供应商模型选择器复用**：将新增/编辑供应商弹窗中的聚合模型下拉、预设模型下拉和自定义模型输入分支收敛到 `ProviderModelSelector.tsx`，两个弹窗继续保留各自保存和测试连接语义。
+- **供应商弹窗表单块复用**：将新增/编辑供应商弹窗共用的模板选择、弹窗外壳、基础字段、测试按钮和结果展示抽到共享组件，`AddProviderDialog.tsx` / `EditProviderDialog.tsx` 分别降至 295 / 299 行。
 - **Markdown 表格解析共享化**：将 MinerU 和本地文档解析共用的 Markdown 表格提取逻辑移到 `electron/shared/markdownTables.ts`，解除 agent executor 对 `main-modules/mineruOcr` 的反向依赖。
 - **线程 IPC wrapper 域拆分**：将 `ipcApi.ts` 中的 `thread` / `threadGraph` wrapper 抽到 `ipcThreadApi.ts`，补充转发与 fallback 测试，主 IPC wrapper 降至 354 行。
 - **知识库设置样式拆分**：将 `KnowledgeSettings` 来源列表、提示 banner 和操作按钮样式移到 `knowledge-settings.css`，并复用主题语义色。
