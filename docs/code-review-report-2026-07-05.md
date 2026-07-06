@@ -876,6 +876,25 @@
 **验证证据**：
 - `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
 - `npm run typecheck`
+
+### P1 可维护性：StateRuntime 工具执行日志链路收敛
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract state runtime tool logs`
+
+**覆盖范围**：
+- 新增 `electron/agent/memory/stateRuntimeToolLogs.ts`，集中维护 `tool_execution_logs` 写入、limit 归一化和行映射。
+- `StateRuntimeStore` 保留 `appendToolExecutionLog` / `listToolExecutionLogs` 公开 API、连接生命周期和跨库事务编排。
+- `stateRuntimeStore.ts` 继续收敛到约 501 行，logs.db 的 rollout 与 tool log SQL 细节已下沉到同层 helper。
+
+**业务链路保护**：
+- `durationMs` 非负取整、`metadata_json` 序列化、按 `id ASC` 查询和默认/最大 limit 保持不变。
+- 跨库事务失败时，工具日志仍随 logs.db 一起回滚。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
+- `npm run typecheck`
 - `npm run build`
 - `git diff --check`
 

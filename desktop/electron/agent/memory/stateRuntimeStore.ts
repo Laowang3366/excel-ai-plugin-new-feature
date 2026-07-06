@@ -13,7 +13,6 @@ import {
   mapLongTermMemory,
   mapMemory,
   mapThreadSnapshot,
-  mapToolExecutionLog,
 } from "./stateRuntimeMappers";
 import { extractRolloutSearchContent } from "./rolloutSearchContent";
 import {
@@ -38,6 +37,10 @@ import {
   listRolloutEventsFromLogs,
   searchRolloutMatchesInLogs,
 } from "./stateRuntimeRolloutEvents";
+import {
+  appendToolExecutionLogToLogs,
+  listToolExecutionLogsFromLogs,
+} from "./stateRuntimeToolLogs";
 import type {
   RuntimeConnections,
   RuntimeDatabasePaths,
@@ -261,37 +264,14 @@ export class StateRuntimeStore {
   }
 
   async appendToolExecutionLog(record: RuntimeToolExecutionLogRecord): Promise<void> {
-    this.getDbs().logs.prepare(
-      `INSERT INTO tool_execution_logs (
-        thread_id, turn_id, tool_call_id, tool_name, status, duration_ms,
-        timestamp, arguments_summary, result_summary, error, metadata_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      record.threadId,
-      record.turnId,
-      record.toolCallId,
-      record.toolName,
-      record.status,
-      Math.max(0, Math.floor(record.durationMs)),
-      record.timestamp,
-      record.argumentsSummary,
-      record.resultSummary,
-      record.error ?? null,
-      record.metadata ? JSON.stringify(record.metadata) : null
-    );
+    appendToolExecutionLogToLogs(this.getDbs().logs, record);
   }
 
   async listToolExecutionLogs(
     threadId: ThreadId,
     options: { limit?: number } = {}
   ): Promise<RuntimeToolExecutionLogRecord[]> {
-    const rows = this.getDbs().logs.prepare(
-      `SELECT * FROM tool_execution_logs
-       WHERE thread_id = ?
-       ORDER BY id ASC
-       LIMIT ?`
-    ).all(threadId, clampNumber(options.limit, { fallback: 200, min: 1, max: 1000 })) as Record<string, any>[];
-    return rows.map(mapToolExecutionLog);
+    return listToolExecutionLogsFromLogs(this.getDbs().logs, threadId, options);
   }
 
   async appendThreadName(threadId: ThreadId, name: string, updatedAt = Date.now()): Promise<void> {
