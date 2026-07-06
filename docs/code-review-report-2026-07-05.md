@@ -52,6 +52,30 @@
 - `Select-String` 复核上述 handler 中 `validateInput` 与对应 schema 的调用点。
 - `git diff --check`
 
+### 2026-07-06 — M1：Office COM 进程探测共享化
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: share office process detection`
+
+**覆盖范围**：
+- 新增 `detectOfficeProcess()` 到 `desktop/electron/agent/tools/implementations/office/officeComPowerShell.ts`，统一 Word/PPT 的 Office/WPS 进程探测脚本生成、token 映射和异常 fallback。
+- `wordComBridge.ts` 与 `presentationComBridge.ts` 改为复用该 helper，保留原有 host 优先级：Word 优先 `WINWORD`，WPS 文字检测 `wps`；PPT 优先 `POWERPNT`，WPS 演示检测 `wpp/wps`。
+- 新增 `presentationComScripts.ts`，集中 PPT 形状文本读取与 slide layout resolver PowerShell 片段；`presentationComBridge.ts` 只保留 COM 连接、文档操作和调用编排。
+- `presentationComBridge.ts` 从 423 行降至 386 行，低于 400 行上限；当前全仓剩余超限文件收敛为 `electronApi.d.ts`、`shared/types.ts`、`excelComBridge.ts` 三个集中协议/桥接边界。
+- 更新测试源静态基线为 154 个测试文件、768 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 `detectStatus()`、`open/create/save`、PPT 读写、Word 读写或 COM ProgID 顺序。
+- 进程探测仍通过 `executePowerShell`，失败时继续返回 `{ running: false, availableHosts: [] }`。
+- PPT/WPS 共享进程名 `wps` 检测由现有测试继续覆盖。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/implementations/office/officeComPowerShell.test.ts electron/agent/tools/implementations/office/presentationComBridge.test.ts electron/agent/tools/implementations/office/wordComBridge.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — T3：知识库分块/检索测试补强
 
 **状态**：✅ 阶段性已修复
@@ -2012,20 +2036,15 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 
 #### 🔴 M1 — 超标文件 TOP 15（完整列表见附录）
 
+**状态**：✅ 主入口与业务模块已阶段性收敛；当前仅剩 3 个集中协议/桥接边界略超，后续只在有自然职责边界时继续拆分。
+
 | 文件 | 行数 | 上限 | 超出 | 拆分建议 |
 |------|------|------|------|----------|
-| `electron/agent/core/agentLoop/agentLoop.ts` | **1276** | 400 | +876 | 按职责拆为 runner/streamHandler/snapshot |
-| `electron/main-modules/ipcHandlers.ts` | **1057** | 400 | +657 | 按业务域拆为 threadIpc/settingsIpc/excelIpc 等 |
-| `src/components/Sidebar.tsx` | **775** | 300 | +475 | 拆出 SidebarCollapsed/Expanded/SortMenu |
-| `src/store/settingsStore.ts` | **749** | 400 | +349 | PROVIDER_TEMPLATES 常量抽到独立文件 |
-| `src/services/ipcApi.ts` | **745** | 400 | +345 | 按域拆分（agentApi/threadApi/settingsApi） |
-| `electron/agent/memory/sessionStore.ts` | **674** | 400 | +274 | — |
-| `electron/agent/memory/stateRuntimeStore.ts` | **671** | 400 | +271 | — |
-| `electron/agent/tools/implementations/officeOpenXml/advancedExcel.ts` | **662** | 400 | +262 | — |
-| `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
-| `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
-| `electron/agent/core/agentLoop/toolExecutor.ts` | **355** | 400 | -45 | 已低于上限 |
-**完整超标清单**：共 25 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
+| `src/electronApi.d.ts` | **483** | 400 | +83 | 集中 preload/API 类型声明，暂不为行数硬拆 |
+| `electron/agent/shared/types.ts` | **455** | 400 | +55 | Agent 协议集中类型，暂不为行数硬拆 |
+| `electron/agent/tools/implementations/excel/excelComBridge.ts` | **409** | 400 | +9 | Excel COM 连接状态机，后续有自然边界时再收敛 |
+
+**完整超标清单**：当前共 3 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -2352,35 +2371,13 @@ useEffect(() => {
 
 ## 附录 A：超过行数限制的文件完整列表
 
-### TS/TSX 文件（25 个）
+### TS/TSX 文件（3 个）
 
 | 行数 | 文件 |
 |------|------|
-| 1276 | `electron/agent/core/agentLoop/agentLoop.ts` |
-| 1057 | `electron/main-modules/ipcHandlers.ts` |
-| 775 | `src/components/Sidebar.tsx` |
-| 749 | `src/store/settingsStore.ts` |
-| 674 | `electron/agent/memory/sessionStore.ts` |
-| 671 | `electron/agent/memory/stateRuntimeStore.ts` |
-| 662 | `electron/agent/tools/implementations/officeOpenXml/advancedExcel.ts` |
-| 623 | `src/store/chatStore.ts` |
-| 600 | `src/components/task/OCRTaskComposerPanel.tsx` |
-| 355 | `electron/agent/core/agentLoop/toolExecutor.ts` |
-| 554 | `electron/agent/tools/executors/webSearchExecutors.ts` |
-| 544 | `electron/agent/knowledge/documentParser.ts` |
-| 537 | `electron/agent/knowledge/sqliteStore.ts` |
-| 509 | `electron/agent/tools/implementations/office/officeComActionBridge.ts` |
-| 494 | `src/electronApi.d.ts` |
-| 406 | `electron/agent/tools/implementations/officeOpenXml/advancedPresentation.ts` |
-| 481 | `electron/agent/providers/openaiResponsesClient.ts` |
-| 473 | `electron/agent/tools/implementations/excel/excelComBridge.ts` |
-| 470 | `electron/agent/shared/types.ts` |
-| 393 | `src/components/settings/EditProviderDialog.tsx` |
-| 336 | `src/hooks/useComposer.ts` |
-| 427 | `electron/agent/tools/implementations/office/presentationComBridge.ts` |
-| 426 | `electron/main-modules/settingsManager.ts` |
-| 379 | `src/components/settings/AddProviderDialog.tsx` |
-| 252 | `src/components/settings/UsageStats.tsx` |
+| 483 | `src/electronApi.d.ts` |
+| 455 | `electron/agent/shared/types.ts` |
+| 409 | `electron/agent/tools/implementations/excel/excelComBridge.ts` |
 
 ### CSS 文件（0 个）
 

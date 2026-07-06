@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Office COM 进程探测共享化**：新增 `detectOfficeProcess()`，Word/PPT COM bridge 共用 Office/WPS 进程探测脚本；PPT 专用形状/版式 PowerShell 片段移入 `presentationComScripts.ts`，`presentationComBridge.ts` 降至 386 行。
 - **S1/S2 IPC 审查状态校正**：核对当前 `ipcHandlers`、`ipcFileHandlers`、`ipcAgentHandlers`、OCR/沙箱/AI 子 handler 后，更新审查报告中已过时的 “Schema 未调用” 表格，明确相关 IPC 已接入 `validateInput`。
 - **T3 测试覆盖阶段性闭环**：更新审查报告中 electron/agent 高风险无测试节选状态；sandbox、AgentLoop 状态机、知识库分块/检索和 Python 执行器均已有对应覆盖，后续测试补强按新增变更和真实风险继续推进。
 - **AgentLoop 状态机测试补强**：新增 `threadStateManager.test.ts` 和 `turnRunner.test.ts`，覆盖线程运行态 idle unload、running/active/unloaded/clear 状态转换，以及 Turn/UserMessage/complete 的结构契约。
@@ -26,7 +27,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 154 个测试文件、766 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 154 个测试文件、768 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。

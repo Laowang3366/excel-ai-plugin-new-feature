@@ -11,6 +11,7 @@ import { safeJsonParse } from "../../../automation/json";
 import {
   buildAcquireOfficeAppScript,
   buildTargetOfficeFileResolverScript,
+  detectOfficeProcess,
   findActiveOfficeComProgId,
   psNullableVar,
   verifyDirectOfficeCom,
@@ -318,19 +319,12 @@ ${buildScript("$app", `'${progId}'`, "$doc")}
   private async detectWordProcess(): Promise<{
     running: boolean; availableHosts: WordHost[];
   }> {
-    try {
-      const result = await executePowerShell(`
-        $w = Get-Process -Name "WINWORD" -ErrorAction SilentlyContinue
-        $wp = Get-Process -Name "wps" -ErrorAction SilentlyContinue
-        if ($w) { "WORD" } elseif ($wp) { "WPS" } else { "NONE" }
-      `);
-      const trimmed = result.trim();
-      if (trimmed === "NONE" || !trimmed) return { running: false, availableHosts: [] };
-      const host: WordHost = trimmed === "WPS" ? "wps" : "word";
-      return { running: true, availableHosts: [host] };
-    } catch {
-      return { running: false, availableHosts: [] };
-    }
+    return detectOfficeProcess<WordHost>({
+      checks: [
+        { token: "WORD", host: "word", processNames: ["WINWORD"] },
+        { token: "WPS", host: "wps", processNames: ["wps"] },
+      ],
+    });
   }
 
   private async verifyComAvailable(hosts: WordHost[]): Promise<{

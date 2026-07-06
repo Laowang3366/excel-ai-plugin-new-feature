@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   buildAcquireOfficeAppScript,
   buildTargetOfficeFileResolverScript,
+  detectOfficeProcess,
   findActiveOfficeComProgId,
   psNullableVar,
   verifyDirectOfficeCom,
@@ -103,5 +104,31 @@ describe("officeComPowerShell", () => {
     });
 
     expect(result).toEqual({ progId: "Kwps.Application", host: "wps", version: "12.0" });
+  });
+
+  test("detects Office process hosts through ordered process checks", async () => {
+    executePowerShellMock.mockResolvedValueOnce("WPP");
+
+    const result = await detectOfficeProcess({
+      checks: [
+        { token: "PPT", host: "powerpoint", processNames: ["POWERPNT"] },
+        { token: "WPP", host: "wpp", processNames: ["wpp", "wps"] },
+      ],
+    });
+
+    expect(result).toEqual({ running: true, availableHosts: ["wpp"] });
+    expect(executePowerShellMock).toHaveBeenCalledWith(expect.stringContaining("@('wpp', 'wps')"));
+  });
+
+  test("returns no available hosts when process detection fails", async () => {
+    executePowerShellMock.mockRejectedValueOnce(new Error("powershell unavailable"));
+
+    const result = await detectOfficeProcess({
+      checks: [
+        { token: "WORD", host: "word", processNames: ["WINWORD"] },
+      ],
+    });
+
+    expect(result).toEqual({ running: false, availableHosts: [] });
   });
 });

@@ -112,7 +112,7 @@ describe("PresentationComBridge COM lifetime", () => {
 
     const processScript = executePowerShellMock.mock.calls[0][0];
     const fallbackVerifyScript = executePowerShellMock.mock.calls[2][0];
-    expect(processScript).toContain("Get-Process -Name \"wps\"");
+    expect(processScript).toContain("@('wpp', 'wps')");
     expect(fallbackVerifyScript).toContain("'Kwpp.Application'");
     expect(status).toMatchObject({ connected: true, host: "wpp", presentationName: "demo.pptx" });
   });

@@ -46,6 +46,21 @@ export interface ActiveOfficeComProgId<THost extends string> {
   version?: string;
 }
 
+export interface DetectOfficeProcessCheck<THost extends string> {
+  token: string;
+  host: THost;
+  processNames: readonly string[];
+}
+
+export interface DetectOfficeProcessOptions<THost extends string> {
+  checks: readonly DetectOfficeProcessCheck<THost>[];
+}
+
+export interface DetectOfficeProcessResult<THost extends string> {
+  running: boolean;
+  availableHosts: THost[];
+}
+
 export function progIdsLiteral(progIds: readonly string[]): string {
   return "@(" + progIds.map((id) => `'${id}'`).join(", ") + ")";
 }
@@ -57,6 +72,22 @@ export function psStringLiteral(value?: string | null): string {
 
 export function psNullableVar(name: string, value?: string | null): string {
   return value ? psVar(name, value) : `$${name} = $null`;
+}
+
+export async function detectOfficeProcess<THost extends string>(
+  options: DetectOfficeProcessOptions<THost>,
+): Promise<DetectOfficeProcessResult<THost>> {
+  try {
+    const script = buildOfficeProcessDetectionScript(options.checks);
+    const result = await executePowerShell(script);
+    const token = result.trim();
+    const match = options.checks.find((check) => check.token === token);
+    return match
+      ? { running: true, availableHosts: [match.host] }
+      : { running: false, availableHosts: [] };
+  } catch {
+    return { running: false, availableHosts: [] };
+  }
 }
 
 export function buildAcquireOfficeAppScript(options: AcquireOfficeAppScriptOptions): string {
@@ -183,6 +214,21 @@ export async function findActiveOfficeComProgId<THost extends string>(
     } catch { /* next */ }
   }
   return null;
+}
+
+function buildOfficeProcessDetectionScript<THost extends string>(
+  checks: readonly DetectOfficeProcessCheck<THost>[],
+): string {
+  const declarations = checks.map((check, index) => `
+$match${index} = $false
+foreach ($name in ${progIdsLiteral(check.processNames)}) {
+  if (Get-Process -Name $name -ErrorAction SilentlyContinue) { $match${index} = $true; break }
+}`).join("\n");
+  const branches = checks
+    .map((check, index) => `${index === 0 ? "if" : "elseif"} ($match${index}) { "${check.token}" }`)
+    .join(" ");
+  return `${declarations}
+${branches} else { "NONE" }`;
 }
 
 async function verifySingleOfficeComProgId(
