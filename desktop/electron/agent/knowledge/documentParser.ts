@@ -10,6 +10,7 @@ import * as path from "path";
 import JSZip from "jszip";
 import { extractOpenXmlParagraphTexts, extractOpenXmlTextValues } from "../shared/openXmlText";
 import { decodeXmlText } from "../shared/xmlEntities";
+import { flattenJson } from "./jsonFlatten";
 import type { KnowledgeFileType } from "./types";
 
 const MAX_EXCEL_PARSE_BYTES = 25 * 1024 * 1024;
@@ -202,7 +203,7 @@ export class DocumentParser {
       throw new Error(`JSON 解析失败: ${sourceName} (${error?.message || "格式错误"})`);
     }
 
-    const allLines = this.flattenJson(parsed);
+    const allLines = flattenJson(parsed);
     const lines = allLines.slice(0, MAX_JSON_LINES);
     if (allLines.length > MAX_JSON_LINES) {
       lines.push(`...（还有 ${allLines.length - MAX_JSON_LINES} 个 JSON 字段未展示）`);
@@ -444,41 +445,6 @@ export class DocumentParser {
     const endCol = Math.max(1, parsedRows.maxCol);
     const endRow = Math.max(1, parsedRows.maxRow || parsedRows.totalRows);
     return `A1:${this.toCellAddress(endCol, endRow)}`;
-  }
-
-  private flattenJson(value: unknown, pathKey = "$", lines: string[] = []): string[] {
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        lines.push(`${pathKey}: []`);
-        return lines;
-      }
-      value.forEach((item, index) => this.flattenJson(item, `${pathKey}[${index}]`, lines));
-      return lines;
-    }
-
-    if (value && typeof value === "object") {
-      const entries = Object.entries(value as Record<string, unknown>);
-      if (entries.length === 0) {
-        lines.push(`${pathKey}: {}`);
-        return lines;
-      }
-      for (const [key, child] of entries) {
-        const childPath = /^[A-Za-z_$][\w$]*$/.test(key)
-          ? `${pathKey}.${key}`
-          : `${pathKey}[${JSON.stringify(key)}]`;
-        this.flattenJson(child, childPath, lines);
-      }
-      return lines;
-    }
-
-    lines.push(`${pathKey}: ${this.jsonScalarToText(value)}`);
-    return lines;
-  }
-
-  private jsonScalarToText(value: unknown): string {
-    if (typeof value === "string") return value;
-    if (value === null) return "null";
-    return String(value);
   }
 
   private extractFirstTag(xml: string, tagName: string): string | undefined {
