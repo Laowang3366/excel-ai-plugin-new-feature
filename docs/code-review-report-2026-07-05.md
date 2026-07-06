@@ -366,7 +366,7 @@
 - 新增 `components/settings/usageStatsData.ts`，集中使用统计文案、模型颜色、数字/日期格式化、`stats:getSummary` 行转换和时间范围聚合。
 - `UsageStats.tsx` 改为通过 `buildUsageStatsData()` 获取视图数据，组件保留 IPC 加载、状态和 JSX 渲染职责。
 - 新增 `usageStatsData.test.ts`，覆盖零 token 过滤、行排序、按范围聚合、模型排序、连续天数、估算标记和格式化输出。
-- 同步 `CHANGELOG.md` 当前测试源基线为 139 个测试文件、715 个 `it/test` 用例。
+- 同步 `CHANGELOG.md` 阶段性测试源基线为 139 个测试文件、715 个 `it/test` 用例。
 
 **业务链路保护**：
 - `ipcApi.stats.getSummary()` 调用、loading/error 状态、范围切换、刷新按钮、图表 DOM/className 和样式入口均未改动。
@@ -374,6 +374,28 @@
 
 **验证证据**：
 - `npm exec vitest run src/components/settings/usageStatsData.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+### 2026-07-06 — M1 可维护性：`AddProviderDialog` 草稿 helper 拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract add provider draft helpers`
+
+**覆盖范围**：
+- 新增 `components/settings/addProviderDraft.ts`，集中新增供应商弹窗的空白草稿、模板草稿和 `AiProviderConfig` 构造逻辑。
+- `AddProviderDialog.tsx` 保留表单状态、模板选择事件、测试连接、聚合模型列表和 JSX 渲染职责，仅将字段批量赋值与最终配置拼装委托给 helper。
+- 新增 `addProviderDraft.test.ts`，覆盖空白/模板草稿、模板供应商配置构造、自定义供应商默认值和空可选字段处理。
+- 同步 `CHANGELOG.md` 当前测试源基线为 140 个测试文件、718 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 `useTestConnection`、`ipcApi.ai.testConnection()`、`ReasoningModeSelect`、`ModelConfigList`、模板列表和按钮启用条件。
+- 继续沿用 `effectiveReasoningMode` 写入 `enableReasoning/reasoningMode`，聚合平台 `modelConfigs` 为空时仍不写入可选字段。
+
+**验证证据**：
+- `npm exec vitest run src/components/settings/addProviderDraft.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
@@ -1643,7 +1665,7 @@ useEffect(() => {
 | 427 | `electron/agent/tools/implementations/office/presentationComBridge.ts` |
 | 426 | `electron/main-modules/settingsManager.ts` |
 | 423 | `electron/agent/providers/openaiCompatibleClient.ts` |
-| 419 | `src/components/settings/AddProviderDialog.tsx` |
+| 409 | `src/components/settings/AddProviderDialog.tsx` |
 | 252 | `src/components/settings/UsageStats.tsx` |
 | 404 | `electron/main-modules/mineruOcr.ts` |
 

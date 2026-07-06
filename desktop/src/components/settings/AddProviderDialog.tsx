@@ -50,6 +50,12 @@ import {
   resolveReasoningOptionValues,
 } from "../../utils/reasoningSupport";
 import { buildReasoningAutoHint } from "./providerReasoningHint";
+import {
+  buildProviderConfigFromDraft,
+  createEmptyProviderDraft,
+  providerDraftFromTemplate,
+  type AddProviderDraft,
+} from "./addProviderDraft";
 
 // ============================================================
 // 类型定义
@@ -105,28 +111,25 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
   );
   const reasoningAutoHint = buildReasoningAutoHint(reasoningOptionValues, language);
 
+  const applyDraft = (draft: AddProviderDraft) => {
+    setSelectedTemplateId(draft.selectedTemplateId);
+    setName(draft.name);
+    setApiFormat(draft.apiFormat);
+    setBaseUrl(draft.baseUrl);
+    setModel(draft.model);
+    setContextWindowSize(draft.contextWindowSize);
+    setReasoningMode(draft.reasoningMode);
+    setModelConfigs(draft.modelConfigs);
+  };
+
   // 选择模板后自动填充
   const handleSelectTemplate = (templateId: string) => {
     const template = PROVIDER_TEMPLATES.find((t) => t.id === templateId);
     if (!template) {
-      setSelectedTemplateId("");
-      setName("");
-      setApiFormat("openai");
-      setBaseUrl("");
-      setModel("");
-      setContextWindowSize(undefined);
-      setReasoningMode("off");
-      setModelConfigs([]);
+      applyDraft(createEmptyProviderDraft());
       return;
     }
-    setSelectedTemplateId(templateId);
-    setName(template.name);
-    setApiFormat(template.apiFormat);
-    setBaseUrl(template.baseUrl);
-    setModel(template.defaultModel);
-    setContextWindowSize(template.defaultContextWindowSize);
-    setReasoningMode(template.defaultReasoningMode || "off");
-    setModelConfigs([]);
+    applyDraft(providerDraftFromTemplate(template));
   };
 
   // 测试模型可用性
@@ -159,23 +162,24 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
 
   // 直接添加（不测试）
   const handleAdd = (resolvedModel?: string) => {
-    const finalModel = resolvedModel || model || selectedTemplate?.defaultModel || "";
-    const config: AiProviderConfig = {
+    const config: AiProviderConfig = buildProviderConfigFromDraft({
       id: generateId(),
-      name: name || (selectedTemplate?.name || text.customProvider),
-      provider: selectedTemplate?.provider || "custom",
-      apiKey,
-      baseUrl,
-      model: finalModel,
-      defaultBaseUrl: selectedTemplate?.baseUrl || baseUrl,
-      defaultModel: selectedTemplate?.defaultModel || "",
-      enableReasoning: effectiveReasoningMode !== "off" ? true : undefined,
-      reasoningMode: effectiveReasoningMode,
-      apiFormat,
-      models: selectedTemplate?.presetModels || undefined,
-      modelConfigs: modelConfigs.length > 0 ? modelConfigs : undefined,
-      contextWindowSize: contextWindowSize && contextWindowSize > 0 ? contextWindowSize : undefined,
-    };
+      draft: {
+        selectedTemplateId,
+        name,
+        apiFormat,
+        baseUrl,
+        apiKey,
+        model,
+        contextWindowSize,
+        reasoningMode,
+        modelConfigs,
+      },
+      selectedTemplate,
+      effectiveReasoningMode,
+      customProviderName: text.customProvider,
+      resolvedModel,
+    });
     onAdd(config);
   };
 
