@@ -6,12 +6,15 @@
  */
 
 import type { ExcelWorkbookBridge, RangeReadExpandMode, RangeReadResult } from "../../contracts/excel";
-import { executePowerShell } from "../../../automation/powershell";
 import {
   normalizeWorkbookInspectMetadata,
   resolveSpreadsheetHost,
   type SpreadsheetHost,
 } from "./connectionMetadata";
+import {
+  detectExcelProcess,
+  verifyExcelComAvailable,
+} from "./excelConnectionProbe";
 import {
   createWorkbookOperation,
   inspectWorkbookOperation,
@@ -80,7 +83,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
     availableHosts?: string[];
   }> {
     try {
-      const proc = await this.detectExcelProcess();
+      const proc = await detectExcelProcess();
       if (!proc.running) {
         // 进程不存在，同步断开内部状态
         this._connected = false;
@@ -96,7 +99,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
         this._connected = false;
         // 如果之前已经选择过，用选择的宿主尝试连接
         if (this._selectedHost) {
-          const comResult = await this.verifyComAvailable(this._selectedHost);
+          const comResult = await verifyExcelComAvailable(this._selectedHost);
           if (comResult.available) {
             this._connected = true;
             this._host = this._selectedHost;
@@ -128,7 +131,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
       }
 
       // 仅有一个宿主运行 → 正常流程
-      const comResult = await this.verifyComAvailable(singleHost);
+      const comResult = await verifyExcelComAvailable(singleHost);
       if (comResult.available) {
         this._connected = true;
         this._host = singleHost;
@@ -180,7 +183,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
     workbookName?: string;
   }> {
     this._selectedHost = host;
-    const comResult = await this.verifyComAvailable(host);
+    const comResult = await verifyExcelComAvailable(host);
     if (comResult.available) {
       this._connected = true;
       this._host = host;
@@ -349,7 +352,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
   ): Promise<ExcelConnectionStatus> {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const proc = await this.detectExcelProcess();
+        const proc = await detectExcelProcess();
         const currentHost = allowCurrentHostFallback ? this._host : "unknown";
         const targetHost = resolveSpreadsheetHost(proc.availableHosts, this._selectedHost, currentHost);
         if (!proc.running || !targetHost) {
@@ -373,7 +376,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
         }
 
         // 验证 COM 可用性
-        const comResult = await this.verifyComAvailable(targetHost);
+        const comResult = await verifyExcelComAvailable(targetHost);
         if (comResult.available) {
           this._connected = true;
           this._comVersion = comResult.version;
@@ -402,72 +405,5 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
       }
     }
     return { connected: false, host: "unknown" };
-  }
-
-  /** 检测 Excel/WPS 是否在运行 */
-  private async detectExcelProcess(): Promise<{
-    running: boolean;
-    host: "excel" | "wps" | "unknown";
-    /** 可用宿主列表（仅 running=true 时有效） */
-    availableHosts: ("excel" | "wps")[];
-  }> {
-    try {
-      const result = await executePowerShell(`
-        $excel = Get-Process -Name "EXCEL" -ErrorAction SilentlyContinue
-        $wps = Get-Process -Name "et" -ErrorAction SilentlyContinue
-        $hosts = @()
-        if ($excel) { $hosts += "EXCEL" }
-        if ($wps)   { $hosts += "WPS" }
-        if ($hosts.Count -eq 0) { "NONE" } else { $hosts -join "," }
-      `);
-      const trimmed = result.trim();
-      if (trimmed === "NONE" || !trimmed) {
-        return { running: false, host: "unknown", availableHosts: [] };
-      }
-      const hosts = trimmed.split(",").map((h: string) =>
-        h.trim() === "WPS" ? "wps" : "excel"
-      ) as ("excel" | "wps")[];
-
-      return {
-        running: true,
-        host: hosts[0], // 兼容旧字段，第一个为主
-        availableHosts: hosts,
-      };
-    } catch {
-      return { running: false, host: "unknown", availableHosts: [] };
-    }
-  }
-
-  /** 验证 COM 对象可用性，并获取版本号和工作簿名称 */
-  private async verifyComAvailable(host: "excel" | "wps"): Promise<{
-    available: boolean;
-    version?: string;
-    workbookName?: string;
-  }> {
-    try {
-      const progId = host === "wps" ? "Ket.Application" : "Excel.Application";
-      const result = await executePowerShell(`
-        try {
-          $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject('${progId}')
-          $ver = $app.Version
-          $wb = $app.ActiveWorkbook
-          $wbName = if ($wb) { $wb.Name } else { '' }
-          "OK|$ver|$wbName"
-        } catch {
-          "FAIL"
-        }
-      `);
-      if (result.startsWith("OK|")) {
-        const parts = result.split("|");
-        return {
-          available: true,
-          version: parts[1] || undefined,
-          workbookName: parts[2] || undefined,
-        };
-      }
-      return { available: false };
-    } catch {
-      return { available: false };
-    }
   }
 }

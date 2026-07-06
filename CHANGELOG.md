@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Excel 连接探测职责拆分**：新增 `excelConnectionProbe.ts`，集中维护 Excel/WPS 进程探测与 COM 可用性验证；`excelComBridge.ts` 保留连接状态机、宿主选择、重试和工作簿/区域/公式编排，避免连接检测脚本与业务桥接逻辑继续混在同一个类中。
 - **Office COM action 脚本模板拆分**：将 `officeComActionBridge.ts` 中 Excel/Word/PowerPoint 的 PowerShell 脚本构建逻辑迁移到 `officeComActionScripts.ts`，参数解析、输出路径、颜色转换和变更描述迁移到 `officeComActionScriptHelpers.ts`；主 bridge 保留支持判断、执行、JSON 解析和结果归一化，COM fallback 行为与测试断言保持不变。
 - **StateRuntime goals/memories 表级 CRUD 收敛**：新增 `stateRuntimeGoals.ts` 与 `stateRuntimeMemories.ts`，将 goals、短期记忆、长期记忆和 memory pipeline cursor 的 SQL 细节下沉到表级 helper；`StateRuntimeStore` 回到 400 行以内，继续负责四库生命周期、事务和对外 API。
 - **StateRuntime 工具执行日志链路收敛**：新增 `electron/agent/memory/stateRuntimeToolLogs.ts`，集中维护 `tool_execution_logs` 写入、limit 归一化和行映射；`StateRuntimeStore` 继续保留公开入口与跨库事务编排。现有工具日志存储、查询和事务回滚测试继续通过。

@@ -877,6 +877,28 @@
 - `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
 - `npm run typecheck`
 
+### P1 可维护性：Excel 连接探测职责拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract excel connection probe`
+
+**覆盖范围**：
+- 新增 `electron/agent/tools/implementations/excel/excelConnectionProbe.ts`，集中维护 Excel/WPS 进程探测和 COM 活跃对象验证。
+- `excelComBridge.ts` 只替换原私有方法调用点，继续保留连接状态机、宿主选择、重试、工作簿操作、range 读写和公式上下文入口。
+- 文件拆分以职责边界为准，没有为了压行数拆散连接流程；`excelComBridge.ts` 从约 403 行收敛到约 368 行。
+
+**业务链路保护**：
+- `detectExcelProcess()` 的返回结构仍包含 `running`、`host`、`availableHosts`，继续兼容 Excel/WPS 双宿主选择。
+- `verifyExcelComAvailable()` 仍按 `Excel.Application` / `Ket.Application` ProgID 获取活跃 COM 对象，并保留版本号和活动工作簿名称回传。
+- `ensureConnectedInternal`、`checkStatus`、`selectHost` 的状态写入、重试和 fallback 语义保持不变。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/implementations/excel/excelComBridge.test.ts electron/agent/tools/implementations/excel/rangeOperations.test.ts electron/agent/tools/implementations/excel/formulaOperations.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复
