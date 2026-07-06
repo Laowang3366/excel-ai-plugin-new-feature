@@ -388,7 +388,7 @@
 - 新增 `components/settings/addProviderDraft.ts`，集中新增供应商弹窗的空白草稿、模板草稿和 `AiProviderConfig` 构造逻辑。
 - `AddProviderDialog.tsx` 保留表单状态、模板选择事件、测试连接、聚合模型列表和 JSX 渲染职责，仅将字段批量赋值与最终配置拼装委托给 helper。
 - 新增 `addProviderDraft.test.ts`，覆盖空白/模板草稿、模板供应商配置构造、自定义供应商默认值和空可选字段处理。
-- 同步 `CHANGELOG.md` 当前测试源基线为 140 个测试文件、718 个 `it/test` 用例。
+- 同步 `CHANGELOG.md` 阶段性测试源基线为 140 个测试文件、718 个 `it/test` 用例。
 
 **业务链路保护**：
 - 不改 `useTestConnection`、`ipcApi.ai.testConnection()`、`ReasoningModeSelect`、`ModelConfigList`、模板列表和按钮启用条件。
@@ -396,6 +396,29 @@
 
 **验证证据**：
 - `npm exec vitest run src/components/settings/addProviderDraft.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+### 2026-07-06 — M1 可维护性：Markdown 表格解析共享化
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: share markdown table extraction`
+
+**覆盖范围**：
+- 新增 `electron/shared/markdownTables.ts`，集中 GitHub 风格 Markdown 表格行提取逻辑。
+- `mineruOcr.ts` 改为消费共享解析函数，文件从 404 行降至 367 行，低于 400 行上限。
+- `localDocumentParser.ts` 不再从 `main-modules/mineruOcr` 导入通用 helper，改为依赖 `electron/shared/markdownTables.ts`，解除 agent executor 对主进程 OCR 模块的反向依赖。
+- 新增 `markdownTables.test.ts`，并保留 `mineruOcr.test.ts` 对 MinerU 付费/免费流程和表格结果结构的覆盖。
+- 同步 `CHANGELOG.md` 当前测试源基线为 141 个测试文件、719 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 MinerU 付费批量流程、Agent 免费流程、签名上传、轮询、ZIP/Markdown 下载、错误格式化和本地文档解析策略。
+- Markdown 表格解析算法原样迁移，OCR 结果中的 `rows` 结构保持不变。
+
+**验证证据**：
+- `npm exec vitest run electron/shared/markdownTables.test.ts electron/main-modules/mineruOcr.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
@@ -1308,7 +1331,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **355** | 400 | -45 | 已低于上限 |
-**完整超标清单**：共 29 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 28 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1635,7 +1658,7 @@ useEffect(() => {
 
 ## 附录 A：超过行数限制的文件完整列表
 
-### TS/TSX 文件（29 个）
+### TS/TSX 文件（28 个）
 
 | 行数 | 文件 |
 |------|------|
@@ -1667,7 +1690,6 @@ useEffect(() => {
 | 423 | `electron/agent/providers/openaiCompatibleClient.ts` |
 | 409 | `src/components/settings/AddProviderDialog.tsx` |
 | 252 | `src/components/settings/UsageStats.tsx` |
-| 404 | `electron/main-modules/mineruOcr.ts` |
 
 ### CSS 文件（0 个）
 

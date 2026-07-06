@@ -4,7 +4,8 @@ import * as path from "path";
 import JSZip from "jszip";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { extractMarkdownTables, parseFilesWithMineru, parseFilesWithMineruAgent } from "./mineruOcr";
+import { extractMarkdownTables } from "../shared/markdownTables";
+import { parseFilesWithMineru, parseFilesWithMineruAgent } from "./mineruOcr";
 
 describe("mineruOcr", () => {
   const tempFiles: string[] = [];

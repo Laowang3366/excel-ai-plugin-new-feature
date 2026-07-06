@@ -11,7 +11,7 @@ import * as path from "path";
 import JSZip from "jszip";
 import { DocumentParser } from "../../knowledge/documentParser";
 import { extractOpenXmlTextValues, readOpenXmlTextParts } from "../../shared/openXmlText";
-import { extractMarkdownTables } from "../../../main-modules/mineruOcr";
+import { extractMarkdownTables } from "../../../shared/markdownTables";
 
 export interface LocalParsedDocument {
   filename: string;

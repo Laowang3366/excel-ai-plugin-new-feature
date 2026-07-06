@@ -5,7 +5,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 140 个测试文件、718 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 141 个测试文件、719 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
@@ -41,6 +41,7 @@
 - **使用统计样式拆分**：将 `UsageStats` 页面样式移到 `usage-stats.css`，显著降低 `settings.css` 体量。
 - **使用统计数据 helper 拆分**：将 `UsageStats.tsx` 中的文案、数字格式化、stats 行转换和时间范围聚合抽到 `usageStatsData.ts`，补充纯函数测试，页面组件降至 252 行。
 - **新增供应商草稿 helper 拆分**：将 `AddProviderDialog.tsx` 中的模板草稿初始化、空白重置和 `AiProviderConfig` 构造抽到 `addProviderDraft.ts`，补充纯函数测试，保留表单状态、测试连接和渲染链路不变。
+- **Markdown 表格解析共享化**：将 MinerU 和本地文档解析共用的 Markdown 表格提取逻辑移到 `electron/shared/markdownTables.ts`，解除 agent executor 对 `main-modules/mineruOcr` 的反向依赖。
 - **知识库设置样式拆分**：将 `KnowledgeSettings` 来源列表、提示 banner 和操作按钮样式移到 `knowledge-settings.css`，并复用主题语义色。
 - **设置页布局样式拆分**：将设置页外壳、侧栏、主视图、旧版兼容布局和 profile 卡片样式移到 `settings-layout.css`，`settings.css` 降至 CSS 上限以内。
 - **文档级弹层关闭逻辑复用**：扩展 `useDocumentDismiss` 支持 ref 边界，侧边栏搜索面板和模型快速切换下拉统一复用该 hook，减少重复 document listener。
