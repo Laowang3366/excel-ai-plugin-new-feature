@@ -29,10 +29,10 @@ import { ReportTaskComposerPanel } from "./task/ReportTaskComposerPanel";
 import { OfficePreviewPanel } from "./office/OfficePreviewPanel";
 import {
   getChatTitleSummary,
-  formatFileSize,
   MessageBubbleIcon,
   type ActiveIntentKind,
 } from "../utils/chatHelpers";
+import { formatFileSize } from "../utils/fileSize";
 import { useComposer } from "../hooks/useComposer";
 import { useTaskDrafts, type TaskDrafts } from "../hooks/useTaskDrafts";
 import type { IntentKind } from "./Sidebar";

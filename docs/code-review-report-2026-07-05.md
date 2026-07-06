@@ -857,6 +857,25 @@
 - `npx vitest run src/hooks/useDocumentDismiss.test.ts`
 - `npm run typecheck`
 
+### 2026-07-06 — P1：文件大小格式化入口收敛
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: use shared file size formatter`
+
+**覆盖范围**：
+- `ChatPage.tsx` 直接从 `src/utils/fileSize.ts` 导入 `formatFileSize`。
+- 移除 `chatHelpers.tsx` 中仅转发共享 formatter 的 `formatFileSize()` 导出，保留 `chatHelpers` 的聊天分组、任务元数据和小组件职责。
+- 附件预览仍通过 `formatAttachmentSize()` 调用同一个共享 formatter，以保留空值隐藏和紧凑格式差异。
+
+**业务链路保护**：
+- 文件夹弹层中的大小展示仍使用默认一位小数格式，例如 `120.0 KB`。
+- 图片附件预览的紧凑大小格式不变，例如 `120 KB`。
+- 不改 ChatPage 文件夹弹层 DOM、CSS class、文件打开/添加逻辑。
+
+**验证证据**：
+- `npx vitest run src/utils/fileSize.test.ts src/utils/attachmentPreview.test.ts`
+- `npm run typecheck`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

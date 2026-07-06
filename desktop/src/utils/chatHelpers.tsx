@@ -10,7 +10,6 @@ import type { AppLanguage, PermissionMode } from "../store/settingsStore";
 import type { TurnItem } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { getAppText } from "../i18n";
-import { formatFileSize as formatSharedFileSize } from "./fileSize";
 import {
   Hash,
   Code,
@@ -225,11 +224,6 @@ export function getTaskPanelMeta(intent: ActiveIntentKind, language: AppLanguage
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max));
-}
-
-/** 格式化文件大小 */
-export function formatFileSize(bytes: number): string {
-  return formatSharedFileSize(bytes);
 }
 
 /** 权限模式图标 */
