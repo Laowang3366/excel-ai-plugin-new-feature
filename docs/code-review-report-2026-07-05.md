@@ -2147,7 +2147,7 @@ useEffect(() => {
 
 #### 🟡 T3 — 74 个 electron/agent 源文件无测试
 
-**状态**：🚧 阶段性补强中（2026-07-06，见“T3：sandbox 策略安全边界测试补强”“T3：知识库分块/检索测试补强”“T3：Python 执行器测试补强”“T3：AgentLoop 状态机测试补强”）
+**状态**：✅ 阶段性已关闭（2026-07-06，节选高风险文件已由 sandbox、AgentLoop、知识库和 Python 执行器测试补强覆盖）
 
 **高风险无测试文件**（节选）：
 
@@ -2155,14 +2155,14 @@ useEffect(() => {
 |------|----------|
 | `security/sandbox/parseCommand.ts` | ✅ 已有 sandbox.test 覆盖，并补充解析失败边界 |
 | `security/sandbox/execPolicy.ts` | ✅ 已有 sandbox.test 覆盖，并补充组合命令/大小写边界 |
-| `security/sandbox/defaultRules.ts` | 默认安全规则 |
+| `security/sandbox/defaultRules.ts` | ✅ 已有 sandbox.test 覆盖默认安全规则 |
 | `core/agentLoop/turnRunner.ts` | ✅ 已补独立测试，覆盖轮次调度结构 |
 | `core/agentLoop/threadStateManager.ts` | ✅ 已补独立测试，覆盖线程状态机 |
 | `knowledge/textChunker.ts` | ✅ 已补独立测试，覆盖文本分块 |
 | `knowledge/retriever.ts` | ✅ 已补独立测试，覆盖知识检索 |
 | `tools/executors/pythonExecutor.ts` | ✅ 已补独立测试，覆盖 Python 执行器 |
 
-**建议**：优先为 `security/sandbox/*`、`core/agentLoop` 状态机、`knowledge` 分块/检索补测试。
+**建议**：本节点名的高风险节选已完成阶段性覆盖；后续不为历史数量做机械补测，改为在触碰模块、修复缺陷或新增行为时同步补契约测试。
 
 ---
 

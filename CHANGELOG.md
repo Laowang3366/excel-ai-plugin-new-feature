@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **T3 测试覆盖阶段性闭环**：更新审查报告中 electron/agent 高风险无测试节选状态；sandbox、AgentLoop 状态机、知识库分块/检索和 Python 执行器均已有对应覆盖，后续测试补强按新增变更和真实风险继续推进。
 - **AgentLoop 状态机测试补强**：新增 `threadStateManager.test.ts` 和 `turnRunner.test.ts`，覆盖线程运行态 idle unload、running/active/unloaded/clear 状态转换，以及 Turn/UserMessage/complete 的结构契约。
 - **Python 执行器测试补强**：新增 `pythonExecutor.test.ts`，覆盖 `python.execute`/`python_execute` 注册兼容、参数校验、sandbox 有效工作目录透传、默认 timeout/home workdir、成功结果 metadata 和失败 stderr 归一化。
 - **知识库分块/检索测试补强**：新增 `textChunker.test.ts` 和 `retriever.test.ts`，独立覆盖文本分块、表格表头保留、Markdown 标题切分、超长段落截断、向量检索 profile/filter、低分/embedding 失败关键词降级和提示词/工具结果格式化契约。
