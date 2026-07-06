@@ -48,6 +48,7 @@
 - **知识库设置样式拆分**：将 `KnowledgeSettings` 来源列表、提示 banner 和操作按钮样式移到 `knowledge-settings.css`，并复用主题语义色。
 - **知识库设置文案与格式化拆分**：将 `KnowledgeSettings.tsx` 内的双语文案、来源统计、文件夹索引结果汇总、类型标签和索引时间格式化抽到 `knowledgeSettingsText.ts`，设置组件降至 255 行。
 - **简单任务面板拆分**：将 `ChatPage.tsx` 内联的清洗/图表 simple task 表单抽到 `SimpleTaskComposerPanel.tsx`，并用测试锁定 range/task payload 拼装规则；主页面保留任务调度和会话发送职责。
+- **ChatPage 文件夹徽标拆分**：将顶部文件夹 badge 与文件弹层抽到 `ChatFolderBadge.tsx`，主页面继续负责文件夹文件加载、附件注入和状态编排，降至 276 行。
 - **Composer 思考模式按钮拆分**：将 `ComposerArea.tsx` 内联的 provider/model 推理模式解析和弹层渲染抽到 `ComposerThinkingModeButton.tsx`，补充当前模型配置优先级测试，输入区组件降至 267 行。
 - **功能浮动栏几何逻辑拆分**：将 `FeatureFloatingDock.tsx` 中的拖拽 pointer 判定、窗口边界约束和 resize 定位逻辑抽到 `featureFloatingDockGeometry.ts`，原入口继续 re-export 已测 helper，组件降至 255 行。
 - **侧边栏会话项复用**：将 `FolderSection.tsx` 中文件夹内会话和未分组会话的重复渲染收敛到 `SidebarThreadItem.tsx`，补充 active/viewed/running 状态派生测试，文件夹组件降至 259 行。

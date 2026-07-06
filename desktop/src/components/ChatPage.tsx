@@ -19,6 +19,7 @@ import { useSettingsStore } from "../store/settingsStore";
 import type { FolderFileInfo } from "../electronApi";
 import { ChatMessageList } from "./chat/ChatMessageList";
 import { ComposerArea } from "./chat/ComposerArea";
+import { ChatFolderBadge } from "./chat/ChatFolderBadge";
 import { FloatingTaskPanel } from "./common/FloatingTaskPanel";
 import { FeatureFloatingDock } from "./common/FeatureFloatingDock";
 import { ToolConfirmDialog } from "./chat/ToolConfirmDialog";
@@ -33,7 +34,6 @@ import {
   MessageBubbleIcon,
   type ActiveIntentKind,
 } from "../utils/chatHelpers";
-import { formatFileSize } from "../utils/fileSize";
 import { useComposer } from "../hooks/useComposer";
 import { useTaskDrafts } from "../hooks/useTaskDrafts";
 import type { IntentKind } from "./Sidebar";
@@ -45,8 +45,6 @@ import {
 } from "../utils/officeEditEvents";
 import {
   Activity,
-  FolderOpen,
-  FileSpreadsheet,
 } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
 
@@ -163,47 +161,16 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings, activeIntent
           </h2>
           <div className="chat-header-actions">
             {currentFolder && !folderBadgeHidden && (
-              <div className="chat-folder-badge-wrapper">
-                <button
-                  className="chat-folder-badge"
-                  title={currentFolder.path}
-                  onClick={() => setShowFolderFileList((v) => !v)}
-                >
-                  <FolderOpen size={13} />
-                  <span className="chat-folder-name">{currentFolder.name}</span>
-                  {currentFolderFiles.length > 0 && (
-                    <span className="chat-folder-file-count">
-                      {text.chat.folderFileCount(currentFolderFiles.length)}
-                    </span>
-                  )}
-                </button>
-                {showFolderFileList && currentFolderFiles.length > 0 && (
-                  <div className="folder-file-popover" onClick={(e) => e.stopPropagation()}>
-                    <div className="folder-file-popover-title">{currentFolder.name}</div>
-                    {currentFolderFiles.map((file) => (
-                      <button
-                        key={file.filePath}
-                        className="folder-file-popover-item clickable"
-                        title={file.filePath}
-                        onClick={() => {
-                          addFilesToComposer([{
-                            filePath: file.filePath,
-                            fileName: file.fileName,
-                            fileType: "document" as const,
-                            size: file.size,
-                          }]);
-                          setShowFolderFileList(false);
-                          setFolderBadgeHidden(true);
-                        }}
-                      >
-                        <FileSpreadsheet size={13} />
-                        <span className="folder-file-popover-name">{file.fileName}</span>
-                        <span className="folder-file-popover-size">{formatFileSize(file.size)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ChatFolderBadge
+                folder={currentFolder}
+                files={currentFolderFiles}
+                open={showFolderFileList}
+                text={text.chat}
+                onToggleOpen={() => setShowFolderFileList((visible) => !visible)}
+                onClose={() => setShowFolderFileList(false)}
+                onAddFilesToComposer={addFilesToComposer}
+                onHideBadge={() => setFolderBadgeHidden(true)}
+              />
             )}
             {officePreviewToggleLocation === "chat-header" && (
               <button

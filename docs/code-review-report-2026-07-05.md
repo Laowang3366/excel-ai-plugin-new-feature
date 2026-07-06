@@ -1443,6 +1443,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`ChatPage` 文件夹徽标组件拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract chat folder badge`
+
+**覆盖范围**：
+- 新增 `src/components/chat/ChatFolderBadge.tsx`，承接聊天页顶部当前文件夹 badge、文件数量展示和文件弹层渲染。
+- `ChatPage.tsx` 改为通过语义化回调传入打开/关闭、附件注入和隐藏 badge 行为，主页面继续保留会话、任务面板和文件夹文件加载编排。
+- `ChatPage.tsx` 从 309 行降至 276 行；新增组件约 80 行，边界为 UI 展示与用户点击，不拆散业务状态。
+
+**业务链路保护**：
+- 不改 `ipcApi.folder.listFiles(currentFolderId)` 的加载时机、取消保护和失败兜底。
+- 不改 `addFilesToComposer([{ filePath, fileName, fileType: "document", size }])` 的附件注入结构。
+- 不改点击文件后的关闭弹层、隐藏 badge 行为，也不改现有 CSS className，避免影响视觉和交互。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
