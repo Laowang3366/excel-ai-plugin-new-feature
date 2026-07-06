@@ -737,6 +737,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：侧边栏底部样式拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: split sidebar footer styles`
+
+**覆盖范围**：
+- 新增 `src/styles/sidebar-footer.css`，集中 `SidebarFooter.tsx` 使用的 Office 连接状态、重连按钮、设置按钮、设置菜单和暗色覆盖样式。
+- `global.css` 在侧边栏基础/搜索/文件夹样式后导入 footer 样式，保持基础布局先加载。
+- `sidebar.css` 从 739 行降至 563 行；新 footer 样式文件为 203 行。
+
+**业务链路保护**：
+- 不改 `SidebarFooter.tsx` 的 DOM、className、连接状态、重连按钮、设置菜单打开和设置 section 跳转逻辑。
+- 保留 `.sidebar-nav-btn span` 的 `translateY(1px)` 对齐修复，避免设置按钮图标和文字再次错位。
+- `sidebar.css` 仍超 CSS 500 行上限，后续再按意图入口或线程列表等自然边界拆分收口。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -852,7 +872,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
-| `src/styles/sidebar.css` | **739** | 500 | +239 | 继续按自然职责边界拆分 |
+| `src/styles/sidebar.css` | **563** | 500 | +63 | 继续按自然职责边界拆分 |
 
 **完整超标清单**：共 29 个 TS/TSX 文件 + 2 个 CSS 文件（详见附录 A）
 
@@ -1220,7 +1240,7 @@ useEffect(() => {
 | 行数 | 文件 |
 |------|------|
 | 1444 | `src/styles/settings.css` |
-| 739 | `src/styles/sidebar.css` |
+| 563 | `src/styles/sidebar.css` |
 
 ---
 

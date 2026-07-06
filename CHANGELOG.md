@@ -33,6 +33,7 @@
 - **Composer 样式职责拆分**：将输入框附件 chip 与操作控件样式拆到 `composer-attachments.css` / `composer-controls.css`，`composer.css` 降至 CSS 上限以内。
 - **侧边栏搜索样式拆分**：将侧边栏搜索框与搜索弹层样式移到 `sidebar-search.css`，保留侧边栏主体布局在 `sidebar.css`。
 - **侧边栏文件夹样式拆分**：将固定文件夹分组、文件项和文件夹内会话缩进样式移到 `sidebar-folder.css`，继续收束 `sidebar.css`。
+- **侧边栏底部样式拆分**：将 Office 连接状态、设置按钮和设置菜单样式移到 `sidebar-footer.css`，保留设置按钮对齐修复。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
 - **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。
