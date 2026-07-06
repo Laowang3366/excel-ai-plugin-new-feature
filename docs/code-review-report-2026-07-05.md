@@ -32,6 +32,26 @@
 
 > 记录规则：每完成一个审查项，回写修复范围、验证证据和关联提交，避免只在代码里静默修复。
 
+### 2026-07-06 — S1/S2：IPC Schema 接入状态校正
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `docs: correct ipc schema review status`
+
+**覆盖范围**：
+- 复核 `desktop/electron/main-modules/ipcHandlers.ts`，确认 `window:setAlwaysOnTop`、`settings:get/set`、`excel:readRange/writeRange/selectHost`、`app:openPath/openExternal/migrateDataPath` 已调用 `validateInput`。
+- 复核 `desktop/electron/main-modules/ipcFileHandlers.ts`，确认 `file:writeTempFile/readAsBase64/trashFile/openFile/copyPath/revealInExplorer`、`folder:listFiles/listFilesBatch` 已调用 `validateInput` 并保留路径授权。
+- 复核 `desktop/electron/agent/interaction/ipcAgentHandlers.ts`，确认 `agent:startTurn/continueTurn/enqueueTurn/interrupt`、`thread:load/delete/resume/new/updateMetadata`、`threadGraph:*`、`stats:getSummary`、`knowledge:*` 已调用 `validateInput`。
+- 复核 OCR/沙箱/AI 子 handler，确认 `ocr:recognize`、`sandbox:setUserRules/setWritableRoots`、`ai:listModels/testConnection` 已接入 schema 校验。
+- 将报告 S2 过时的未接入状态表格改为当前已接入状态，避免后续维护误判。
+
+**业务链路保护**：
+- 仅校正文档，不改运行时代码、IPC schema、路径授权或 handler 控制流。
+
+**验证证据**：
+- `Select-String` 复核上述 handler 中 `validateInput` 与对应 schema 的调用点。
+- `git diff --check`
+
 ### 2026-07-06 — T3：知识库分块/检索测试补强
 
 **状态**：✅ 阶段性已修复
@@ -1929,23 +1949,23 @@
 
 **状态**：✅ 已修复（2026-07-05，见“P0 安全：IPC 校验与路径授权”）
 
-**问题**：`ipcSchemas.ts` 中已定义的 schema 未被对应 handler 使用：
+**历史问题**：`ipcSchemas.ts` 中已定义的 schema 曾未被对应 handler 使用；当前已复核为接入状态：
 
 | Schema | 对应通道 | 状态 |
 |--------|----------|------|
-| `SetAlwaysOnTopInput` | `window:setAlwaysOnTop` | ❌ 未调用 |
-| `SettingsGetInput/SettingsSetInput` | `settings:get/set` | ❌ 未调用 |
-| `ExcelReadRangeInput/ExcelWriteRangeInput` | `excel:readRange/writeRange` | ❌ 未调用 |
-| `ThreadIdInput` | `thread:load/delete/resume` | ❌ 未调用 |
-| `ThreadNewInput` | `thread:new` | ❌ 未调用 |
-| `FilePathInput` | `file:trashFile/openFile/copyPath/revealInExplorer` | ❌ 未调用 |
-| `FolderPathInput` | `folder:listFiles` | ❌ 未调用 |
-| `ToolConfirmInput/ToolCancelInput` | `tool:confirm/cancel` | ❌ 未调用 |
-| `StatsGetSummaryInput` | `stats:getSummary` | ❌ 未调用 |
+| `SetAlwaysOnTopInput` | `window:setAlwaysOnTop` | ✅ 已调用 `validateInput` |
+| `SettingsGetInput/SettingsSetInput` | `settings:get/set` | ✅ 已调用 `validateInput` |
+| `ExcelReadRangeInput/ExcelWriteRangeInput` | `excel:readRange/writeRange` | ✅ 已调用 `validateInput` |
+| `ThreadIdInput` | `thread:load/delete/resume` | ✅ 已调用 `validateInput` |
+| `ThreadNewInput` | `thread:new` | ✅ 已调用 `validateInput` |
+| `FilePathInput` | `file:trashFile/openFile/copyPath/revealInExplorer` | ✅ 已调用 `validateInput` |
+| `FolderPathInput` | `folder:listFiles` | ✅ 已调用 `validateInput` |
+| `ToolConfirmInput/ToolCancelInput` | `tool:confirm/cancel` | ✅ 已调用 `validateInput` |
+| `StatsGetSummaryInput` | `stats:getSummary` | ✅ 已调用 `validateInput` |
 
-**原因**：schema 定义了却没调用，给人一种"已校验"的错觉，比"没定义 schema"更危险。
+**当前状态**：schema 定义与 handler 调用已对齐，避免继续给维护者造成"定义了但未生效"的误判。
 
-**建议**：在所有已定义 schema 的 handler 首行接入 `validateInput`，或删除未使用的 schema。
+**建议**：本节点已完成；后续新增 IPC 时继续保持 schema 定义、handler `validateInput`、preload/type wrapper 三处同步。
 
 ---
 
