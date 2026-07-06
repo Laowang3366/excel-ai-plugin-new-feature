@@ -255,8 +255,6 @@ export const App: React.FC = () => {
               setSettingsSection(section);
               setCurrentPage("settings");
             }}
-            activeIntent={activeIntent}
-            onIntentClick={setActiveIntent}
           />
           <main className="app-main">
             <ChatPage

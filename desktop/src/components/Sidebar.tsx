@@ -1,53 +1,33 @@
-/**
- * 侧边栏 — 会话管理 + 意图快捷 + 导航 + 连接状态
- *
- * 已拆分模块：
- * - utils/sidebarHelpers.ts: 意图常量、时间格式化、状态判断
- * - hooks/useExcelConnection.ts: Excel/WPS 连接状态管理
- * - components/sidebar/FolderSection.tsx: 文件夹分组渲染
- * - components/sidebar/ThreadContextMenu.tsx: 右键菜单
- * - components/sidebar/SidebarCollapsed.tsx: 折叠态渲染
- * - components/sidebar/SidebarExpanded.tsx: 展开态渲染
- */
-
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useCallback, useMemo, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
 import type { AppPage } from "../App";
 import type { SettingsSection } from "./SettingsPage";
-import type { FolderFileInfo } from "../electronApi";
 import { getAppText } from "../i18n";
-import { ipcApi } from "../services/ipcApi";
-import type { IntentKind } from "../utils/sidebarHelpers";
 import { useExcelConnection } from "../hooks/useExcelConnection";
 import { useOfficeConnection } from "../hooks/useOfficeConnection";
 import { useDocumentDismiss } from "../hooks/useDocumentDismiss";
+import { useSidebarFolderFiles } from "../hooks/useSidebarFolderFiles";
+import { useSidebarResize } from "../hooks/useSidebarResize";
+import { useSidebarSectionToggles } from "../hooks/useSidebarSectionToggles";
+import { useSidebarSortMenu } from "../hooks/useSidebarSortMenu";
+import { useSidebarSettingsNavigation } from "../hooks/useSidebarSettingsNavigation";
+import { useSidebarThreadContextMenu } from "../hooks/useSidebarThreadContextMenu";
+import { useSidebarThreadCreation } from "../hooks/useSidebarThreadCreation";
+import { useSidebarViewedThreads } from "../hooks/useSidebarViewedThreads";
 import { HostSelectionDialog } from "./excel/HostSelectionDialog";
-import type { ContextMenuState } from "./sidebar/ThreadContextMenu";
-import type { FileContextMenuState } from "./sidebar/FileContextMenu";
 import { SidebarSearchPalette } from "./sidebar/SidebarSearchPalette";
 import { SidebarCollapsed } from "./sidebar/SidebarCollapsed";
 import { buildSidebarDerivedLists } from "../utils/sidebarHelpers";
-import type {
-  FolderSectionActions,
-  FolderSectionFileMenuApi,
-  FolderSectionThreadActions,
-} from "./sidebar/FolderSection";
-import {
-  SidebarExpanded,
-  type SidebarSortMode,
-  type SidebarSortSection,
-} from "./sidebar/SidebarExpanded";
+import type { FolderSectionActions, FolderSectionFileMenuApi, FolderSectionThreadActions } from "./sidebar/FolderSection";
+import { SidebarExpanded } from "./sidebar/SidebarExpanded";
 
 export type { IntentKind } from "../utils/sidebarHelpers";
-
 interface SidebarProps {
   collapsed: boolean;
   currentPage: AppPage;
   onNavigate: (page: AppPage) => void;
   onOpenSettingsSection?: (section: SettingsSection) => void;
-  activeIntent: IntentKind;
-  onIntentClick: (intent: IntentKind) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -61,25 +41,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { language, pinnedFolders, addPinnedFolder, removePinnedFolder, updatePinnedFolder } = useSettingsStore();
   const text = getAppText(language);
 
-  const [folderFiles, setFolderFiles] = useState<Record<string, FolderFileInfo[]>>({});
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
-  const [creatingFolderThread, setCreatingFolderThread] = useState<string | null>(null);
-  const [creatingNewThread, setCreatingNewThread] = useState(false);
-  const [viewedThreadStatusAt, setViewedThreadStatusAt] = useState<Record<string, number>>({});
-  const initializedViewedStatuses = useRef(false);
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [projectsExpanded, setProjectsExpanded] = useState(true);
-  const [conversationsExpanded, setConversationsExpanded] = useState(true);
-  const [sortMenu, setSortMenu] = useState<{ section: SidebarSortSection; x: number; y: number } | null>(null);
-  const [projectSortMode, setProjectSortMode] = useState<SidebarSortMode>("recentDesc");
-  const [conversationSortMode, setConversationSortMode] = useState<SidebarSortMode>("recentDesc");
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [fileContextMenu, setFileContextMenu] = useState<FileContextMenuState | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState(260);
-  const [isResizing, setIsResizing] = useState(false);
-  const resizingRef = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
+  const {
+    searchOpen,
+    projectsExpanded,
+    conversationsExpanded,
+    toggleSearch,
+    closeSearch,
+    toggleProjectsExpanded,
+    toggleConversationsExpanded,
+  } = useSidebarSectionToggles();
+  const { sidebarWidth, isResizing, handleResizeStart } = useSidebarResize();
+  const { viewedThreadStatusAt, markThreadViewed } = useSidebarViewedThreads(threads, activeThreadId);
+  const {
+    creatingFolderThread,
+    creatingNewThread,
+    handleCreateFolderThread,
+    handleCreateNewThread,
+  } = useSidebarThreadCreation(createNewThread);
+  const {
+    settingsMenuOpen,
+    closeSettingsMenu,
+    openSettingsSection,
+    openGeneralSettings,
+    toggleSettingsMenu,
+  } = useSidebarSettingsNavigation({ onNavigate, onOpenSettingsSection });
+  const {
+    contextMenu,
+    openThreadContextMenu,
+    handleConfirmDelete,
+    handleMoveToFolder,
+    closeContextMenu,
+    setContextMoveMenu,
+    setContextConfirming,
+  } = useSidebarThreadContextMenu({ deleteThread, moveThreadToFolder });
 
   const {
     excelStatus,
@@ -93,234 +88,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
   } = useExcelConnection();
   const { wordStatus, presentationStatus } = useOfficeConnection();
 
-  const handleAddFolder = useCallback(async () => {
-    try {
-      const result = await ipcApi.dialog.openFolder();
-      if (!result.canceled && result.filePaths.length > 0) {
-        const folderPath = result.filePaths[0];
-        const folderName = folderPath.split(/[\\/]/).pop() || folderPath;
-        addPinnedFolder({ path: folderPath, name: folderName, addedAt: Date.now() });
-        setExpandedFolders((prev) => ({ ...prev, [folderPath]: true }));
-        const files = await ipcApi.folder.listFiles(folderPath);
-        setFolderFiles((prev) => ({ ...prev, [folderPath]: files }));
-      }
-    } catch {
-      // ignore
-    }
-  }, [addPinnedFolder]);
-
-  const handleToggleFolder = useCallback(async (folderPath: string) => {
-    setExpandedFolders((prev) => {
-      const next = !prev[folderPath];
-      if (next && !folderFiles[folderPath]) {
-        ipcApi.folder.listFiles(folderPath).then((files) => {
-          setFolderFiles((prev2) => ({ ...prev2, [folderPath]: files }));
-        });
-      }
-      return { ...prev, [folderPath]: next };
-    });
-  }, [folderFiles]);
-
-  const handleAddFile = useCallback((file: FolderFileInfo) => {
-    addFilesToComposer([{
-      filePath: file.filePath,
-      fileName: file.fileName,
-      fileType: "document",
-      size: file.size,
-    }]);
-  }, [addFilesToComposer]);
-
-  const handleCreateFolderThread = useCallback(async (folderPath: string) => {
-    setCreatingFolderThread(folderPath);
-    try {
-      await createNewThread(folderPath);
-    } finally {
-      setTimeout(() => setCreatingFolderThread(null), 300);
-    }
-  }, [createNewThread]);
-
-  const handleCreateNewThread = useCallback(async () => {
-    setCreatingNewThread(true);
-    try {
-      await createNewThread();
-    } finally {
-      setTimeout(() => setCreatingNewThread(false), 300);
-    }
-  }, [createNewThread]);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizingRef.current = true;
-    setIsResizing(true);
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-    let frameId: number | null = null;
-    let nextWidth = startWidth;
-    const flushWidth = () => {
-      frameId = null;
-      setSidebarWidth(nextWidth);
-    };
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!resizingRef.current) return;
-      nextWidth = Math.min(400, Math.max(180, startWidth + event.clientX - startX));
-      if (frameId === null) frameId = window.requestAnimationFrame(flushWidth);
-    };
-    const handleMouseUp = () => {
-      resizingRef.current = false;
-      setIsResizing(false);
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId);
-        frameId = null;
-        setSidebarWidth(nextWidth);
-      }
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  }, [sidebarWidth]);
+  const {
+    folderFiles,
+    expandedFolders,
+    fileContextMenu,
+    handleAddFolder,
+    handleToggleFolder,
+    handleAddFile,
+    handleFileContextMenu,
+    closeFileContextMenu,
+    handleTrashFile,
+    handleOpenFile,
+    handleCopyPath,
+    handleRevealInExplorer,
+    handlePinFile,
+  } = useSidebarFolderFiles({
+    pinnedFolders,
+    searchOpen,
+    addPinnedFolder,
+    updatePinnedFolder,
+    addFilesToComposer,
+    onOpenFileMenu: closeContextMenu,
+  });
+  const {
+    sortMenu,
+    projectSortMode,
+    conversationSortMode,
+    handleOpenSortMenu,
+    handleSelectSortMode,
+    closeSortMenu,
+  } = useSidebarSortMenu(() => {
+    closeContextMenu();
+    closeFileContextMenu();
+  });
 
   useEffect(() => { loadThreads(); }, [loadThreads]);
-
-  useEffect(() => {
-    if (!searchOpen) return;
-    const missingPaths = pinnedFolders
-      .map((folder) => folder.path)
-      .filter((folderPath) => !folderFiles[folderPath]);
-    if (missingPaths.length === 0) return;
-    let cancelled = false;
-    ipcApi.folder.listFilesBatch(missingPaths).then((filesByFolder) => {
-      if (cancelled) return;
-      setFolderFiles((prev) => {
-        const next = { ...prev };
-        missingPaths.forEach((folderPath) => {
-          next[folderPath] = filesByFolder[folderPath] || [];
-        });
-        return next;
-      });
-    }).catch(() => {
-      if (cancelled) return;
-      setFolderFiles((prev) => {
-        const next = { ...prev };
-        missingPaths.forEach((folderPath) => {
-          next[folderPath] = [];
-        });
-        return next;
-      });
-    });
-    return () => { cancelled = true; };
-  }, [folderFiles, pinnedFolders, searchOpen]);
-
-  useEffect(() => {
-    if (initializedViewedStatuses.current || threads.length === 0) return;
-    initializedViewedStatuses.current = true;
-    const viewed: Record<string, number> = {};
-    threads.forEach((thread) => { viewed[thread.threadId] = thread.updatedAt; });
-    setViewedThreadStatusAt(viewed);
-  }, [threads]);
-
-  const markThreadViewed = useCallback((threadId: string) => {
-    const thread = threads.find((item) => item.threadId === threadId);
-    if (!thread) return;
-    setViewedThreadStatusAt((prev) => {
-      if (prev[threadId] === thread.updatedAt) return prev;
-      return { ...prev, [threadId]: thread.updatedAt };
-    });
-  }, [threads]);
-
-  useEffect(() => {
-    if (activeThreadId) markThreadViewed(activeThreadId);
-  }, [activeThreadId, markThreadViewed]);
 
   const handleSwitchThread = useCallback((threadId: string) => {
     markThreadViewed(threadId);
     switchThread(threadId);
   }, [markThreadViewed, switchThread]);
 
-  const handleOpenSortMenu = useCallback((e: React.MouseEvent, section: SidebarSortSection) => {
-    e.stopPropagation();
-    setContextMenu(null);
-    setFileContextMenu(null);
-    const rect = e.currentTarget.getBoundingClientRect();
-    const menuWidth = 168;
-    setSortMenu({
-      section,
-      x: Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth)),
-      y: Math.max(8, Math.min(window.innerHeight - 164, rect.bottom + 6)),
-    });
-  }, []);
-
   const handleThreadContextMenu = useCallback((e: React.MouseEvent, threadId: string, inFolder?: boolean) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFileContextMenu(null);
-    setContextMenu({ threadId, x: e.clientX, y: e.clientY, confirming: false, inFolder });
-  }, []);
-
-  const handleConfirmDelete = useCallback(async (threadId: string) => {
-    setContextMenu(null);
-    await deleteThread(threadId);
-  }, [deleteThread]);
-
-  const handleMoveToFolder = useCallback(async (threadId: string, folderId?: string) => {
-    setContextMenu(null);
-    await moveThreadToFolder(threadId, folderId);
-  }, [moveThreadToFolder]);
-
-  const handleFileContextMenu = useCallback((e: React.MouseEvent, file: FolderFileInfo, isPinned: boolean) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu(null);
-    setFileContextMenu({ file, x: e.clientX, y: e.clientY, isPinned });
-  }, []);
-
-  const refreshFolderContainingFile = useCallback(async (filePath: string) => {
-    const folderPath = Object.keys(folderFiles).find((fp) =>
-      folderFiles[fp].some((file) => file.filePath === filePath)
-    );
-    if (!folderPath) return;
-    const files = await ipcApi.folder.listFiles(folderPath);
-    setFolderFiles((prev) => ({ ...prev, [folderPath]: files }));
-  }, [folderFiles]);
-
-  const handleTrashFile = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    await ipcApi.file.trashFile(filePath);
-    await refreshFolderContainingFile(filePath);
-  }, [refreshFolderContainingFile]);
-
-  const handleOpenFile = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    await ipcApi.file.openFile(filePath);
-  }, []);
-
-  const handleCopyPath = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    await ipcApi.file.copyPath(filePath);
-  }, []);
-
-  const handleRevealInExplorer = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    await ipcApi.file.revealInExplorer(filePath);
-  }, []);
-
-  const handlePinFile = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    const folderPath = Object.keys(folderFiles).find((fp) =>
-      folderFiles[fp].some((file) => file.filePath === filePath)
-    );
-    const folder = folderPath ? pinnedFolders.find((item) => item.path === folderPath) : undefined;
-    if (!folder || !folderPath) return;
-    const pinned = folder.pinnedFiles || [];
-    const nextPinned = pinned.includes(filePath)
-      ? pinned.filter((item) => item !== filePath)
-      : [...pinned, filePath];
-    updatePinnedFolder(folderPath, { pinnedFiles: nextPinned });
-  }, [folderFiles, pinnedFolders, updatePinnedFolder]);
-
-  const closeFileContextMenu = useCallback(() => {
-    setFileContextMenu(null);
-  }, []);
+    closeFileContextMenu();
+    openThreadContextMenu(e, threadId, inFolder);
+  }, [closeFileContextMenu, openThreadContextMenu]);
 
   const folderActions = useMemo<FolderSectionActions>(() => ({
     toggle: handleToggleFolder,
@@ -355,73 +167,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     handleTrashFile,
   ]);
 
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
-
-  const closeSettingsMenu = useCallback(() => {
-    setSettingsMenuOpen(false);
-  }, []);
-
-  const closeSortMenu = useCallback(() => {
-    setSortMenu(null);
-  }, []);
-
   useDocumentDismiss({ active: contextMenu !== null, onDismiss: closeContextMenu });
   useDocumentDismiss({ active: fileContextMenu !== null, onDismiss: closeFileContextMenu });
   useDocumentDismiss({ active: settingsMenuOpen, onDismiss: closeSettingsMenu });
   useDocumentDismiss({ active: sortMenu !== null, onDismiss: closeSortMenu });
-
-  const handleSelectSortMode = useCallback((section: SidebarSortSection, mode: SidebarSortMode) => {
-    if (section === "projects") {
-      setProjectSortMode(mode);
-    } else {
-      setConversationSortMode(mode);
-    }
-    setSortMenu(null);
-  }, []);
-
-  const openSettingsSection = useCallback((section: SettingsSection) => {
-    setSettingsMenuOpen(false);
-    if (onOpenSettingsSection) {
-      onOpenSettingsSection(section);
-    } else {
-      onNavigate("settings");
-    }
-  }, [onNavigate, onOpenSettingsSection]);
-
-  const openGeneralSettings = useCallback(() => {
-    openSettingsSection("general");
-  }, [openSettingsSection]);
-
-  const toggleSearch = useCallback(() => {
-    setSearchOpen((open) => !open);
-  }, []);
-
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false);
-  }, []);
-
-  const toggleProjectsExpanded = useCallback(() => {
-    setProjectsExpanded((expanded) => !expanded);
-  }, []);
-
-  const toggleConversationsExpanded = useCallback(() => {
-    setConversationsExpanded((expanded) => !expanded);
-  }, []);
-
-  const setContextMoveMenu = useCallback((show: boolean) => {
-    setContextMenu((menu) => menu ? { ...menu, showMoveMenu: show } : menu);
-  }, []);
-
-  const setContextConfirming = useCallback((confirming: boolean) => {
-    setContextMenu((menu) => menu ? { ...menu, confirming } : menu);
-  }, []);
-
-  const toggleSettingsMenu = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation();
-    setSettingsMenuOpen((open) => !open);
-  }, []);
 
   const dismissPendingHosts = useCallback(() => {
     setPendingHosts(null);

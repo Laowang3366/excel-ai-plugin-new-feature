@@ -1528,6 +1528,28 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`Sidebar` 状态 hook 拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract sidebar state hooks`
+
+**覆盖范围**：
+- 新增 `src/hooks/useSidebarFolderFiles.ts`，承接固定文件夹添加、展开加载、搜索批量文件加载、文件右键菜单、回收站/打开/复制/显示/置顶操作。
+- 新增 `useSidebarResize.ts`、`useSidebarViewedThreads.ts`、`useSidebarSortMenu.ts`、`useSidebarThreadContextMenu.ts`、`useSidebarThreadCreation.ts`、`useSidebarSettingsNavigation.ts`、`useSidebarSectionToggles.ts`，分别拆出侧边栏宽度拖拽、会话已读状态、排序菜单、线程右键菜单、新建会话、设置导航和 section 展开状态。
+- 移除 `Sidebar` 已不消费的 `activeIntent/onIntentClick` props，`App.tsx` 只继续把功能意图传给 `ChatPage`。
+- `Sidebar.tsx` 从 545 行降至 300 行；前端 TSX 超 300 行组件阶段性清零。
+
+**业务链路保护**：
+- 不改 `FolderSection` / `SidebarExpanded` / `SidebarCollapsed` / `SidebarSearchPalette` 的 props 语义和 CSS className。
+- 文件操作仍走原 IPC：`dialog.openFolder`、`folder.listFiles/listFilesBatch`、`file.trashFile/openFile/copyPath/revealInExplorer`，附件注入仍走 `addFilesToComposer`。
+- 会话动作仍走 `createNewThread`、`switchThread`、`deleteThread`、`moveThreadToFolder`；设置入口仍优先调用 `onOpenSettingsSection`，否则回退到 `onNavigate("settings")`。
+
+**验证证据**：
+- `npm exec vitest run src/components/sidebar/SidebarThreadItem.test.ts src/utils/sidebarHelpers.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

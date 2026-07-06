@@ -54,6 +54,7 @@
 - **功能浮动栏几何逻辑拆分**：将 `FeatureFloatingDock.tsx` 中的拖拽 pointer 判定、窗口边界约束和 resize 定位逻辑抽到 `featureFloatingDockGeometry.ts`，原入口继续 re-export 已测 helper，组件降至 255 行。
 - **侧边栏会话项复用**：将 `FolderSection.tsx` 中文件夹内会话和未分组会话的重复渲染收敛到 `SidebarThreadItem.tsx`，补充 active/viewed/running 状态派生测试，文件夹组件降至 259 行。
 - **展开侧边栏展示块拆分**：将 `SidebarExpanded.tsx` 中重复的分组标题栏和排序弹层抽到 `SidebarSectionHeader.tsx` / `SidebarSortMenu.tsx`，父组件继续持有展开、排序和新建动作状态，降至 295 行。
+- **侧边栏状态 hook 拆分**：将 `Sidebar.tsx` 中的文件夹文件操作、拖拽宽度、已读状态、排序菜单、线程右键菜单、新建会话和设置导航状态抽到专用 hooks，并移除已废弃的 intent props，主组件降至 300 行。
 - **常规设置数据存储卡片拆分**：将 `GeneralSettings.tsx` 的数据目录展示、打开、复制和迁移按钮 UI 抽到 `GeneralSettingsStorageCard.tsx`，主组件继续负责 IPC 状态和迁移处理，降至 282 行。
 - **设置页布局样式拆分**：将设置页外壳、侧栏、主视图、旧版兼容布局和 profile 卡片样式移到 `settings-layout.css`，`settings.css` 降至 CSS 上限以内。
 - **文档级弹层关闭逻辑复用**：扩展 `useDocumentDismiss` 支持 ref 边界，侧边栏搜索面板和模型快速切换下拉统一复用该 hook，减少重复 document listener。
