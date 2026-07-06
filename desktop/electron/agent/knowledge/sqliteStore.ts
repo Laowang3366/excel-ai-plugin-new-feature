@@ -16,11 +16,11 @@ import * as fs from "fs";
 
 import type {
   KnowledgeEntry,
-  KnowledgeEntryRow,
   KnowledgeSource,
   KnowledgeResult,
 } from "./types";
 import type { EmbeddingProfile } from "./embeddingService";
+import { cosineSimilarity, entryToRow, rowToEntry, rowToSource } from "./sqliteStoreRows";
 import {
   openSqliteDatabase,
   runPragma,
@@ -130,7 +130,7 @@ export class SqliteStore {
 
   /** 插入单条知识条目 */
   insertEntry(entry: KnowledgeEntry): void {
-    const row = this.entryToRow(entry);
+    const row = entryToRow(entry);
     this.db
       .prepare(
         `INSERT OR REPLACE INTO knowledge_entries
@@ -171,7 +171,7 @@ export class SqliteStore {
 
     const batchInsert = (items: KnowledgeEntry[]) => runSqliteTransaction(this.db, () => {
       for (const item of items) {
-        const row = this.entryToRow(item);
+        const row = entryToRow(item);
         insert.run(
           row.id, row.source, row.source_path, row.source_name, row.source_type,
           row.chunk_index, row.content, row.metadata, row.embedding,
@@ -212,7 +212,7 @@ export class SqliteStore {
       .prepare("SELECT * FROM knowledge_entries WHERE id = ?")
       .get(id) as Record<string, any> | undefined;
 
-    return row ? this.rowToEntry(row) : null;
+    return row ? rowToEntry(row) : null;
   }
 
   /**
@@ -251,9 +251,9 @@ export class SqliteStore {
       if (!row.embedding) continue;
       try {
         const entryVec = new Float64Array(JSON.parse(row.embedding));
-        const score = this.cosineSimilarity(queryVec, entryVec);
+        const score = cosineSimilarity(queryVec, entryVec);
         if (score > 0) {
-          results.push({ entry: this.rowToEntry(row), score });
+          results.push({ entry: rowToEntry(row), score });
         }
       } catch {
         continue;
@@ -297,7 +297,7 @@ export class SqliteStore {
       for (const row of rows) {
         if (!seen.has(row.id)) {
           seen.add(row.id);
-          results.push(this.rowToEntry(row));
+          results.push(rowToEntry(row));
           if (results.length >= topK) break;
         }
       }
@@ -335,7 +335,7 @@ export class SqliteStore {
       .prepare("SELECT * FROM knowledge_sources ORDER BY last_indexed DESC")
       .all() as Record<string, any>[];
 
-    return rows.map((r) => this.rowToSource(r));
+    return rows.map((r) => rowToSource(r));
   }
 
   /** 获取指定来源记录 */
@@ -344,7 +344,7 @@ export class SqliteStore {
       .prepare("SELECT * FROM knowledge_sources WHERE source_path = ?")
       .get(sourcePath) as Record<string, any> | undefined;
 
-    return row ? this.rowToSource(row) : null;
+    return row ? rowToSource(row) : null;
   }
 
   hasSourceEmbeddingProfile(sourcePath: string, profile: EmbeddingProfile): boolean {
@@ -368,7 +368,7 @@ export class SqliteStore {
       .prepare("SELECT * FROM knowledge_entries WHERE source_path = ?")
       .all(sourcePath) as Record<string, any>[];
 
-    return rows.map((r) => this.rowToEntry(r));
+    return rows.map((r) => rowToEntry(r));
   }
 
   // ============================================================
@@ -418,59 +418,6 @@ export class SqliteStore {
   // 内部工具
   // ============================================================
 
-  /** KnowledgeEntry → 扁平对象（用于绑定参数） */
-  private entryToRow(entry: KnowledgeEntry): KnowledgeEntryRow {
-    return {
-      id: entry.id,
-      source: entry.source,
-      source_path: entry.sourcePath,
-      source_name: entry.sourceName,
-      source_type: entry.sourceType,
-      chunk_index: entry.chunkIndex,
-      content: entry.content,
-      metadata: JSON.stringify(entry.metadata),
-      embedding: entry.embedding ? JSON.stringify(entry.embedding) : null,
-      embedding_provider: entry.embeddingProvider ?? null,
-      embedding_model: entry.embeddingModel ?? null,
-      embedding_dimensions: entry.embeddingDimensions ?? (entry.embedding ? entry.embedding.length : null),
-      indexed_at: entry.indexedAt,
-      token_count: entry.tokenCount,
-    };
-  }
-
-  /** 扁平对象 → KnowledgeEntry */
-  private rowToEntry(row: Record<string, any>): KnowledgeEntry {
-    return {
-      id: row.id,
-      source: row.source,
-      sourcePath: row.source_path,
-      sourceName: row.source_name,
-      sourceType: row.source_type,
-      chunkIndex: row.chunk_index,
-      content: row.content,
-      metadata: JSON.parse(row.metadata || "{}"),
-      embedding: row.embedding ? JSON.parse(row.embedding) : null,
-      embeddingProvider: row.embedding_provider ?? undefined,
-      embeddingModel: row.embedding_model ?? undefined,
-      embeddingDimensions: row.embedding_dimensions ?? undefined,
-      indexedAt: row.indexed_at,
-      tokenCount: row.token_count,
-    };
-  }
-
-  /** 扁平对象 → KnowledgeSource */
-  private rowToSource(row: Record<string, any>): KnowledgeSource {
-    return {
-      sourcePath: row.source_path,
-      sourceName: row.source_name,
-      sourceType: row.source_type,
-      entryCount: row.entry_count,
-      firstIndexed: row.first_indexed,
-      lastIndexed: row.last_indexed,
-      fileHash: row.file_hash,
-    };
-  }
-
   private ensureSourceSummaries(): void {
     const rows = this.db
       .prepare(
@@ -518,20 +465,4 @@ export class SqliteStore {
     });
   }
 
-  /** 余弦相似度 */
-  private cosineSimilarity(a: Float64Array, b: Float64Array): number {
-    if (a.length !== b.length) return 0;
-    const len = a.length;
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < len; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    const denom = Math.sqrt(normA) * Math.sqrt(normB);
-    if (denom === 0) return 0;
-    return dotProduct / denom;
-  }
 }
