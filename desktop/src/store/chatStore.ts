@@ -14,15 +14,15 @@
  */
 
 import { create } from "zustand";
-import type {
-  TurnItem,
-  AgentEvent,
-  TokenUsage,
-  ThreadMetadata,
-  FileAttachment,
-} from "../electronApi";
+import type { TurnItem, AgentEvent, TokenUsage, ThreadMetadata, FileAttachment } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { handleAgentEvent } from "./agentEventHandler";
+import {
+  mergeBufferedStreamDeltas,
+  setupChatStreamListeners,
+  STREAM_DELTA_STORE_FLUSH_MS,
+  type StreamDeltaInput,
+} from "./chatStreamBuffer";
 import {
   loadThreads as loadThreadsAction,
   switchThread as switchThreadAction,
@@ -31,34 +31,8 @@ import {
   moveThreadToFolder as moveThreadToFolderAction,
 } from "./threadActions";
 
-export const STREAM_DELTA_STORE_FLUSH_MS = 50;
-
-export type StreamDeltaInput = {
-  delta: string;
-  itemType: string;
-  roundId?: number;
-  threadId?: string;
-  clientId?: string;
-};
-
-export function mergeBufferedStreamDeltas(deltas: StreamDeltaInput[]): StreamDeltaInput[] {
-  const merged: StreamDeltaInput[] = [];
-  for (const delta of deltas) {
-    const previous = merged[merged.length - 1];
-    if (
-      previous &&
-      previous.itemType === delta.itemType &&
-      previous.roundId === delta.roundId &&
-      previous.threadId === delta.threadId &&
-      previous.clientId === delta.clientId
-    ) {
-      previous.delta += delta.delta;
-    } else {
-      merged.push({ ...delta });
-    }
-  }
-  return merged;
-}
+export { mergeBufferedStreamDeltas, STREAM_DELTA_STORE_FLUSH_MS };
+export type { StreamDeltaInput };
 
 // ============================================================
 // 状态类型
@@ -182,52 +156,11 @@ export interface ChatActions {
 // 事件监听器清理
 // ============================================================
 
-let unsubscribeEvent: (() => void) | null = null;
-let unsubscribeDelta: (() => void) | null = null;
-let pendingStreamDeltas: StreamDeltaInput[] = [];
-let streamDeltaFlushTimer: number | null = null;
-
-function flushBufferedStreamDeltas(): void {
-  if (streamDeltaFlushTimer) {
-    window.clearTimeout(streamDeltaFlushTimer);
-    streamDeltaFlushTimer = null;
-  }
-  if (pendingStreamDeltas.length === 0) return;
-  const batch = mergeBufferedStreamDeltas(pendingStreamDeltas);
-  pendingStreamDeltas = [];
-  for (const delta of batch) {
-    useChatStore.getState().handleStreamDelta(delta);
-  }
-}
-
-function scheduleBufferedStreamDeltas(): void {
-  if (streamDeltaFlushTimer) return;
-  streamDeltaFlushTimer = window.setTimeout(flushBufferedStreamDeltas, STREAM_DELTA_STORE_FLUSH_MS);
-}
-
 function setupListeners() {
-  if (typeof window === "undefined") return;
-
-  flushBufferedStreamDeltas();
-  if (unsubscribeEvent) unsubscribeEvent();
-  if (unsubscribeDelta) unsubscribeDelta();
-
-  unsubscribeEvent = ipcApi.agent.onEvent((event: AgentEvent) => {
-    if (event.type === "stream_delta") {
-      pendingStreamDeltas.push(event);
-      scheduleBufferedStreamDeltas();
-      return;
-    }
-    flushBufferedStreamDeltas();
-    useChatStore.getState().handleAgentEvent(event);
+  setupChatStreamListeners({
+    handleAgentEvent: (event) => useChatStore.getState().handleAgentEvent(event),
+    handleStreamDelta: (data) => useChatStore.getState().handleStreamDelta(data),
   });
-
-  unsubscribeDelta = ipcApi.agent.onStreamDelta(
-    (data: StreamDeltaInput) => {
-      pendingStreamDeltas.push(data);
-      scheduleBufferedStreamDeltas();
-    }
-  );
 }
 
 // ============================================================
