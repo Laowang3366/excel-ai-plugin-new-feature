@@ -1550,6 +1550,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`chatStore` turn 动作拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract chat turn actions`
+
+**覆盖范围**：
+- 新增 `src/store/chatTurnActions.ts`，承接 `sendMessage`、`resumeFromInterruption`、`interruptTurn` 的 IPC 调用、turn start patch、resume 检查和中断状态更新。
+- `chatStore.ts` 保留 Zustand state shape、事件入口、stream delta、线程管理、工具审批和 composer 文件桥接；主文件从 516 行降至 367 行。
+
+**业务链路保护**：
+- 对外 store action 名称、参数和返回 Promise 行为不变。
+- 不改 `buildTurnStartPatch()`、`ipcApi.agent.startTurn/enqueueTurn/continueTurn/interrupt`、`thread.resume` 和 `loadThreads()` 调用语义。
+- 不改运行中追加队列、恢复中断、停止线程状态、`stoppedThreadIds`、`runningThreadIds` 和中断提示文案。
+
+**验证证据**：
+- `npm exec vitest run src/store/chatStore.test.ts src/store/chatTurnState.test.ts src/store/threadActions.test.ts src/store/chatThreadRuntimeState.test.ts src/store/agentEventHandler.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
