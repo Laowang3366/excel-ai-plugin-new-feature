@@ -169,6 +169,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1 性能：`ChatPage` 文件夹加载取消保护
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `fix: guard chat folder file loading`
+
+**覆盖范围**：
+- 为 `src/components/ChatPage.tsx` 中按 `currentFolderId` 加载文件夹文件的 `useEffect` 增加 `cancelled` 标记。
+- 当组件卸载或 `currentFolderId` 快速切换时，旧的 `ipcApi.folder.listFiles()` Promise 返回后不再调用 `setCurrentFolderFiles()`。
+
+**业务链路保护**：
+- 文件夹为空时仍立即清空 `currentFolderFiles`。
+- 成功和失败 fallback 结果保持不变，仅阻止过期异步结果回写当前 UI。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）

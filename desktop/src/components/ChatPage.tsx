@@ -85,13 +85,19 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings, activeIntent
   const [currentFolderFiles, setCurrentFolderFiles] = useState<FolderFileInfo[]>([]);
   const [officePreviewOpen, setOfficePreviewOpen] = useState(false);
   useEffect(() => {
+    let cancelled = false;
     if (currentFolderId) {
       ipcApi.folder.listFiles(currentFolderId).then((files) => {
-        setCurrentFolderFiles(files);
-      }).catch(() => setCurrentFolderFiles([]));
+        if (!cancelled) setCurrentFolderFiles(files);
+      }).catch(() => {
+        if (!cancelled) setCurrentFolderFiles([]);
+      });
     } else {
       setCurrentFolderFiles([]);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [currentFolderId]);
 
   // Composer hook
