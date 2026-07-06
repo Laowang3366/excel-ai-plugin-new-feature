@@ -464,7 +464,7 @@ export async function processToolCalls(
       id: `result-${Date.now()}`,
       toolCallId: tc.id,
       toolName: canonicalToolName,
-      result: result.data || result.error,
+      result: result.success ? result.data : result.error,
       isError: !result.success,
       timestamp: Date.now(),
     };

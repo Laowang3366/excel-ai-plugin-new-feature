@@ -31,7 +31,7 @@ export function summarizeForLog(value: unknown, maxLength = 2000): string {
     summary = value;
   } else {
     try {
-      summary = JSON.stringify(value);
+      summary = JSON.stringify(value) ?? String(value);
     } catch {
       summary = String(value);
     }

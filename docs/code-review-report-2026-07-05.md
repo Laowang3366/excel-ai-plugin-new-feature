@@ -519,6 +519,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T3：工具执行结果假值保真
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `fix: preserve falsy tool results`
+
+**覆盖范围**：
+- 为 `processToolCalls()` 增加成功工具返回 `false` 的回归测试，锁定 `tool_result.result` 不应被 `||` 误判为空。
+- 将工具结果组装从 `result.data || result.error` 改为按 `result.success` 分支取值，保留 `false`、`0`、空字符串等合法结果。
+- 修复 `summarizeForLog()` 对 `undefined` 的摘要处理，避免 `JSON.stringify(undefined)` 触发后续 `.length` 崩溃。
+
+**业务链路保护**：
+- 不改变工具审批、sandbox 判定、事件顺序和日志字段结构。
+- 失败工具仍写入 `result.error`；成功工具按原始 `data` 写入前端事件与执行日志摘要。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/core/agentLoop/toolExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

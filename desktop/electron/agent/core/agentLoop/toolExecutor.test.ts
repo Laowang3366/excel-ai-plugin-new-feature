@@ -176,6 +176,28 @@ describe("processToolCalls", () => {
     });
   });
 
+  it("preserves falsy successful tool result data", async () => {
+    const turn = createTurn();
+    const execute = vi.fn(async () => ({ success: true, data: false }));
+
+    await processToolCalls(
+      [{ id: "call-falsy", name: "ui.check", arguments: "{}" }],
+      new Map(),
+      turn,
+      new Map([["ui.check", { name: "ui.check", execute }]]),
+      { permissionMode: "confirm_all" },
+      createCallbacks(),
+      vi.fn(async () => {})
+    );
+
+    expect(turn.items[1]).toMatchObject({
+      type: "tool_result",
+      toolCallId: "call-falsy",
+      result: false,
+      isError: false,
+    });
+  });
+
   it("logs the structured tool execution result after a tool completes", async () => {
     const turn = createTurn();
     const execute = vi.fn(async () => ({ success: true, data: { rows: 1 } }));

@@ -22,6 +22,7 @@
 - **运行时状态库事务一致性补强**：`StateRuntimeStore.transaction()` 现在同时覆盖 `state/logs/goals/memories` 四个运行时库，并补充跨库回滚测试，避免事务失败后日志、目标或记忆写入残留。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
 - **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
+- **工具执行结果保真修复**：工具成功返回 `false`、`0`、空字符串等假值时不再被误当成无结果，执行日志摘要也能安全处理 `undefined`。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
 - **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。
