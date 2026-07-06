@@ -20,6 +20,7 @@
 @import "./sidebar-search.css";
 @import "./sidebar-folder.css";
 @import "./sidebar-footer.css";
+@import "./sidebar-thread.css";
 /* 聊天页面 + 文件夹徽章 + 文件弹窗 */
 @import "./chat.css";
 @import "./floating-task-panel.css";

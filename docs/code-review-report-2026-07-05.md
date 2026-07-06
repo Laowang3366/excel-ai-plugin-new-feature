@@ -757,6 +757,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：侧边栏会话与右键菜单样式拆分
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: split sidebar thread styles`
+
+**覆盖范围**：
+- 新增 `src/styles/sidebar-thread.css`，集中普通会话条目、文件夹内会话共享基础样式、状态点、线程右键菜单和文件右键菜单样式。
+- `global.css` 在侧边栏基础、搜索、文件夹和 footer 样式后导入线程样式，保持共享基础样式可被 `sidebar-folder.css` 的文件夹增量规则配合使用。
+- `sidebar.css` 从 563 行降至 391 行，低于 CSS 500 行上限；新线程样式文件为 174 行。
+
+**业务链路保护**：
+- 不改 `FolderSection.tsx`、`ThreadContextMenu.tsx`、`FileContextMenu.tsx` 的 DOM、className、菜单打开/确认/移动到文件夹和删除逻辑。
+- 文件夹内会话的增量缩进仍保留在 `sidebar-folder.css`，共享的会话基础样式进入 `sidebar-thread.css`。
+- 至此 `sidebar.css` 已从 CSS 超标清单关闭。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -872,9 +892,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
-| `src/styles/sidebar.css` | **563** | 500 | +63 | 继续按自然职责边界拆分 |
-
-**完整超标清单**：共 29 个 TS/TSX 文件 + 2 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 29 个 TS/TSX 文件 + 1 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1235,12 +1253,11 @@ useEffect(() => {
 | 416 | `src/components/settings/UsageStats.tsx` |
 | 404 | `electron/main-modules/mineruOcr.ts` |
 
-### CSS 文件（2 个）
+### CSS 文件（1 个）
 
 | 行数 | 文件 |
 |------|------|
 | 1444 | `src/styles/settings.css` |
-| 563 | `src/styles/sidebar.css` |
 
 ---
 
