@@ -605,6 +605,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`FolderSection` 会话项复用
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: share sidebar thread item`
+
+**覆盖范围**：
+- 新增 `src/components/sidebar/SidebarThreadItem.tsx`，集中侧边栏会话项的 active class、时间、预览、运行/完成/失败状态标记和文件夹内图标渲染。
+- `FolderSection.tsx` 的文件夹内会话列表与 `UngroupedThreadList` 复用同一组件，文件从 305 行降至 259 行。
+- 新增 `SidebarThreadItem.test.ts`，覆盖 running runtime state、active thread 视为已读隐藏非运行状态、已读 completed metadata 不再显示状态标记。
+- 同步 `CHANGELOG.md` 当前测试源基线为 149 个测试文件、740 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改文件夹展开、文件列表切换、文件加入会话、文件右键菜单、文件夹新建会话和移除文件夹逻辑。
+- 保留 `sidebar-thread-item`、`sidebar-thread-in-folder`、`thread-item-*`、`thread-status-indicator` className。
+- 右键菜单仍按原语义传入 `inFolder=true`；未分组会话仍不传第三参。
+
+**验证证据**：
+- `npm exec vitest run src/components/sidebar/SidebarThreadItem.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复

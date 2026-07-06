@@ -10,7 +10,6 @@ import React, { useEffect, useState } from "react";
 import { useSettingsStore, type AppLanguage, type PinnedFolder } from "../../store/settingsStore";
 import type { FolderFileInfo } from "../../electronApi";
 import { getAppText } from "../../i18n";
-import { formatTime, getThreadDisplayStatus, getThreadStatusLabel } from "../../utils/sidebarHelpers";
 import {
   Plus,
   RefreshCw,
@@ -23,6 +22,7 @@ import {
   MessageSquare,
 } from "../common/IconMap";
 import { FileContextMenu, type FileContextMenuState } from "./FileContextMenu";
+import { SidebarThreadItem } from "./SidebarThreadItem";
 
 interface FolderThread {
   threadId: string;
@@ -171,44 +171,21 @@ export function FolderSection({
             folderThreads.length === 0 ? (
               <div className="sidebar-folder-empty">{text.sidebar.noFolderThreads}</div>
             ) : (
-              folderThreads.map((thread) => {
-                const isActiveThread = activeThreadId === thread.threadId;
-                const isRunningThread = Boolean(runningThreadIds[thread.threadId]);
-                const statusViewed = isActiveThread || viewedThreadStatusAt[thread.threadId] === thread.updatedAt;
-                const status = getThreadDisplayStatus(
-                  thread.lastTurnStatus,
-                  isRunningThread ? "in_progress" : isActiveThread ? turnStatus as any : undefined,
-                  statusViewed
-                );
-                const statusLabel = getThreadStatusLabel(status, language);
-                return (
-                  <div
-                    key={thread.threadId}
-                    className={`sidebar-thread-item sidebar-thread-in-folder ${activeThreadId === thread.threadId ? "active" : ""}`}
-                    onClick={() => threadActions.switchThread(thread.threadId)}
-                    onContextMenu={(e) => threadActions.openContextMenu(e, thread.threadId, true)}
-                  >
-                    <div className="thread-item-main">
-                      <MessageSquare size={12} className="thread-item-icon" />
-                      <div className="thread-item-preview">
-                        {thread.preview || text.sidebar.newChat}
-                      </div>
-                      <span className="thread-item-time">
-                        {formatTime(thread.updatedAt, language)}
-                      </span>
-                      {status && (
-                        <span
-                          className={`thread-status-indicator ${status}`}
-                          title={statusLabel}
-                          aria-label={statusLabel}
-                        >
-                          {status === "running" ? <RefreshCw size={12} className="spin" /> : null}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+              folderThreads.map((thread) => (
+                <SidebarThreadItem
+                  key={thread.threadId}
+                  thread={thread}
+                  activeThreadId={activeThreadId}
+                  runningThreadIds={runningThreadIds}
+                  turnStatus={turnStatus}
+                  viewedThreadStatusAt={viewedThreadStatusAt}
+                  language={language}
+                  fallbackTitle={text.sidebar.newChat}
+                  inFolder
+                  onSwitchThread={threadActions.switchThread}
+                  onThreadContextMenu={threadActions.openContextMenu}
+                />
+              ))
             )
           )}
         </div>
@@ -268,43 +245,20 @@ export function UngroupedThreadList({
 
   return (
     <>
-      {threads.map((thread) => {
-        const isActiveThread = activeThreadId === thread.threadId;
-        const isRunningThread = Boolean(runningThreadIds[thread.threadId]);
-        const statusViewed = isActiveThread || viewedThreadStatusAt[thread.threadId] === thread.updatedAt;
-        const status = getThreadDisplayStatus(
-          thread.lastTurnStatus,
-          isRunningThread ? "in_progress" : isActiveThread ? turnStatus as any : undefined,
-          statusViewed
-        );
-        const statusLabel = getThreadStatusLabel(status, language);
-        return (
-          <div
-            key={thread.threadId}
-            className={`sidebar-thread-item ${activeThreadId === thread.threadId ? "active" : ""}`}
-            onClick={() => onSwitchThread(thread.threadId)}
-            onContextMenu={(e) => onThreadContextMenu(e, thread.threadId)}
-          >
-            <div className="thread-item-main">
-              <div className="thread-item-preview">
-                {thread.preview || text.sidebar.newChat}
-              </div>
-              <span className="thread-item-time">
-                {formatTime(thread.updatedAt, language)}
-              </span>
-              {status && (
-                <span
-                  className={`thread-status-indicator ${status}`}
-                  title={statusLabel}
-                  aria-label={statusLabel}
-                >
-                  {status === "running" ? <RefreshCw size={12} className="spin" /> : null}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {threads.map((thread) => (
+        <SidebarThreadItem
+          key={thread.threadId}
+          thread={thread}
+          activeThreadId={activeThreadId}
+          runningThreadIds={runningThreadIds}
+          turnStatus={turnStatus}
+          viewedThreadStatusAt={viewedThreadStatusAt}
+          language={language}
+          fallbackTitle={text.sidebar.newChat}
+          onSwitchThread={onSwitchThread}
+          onThreadContextMenu={onThreadContextMenu}
+        />
+      ))}
     </>
   );
 }
