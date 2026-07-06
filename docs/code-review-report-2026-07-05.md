@@ -356,6 +356,28 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`UsageStats` 数据 helper 拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract usage stats data helpers`
+
+**覆盖范围**：
+- 新增 `components/settings/usageStatsData.ts`，集中使用统计文案、模型颜色、数字/日期格式化、`stats:getSummary` 行转换和时间范围聚合。
+- `UsageStats.tsx` 改为通过 `buildUsageStatsData()` 获取视图数据，组件保留 IPC 加载、状态和 JSX 渲染职责。
+- 新增 `usageStatsData.test.ts`，覆盖零 token 过滤、行排序、按范围聚合、模型排序、连续天数、估算标记和格式化输出。
+- 同步 `CHANGELOG.md` 当前测试源基线为 139 个测试文件、715 个 `it/test` 用例。
+
+**业务链路保护**：
+- `ipcApi.stats.getSummary()` 调用、loading/error 状态、范围切换、刷新按钮、图表 DOM/className 和样式入口均未改动。
+- 本地日界线聚合规则保持与原组件一致，仅移动纯计算逻辑并补测试。
+
+**验证证据**：
+- `npm exec vitest run src/components/settings/usageStatsData.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
@@ -1622,7 +1644,7 @@ useEffect(() => {
 | 426 | `electron/main-modules/settingsManager.ts` |
 | 423 | `electron/agent/providers/openaiCompatibleClient.ts` |
 | 419 | `src/components/settings/AddProviderDialog.tsx` |
-| 416 | `src/components/settings/UsageStats.tsx` |
+| 252 | `src/components/settings/UsageStats.tsx` |
 | 404 | `electron/main-modules/mineruOcr.ts` |
 
 ### CSS 文件（0 个）
