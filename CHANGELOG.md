@@ -58,6 +58,7 @@
 - **文档级弹层关闭逻辑复用**：扩展 `useDocumentDismiss` 支持 ref 边界，侧边栏搜索面板和模型快速切换下拉统一复用该 hook，减少重复 document listener。
 - **文件大小格式化入口收敛**：`ChatPage` 直接使用共享 `utils/fileSize`，移除 `chatHelpers` 中的薄包装导出，避免格式规则分散。
 - **OCR 面板流程 helper 拆分**：将 OCR 文件类型判断、临时文件落盘和 Excel 写入目标解析移到 `ocrTaskFileHelpers.ts`，面板组件保留状态、识别、写入和渲染职责。
+- **OCR 面板展示块拆分**：将识别模式、文件上传和识别结果展示抽到 `OCRModeSelector.tsx`、`OCRFileUploadSection.tsx`、`OCRResultSection.tsx`，主面板继续负责识别调用、字段状态和 Excel 写入编排。
 - **工具执行 sandbox 策略 helper 拆分**：将 `toolExecutor` 中的 shell 命令安全策略预评估抽到 `toolSandboxPolicy.ts`，保留 forbidden 永拒、prompt 强制审批和执行上下文透传语义。
 - **工具审批策略 helper 拆分**：将 `toolExecutor` 中的权限模式判断、always-allowed 工具集合和审批回调兜底抽到 `toolApproval.ts`，旧入口继续 re-export，主执行器降至 355 行。
 - **工具名解析 helper 拆分**：将 `toolExecutor` 中点号/下划线工具别名解析抽到 `toolNameResolution.ts`，补充 canonical executor 优先级和 OCR alias 回归测试。

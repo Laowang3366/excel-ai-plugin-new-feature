@@ -1483,6 +1483,28 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`OCRTaskComposerPanel` 展示块拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract ocr task sections`
+
+**覆盖范围**：
+- 新增 `src/components/task/OCRModeSelector.tsx`，承接通用 OCR / 发票识别模式选择 UI。
+- 新增 `src/components/task/OCRFileUploadSection.tsx`，承接拖拽/点击上传区和已选文件列表。
+- 新增 `src/components/task/OCRResultSection.tsx`，承接错误提示、字段勾选、目标单元格、预览表格和写入按钮展示。
+- `OCRTaskComposerPanel.tsx` 从 455 行降至 319 行；剩余体量主要是 OCR 状态、识别调用、字段选择和 Excel 写入编排，暂不为行数继续拆散状态机。
+
+**业务链路保护**：
+- 不改 `ipcApi.ocr.recognize(effectiveOcrMode, await resolveOcrFilePaths(files))` 调用和模式判断。
+- 不改 `resolveOcrFilePaths()` 临时文件落盘、文件类型过滤、发票文件推断和最多文件数量规则。
+- 不改 `buildOcrWriteValues()`、`resolveWriteTarget()`、`ipcApi.excel.writeRange()` 写入链路，也保留 `OCRTaskComposerPanel` 对 helper 的 re-export，兼容现有测试和调用方。
+
+**验证证据**：
+- `npm exec vitest run src/components/task/OCRTaskComposerPanel.test.ts src/components/task/ocrTaskFileHelpers.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
