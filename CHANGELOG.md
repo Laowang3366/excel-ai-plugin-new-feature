@@ -44,6 +44,7 @@
 - **工具执行 sandbox 策略 helper 拆分**：将 `toolExecutor` 中的 shell 命令安全策略预评估抽到 `toolSandboxPolicy.ts`，保留 forbidden 永拒、prompt 强制审批和执行上下文透传语义。
 - **chatStore turn 启动状态收敛**：将发送消息与恢复中断共用的流式状态重置、`activeClientId` 绑定和 stopped thread 清理抽到 `chatTurnState.ts` 纯 helper，保留两个 action 各自的 compaction/interrupt 清理差异。
 - **编辑供应商保存 patch 可测试化**：将 `EditProviderDialog` 中的保存差异计算和旧 `reasoningOptions` 清理抽到 `editProviderPatch.ts`，避免弹窗组件内混杂配置迁移细节。
+- **侧边栏排序与分组派生收敛**：将会话排序、文件夹分组和空状态判断移到 `sidebarHelpers.ts`，`Sidebar.tsx` 保留状态编排与事件回调，排序规则补充单元测试。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
 - **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。

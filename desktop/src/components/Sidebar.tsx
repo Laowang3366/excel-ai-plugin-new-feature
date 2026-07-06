@@ -27,6 +27,7 @@ import type { ContextMenuState } from "./sidebar/ThreadContextMenu";
 import type { FileContextMenuState } from "./sidebar/FileContextMenu";
 import { SidebarSearchPalette } from "./sidebar/SidebarSearchPalette";
 import { SidebarCollapsed } from "./sidebar/SidebarCollapsed";
+import { buildSidebarDerivedLists } from "../utils/sidebarHelpers";
 import type {
   FolderSectionActions,
   FolderSectionFileMenuApi,
@@ -47,26 +48,6 @@ interface SidebarProps {
   onOpenSettingsSection?: (section: SettingsSection) => void;
   activeIntent: IntentKind;
   onIntentClick: (intent: IntentKind) => void;
-}
-
-function compareSidebarText(left: string, right: string, language: string): number {
-  return left.localeCompare(right, language === "zh-CN" ? "zh-CN" : "en", {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
-
-function sortSidebarItems<T extends { preview?: string; updatedAt: number }>(
-  items: T[],
-  mode: SidebarSortMode,
-  language: string
-): T[] {
-  return [...items].sort((a, b) => {
-    if (mode === "recentAsc") return a.updatedAt - b.updatedAt;
-    if (mode === "nameAsc") return compareSidebarText(a.preview || "", b.preview || "", language);
-    if (mode === "nameDesc") return compareSidebarText(b.preview || "", a.preview || "", language);
-    return b.updatedAt - a.updatedAt;
-  });
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -447,31 +428,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [setPendingHosts]);
 
   const hasSearchQuery = false;
-  const ungroupedThreads = useMemo(() => sortSidebarItems(
-    threads.filter((thread) => !thread.folderId),
+  const {
+    ungroupedThreads,
+    groupedByFolder,
+    hasProjectItems,
+    hasConversationItems,
+    showNoSearchResults,
+  } = useMemo(() => buildSidebarDerivedLists({
+    threads,
+    pinnedFolders,
+    folderFiles,
+    projectSortMode,
     conversationSortMode,
-    language
-  ), [conversationSortMode, language, threads]);
-  const groupedByFolder = useMemo(() => pinnedFolders.map((folder) => ({
-    folder,
-    folderMatches: true,
-    threads: sortSidebarItems(
-      threads.filter((thread) => thread.folderId === folder.path),
-      projectSortMode,
-      language
-    ),
-    files: folderFiles[folder.path] || [],
-  })).filter(({ folderMatches, threads: folderThreads, files }) =>
-    !hasSearchQuery || folderMatches || folderThreads.length > 0 || files.length > 0
-  ).sort((a, b) => {
-    if (projectSortMode === "recentAsc") return a.folder.addedAt - b.folder.addedAt;
-    if (projectSortMode === "nameAsc") return compareSidebarText(a.folder.name, b.folder.name, language);
-    if (projectSortMode === "nameDesc") return compareSidebarText(b.folder.name, a.folder.name, language);
-    return b.folder.addedAt - a.folder.addedAt;
-  }), [folderFiles, hasSearchQuery, language, pinnedFolders, projectSortMode, threads]);
-  const hasProjectItems = groupedByFolder.length > 0;
-  const hasConversationItems = ungroupedThreads.length > 0;
-  const showNoSearchResults = hasSearchQuery && !hasProjectItems && !hasConversationItems;
+    language,
+    hasSearchQuery,
+  }), [conversationSortMode, folderFiles, hasSearchQuery, language, pinnedFolders, projectSortMode, threads]);
 
   const hostSelectionDialog = pendingHosts && pendingHosts.length > 1 ? (
     <HostSelectionDialog

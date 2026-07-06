@@ -1,8 +1,8 @@
 import React from "react";
 import type { AppPage } from "../../App";
-import type { ThreadMetadata, FolderFileInfo } from "../../electronApi";
+import type { ThreadMetadata } from "../../electronApi";
 import type { AppLanguage, PinnedFolder } from "../../store/settingsStore";
-import type { ExcelStatus } from "../../utils/sidebarHelpers";
+import type { ExcelStatus, SidebarGroupedFolder, SidebarSortMode } from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";
 import type { getAppText } from "../../i18n";
 import type { SettingsSection } from "../SettingsPage";
@@ -28,13 +28,7 @@ import {
 } from "../common/IconMap";
 
 export type SidebarSortSection = "projects" | "conversations";
-export type SidebarSortMode = "recentDesc" | "recentAsc" | "nameAsc" | "nameDesc";
-
-export interface SidebarGroupedFolder {
-  folder: PinnedFolder;
-  threads: ThreadMetadata[];
-  files: FolderFileInfo[];
-}
+export type { SidebarGroupedFolder, SidebarSortMode } from "../../utils/sidebarHelpers";
 
 interface SidebarExpandedProps {
   currentPage: AppPage;

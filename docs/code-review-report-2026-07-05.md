@@ -957,6 +957,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`Sidebar` 排序与派生列表 helper 抽取
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract sidebar derived lists`
+
+**覆盖范围**：
+- 将 `compareSidebarText()`、`sortSidebarItems()`、文件夹分组、未分组会话和空状态判断移动到 `src/utils/sidebarHelpers.ts`。
+- `SidebarExpanded` 继续暴露原 `SidebarSortMode` / `SidebarGroupedFolder` 类型名，但来源改为 utils，保持父组件 props 形状不变。
+- `sidebarHelpers.test.ts` 新增排序模式、文件夹会话分组、文件列表透传和空状态派生测试。
+
+**业务链路保护**：
+- 不改文件夹加载、批量 `folder:listFilesBatch`、会话切换、右键菜单、固定文件和 Office 连接状态逻辑。
+- `Sidebar.tsx` 仍统一编排 store 状态、IPC 动作和 UI 回调；本次只移动纯排序/分组数据派生。
+- `Sidebar.tsx` 从约 520 行降至约 493 行；仍高于规范上限，后续继续按职责拆，不为行数硬拆状态机。
+
+**验证证据**：
+- `npx vitest run src/utils/sidebarHelpers.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
