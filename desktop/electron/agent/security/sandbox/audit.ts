@@ -14,9 +14,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
 import * as os from "os";
+import { createLogger } from "../../../shared/logger";
 
 const appendFile = promisify(fs.appendFile);
 const mkdir = promisify(fs.mkdir);
+const auditLogger = createLogger("SandboxAudit");
 
 /** 审计根目录 —— 与 sessionStore 同根，便于捆绑排查 */
 function getRoot(): string {
@@ -79,7 +81,7 @@ async function getDayFile(): Promise<string> {
 /**
  * 记一条审计事件到当天 JSONL 文件
  *
- * 失败不抛错（审计本身不应阻塞业务），仅 console.warn。
+ * 失败不抛错（审计本身不应阻塞业务），仅记录结构化警告日志。
  */
 export async function audit(event: AuditEvent): Promise<void> {
   try {
@@ -87,7 +89,6 @@ export async function audit(event: AuditEvent): Promise<void> {
     const file = await getDayFile();
     await appendFile(file, line, "utf8");
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn("[sandbox.audit] write failed:", err);
+    auditLogger.warn("write failed", err instanceof Error ? { message: err.message, stack: err.stack } : { error: String(err) });
   }
 }

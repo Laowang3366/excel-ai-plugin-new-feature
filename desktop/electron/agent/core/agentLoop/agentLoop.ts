@@ -56,8 +56,11 @@ import {
 import { runTurnFlow } from "./turnFlow";
 import { runAgentLoopWithDeps } from "./agentLoopRoundDeps";
 import { AgentLoopBase } from "./agentLoopBase";
+import { createLogger } from "../../../shared/logger";
 
 export type { AgentLoopConfig } from "./agentLoopConfig";
+
+const agentLoopLogger = createLogger("AgentLoop");
 
 export class AgentLoop extends AgentLoopBase {
 
@@ -169,7 +172,7 @@ export class AgentLoop extends AgentLoopBase {
       runTurn: (input, callbacks) => this.runTurn(input, callbacks),
       setDraining: (isDraining) => { this.isDrainingInputQueue = isDraining; },
       scheduleDrain: () => this.scheduleInputQueueDrain(),
-      onTurnError: (error) => console.warn("执行排队输入失败:", error),
+      onTurnError: (error) => agentLoopLogger.warn("执行排队输入失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) }),
     });
   }
 

@@ -16,10 +16,11 @@ import { StateRuntimeStore } from "../agent/memory/stateRuntimeStore";
 import type { AIClientConfig } from "../agent/providers/aiClient";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
 import { reloadKnowledgeRuntime } from "../agent/runtime/knowledgeRuntime";
-import { configureLogDirectory } from "../shared/logger";
+import { configureLogDirectory, createLogger } from "../shared/logger";
 
 const SETTINGS_STORE_NAME = "excel-ai-settings";
 const DATA_DIR_NAME = "data";
+const settingsLogger = createLogger("SettingsManager");
 
 const bootstrapStore = new Store({
   name: "excel-ai-bootstrap",
@@ -94,7 +95,7 @@ export function getActiveDataPath(): string {
   const configured = getConfiguredDataPath();
   if (configured) {
     if (ensureWritableDataPathSync(configured)) return configured;
-    console.warn("配置的数据目录不可写，已回退到用户数据目录:", configured);
+    settingsLogger.warn("配置的数据目录不可写，已回退到用户数据目录", { configured });
   }
 
   const installDataPath = getInstallDataPath();
@@ -174,7 +175,7 @@ function migrateLegacyDefaultDataPathIfNeeded(): void {
       copyDirectoryContentsSync(legacyLogsRoot, nextLogsRoot);
     }
   } catch (error) {
-    console.warn("迁移默认数据目录失败:", error);
+    settingsLogger.warn("迁移默认数据目录失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
   }
 }
 

@@ -350,6 +350,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M8：electron 警告/错误日志统一 logger
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: route electron warnings through logger`
+
+**覆盖范围**：
+- 将 `desktop/electron` 下剩余 `console.warn` / `console.error` 替换为 `createLogger()` 结构化日志。
+- 覆盖主进程启动失败、AgentLoop 队列失败、压缩归档失败、线程运行态持久化失败、长期记忆写入失败、Office bridge 清理失败、知识库初始化失败、沙箱审计写入失败和 settings 数据路径迁移/回退警告。
+- 同步更新 sandbox audit 注释，不再描述为 `console.warn`。
+
+**业务链路保护**：
+- 仅替换日志出口，不改变错误吞吐、fallback、启动失败窗口展示、审计写入失败不阻塞业务等原有控制流。
+- logger 仍保留控制台输出，并额外写入文件日志，便于用户环境排查。
+
+**验证证据**：
+- `Get-ChildItem -Path 'desktop/electron' -Recurse -Filter '*.ts' | Select-String -Pattern 'console\\.(warn|error)'`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -589,6 +610,8 @@ useEffect(() => {
 ---
 
 #### 🟡 M8 — electron/ 目录 13 处 console.warn/error 未用 logger
+
+**状态**：✅ 已修复（2026-07-06，见“M8：electron 警告/错误日志统一 logger”）
 
 | 文件 | 行号 | 当前 | 建议 |
 |------|------|------|------|

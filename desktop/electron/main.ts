@@ -50,7 +50,9 @@ import {
   applySandboxConfig,
 } from "./main-modules/ipcHandlers";
 import { requestToolApproval } from "./agent/interaction/eventForwarder";
-import { configureLogDirectory, setupGlobalErrorHandlers } from "./shared/logger";
+import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
+
+const mainLogger = createLogger("main");
 
 // ============================================================
 // 全局错误捕获（尽早注册，确保所有异常写入日志）
@@ -118,7 +120,7 @@ app.whenReady().then(async () => {
     }
   });
 }).catch((err) => {
-  console.error("[main] Fatal startup error:", err);
+  mainLogger.error("Fatal startup error", err instanceof Error ? { message: err.message, stack: err.stack } : { error: String(err) });
   // 如果窗口未创建，尝试创建并显示错误页面
   if (!mainWindow) {
     const mw = new BrowserWindow({

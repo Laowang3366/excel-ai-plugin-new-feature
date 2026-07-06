@@ -7,6 +7,9 @@ import { PresentationComBridge } from "../tools/implementations/office/presentat
 import { WordComBridge } from "../tools/implementations/office/wordComBridge";
 import { OfficeOpenXmlFileBridge } from "../tools/implementations/officeOpenXml/officeOpenXmlFileBridge";
 import type { ExcelConnectionBridge } from "../tools/contracts/excel";
+import { createLogger } from "../../shared/logger";
+
+const bridgeRegistryLogger = createLogger("BridgeRegistry");
 
 export interface OfficeBridgeRegistry {
   excelBridge: ExcelComBridge;
@@ -140,7 +143,9 @@ export async function disconnectOfficeBridges(): Promise<void> {
   const results = await Promise.allSettled(cleanupTasks);
   for (const result of results) {
     if (result.status === "rejected") {
-      console.warn("[bridgeRegistry] Office bridge cleanup failed:", result.reason);
+      bridgeRegistryLogger.warn("Office bridge cleanup failed", result.reason instanceof Error
+        ? { message: result.reason.message, stack: result.reason.stack }
+        : { reason: String(result.reason) });
     }
   }
 }

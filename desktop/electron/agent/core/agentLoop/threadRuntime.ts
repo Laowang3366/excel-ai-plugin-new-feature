@@ -10,8 +10,10 @@ import type { SessionStore } from "../../memory/sessionStore";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
 import { extractAndWriteTurnMemories } from "../../memory/longTerm/memoryAutoExtraction";
+import { createLogger } from "../../../shared/logger";
 
 type AgentAIClient = ReturnType<typeof createAIClient>;
+const threadRuntimeLogger = createLogger("ThreadRuntime");
 
 export function bindCallbacksToThread(input: {
   callbacks: AgentTurnCallbacks;
@@ -45,7 +47,7 @@ export async function persistThreadSnapshot(input: {
   try {
     await input.stateRuntimeStore.upsertThreadSnapshot(input.thread.metadata);
   } catch (error) {
-    console.warn("写入线程状态快照失败", error);
+    threadRuntimeLogger.warn("写入线程状态快照失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
   }
 }
 
@@ -58,7 +60,7 @@ export async function persistThreadRuntime(input: {
   try {
     await input.stateRuntimeStore.updateThreadRuntime({ ...input.snapshot, threadId: input.threadId });
   } catch (error) {
-    console.warn("写入线程运行态失败", error);
+    threadRuntimeLogger.warn("写入线程运行态失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
   }
 }
 
@@ -77,6 +79,6 @@ export function scheduleTurnMemoryExtraction(input: {
     thread,
     turn,
   }).catch((error) => {
-    console.warn("自动写入长期记忆失败:", error);
+    threadRuntimeLogger.warn("自动写入长期记忆失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
   });
 }

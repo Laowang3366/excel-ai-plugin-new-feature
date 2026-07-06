@@ -13,6 +13,9 @@ import {
   setKnowledgeStore,
   setKnowledgeWriter,
 } from "../knowledge";
+import { createLogger } from "../../shared/logger";
+
+const knowledgeRuntimeLogger = createLogger("KnowledgeRuntime");
 
 export interface KnowledgeRuntimeState {
   store: SqliteStore | null;
@@ -73,7 +76,9 @@ export async function initializeKnowledgeRuntime(
     } catch (e) {
       knowledgeRuntimeError = formatKnowledgeRuntimeError(e);
       clearKnowledgeRuntimeInstances();
-      console.warn("RAG 知识库初始化失败（可在设置中配置后重试）:", e);
+      knowledgeRuntimeLogger.warn("RAG 知识库初始化失败（可在设置中配置后重试）", e instanceof Error
+        ? { message: e.message, stack: e.stack }
+        : { error: String(e) });
     }
   }
 

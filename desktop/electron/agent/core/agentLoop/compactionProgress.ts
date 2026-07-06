@@ -9,6 +9,9 @@ import {
 } from "../../shared/types";
 import { estimateItemsTokens } from "../../memory/compaction";
 import type { SessionStore } from "../../memory/sessionStore";
+import { createLogger } from "../../../shared/logger";
+
+const compactionLogger = createLogger("CompactionProgress");
 
 export async function startCompactionProgress(input: {
   sessionStore: SessionStore;
@@ -127,6 +130,6 @@ export async function archiveRolloutIfConfigured(input: {
       minBytes: input.threshold,
     });
   } catch (error) {
-    console.warn("压缩冷 rollout JSONL 失败:", error);
+    compactionLogger.warn("压缩冷 rollout JSONL 失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
   }
 }
