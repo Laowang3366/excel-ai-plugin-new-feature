@@ -8,115 +8,7 @@ import { useSettingsStore, type AppLanguage, type AppTheme } from "../../store/s
 import { formatTokensAsK, DEFAULT_CONTEXT_WINDOW } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
 import { SettingsSliderField, SettingsSwitchField } from "./SettingsFields";
-
-const GENERAL_TEXT = {
-  "zh-CN": {
-    title: "常规设置",
-    desc: "应用的基本显示和行为偏好。",
-    displayTitle: "显示偏好",
-    displayDesc: "控制应用界面语言、主题等基础显示方式。",
-    language: "界面语言",
-    languageZh: "简体中文",
-    languageEn: "English",
-    languageHint: "切换后会立即保存到本机设置。",
-    theme: "主题",
-    light: "浅色模式",
-    dark: "深色模式",
-    themeHint: "深色模式会立即应用到当前窗口。",
-    closeBehavior: "窗口关闭行为",
-    closeToTray: "关闭窗口时隐藏到系统托盘",
-    closeHint: "开启后点击右上角关闭按钮不会退出应用，可从托盘图标恢复或退出。",
-    windowAvoidanceTitle: "窗口避让",
-    windowAvoidanceDesc: "控制助手在 Office 操作时的占屏方式。",
-    officeAutoCompactEnabled: "Office 操作时自动避让",
-    officeAutoCompactHint: "当检测到 Office 已连接并且助手窗口失焦时，自动缩为右侧紧凑栏，减少对表格、文档或幻灯片的遮挡。",
-    dynamicArrayTitle: "公式函数环境",
-    dynamicArrayFunctionsEnabled: "动态数组函数环境支持",
-    dynamicArrayFunctionsHint: "开启后系统会把当前环境视为支持 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP 等动态数组函数，模型不再反复纠结函数兼容性；关闭后公式助手会优先使用逐格公式或传统函数方案。",
-    storageTitle: "数据存储",
-    storageDesc: "会话历史、模型配置、权限偏好等数据保存在本机目录。",
-    storagePath: "数据存储路径",
-    loadingPath: "正在读取...",
-    unsupportedPath: "当前环境暂不支持读取数据路径",
-    readPathFailed: "读取数据路径失败",
-    migrateFailed: "迁移数据失败",
-    open: "打开",
-    copy: "复制",
-    copied: "已复制",
-    change: "更换",
-    migrating: "迁移中...",
-    openTitle: "打开数据目录",
-    copyTitle: "复制数据路径",
-    changeTitle: "更换数据存储目录并迁移数据",
-    storageHint: "更换目录会自动复制当前设置和会话历史，旧目录不会被删除。",
-    contextTitle: "上下文管理",
-    contextDesc: "控制对话上下文的自动压缩行为，避免长对话超出模型处理能力。",
-    compactionEnabled: "启用自动压缩",
-    compactionEnabledHint: "当上下文使用量达到阈值百分比时，自动压缩历史记录以释放上下文空间。",
-    compactionThreshold: "自动压缩阈值",
-    compactionThresholdHint: "当上下文使用量达到模型窗口的此百分比时触发自动压缩。较低的值压缩更频繁，较高的值保留更多历史。",
-    currentModelContext: "当前模型上下文窗口",
-    ocrTitle: "OCR 服务",
-    ocrDesc: "配置 MinerU 通用解析接口，用于 OCR 和发票识别。",
-    mineruApiToken: "MinerU API Token",
-    mineruApiTokenPlaceholder: "粘贴 MinerU 控制台生成的 API Token",
-    mineruApiTokenHint: "保存后 OCR 会优先使用 MinerU 通用解析；未配置或解析失败时会回退当前视觉模型。",
-    saved: "已保存",
-  },
-  "en-US": {
-    title: "General",
-    desc: "Basic display and behavior preferences.",
-    displayTitle: "Display",
-    displayDesc: "Control language, theme, and basic visual preferences.",
-    language: "Language",
-    languageZh: "Simplified Chinese",
-    languageEn: "English",
-    languageHint: "Changes are saved locally immediately.",
-    theme: "Theme",
-    light: "Light",
-    dark: "Dark",
-    themeHint: "Dark mode is applied to the current window immediately.",
-    closeBehavior: "Window close behavior",
-    closeToTray: "Hide to system tray when closing the window",
-    closeHint: "When enabled, the close button hides the app. Restore or quit from the tray icon.",
-    windowAvoidanceTitle: "Window Avoidance",
-    windowAvoidanceDesc: "Control how much screen space the assistant uses while working in Office.",
-    officeAutoCompactEnabled: "Auto-avoid while using Office",
-    officeAutoCompactHint: "When Office is connected and the assistant loses focus, it shrinks into a right-side compact panel to reduce obstruction.",
-    dynamicArrayTitle: "Formula Environment",
-    dynamicArrayFunctionsEnabled: "Dynamic array function support",
-    dynamicArrayFunctionsHint: "When enabled, the system treats the current environment as supporting FILTER, UNIQUE, SORT, SEQUENCE, LET, XLOOKUP, and other dynamic array functions. When disabled, formula tasks prefer per-cell or traditional formulas.",
-    storageTitle: "Data storage",
-    storageDesc: "Conversation history, model settings, and preferences are stored locally.",
-    storagePath: "Data storage path",
-    loadingPath: "Loading...",
-    unsupportedPath: "Data path is not available in this environment",
-    readPathFailed: "Failed to read data path",
-    migrateFailed: "Failed to migrate data",
-    open: "Open",
-    copy: "Copy",
-    copied: "Copied",
-    change: "Change",
-    migrating: "Migrating...",
-    openTitle: "Open data folder",
-    copyTitle: "Copy data path",
-    changeTitle: "Change data folder and migrate data",
-    storageHint: "Changing the folder copies current settings and conversations. The old folder is not deleted.",
-    contextTitle: "Context Management",
-    contextDesc: "Control auto-compaction of conversation context to avoid exceeding model limits.",
-    compactionEnabled: "Enable auto-compaction",
-    compactionEnabledHint: "When context usage reaches the threshold percentage, history is automatically compacted to free context space.",
-    compactionThreshold: "Auto-compact threshold",
-    compactionThresholdHint: "Auto-compaction triggers when context usage reaches this percentage of the model's window. Lower values compact more frequently; higher values retain more history.",
-    currentModelContext: "Current model context window",
-    ocrTitle: "OCR Service",
-    ocrDesc: "Configure MinerU's general parsing API for OCR and invoice recognition.",
-    mineruApiToken: "MinerU API Token",
-    mineruApiTokenPlaceholder: "Paste the API token generated in MinerU console",
-    mineruApiTokenHint: "OCR uses MinerU first after saving. If unset or parsing fails, it falls back to the current vision model.",
-    saved: "Saved",
-  },
-} as const;
+import { GENERAL_TEXT, getWindowOpacityText } from "./generalSettingsText";
 
 export const GeneralSettings: React.FC = () => {
   const {
@@ -152,10 +44,9 @@ export const GeneralSettings: React.FC = () => {
   const windowOpacityMax = 100;
   const autoCompactThresholdMin = 10;
   const autoCompactThresholdMax = 95;
-  const windowOpacityLabel = language === "zh-CN" ? "窗口透明度" : "Window opacity";
-  const windowOpacityHint = language === "zh-CN"
-    ? "降低后整个助手窗口会半透明，便于查看和操作后方的 Office 内容。"
-    : "Lower values make the whole assistant window translucent so Office content behind it remains easier to use.";
+  const windowOpacityText = getWindowOpacityText(language);
+  const windowOpacityLabel = windowOpacityText.label;
+  const windowOpacityHint = windowOpacityText.hint;
 
   // 获取当前供应商的上下文窗口大小（用户自定义，支持 per-model 覆盖）
   const activeProvider = providers[activeProviderId];

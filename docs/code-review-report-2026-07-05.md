@@ -434,7 +434,7 @@
 - `ipcApi.ts` 改为组合 `createThreadIpcApi(getRaw)`，保留原 `ipcApi.thread.*` 与 `ipcApi.threadGraph.*` 调用面不变，文件从 414 行降至 354 行。
 - 新增 `ipcThreadApi.test.ts`，覆盖 runtimeStatus / upsertSpawnEdge 转发，以及 raw IPC 不可用时的安全 fallback。
 - 保留 `ipcApi.test.ts` 对整体 wrapper 的 thread runtime、threadGraph 和 fallback 行为覆盖。
-- 同步 `CHANGELOG.md` 当前测试源基线为 142 个测试文件、721 个 `it/test` 用例。
+- 同步 `CHANGELOG.md` 阶段性测试源基线为 142 个测试文件、721 个 `it/test` 用例。
 
 **业务链路保护**：
 - 不改 preload 暴露、`IIpcApi` 类型、线程加载/删除/恢复/新建/metadata 更新、线程图边创建/关闭/后代列表的参数与返回值。
@@ -442,6 +442,28 @@
 
 **验证证据**：
 - `npm exec vitest run src/services/ipcThreadApi.test.ts src/services/ipcApi.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
+### 2026-07-06 — M1 可维护性：`GeneralSettings` 文案模块拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract general settings text`
+
+**覆盖范围**：
+- 新增 `src/components/settings/generalSettingsText.ts`，集中常规设置页中英文文案和窗口透明度标签/提示文案。
+- `GeneralSettings.tsx` 保留设置状态、IPC 读取/迁移、MinerU token 保存、store action 和 JSX 渲染职责，文件从 427 行降至 318 行。
+- 新增 `generalSettingsText.test.ts`，覆盖中英文文案可用性、动态数组设置文案和窗口透明度提示。
+- 同步 `CHANGELOG.md` 当前测试源基线为 143 个测试文件、723 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 `ipcApi.app.getDataPath/selectDataPath/migrateDataPath/openPath`、`ipcApi.settings.get/set`、`useSettingsStore` action、设置卡片 DOM/className 和现有开关/滑块交互。
+- 窗口透明度、动态数组函数、自动压缩、OCR token 和数据目录迁移继续走原组件事件处理。
+
+**验证证据**：
+- `npm exec vitest run src/components/settings/generalSettingsText.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
@@ -1354,7 +1376,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **355** | 400 | -45 | 已低于上限 |
-**完整超标清单**：共 27 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 26 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1681,7 +1703,7 @@ useEffect(() => {
 
 ## 附录 A：超过行数限制的文件完整列表
 
-### TS/TSX 文件（27 个）
+### TS/TSX 文件（26 个）
 
 | 行数 | 文件 |
 |------|------|
@@ -1702,7 +1724,6 @@ useEffect(() => {
 | 494 | `src/electronApi.d.ts` |
 | 406 | `electron/agent/tools/implementations/officeOpenXml/advancedPresentation.ts` |
 | 481 | `electron/agent/providers/openaiResponsesClient.ts` |
-| 474 | `src/components/settings/GeneralSettings.tsx` |
 | 473 | `electron/agent/tools/implementations/excel/excelComBridge.ts` |
 | 470 | `electron/agent/shared/types.ts` |
 | 440 | `src/components/settings/EditProviderDialog.tsx` |
