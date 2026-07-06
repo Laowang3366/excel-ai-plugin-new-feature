@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **审查优先级状态闭环**：校正 `docs/code-review-report-2026-07-05.md` 顶部总评和第六章优先级表，将历史 IPC/行数风险改为当前完成状态账本，并明确剩余集中协议/桥接文件允许按自然职责边界继续优化，不为单纯行数硬拆。
 - **Office COM 进程探测共享化**：新增 `detectOfficeProcess()`，Word/PPT COM bridge 共用 Office/WPS 进程探测脚本；PPT 专用形状/版式 PowerShell 片段移入 `presentationComScripts.ts`，`presentationComBridge.ts` 降至 386 行。
 - **S1/S2 IPC 审查状态校正**：核对当前 `ipcHandlers`、`ipcFileHandlers`、`ipcAgentHandlers`、OCR/沙箱/AI 子 handler 后，更新审查报告中已过时的 “Schema 未调用” 表格，明确相关 IPC 已接入 `validateInput`。
 - **T3 测试覆盖阶段性闭环**：更新审查报告中 electron/agent 高风险无测试节选状态；sandbox、AgentLoop 状态机、知识库分块/检索和 Python 执行器均已有对应覆盖，后续测试补强按新增变更和真实风险继续推进。
