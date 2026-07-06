@@ -14,6 +14,11 @@ import {
   type CommandEvaluation,
 } from "../../security/sandbox";
 import { validateArgs } from "./validation";
+import {
+  DEFAULT_SHELL_TIMEOUT_MS,
+  MS_PER_SECOND,
+  SHELL_WATCHDOG_GRACE_MS,
+} from "./shellExecutionLimits";
 
 /** Shell 命令执行结果（复用 sandbox 导出类型，避免双重定义） */
 export type ShellCommandResult = SandboxShellCommandResult;
@@ -58,10 +63,10 @@ export async function executeShellCommand(
     const watchdog = setTimeout(() => {
       killProcessTree(child).finally(() => finish({
         stdout: "",
-        stderr: `命令执行超时（${timeoutMs / 1000}s），已强杀进程树`,
+        stderr: `命令执行超时（${timeoutMs / MS_PER_SECOND}s），已强杀进程树`,
         exitCode: -1,
       }));
-    }, timeoutMs + 500);
+    }, timeoutMs + SHELL_WATCHDOG_GRACE_MS);
   });
 }
 
@@ -74,7 +79,7 @@ export function addShellExecutors(target: Map<string, ToolExecutor>): void {
 
       const command = args.command as string;
       const requestedWorkdir = (args.workdir as string) || os.homedir();
-      const timeout = typeof args.timeout_ms === "number" ? args.timeout_ms : 30000;
+      const timeout = typeof args.timeout_ms === "number" ? args.timeout_ms : DEFAULT_SHELL_TIMEOUT_MS;
       const evaluation = isCommandEvaluation(context?.sandboxEvaluation)
         ? context.sandboxEvaluation
         : await evaluateCommand(command, requestedWorkdir);

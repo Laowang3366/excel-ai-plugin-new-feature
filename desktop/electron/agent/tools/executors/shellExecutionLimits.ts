@@ -1,0 +1,3 @@
+export const DEFAULT_SHELL_TIMEOUT_MS = 30000;
+export const SHELL_WATCHDOG_GRACE_MS = 500;
+export const MS_PER_SECOND = 1000;

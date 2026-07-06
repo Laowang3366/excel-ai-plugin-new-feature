@@ -5,6 +5,7 @@
  */
 
 import type { ToolDefinition } from "../../shared/types";
+import { DEFAULT_SHELL_TIMEOUT_MS } from "../executors/shellExecutionLimits";
 
 /** 通用 Shell 命令执行 — 参考 Codex shell_command */
 const SHELL_EXECUTE_DEF: ToolDefinition = {
@@ -16,7 +17,7 @@ const SHELL_EXECUTE_DEF: ToolDefinition = {
     properties: {
       command: { type: "string", description: "要执行的命令" },
       workdir: { type: "string", description: "工作目录，默认为用户主目录" },
-      timeout_ms: { type: "number", description: "超时毫秒数，默认 30000" },
+      timeout_ms: { type: "number", description: `超时毫秒数，默认 ${DEFAULT_SHELL_TIMEOUT_MS}` },
     },
     required: ["command"],
   },

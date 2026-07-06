@@ -3,6 +3,8 @@ import os from "os";
 import type { ChildProcess } from "child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evaluateCommand, killProcessTree, runShellSpawn, type CommandEvaluation } from "../../security/sandbox";
+import { SHELL_TOOL_DEFINITIONS } from "../registry/shell";
+import { DEFAULT_SHELL_TIMEOUT_MS } from "./shellExecutionLimits";
 import { addShellExecutors, executeShellCommand } from "./shellExecutor";
 
 // @MOCK_INTERFACE: security/sandbox process primitives are mocked so shellExecutor tests can assert policy handling without spawning real processes.
@@ -124,9 +126,18 @@ describe("shellExecutor", () => {
     expect(runShellSpawnMock).toHaveBeenCalledWith(
       "echo ok",
       os.tmpdir(),
-      30000,
+      DEFAULT_SHELL_TIMEOUT_MS,
       expect.any(Function)
     );
+  });
+
+  it("keeps the registry timeout description aligned with the executor default", () => {
+    const parameters = SHELL_TOOL_DEFINITIONS[0].parameters as {
+      properties: { timeout_ms: { description: string } };
+    };
+    const timeoutDescription = parameters.properties.timeout_ms.description;
+
+    expect(timeoutDescription).toContain(String(DEFAULT_SHELL_TIMEOUT_MS));
   });
 
   it("returns policy details without spawning when the command is forbidden", async () => {

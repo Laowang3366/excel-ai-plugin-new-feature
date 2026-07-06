@@ -37,6 +37,9 @@ export {
 };
 export type { ParsedCommand, ExecPolicyEvaluation, PrefixRule, Decision };
 
+export const SHELL_STDOUT_MAX_CHARS = 50000;
+export const SHELL_STDERR_MAX_CHARS = 10000;
+
 // ============================================================
 // 单例策略引擎：默认规则 + 用户自定义规则（来自 settingsManager）
 // ============================================================
@@ -238,14 +241,14 @@ export function runShellSpawn(
         ? -1
         : ((error as NodeJS.ErrnoException).code as unknown as number) ?? 1;
       onDone({
-        stdout: stdoutText.slice(0, 50000),
-        stderr: stderrText.slice(0, 10000) || error.message,
+        stdout: stdoutText.slice(0, SHELL_STDOUT_MAX_CHARS),
+        stderr: stderrText.slice(0, SHELL_STDERR_MAX_CHARS) || error.message,
         exitCode: typeof exitCode === "number" ? exitCode : 1,
       });
     } else {
       onDone({
-        stdout: stdoutText.slice(0, 50000),
-        stderr: stderrText.slice(0, 10000),
+        stdout: stdoutText.slice(0, SHELL_STDOUT_MAX_CHARS),
+        stderr: stderrText.slice(0, SHELL_STDERR_MAX_CHARS),
         exitCode: 0,
       });
     }

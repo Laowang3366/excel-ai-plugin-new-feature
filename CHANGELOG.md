@@ -15,6 +15,7 @@
 - **侧边栏回调稳定化**：将搜索、展开、设置菜单和上下文菜单等 JSX 内联回调提取为 `useCallback`，减少子组件无效更新。
 - **主进程日志统一**：electron 主进程警告/错误输出改走结构化 logger，保留控制台和文件日志双输出。
 - **shell 执行器测试补强**：覆盖安全策略拒绝、prompt 决策、cwd 重定向、缺失工作目录和超时强杀路径。
+- **shell/sandbox 执行限制命名化**：将 shell 默认超时、watchdog 宽限和 stdout/stderr 截断上限提取为命名常量，并约束工具 schema 文案与执行器默认值一致。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
 - **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。

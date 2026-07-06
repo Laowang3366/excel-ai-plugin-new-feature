@@ -350,6 +350,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P2 可维护性：shell/sandbox 执行限制命名化
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `refactor: name shell execution limits`
+
+**覆盖范围**：
+- 将 shell 执行默认超时、watchdog 宽限时间和毫秒换算提取到 `shellExecutionLimits.ts`，由执行器和工具 schema 共同引用。
+- 将 sandbox 中 stdout/stderr 输出截断上限 `50000` / `10000` 提取为 `SHELL_STDOUT_MAX_CHARS` / `SHELL_STDERR_MAX_CHARS`。
+- 补充测试，约束 `shell.execute` 注册描述中的默认超时与执行器默认值保持一致。
+
+**业务链路保护**：
+- 不改变 shell.execute 的审批、沙箱评估、cwd 校验、超时强杀、输出截断和错误返回行为。
+- 仅治理审查报告点名的 shell/sandbox 执行边界数字；UI 尺寸、测试样例和业务阈值不做机械抽取，避免为减行数拆散上下文。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/executors/shellExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — M8：electron 警告/错误日志统一 logger
 
 **状态**：✅ 已修复
@@ -774,7 +795,7 @@ useEffect(() => {
 | 2 | `useComposer.ts:326-331` | textarea onChange 每键触发 setState + DOM 写入，可接受 |
 | 3 | `preload.ts:89` | ✅ 已修复：onStreamDelta 回调 data 类型补齐 clientId |
 | 4 | `Sidebar.tsx` 多处 | ✅ 已修复：排序逻辑集中到 sortSidebarItems 并对派生数组 useMemo |
-| 5 | 全项目 | 魔法数字（如 50000、10000 的 slice 截断）应提取为命名常量 |
+| 5 | 全项目 | ✅ 阶段性已修复：shell/sandbox 输出截断、默认超时和 watchdog 边界已命名化；其余业务数字按职责边界后续评估 |
 
 ---
 
