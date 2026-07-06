@@ -97,6 +97,7 @@
 - 将 `sessionStore.ts` 的 rollout 使用统计解析抽出到 `electron/agent/memory/sessionUsageStats.ts`。`sessionStore.ts` 从 674 行降至 567 行，保留会话创建、恢复、删除、rollout 写入和路径缓存主链路在原类中。
 - 将 `advancedExcel.ts` 的 OpenXML 公式单元格生成、动态数组函数识别和 `_xlfn` 前缀规范化抽出到 `officeOpenXml/excelFormulaXml.ts`。`advancedExcel.ts` 从 662 行降至 500 行，保留工作簿创建、写入范围、数据验证、条件格式和表格样式编排。
 - 将 `toolExecutor.ts` 的工具执行日志记录类型、参数解析、摘要截断和安全写日志 helper 抽出到 `agentLoop/toolExecutionLog.ts`。`toolExecutor.ts` 从 566 行降至 513 行，并继续从原入口 re-export `ToolExecutionLogRecord`。
+- 将 `webSearchExecutors.ts` 的 Bing/Baidu/360/Sogou/DuckDuckGo HTML 结果解析、URL 归一化和去重 helper 抽出到 `tools/executors/webSearchHtmlParsers.ts`。`webSearchExecutors.ts` 从 554 行降至 378 行，低于 400 行规范上限。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md` 与 `electron/main-modules/README.md`，记录拆分后的模块职责。
 
@@ -114,6 +115,7 @@
 - sessionStore 拆分只移动 `getUsageSummary` 的 JSONL 统计解析，`appendRolloutItems`、`loadThread`、`parseRolloutContent`、压缩归档搜索和数据库投影写入链路未改。
 - advancedExcel 拆分只移动公式 XML 生成 helper，动态数组 `<f t="array" ref="...">` 输出、`_xlfn._xlws.FILTER` 前缀和 spill 占位清理行为由现有测试继续覆盖。
 - toolExecutor 拆分只移动执行日志 helper，审批判断、沙箱 forbidden/prompt 覆盖、工具执行顺序和 `TurnItem` 事件补发顺序未改。
+- webSearch 拆分只移动 HTML 解析和结果去重 helper，付费 Tavily/Bing/SerpAPI 优先、免费 HTML fallback 顺序、超时和错误汇总逻辑未改。
 - 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar/settingsStore/ipcApi 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续转向其它明确职责边界的超标文件。
 
 **验证证据**：
@@ -144,6 +146,7 @@
 - `npm exec vitest run electron/agent/memory/sessionStore.test.ts`
 - `npm exec vitest run electron/agent/tools/implementations/officeOpenXml/advancedExcel.test.ts`
 - `npm exec vitest run electron/agent/core/agentLoop/toolExecutor.test.ts`
+- `npm exec vitest run electron/agent/tools/executors/webSearchExecutors.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
