@@ -36,6 +36,7 @@
 - **侧边栏底部样式拆分**：将 Office 连接状态、设置按钮和设置菜单样式移到 `sidebar-footer.css`，保留设置按钮对齐修复。
 - **侧边栏会话样式拆分**：将会话条目、状态点和线程/文件右键菜单样式移到 `sidebar-thread.css`，`sidebar.css` 降至 CSS 上限以内。
 - **使用统计样式拆分**：将 `UsageStats` 页面样式移到 `usage-stats.css`，显著降低 `settings.css` 体量。
+- **知识库设置样式拆分**：将 `KnowledgeSettings` 来源列表、提示 banner 和操作按钮样式移到 `knowledge-settings.css`，并复用主题语义色。
 - **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
 - **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
 - **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。

@@ -1,0 +1,260 @@
+/* KnowledgeSettings */
+
+.knowledge-enable-row {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: default;
+}
+
+.knowledge-enable-row .form-hint {
+  margin-top: 0;
+  line-height: 18px;
+}
+
+.knowledge-enable-row .switch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  margin: 2px 0 0 8px;
+  cursor: pointer;
+}
+
+.knowledge-source-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.knowledge-source-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.knowledge-source-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.knowledge-source-table tr:hover td {
+  background: var(--bg-tint);
+}
+
+.knowledge-source-table .source-name {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-source-table .indexed-time {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.knowledge-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.knowledge-source-summary {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tint);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.knowledge-source-item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 34px;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.knowledge-source-item:hover {
+  background: var(--bg-tint);
+}
+
+.knowledge-source-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.knowledge-source-main {
+  min-width: 0;
+}
+
+.knowledge-source-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.knowledge-source-name {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-source-path {
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.knowledge-source-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.knowledge-source-delete {
+  justify-self: end;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tint);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.knowledge-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.knowledge-card-header svg {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.knowledge-card-header span {
+  line-height: 20px;
+}
+
+.settings-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--text-tertiary);
+}
+
+.settings-empty-state p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.knowledge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-action-btn.icon-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.settings-action-btn.icon-btn:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+.settings-action-btn.icon-btn.danger:hover {
+  color: var(--danger-text);
+  border-color: var(--danger-text);
+}
+
+.settings-success-banner,
+.settings-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.settings-success-banner {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-bg);
+}
+
+.settings-error-banner {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-bg);
+}
+
+.settings-dismiss-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.settings-dismiss-btn:hover {
+  opacity: 1;
+}

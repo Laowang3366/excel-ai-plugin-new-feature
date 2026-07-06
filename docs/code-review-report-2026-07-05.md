@@ -797,6 +797,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`KnowledgeSettings` 样式拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: split knowledge settings styles`
+
+**覆盖范围**：
+- 新增 `src/styles/knowledge-settings.css`，集中 `KnowledgeSettings.tsx` 使用的启用开关行、来源列表、空状态、成功/错误提示、type badge、操作按钮和删除按钮样式。
+- `global.css` 在设置页基础样式和使用统计样式后导入知识库样式。
+- `settings.css` 从 949 行降至 686 行；新知识库样式文件为 260 行。
+
+**业务链路保护**：
+- 不改 `KnowledgeSettings.tsx` 的 DOM、className、上传/索引/删除/重建索引和开关逻辑。
+- `settings-empty-state`、`settings-success-banner`、`settings-error-banner`、`type-badge` 当前仅由知识库设置使用，因此随知识库样式迁移。
+- 该块中的 danger/success fallback 字面量改为直接使用既有主题语义变量，避免新文件继续携带硬编码颜色。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -911,7 +931,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
-| `src/styles/settings.css` | **949** | 500 | +449 | 按子组件区块拆分 |
+| `src/styles/settings.css` | **686** | 500 | +186 | 按子组件区块拆分 |
 **完整超标清单**：共 29 个 TS/TSX 文件 + 1 个 CSS 文件（详见附录 A）
 
 ---
@@ -1277,7 +1297,7 @@ useEffect(() => {
 
 | 行数 | 文件 |
 |------|------|
-| 949 | `src/styles/settings.css` |
+| 686 | `src/styles/settings.css` |
 
 ---
 
