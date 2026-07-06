@@ -123,12 +123,16 @@ export function normalizeProviderReasoningConfig(
   provider: AiProviderConfig,
   template?: ReasoningTemplateLike | null,
 ): AiProviderConfig {
-  const modelConfigs = provider.modelConfigs?.map((modelConfig) => {
+  const modelConfigs: ModelConfig[] | undefined = provider.modelConfigs?.map((modelConfig): ModelConfig => {
     const options = resolveReasoningOptionValues(provider, template, modelConfig);
     const reasoningMode = modelConfig.reasoningMode && options.includes(modelConfig.reasoningMode)
       ? modelConfig.reasoningMode
       : undefined;
-    const { reasoningOptions: _legacyReasoningOptions, ...rest } = modelConfig;
+    const {
+      reasoningMode: _legacyReasoningMode,
+      reasoningOptions: _legacyReasoningOptions,
+      ...rest
+    } = modelConfig;
     return reasoningMode ? { ...rest, reasoningMode } : rest;
   });
 

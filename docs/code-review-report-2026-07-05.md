@@ -413,6 +413,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — T3：`src/utils` 纯函数测试补强
+
+**状态**：✅ 阶段性已修复
+
+**关联提交**：本节所在提交 `test: cover reasoning utility contracts`
+
+**覆盖范围**：
+- 新增 `src/utils/reasoningSupport.test.ts`，覆盖 OpenAI/Responses、聚合平台推理模型、模板 fallback、默认值归一化和中英文标签格式化。
+- 新增 `src/utils/textCleaner.test.ts`，覆盖 CJK token 空格清理、英文单词空格保留、Markdown 表格结构保留和连续空行归一化。
+- 修复 `normalizeProviderReasoningConfig()` 中无效 per-model `reasoningMode` 未被剔除的问题，避免旧配置在模型切换后继续残留。
+
+**业务链路保护**：
+- 只补报告点名的 `src/utils/reasoningSupport.ts` / `src/utils/textCleaner.ts` 纯函数测试；electron/agent 的高风险测试缺口仍按后续项继续处理。
+- 推理配置修复仅清理不在当前模型支持选项内的旧 `reasoningMode`，合法值保留，`reasoningOptions` 旧字段剔除行为不变。
+
+**验证证据**：
+- `npm exec vitest run src/utils/reasoningSupport.test.ts src/utils/textCleaner.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — P5 性能：`Sidebar` JSX 回调稳定化
 
 **状态**：✅ 已修复
@@ -714,9 +735,11 @@ useEffect(() => {
 
 #### 🟡 T3 — src/ 下 45 个文件无测试
 
+**状态**：✅ 阶段性已修复（2026-07-06，见“T3：`src/utils` 纯函数测试补强”）
+
 **优先补测试的纯函数**：
-- `src/utils/reasoningSupport.ts`
-- `src/utils/textCleaner.ts`
+- `src/utils/reasoningSupport.ts`：✅ 已补测试，并修复 invalid per-model reasoningMode 残留
+- `src/utils/textCleaner.ts`：✅ 已补测试
 
 ---
 
