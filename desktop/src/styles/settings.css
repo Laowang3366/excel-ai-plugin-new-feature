@@ -590,12 +590,12 @@ select.form-input option {
 }
 
 :root[data-theme="dark"] select.form-input option {
-  background: #111827;
+  background: var(--bg-primary);
   color: #f8fafc;
 }
 
 :root[data-theme="dark"] .settings-action-btn {
-  background: #111827;
+  background: var(--bg-primary);
   border-color: #475569;
   color: #e5e7eb;
 }

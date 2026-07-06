@@ -539,6 +539,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P2：消息与工具详情样式令牌化
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `style: use theme tokens for tool details`
+
+**覆盖范围**：
+- 将 `message-bubble.css` 中工作详情摘要的硬编码灰色替换为 `var(--text-faint)` / `var(--text-muted)`。
+- 将 `tool-call.css` 中工具调用头、状态图标、展开按钮、命令图标和结果头的硬编码灰色替换为 `var(--text-faint)`。
+- 将 `settings.css` 暗色主题下 select option 与设置操作按钮背景从固定 `#111827` 改为 `var(--bg-primary)`。
+
+**业务链路保护**：
+- 不改 DOM、布局、间距、动画和交互状态，只把已有颜色接回主题变量系统。
+- `tokens.css` 中保留颜色字面量作为设计令牌定义来源；普通样式文件不再直接使用本次清理的 `#9ca3af`、`#6b7280`、`#111827`。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
