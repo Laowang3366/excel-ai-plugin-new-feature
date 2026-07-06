@@ -943,6 +943,28 @@
 - `npm run build`
 - `git diff --check`
 
+### P1 可维护性：IPC Office wrapper 拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract office ipc wrapper`
+
+**覆盖范围**：
+- 新增 `src/services/ipcOfficeApi.ts`，集中维护 `excel` 与 `office` 两组前端 IPC wrapper。
+- `ipcApi.ts` 改为组合 `createOfficeIpcApi`、`createThreadIpcApi` 和 `createKnowledgeIpcApi`，主入口从约 355 行收敛到约 299 行。
+- 保留 `ipcApi.ts` 对外导出和 `IIpcApi` 类型不变，调用方无需迁移。
+
+**业务链路保护**：
+- `excel.detectStatus/connect/selectHost/getSelection/getSelectionAddress/readRange/inspectWorkbook/writeRange` 的 fallback 返回值保持不变。
+- `excel.readRange(sheetName, range, expand)` 仍透传第三参 `expand`，避免前端 wrapper 再次丢失 spill/currentRegion 能力。
+- Word/PPT 状态检测仍在 IPC 不可用时返回 `{ connected: false, host: "unknown" }`。
+
+**验证证据**：
+- `npm exec vitest run src/services/ipcApi.test.ts src/services/ipcThreadApi.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### P1 可维护性：Office COM action 脚本模板拆分
 
 **状态**：已修复
