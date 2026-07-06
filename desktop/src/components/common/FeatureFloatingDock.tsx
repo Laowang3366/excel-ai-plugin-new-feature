@@ -2,96 +2,27 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSettingsStore } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
 import { INTENT_SHORTCUTS, type IntentKind } from "../../utils/sidebarHelpers";
-import { clamp } from "../../utils/chatHelpers";
 import { ChevronDown, Sparkles } from "./IconMap";
+import {
+  FEATURE_DOCK_COLLAPSED_SIZE,
+  constrainFeatureDockAnchorPosition,
+  getFeatureDockInitialPosition,
+  getFeatureDockPointerAction,
+  getFeatureDockResizePosition,
+  shouldCollapseFeatureDockOnPointerDown,
+} from "./featureFloatingDockGeometry";
+
+export {
+  constrainFeatureDockAnchorPosition,
+  getFeatureDockInitialPosition,
+  getFeatureDockPointerAction,
+  getFeatureDockResizePosition,
+  shouldCollapseFeatureDockOnPointerDown,
+} from "./featureFloatingDockGeometry";
 
 interface FeatureFloatingDockProps {
   activeIntent: IntentKind;
   onIntentClick: (intent: IntentKind) => void;
-}
-
-const COLLAPSED_SIZE = 44;
-const EXPANDED_WIDTH = 188;
-const EDGE_GAP = 12;
-const DEFAULT_TOP = 70;
-
-type FeatureDockPointerAction = "toggle" | "drag" | "none";
-
-export function getFeatureDockPointerAction({
-  activePointerId,
-  eventPointerId,
-  expandedAtPointerDown,
-  moved,
-}: {
-  activePointerId?: number;
-  eventPointerId?: number;
-  expandedAtPointerDown: boolean;
-  moved: boolean;
-}): FeatureDockPointerAction {
-  if (
-    activePointerId !== undefined &&
-    eventPointerId !== undefined &&
-    (activePointerId < 0 || activePointerId !== eventPointerId)
-  ) {
-    return "none";
-  }
-  if (moved) return "drag";
-  return expandedAtPointerDown ? "none" : "toggle";
-}
-
-export function shouldCollapseFeatureDockOnPointerDown({
-  expanded,
-  targetInsideDock,
-}: {
-  expanded: boolean;
-  targetInsideDock: boolean;
-}): boolean {
-  return expanded && !targetInsideDock;
-}
-
-export function getFeatureDockInitialPosition({
-  width,
-  height,
-}: {
-  width: number;
-  height: number;
-}) {
-  return {
-    x: clamp(width - COLLAPSED_SIZE - EDGE_GAP, 12, width - COLLAPSED_SIZE - 12),
-    y: clamp(DEFAULT_TOP, 54, height - COLLAPSED_SIZE - 16),
-  };
-}
-
-export function getFeatureDockResizePosition({
-  current,
-  width,
-  height,
-  userMoved,
-  expanded = false,
-}: {
-  current: { x: number; y: number };
-  width: number;
-  height: number;
-  userMoved: boolean;
-  expanded?: boolean;
-}) {
-  if (!userMoved) {
-    return getFeatureDockInitialPosition({ width, height });
-  }
-  return constrainFeatureDockAnchorPosition(current, width, height, expanded);
-}
-
-export function constrainFeatureDockAnchorPosition(
-  current: { x: number; y: number },
-  width: number,
-  height: number,
-  expanded: boolean,
-) {
-  const minX = expanded ? EDGE_GAP + EXPANDED_WIDTH - COLLAPSED_SIZE : EDGE_GAP;
-  return {
-    x: clamp(current.x, minX, width - COLLAPSED_SIZE - EDGE_GAP),
-    y: clamp(current.y, 54, height - COLLAPSED_SIZE - 16),
-  };
 }
 
 export function FeatureFloatingDock({
@@ -124,7 +55,7 @@ export function FeatureFloatingDock({
     return {
       width: parentRect.width,
       height: parentRect.height,
-      dockHeight: dockRect.height || (nextExpanded ? 288 : COLLAPSED_SIZE),
+      dockHeight: dockRect.height || (nextExpanded ? 288 : FEATURE_DOCK_COLLAPSED_SIZE),
     };
   }, []);
 

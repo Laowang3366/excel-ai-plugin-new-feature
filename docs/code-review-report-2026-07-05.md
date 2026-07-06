@@ -583,6 +583,28 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`FeatureFloatingDock` 几何逻辑拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract feature dock geometry`
+
+**覆盖范围**：
+- 新增 `src/components/common/featureFloatingDockGeometry.ts`，集中浮动功能栏的 pointer action 判定、外部点击折叠判断、初始定位、resize 定位和展开态边界约束。
+- `FeatureFloatingDock.tsx` 继续从原入口 re-export 已有 helper，保留 `FeatureFloatingDock.test.ts` 的导入路径不变，组件从 324 行降至 255 行。
+- 复用现有 14 个 FeatureFloatingDock 单测覆盖拖拽/点击行为、默认定位、窗口 resize 和展开态边界约束。
+
+**业务链路保护**：
+- 不改 `feature-floating-*` DOM className、展开/折叠渲染结构、intent 点击回调和拖拽事件绑定。
+- 不改默认定位常量、折叠球尺寸、展开卡片宽度和边缘留白语义，仅移动纯函数位置。
+- `FeatureFloatingDock.tsx` 的公共 helper 导出保持兼容。
+
+**验证证据**：
+- `npm exec vitest run src/components/common/FeatureFloatingDock.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
