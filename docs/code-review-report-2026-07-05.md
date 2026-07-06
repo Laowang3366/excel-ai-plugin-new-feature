@@ -85,12 +85,13 @@
 - 精简 `agentLoop.ts` 中与 README 重复的长段注释、区块横线和简单 getter 注释，主循环设计说明改由 `electron/agent/core/agentLoop/README.md` 统一维护。
 - 将输入队列 drain 调度和重排逻辑继续下沉到 `electron/agent/core/agentLoop/queuedTurns.ts`，`agentLoop.ts` 只保留状态接线。
 - 从 `agentLoop.ts` 抽出基础状态与公共 API 基类：`electron/agent/core/agentLoop/agentLoopBase.ts`，覆盖构造、存储迁移、线程状态观察、队列入队、AI/权限热更新和 pending 压缩原因管理。
-- `agentLoop.ts` 已从 1276 行降至 378 行，低于 400 行规范上限；M1 仍未关闭，后续继续处理 settingsStore、ipcApi 等其它超标文件。
+- `agentLoop.ts` 已从 1276 行降至 378 行，低于 400 行规范上限；M1 仍未关闭，后续继续处理 ipcApi 等其它超标文件。
 - 从 `ipcHandlers.ts` 抽出 OCR IPC 注册、MinerU/本地 fallback、发票字段抽取和 OCR 结果归一化：`electron/main-modules/ipcOcrHandlers.ts`。`ipcHandlers.ts` 从 1115 行降至 723 行，OCR 新模块 397 行。
 - 从 `ipcHandlers.ts` 抽出 AI 模型列表和连接测试 IPC：`electron/main-modules/ipcAiHandlers.ts`。`ipcHandlers.ts` 进一步降至 622 行，AI 新模块 110 行。
 - 从 `ipcHandlers.ts` 抽出沙箱配置 IPC 和运行时规则刷新：`electron/main-modules/ipcSandboxHandlers.ts`。`ipcHandlers.ts` 进一步降至 520 行，沙箱新模块 103 行。
 - 从 `ipcHandlers.ts` 抽出文件对话框、文件夹枚举、Base64 读取、临时文件写入和文件操作 IPC：`electron/main-modules/ipcFileHandlers.ts`。`ipcHandlers.ts` 进一步降至 347 行，低于 400 行规范上限。
 - 将 `Sidebar.tsx` 的折叠态、展开态主体和底部连接/设置区按 UI 边界抽出到 `components/sidebar/SidebarCollapsed.tsx`、`SidebarExpanded.tsx`、`SidebarFooter.tsx`。父组件保留 store 状态、业务回调和数据编排，避免为了行数继续拆碎。
+- 将 `settingsStore.ts` 的 Provider 模板、API 格式和推理选项静态配置抽出到 `store/settingsProviderTemplates.ts`。`settingsStore.ts` 从 749 行降至 479 行，仍由原入口 re-export `PROVIDER_TEMPLATES`、`API_FORMATS` 和相关类型，保持调用方兼容。
 - 新增对应单元测试，保护上下文顺序、流式结果事件顺序、压缩成功/失败事件和归档阈值行为。
 - 同步更新 `electron/agent/core/agentLoop/README.md` 与 `electron/main-modules/README.md`，记录拆分后的模块职责。
 
@@ -102,7 +103,8 @@
 - `sandbox:getConfig`、`sandbox:setUserRules`、`sandbox:setWritableRoots` 仅移动注册位置，保留 Zod 校验、规则规范化、electron-store 写入和 `applySandboxConfig()` 刷新行为。
 - 文件/对话框 IPC 继续共用同一个 `pathAuthorizer` 实例，保留选择后授权、读取前授权、临时文件写入后授权和资源管理器/回收站路径校验。
 - Sidebar 拆分只移动渲染层 JSX，`useChatStore`、`useSettingsStore`、Office 连接检测、文件夹加载、会话切换和文件右键操作仍由父组件统一编排。
-- 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续还需要继续拆 settingsStore、ipcApi 等其它超标文件。
+- settingsStore 拆分只移动静态模板配置，`loadSettings` 迁移逻辑、增量保存、provider normalize、窗口透明度和知识库开关持久化链路未改。
+- 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar/settingsStore 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续还需要继续拆 ipcApi 等其它超标文件。
 
 **验证证据**：
 - `npm exec vitest run electron/agent/core/agentLoop/streamResultItems.test.ts electron/agent/core/agentLoop/compactionProgress.test.ts electron/agent/core/agentLoop/contextUsage.test.ts`
@@ -126,6 +128,7 @@
 - `npm exec vitest run electron/main-modules/ipcHandlers.ocr.test.ts electron/main-modules/mineruOcr.test.ts electron/main-modules/invoiceFieldExtraction.test.ts`
 - `npm exec vitest run electron/shared/ipcSchemas.test.ts electron/main-modules/ipcPathSecurity.test.ts`
 - `npm exec vitest run electron/shared/ipcSchemas.test.ts electron/main-modules/ipcPathSecurity.test.ts src/hooks/useComposer.test.ts`
+- `npm exec vitest run src/store/settingsStore.test.ts`
 - `npm run typecheck`
 - `npm run build`
 - `git diff --check`
