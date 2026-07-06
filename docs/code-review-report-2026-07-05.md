@@ -876,6 +876,25 @@
 - `npx vitest run src/utils/fileSize.test.ts src/utils/attachmentPreview.test.ts`
 - `npm run typecheck`
 
+### 2026-07-06 — M1：`OCRTaskComposerPanel` 文件流程 helper 拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract ocr task file helpers`
+
+**覆盖范围**：
+- 新增 `src/components/task/ocrTaskFileHelpers.ts`，集中 OCR 文件类型判断、发票文件名识别、临时文件落盘、Sheet/range 解析和写入目标解析。
+- `OCRTaskComposerPanel.tsx` 复用 helper，保留面板状态、识别动作、字段选择、写入动作和 JSX 渲染。
+- 新增 `ocrTaskFileHelpers.test.ts` 覆盖 Sheet 引用解析、OCR 文件格式白名单和发票文件名识别。
+
+**业务链路保护**：
+- 不改 OCR 面板 DOM、CSS class、拖拽/粘贴/选择文件、发票模式自动切换、识别接口和 Excel 写入接口。
+- `ipcApi.ocr.recognize` 与 `ipcApi.excel.writeRange` 仍留在面板流程中，避免把用户动作隐藏到工具函数里。
+- 本次不为追求行数继续拆 JSX 子组件；组件从 517 行降至约 455 行，仍略超 React 组件规范，但职责边界更清晰。
+
+**验证证据**：
+- `npx vitest run src/components/task/ocrTaskFileHelpers.test.ts src/components/task/OCRTaskComposerPanel.test.ts`
+- `npm run typecheck`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
