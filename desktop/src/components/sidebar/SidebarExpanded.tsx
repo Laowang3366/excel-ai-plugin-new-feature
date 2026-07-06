@@ -16,18 +16,15 @@ import {
 import { ThreadContextMenu, type ContextMenuState } from "./ThreadContextMenu";
 import { SidebarFooter } from "./SidebarFooter";
 import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ClipboardList,
-  Clock,
   PenLine,
   Plus,
   RefreshCw,
   Search,
 } from "../common/IconMap";
+import { SidebarSectionHeader } from "./SidebarSectionHeader";
+import { SidebarSortMenu, type SidebarSortSection } from "./SidebarSortMenu";
 
-export type SidebarSortSection = "projects" | "conversations";
+export type { SidebarSortSection } from "./SidebarSortMenu";
 export type { SidebarGroupedFolder, SidebarSortMode } from "../../utils/sidebarHelpers";
 
 interface SidebarExpandedProps {
@@ -176,18 +173,16 @@ export function SidebarExpanded({
 
       <div className="sidebar-content">
         <div className="sidebar-section-group">
-          <div className="sidebar-section-header">
-            <button className="sidebar-section-toggle" onClick={onToggleProjectsExpanded}>
-              <span>{text.sidebar.projects}</span>
-              {projectsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-            <button className="sidebar-section-add" onClick={(e) => onOpenSortMenu(e, "projects")} title={text.sidebar.sort}>
-              <ClipboardList size={14} />
-            </button>
-            <button className="sidebar-section-add" onClick={onAddFolder} title={text.sidebar.addFolder}>
-              <Plus size={14} />
-            </button>
-          </div>
+          <SidebarSectionHeader
+            title={text.sidebar.projects}
+            expanded={projectsExpanded}
+            sortTitle={text.sidebar.sort}
+            actionTitle={text.sidebar.addFolder}
+            actionIcon={<Plus size={14} />}
+            onToggle={onToggleProjectsExpanded}
+            onOpenSort={(event) => onOpenSortMenu(event, "projects")}
+            onAction={onAddFolder}
+          />
           {projectsExpanded && (
             <div className="sidebar-section-content">
               {groupedByFolder.map(({ folder, threads: folderThreads, files }) => (
@@ -216,23 +211,18 @@ export function SidebarExpanded({
         </div>
 
         <div className="sidebar-section-group">
-          <div className="sidebar-section-header">
-            <button className="sidebar-section-toggle" onClick={onToggleConversationsExpanded}>
-              <span>{text.sidebar.conversations}</span>
-              {conversationsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-            <button className="sidebar-section-add" onClick={(e) => onOpenSortMenu(e, "conversations")} title={text.sidebar.sort}>
-              <ClipboardList size={14} />
-            </button>
-            <button
-              className={`sidebar-section-add${creatingNewThread ? " creating" : ""}`}
-              onClick={onCreateNewThread}
-              disabled={creatingNewThread}
-              title={text.sidebar.newThread}
-            >
-              {creatingNewThread ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
-            </button>
-          </div>
+          <SidebarSectionHeader
+            title={text.sidebar.conversations}
+            expanded={conversationsExpanded}
+            sortTitle={text.sidebar.sort}
+            actionTitle={text.sidebar.newThread}
+            actionIcon={creatingNewThread ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
+            actionClassName={creatingNewThread ? " creating" : ""}
+            actionDisabled={creatingNewThread}
+            onToggle={onToggleConversationsExpanded}
+            onOpenSort={(event) => onOpenSortMenu(event, "conversations")}
+            onAction={onCreateNewThread}
+          />
           {conversationsExpanded && (
             <div className="sidebar-section-content">
               <UngroupedThreadList
@@ -257,32 +247,18 @@ export function SidebarExpanded({
       </div>
 
       {sortMenu && (
-        <div
-          className="sidebar-sort-menu"
-          style={{ left: sortMenu.x, top: sortMenu.y }}
-          data-section={sortMenu.section}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {([
-            ["recentDesc", text.sidebar.sortRecentDesc],
-            ["recentAsc", text.sidebar.sortRecentAsc],
-            ["nameAsc", text.sidebar.sortNameAsc],
-            ["nameDesc", text.sidebar.sortNameDesc],
-          ] as const).map(([mode, label]) => {
-            const activeMode = sortMenu.section === "projects" ? projectSortMode : conversationSortMode;
-            return (
-              <button
-                key={mode}
-                className={`sidebar-sort-menu-item${activeMode === mode ? " active" : ""}`}
-                onClick={() => onSelectSortMode(sortMenu.section, mode)}
-              >
-                <Clock size={14} />
-                <span>{label}</span>
-                {activeMode === mode && <Check size={14} />}
-              </button>
-            );
-          })}
-        </div>
+        <SidebarSortMenu
+          menu={sortMenu}
+          labels={{
+            recentDesc: text.sidebar.sortRecentDesc,
+            recentAsc: text.sidebar.sortRecentAsc,
+            nameAsc: text.sidebar.sortNameAsc,
+            nameDesc: text.sidebar.sortNameDesc,
+          }}
+          projectSortMode={projectSortMode}
+          conversationSortMode={conversationSortMode}
+          onSelectSortMode={onSelectSortMode}
+        />
       )}
       {contextMenu && (
         <ThreadContextMenu

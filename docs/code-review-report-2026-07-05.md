@@ -1463,6 +1463,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`SidebarExpanded` 分组标题与排序弹层拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract sidebar expanded sections`
+
+**覆盖范围**：
+- 新增 `src/components/sidebar/SidebarSectionHeader.tsx`，复用项目区和会话区的展开、排序、右侧动作按钮结构。
+- 新增 `src/components/sidebar/SidebarSortMenu.tsx`，承接排序弹层渲染、当前模式高亮和排序选项列表。
+- `SidebarExpanded.tsx` 从 319 行降至 295 行，继续保留展开态侧边栏的整体布局、上下文菜单和 footer 编排。
+
+**业务链路保护**：
+- 不改 `Sidebar.tsx` 中的展开状态、排序状态、新建会话、新建文件夹和排序菜单定位逻辑。
+- 不改现有 CSS className：`sidebar-section-header`、`sidebar-section-toggle`、`sidebar-section-add`、`sidebar-sort-menu`、`sidebar-sort-menu-item`。
+- 排序菜单仍按 `projects/conversations` 分区选择对应 active mode，回调签名保持 `onSelectSortMode(section, mode)` 不变。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
