@@ -289,6 +289,28 @@
 - `npm run typecheck`
 - `npm run build`
 
+### 2026-07-06 — M1 可维护性：PPT OpenXML 内容页 helper 拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract presentation slide content helpers`
+
+**覆盖范围**：
+- 新增 `officeOpenXml/presentationSlideContent.ts`，收拢新增 PPT 内容页的参数归一化、bullet 列表合并、内容页 XML 生成和空 slide rels 生成。
+- `advancedPresentation.ts` 改为导入上述 helper，保留 zip 包读写、presentation 关系维护、slide id/rel id 编号、Content Types 更新和删除页链路在原模块。
+- 新增 `presentationSlideContent.test.ts`，覆盖数组 slides、单页参数、字段别名、bullet 合并、XML 转义和 blank 空页不生成占位文本框。
+- 同步 `CHANGELOG.md` 当前测试源基线为 136 个测试文件、706 个 `it/test` 用例。
+
+**业务链路保护**：
+- `addSlides` 的 OpenXML 写包顺序、目标文件选择、关系插入、Content Types 覆盖写入和 `presentationDone()` 返回结构均未改动。
+- 仅移动纯函数边界，没有把 PPT 包关系维护主链路拆散；`advancedPresentation.ts` 当前约 406 行，略超 400 但保留高内聚流程，后续只在出现明确边界时继续拆。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/implementations/officeOpenXml/presentationSlideContent.test.ts electron/agent/tools/implementations/officeOpenXml/advancedPresentation.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
@@ -1544,7 +1566,7 @@ useEffect(() => {
 | 537 | `electron/agent/knowledge/sqliteStore.ts` |
 | 509 | `electron/agent/tools/implementations/office/officeComActionBridge.ts` |
 | 494 | `src/electronApi.d.ts` |
-| 481 | `electron/agent/tools/implementations/officeOpenXml/advancedPresentation.ts` |
+| 406 | `electron/agent/tools/implementations/officeOpenXml/advancedPresentation.ts` |
 | 481 | `electron/agent/providers/openaiResponsesClient.ts` |
 | 474 | `src/components/settings/GeneralSettings.tsx` |
 | 473 | `electron/agent/tools/implementations/excel/excelComBridge.ts` |
