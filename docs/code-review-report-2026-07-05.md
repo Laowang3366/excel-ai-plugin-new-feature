@@ -617,6 +617,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`OpenSourceSettings` 样式拆分
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: split open source settings styles`
+
+**覆盖范围**：
+- 新增 `src/styles/open-source-settings.css`，集中 `OpenSourceSettings.tsx` 使用的 `.open-source-*` 样式。
+- `global.css` 在 `settings.css` 后继续导入该样式文件，保持设置页基础样式先加载、专属样式后加载。
+- `settings.css` 从 1551 行降至 1444 行；新样式文件为 96 行。
+
+**业务链路保护**：
+- 不改 `OpenSourceSettings.tsx` 的 DOM 结构、className、开源项目数据或设置页 section 路由。
+- 不改表格宽度、悬停、链接按钮和许可证标签的原有样式声明；暗色表头/悬停色改用既有 `--bg-tint` / `--bg-blue-tint` 主题变量，避免硬编码颜色残留。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -731,7 +750,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
-| `src/styles/settings.css` | **1553** | 500 | +1053 | 按子组件区块拆分 |
+| `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
 | `src/styles/sidebar.css` | **1101** | 500 | +601 | — |
 | `src/styles/chat.css` | **841** | 500 | +341 | — |
 | `src/styles/composer.css` | **674** | 500 | +174 | — |
@@ -1101,7 +1120,7 @@ useEffect(() => {
 
 | 行数 | 文件 |
 |------|------|
-| 1553 | `src/styles/settings.css` |
+| 1444 | `src/styles/settings.css` |
 | 1101 | `src/styles/sidebar.css` |
 | 841 | `src/styles/chat.css` |
 | 674 | `src/styles/composer.css` |

@@ -1,0 +1,96 @@
+/* OpenSourceSettings */
+
+.open-source-settings {
+  width: min(940px, 100%);
+  max-width: 940px;
+}
+
+.open-source-notice .settings-card-header {
+  margin-bottom: 0;
+}
+
+.open-source-group .settings-card-header {
+  margin-bottom: 10px;
+}
+
+.open-source-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.open-source-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.open-source-table th {
+  text-align: left;
+  padding: 9px 10px;
+  color: var(--text-secondary);
+  background: var(--bg-tint);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.open-source-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.open-source-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.open-source-table tbody tr:hover td {
+  background: var(--bg-blue-tint);
+}
+
+.open-source-name {
+  width: 150px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.open-source-license {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.open-source-link {
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.open-source-link:hover {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: var(--primary-light);
+}
