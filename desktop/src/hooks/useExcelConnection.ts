@@ -8,7 +8,7 @@
  * - 多宿主选择弹窗（Office + WPS 同时运行时）
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ipcApi } from "../services/ipcApi";
 import type { ExcelStatus } from "../utils/sidebarHelpers";
 
@@ -19,12 +19,28 @@ export function useExcelConnection() {
   const [connecting, setConnecting] = useState(false);
   const [connectFailed, setConnectFailed] = useState(false);
   const [pulseDot, setPulseDot] = useState(false);
+  const timeoutIdsRef = useRef<number[]>([]);
   /**
    * 待选择的可用宿主列表
    * 当 Office + WPS 同时运行时，detectStatus 返回 availableHosts，
    * UI 弹窗让用户选择后再调用 selectHost/connect。
    */
   const [pendingHosts, setPendingHosts] = useState<string[] | null>(null);
+
+  const scheduleTimeout = useCallback((callback: () => void, delayMs: number) => {
+    const timeoutId = window.setTimeout(() => {
+      timeoutIdsRef.current = timeoutIdsRef.current.filter((id) => id !== timeoutId);
+      callback();
+    }, delayMs);
+    timeoutIdsRef.current.push(timeoutId);
+  }, []);
+
+  const clearScheduledTimeouts = useCallback(() => {
+    for (const timeoutId of timeoutIdsRef.current) {
+      window.clearTimeout(timeoutId);
+    }
+    timeoutIdsRef.current = [];
+  }, []);
 
   const detectExcel = useCallback(async () => {
     try {
@@ -52,6 +68,8 @@ export function useExcelConnection() {
     return () => clearInterval(interval);
   }, [detectExcel]);
 
+  useEffect(() => clearScheduledTimeouts, [clearScheduledTimeouts]);
+
   const handleConnect = useCallback(async () => {
     setConnecting(true);
     setConnectFailed(false);
@@ -60,25 +78,25 @@ export function useExcelConnection() {
       setExcelStatus(status as ExcelStatus);
       if ((status as ExcelStatus).connected) {
         setPulseDot(true);
-        setTimeout(() => setPulseDot(false), 1500);
+        scheduleTimeout(() => setPulseDot(false), 1500);
         setPendingHosts(null);
       } else if ((status as any).availableHosts?.length > 1) {
         // 连接返回多宿主 → 弹出选择框
         setPendingHosts((status as any).availableHosts);
         setConnectFailed(true);
-        setTimeout(() => setConnectFailed(false), 600);
+        scheduleTimeout(() => setConnectFailed(false), 600);
       } else {
         setConnectFailed(true);
-        setTimeout(() => setConnectFailed(false), 600);
+        scheduleTimeout(() => setConnectFailed(false), 600);
       }
     } catch {
       setExcelStatus(INITIAL_STATUS);
       setConnectFailed(true);
-      setTimeout(() => setConnectFailed(false), 600);
+      scheduleTimeout(() => setConnectFailed(false), 600);
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [scheduleTimeout]);
 
   /**
    * 用户从弹窗中选择目标宿主
@@ -90,20 +108,20 @@ export function useExcelConnection() {
       setExcelStatus(status as ExcelStatus);
       if (status.connected) {
         setPulseDot(true);
-        setTimeout(() => setPulseDot(false), 1500);
+        scheduleTimeout(() => setPulseDot(false), 1500);
         setPendingHosts(null);
       } else {
         setConnectFailed(true);
-        setTimeout(() => setConnectFailed(false), 600);
+        scheduleTimeout(() => setConnectFailed(false), 600);
       }
     } catch {
       setExcelStatus(INITIAL_STATUS);
       setConnectFailed(true);
-      setTimeout(() => setConnectFailed(false), 600);
+      scheduleTimeout(() => setConnectFailed(false), 600);
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [scheduleTimeout]);
 
   return {
     excelStatus,

@@ -188,6 +188,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1 性能：`useExcelConnection` timeout 清理
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `fix: clean up excel connection timers`
+
+**覆盖范围**：
+- 为 `src/hooks/useExcelConnection.ts` 增加 timeout id registry。
+- `pulseDot` 和 `connectFailed` 的动画复位统一通过 `scheduleTimeout()` 注册。
+- hook 卸载时通过 `clearScheduledTimeouts()` 清理所有未触发的 timeout，避免卸载后继续 setState。
+
+**业务链路保护**：
+- 30 秒轮询 interval 的原 cleanup 保持不变。
+- 手动连接、多宿主选择、连接失败动画和成功脉冲的延迟时长保持原值：`1500ms` / `600ms`。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
