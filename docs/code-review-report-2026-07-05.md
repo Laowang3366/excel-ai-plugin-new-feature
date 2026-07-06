@@ -53,9 +53,9 @@
 - `npm exec vitest run electron/agent/interaction/ipcAgentHandlers.test.ts electron/agent/interaction/eventForwarder.test.ts`
 - `npm run typecheck`
 
-### 2026-07-05 — P0 可维护性：`agentLoop.ts` 阶段性拆分（M1 进行中）
+### 2026-07-05 — P0 可维护性：`agentLoop.ts` 阶段性拆分（M1 已关闭）
 
-**状态**：🚧 进行中（阶段性拆分已提交，M1 尚未关闭）
+**状态**：✅ 已关闭（入口文件超标已收敛，后续仅按自然职责边界继续优化）
 
 **关联提交**：本节所在提交 `refactor: split agent loop helper modules`
 
@@ -85,7 +85,7 @@
 - 精简 `agentLoop.ts` 中与 README 重复的长段注释、区块横线和简单 getter 注释，主循环设计说明改由 `electron/agent/core/agentLoop/README.md` 统一维护。
 - 将输入队列 drain 调度和重排逻辑继续下沉到 `electron/agent/core/agentLoop/queuedTurns.ts`，`agentLoop.ts` 只保留状态接线。
 - 从 `agentLoop.ts` 抽出基础状态与公共 API 基类：`electron/agent/core/agentLoop/agentLoopBase.ts`，覆盖构造、存储迁移、线程状态观察、队列入队、AI/权限热更新和 pending 压缩原因管理。
-- `agentLoop.ts` 已从 1276 行降至 378 行，低于 400 行规范上限；M1 仍未关闭，后续继续处理其它超标文件。
+- `agentLoop.ts` 已从 1276 行降至当前约 346 行，低于 400 行规范上限；`ipcHandlers.ts` 当前约 307 行，Sidebar/settingsStore/ipcApi/chatStore 等前端主入口也已按职责边界收敛到上限内。
 - 从 `ipcHandlers.ts` 抽出 OCR IPC 注册、MinerU/本地 fallback、发票字段抽取和 OCR 结果归一化：`electron/main-modules/ipcOcrHandlers.ts`。`ipcHandlers.ts` 从 1115 行降至 723 行，OCR 新模块 397 行。
 - 从 `ipcHandlers.ts` 抽出 AI 模型列表和连接测试 IPC：`electron/main-modules/ipcAiHandlers.ts`。`ipcHandlers.ts` 进一步降至 622 行，AI 新模块 110 行。
 - 从 `ipcHandlers.ts` 抽出沙箱配置 IPC 和运行时规则刷新：`electron/main-modules/ipcSandboxHandlers.ts`。`ipcHandlers.ts` 进一步降至 520 行，沙箱新模块 103 行。
@@ -132,7 +132,7 @@
 - settingsStore 拆分只移动增量持久化适配层，`loadSettings` 迁移、`saveSettings` 全量保存、provider normalize、透明度、动态数组、知识库开关和 pinned folders action 均未改。
 - ipcApi 拆分只移动知识库域 wrapper，`listSources/search/indexFile/indexFolder/deleteFile/reindexAll` 的无 IPC fallback 返回值和运行时调用路径未改。
 - sessionStore 拆分只移动 JSONL rollout 解析纯逻辑，`appendRolloutItems`、`loadThread`、`loadThreadByPath`、压缩归档搜索、删除、metadata 追加和 usage 统计链路未改。
-- 此阶段已关闭 `agentLoop.ts` 与 `ipcHandlers.ts` 单文件超标；Sidebar/settingsStore/ipcApi 已按可维护边界阶段性拆分，后续不再为追求行数继续拆碎。M1 仍未关闭，后续转向其它明确职责边界的超标文件。
+- 此阶段已关闭 `agentLoop.ts`、`ipcHandlers.ts`、Sidebar、settingsStore、ipcApi、chatStore 等主入口单文件超标；后续不再为追求行数继续拆碎，转向其它明确职责边界的高价值问题。
 
 **验证证据**：
 - `npm exec vitest run electron/agent/core/agentLoop/streamResultItems.test.ts electron/agent/core/agentLoop/compactionProgress.test.ts electron/agent/core/agentLoop/contextUsage.test.ts`

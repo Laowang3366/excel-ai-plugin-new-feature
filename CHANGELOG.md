@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **审查报告 M1 状态闭环**：根据当前代码状态关闭 `docs/code-review-report-2026-07-05.md` 中 P0/M1 “agentLoop 阶段性拆分”进行中标记，记录 `agentLoop.ts`、`ipcHandlers.ts`、Sidebar/settingsStore/ipcApi/chatStore 等主入口已收敛到上限内，后续只按自然职责边界继续优化。
 - **chatStore 初始状态 helper 拆分**：新增 `chatInitialState.ts`，集中维护聊天 store 初始状态和清空消息 patch；`chatStore.ts` 保留事件监听、stream delta 处理、turn action 和 thread action 编排，降至 300 行以内。
 - **settingsStore 加载归一化拆分**：新增 `settingsLoadedState.ts` 与 `settingsValues.ts`，集中维护 electron-store 原始配置到 Zustand state patch 的归一化、provider reasoning 迁移检测和窗口透明度取值约束；`settingsStore.ts` 保留 IPC 读取、迁移写回、持久化 action 和状态编排。
 - **PPT OpenXML 包结构 helper 拆分**：新增 `presentationPackageParts.ts`，集中维护 slide part 编号、presentation 关系、content type、slide entry 收集和 XML 属性读取；`advancedPresentation.ts` 保留 create/applyTheme/deleteSlides/addSlides 的业务流程。
