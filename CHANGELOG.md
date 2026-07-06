@@ -2,15 +2,28 @@
 
 ## Unreleased
 
+### 2026-07-06 工程质量、RAG/知识库与桌面体验
+
+- **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
+- **当前测试源基线**：静态统计为 124 个测试文件、654 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
+- **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
+- **AgentLoop 与主进程模块继续拆分**：将 Agent loop 状态、队列、单轮执行、工具执行日志、IPC OCR/AI/沙箱/文件处理等职责拆到独立模块，保留原入口兼容。
+- **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
+- **流式与推理显示优化**：调整流式增量缓冲、工具事件顺序、上下文用量估算、思考正文滚动和展开详情时间线，减少长 reasoning 输出导致的 UI 堵塞。
+- **Office/WPS 操作体验优化**：增加紧凑模式、透明度、动态数组环境支持设置，修复窗口恢复、按钮对齐、公式写入策略和 WPS 动态数组提示约束。
+- **OCR 与附件体验完善**：接入 MinerU 付费 → 免费 → 本地降级链路，补充图片附件预览、拖拽上传、发票字段静默提取和 OCR 工具化能力。
+- **侧边栏与文件夹性能优化**：搜索打开时批量加载 pinned folder 文件列表，避免每个文件夹一次 IPC；新增旧 preload 环境的 wrapper fallback。
+
 ### 2026-06-30 文档、Office 操作与安装包
 
 - **PPT 删除页专用能力**：新增 `office.action.apply` 的 `presentation/deleteSlides` 操作，支持 `params.slides`、`params.from/to` 和 `target: "slide:2-6"`。
   - Open XML 优先删除 `presentation.xml` 中的 slide 引用、`presentation.xml.rels` 关系和对应 `ppt/slides/slideN.xml` 部件。
   - COM 兜底按倒序删除幻灯片，避免索引变化导致删错页。
   - 工具注册表和系统提示词已要求模型优先使用统一 Office action，避免回退到临场 PowerShell/Python 脚本。
-- **安装包版本推进到 `0.1.2`**：重新生成 `desktop/release/Office AI 助手 Setup 0.1.2.exe`，并抽取 asar 验证版本和 `deleteSlides` 能力已入包。
+- **版本线已继续推进**：该阶段安装包曾推进到 `0.1.2`；当前仓库版本以顶部 `0.1.61` 基线为准。
 - **文档同步**：更新根 README、Agent 架构文档、工具层文档、记忆层文档和开发规范，统一描述 Office 三件套、Open XML 优先、SQLite StateRuntime、当前测试基线和打包注意事项。
-- **验证基线**：`npm run typecheck` 通过；`npm test` 通过 74 个测试文件、420 个测试。
+- **验证基线**：该阶段 `npm run typecheck` 通过；测试规模后续已增长，当前统计见顶部 2026-07-06 基线。
 
 ### Added
 
