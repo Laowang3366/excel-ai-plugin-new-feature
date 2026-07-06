@@ -936,6 +936,27 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`EditProviderDialog` 保存 patch 计算抽取
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract edit provider patch builder`
+
+**覆盖范围**：
+- 新增 `src/components/settings/editProviderPatch.ts`，集中计算编辑供应商弹窗保存时的 `Partial<AiProviderConfig>`。
+- 新增 `editProviderPatch.test.ts`，覆盖草稿无变化时不提交 patch、字段变化时只提交差异，以及旧 `ModelConfig.reasoningOptions` 不再写回。
+- `EditProviderDialog.tsx` 仅改为把当前草稿传给 helper，组件继续负责表单状态、模型切换、连接测试和弹窗渲染。
+
+**业务链路保护**：
+- 不改 `useTestConnection`、`ipcApi.ai.listModels()`、`ModelConfigList`、`ReasoningModeSelect` 和聚合平台模型选择链路。
+- 不改变 `onSave(patch)` 的调用时机；仍在用户点击保存时一次性提交。
+- `EditProviderDialog.tsx` 从约 411 行降至约 406 行；本项目标是固定保存语义，不为行数继续拆碎 JSX。
+
+**验证证据**：
+- `npx vitest run src/components/settings/editProviderPatch.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

@@ -40,6 +40,7 @@ import {
   formatReasoningOptionLabels,
   resolveReasoningOptionValues,
 } from "../../utils/reasoningSupport";
+import { buildEditProviderPatch } from "./editProviderPatch";
 
 // ============================================================
 // 类型定义
@@ -151,22 +152,16 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
 
   // 保存：收集所有变更并提交
   const handleSave = () => {
-    const patch: Partial<AiProviderConfig> = {};
-    const normalizedModelConfigs = modelConfigs.map((modelConfig) => {
-      const { reasoningOptions: _legacyReasoningOptions, ...rest } = modelConfig;
-      return rest;
-    });
-    if (name !== provider.name) patch.name = name;
-    if (apiFormat !== (provider.apiFormat || "openai")) patch.apiFormat = apiFormat;
-    if (baseUrl !== provider.baseUrl) patch.baseUrl = baseUrl;
-    if (apiKey !== provider.apiKey) patch.apiKey = apiKey;
-    if (model !== provider.model) patch.model = model;
-    if (contextWindowSize !== provider.contextWindowSize) patch.contextWindowSize = contextWindowSize;
-    if (effectiveReasoningMode !== (provider.reasoningMode || "off")) patch.reasoningMode = effectiveReasoningMode;
-    if (JSON.stringify(normalizedModelConfigs) !== JSON.stringify(provider.modelConfigs || [])) {
-      patch.modelConfigs = normalizedModelConfigs;
-    }
-    onSave(patch);
+    onSave(buildEditProviderPatch(provider, {
+      name,
+      apiFormat,
+      baseUrl,
+      apiKey,
+      model,
+      contextWindowSize,
+      effectiveReasoningMode,
+      modelConfigs,
+    }));
   };
 
   return (
