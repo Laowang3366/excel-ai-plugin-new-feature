@@ -2217,3 +2217,23 @@ src/utils/textCleaner.ts
 **验证证据**：
 - `npm run typecheck`
 - `npm exec vitest run src/store/settingsStore.test.ts`
+
+### P1 可维护性：StateRuntime rollout 日志链路收敛
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract state runtime rollout events`
+
+**覆盖范围**：
+- 新增 `electron/agent/memory/stateRuntimeRolloutEvents.ts`，集中维护 rollout events 写入、列表查询和 FTS 搜索。
+- `StateRuntimeStore` 保留连接生命周期、四库事务、公开 API、工具日志、目标和记忆读写编排，不继续硬拆 class。
+- `stateRuntimeStore.ts` 从 584 行收敛到约 520 行，rollout SQL 细节从主 store 下沉到日志领域 helper。
+
+**业务链路保护**：
+- `appendRolloutItems` 仍写入 `rollout_events` 与 `rollout_events_fts`，继续通过 `runLogsWrite` 复用现有事务语义。
+- `listRolloutEvents`、`searchRolloutMatches` 的返回结构、排序和 FTS query 规则保持不变。
+- `backfillDerivedIndexes` 暂不迁移，避免触碰旧损坏 JSON 回填容错逻辑。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
+- `npm run typecheck`

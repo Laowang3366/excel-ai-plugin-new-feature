@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **StateRuntime rollout 日志链路收敛**：新增 `electron/agent/memory/stateRuntimeRolloutEvents.ts`，集中维护 rollout events 写入、列表查询和 FTS 搜索；`StateRuntimeStore` 保留数据库生命周期、事务和公开 API。现有跨库事务、rollout 事件存储、FTS 搜索和派生索引回填测试继续通过。
 - **settingsStore Provider 状态收敛**：抽出 `src/store/settingsProviderState.ts`，集中维护供应商模板匹配、reasoning 配置归一化、增删改后的 `isConfigured` 计算和 provider id 生成；`settingsStore.ts` 继续保留持久化、加载、通用设置和 pinned folders 编排。补充单测覆盖更新激活供应商、添加非激活供应商时的配置状态，避免新增 provider 误影响当前激活配置。
 
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
