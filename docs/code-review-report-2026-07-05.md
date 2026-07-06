@@ -597,6 +597,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：OpenAI Responses 解析 helper 拆分
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: split responses parsing helpers`
+
+**覆盖范围**：
+- 新增 `electron/agent/providers/openaiResponsesParsing.ts`，集中 Responses content part 转换、工具调用状态、文本补发、usage 归一化和 reasoning effort 映射。
+- `openaiResponsesClient.ts` 保留请求体组装、HTTP 请求、SSE 读取和事件分发主链路。
+- `openaiResponsesClient.ts` 从 428 行降至 270 行，低于 400 行上限；新解析 helper 模块为 193 行。
+
+**业务链路保护**：
+- 不改变 Responses API 请求 endpoint、tools 名称清洗、reasoning 参数、流式正文补发、工具调用事件、usage 或 done 判定。
+- 继续使用既有 `openaiResponsesClient.test.ts` 覆盖图片/PDF 输入、reasoning、正文 fallback、尾包 flush 和工具调用解析。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/providers/openaiResponsesClient.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
