@@ -289,6 +289,26 @@
 - `npm run typecheck`
 - `npm run build`
 
+### 2026-07-06 — S7：依赖安全审计接入 CI
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `ci: audit npm dependencies`
+
+**覆盖范围**：
+- 在 `.github/workflows/ci.yml` 的 `npm ci` 之后新增 `npm audit --audit-level=high`。
+- CI 会在发现 high/critical 级别漏洞时失败，避免新增依赖绕过安全检查。
+
+**业务链路保护**：
+- 不改动生产代码、打包脚本或依赖版本。
+- 本地先执行 `npm audit --audit-level=high`，确认当前依赖树为 0 vulnerabilities 后再接入阻断式 CI。
+
+**验证证据**：
+- `npm audit --audit-level=high`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -615,6 +635,8 @@ useEffect(() => {
 ---
 
 #### 🟡 S7 — 依赖安全
+
+**状态**：✅ 已修复（2026-07-06，见“S7：依赖安全审计接入 CI”）
 
 **问题**：项目无 `npm audit` / dependabot 配置，新增依赖无安全检查。
 

@@ -7,6 +7,7 @@
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
 - **当前测试源基线**：静态统计为 124 个测试文件、654 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
+- **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
 - **AgentLoop 与主进程模块继续拆分**：将 Agent loop 状态、队列、单轮执行、工具执行日志、IPC OCR/AI/沙箱/文件处理等职责拆到独立模块，保留原入口兼容。
 - **知识库/RAG 稳定性增强**：SQLite 知识库行转换、Excel/OpenXML 解析、session rollout 解析等逻辑拆分为可测试 helper，并修复 provider/model/dim 变更后的 runtime 与索引一致性问题。
