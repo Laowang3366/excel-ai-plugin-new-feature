@@ -5,7 +5,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 137 个测试文件、709 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：静态统计为 138 个测试文件、712 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
@@ -45,6 +45,7 @@
 - **文件大小格式化入口收敛**：`ChatPage` 直接使用共享 `utils/fileSize`，移除 `chatHelpers` 中的薄包装导出，避免格式规则分散。
 - **OCR 面板流程 helper 拆分**：将 OCR 文件类型判断、临时文件落盘和 Excel 写入目标解析移到 `ocrTaskFileHelpers.ts`，面板组件保留状态、识别、写入和渲染职责。
 - **工具执行 sandbox 策略 helper 拆分**：将 `toolExecutor` 中的 shell 命令安全策略预评估抽到 `toolSandboxPolicy.ts`，保留 forbidden 永拒、prompt 强制审批和执行上下文透传语义。
+- **工具审批策略 helper 拆分**：将 `toolExecutor` 中的权限模式判断、always-allowed 工具集合和审批回调兜底抽到 `toolApproval.ts`，旧入口继续 re-export，主执行器降至 355 行。
 - **工具名解析 helper 拆分**：将 `toolExecutor` 中点号/下划线工具别名解析抽到 `toolNameResolution.ts`，补充 canonical executor 优先级和 OCR alias 回归测试。
 - **工具结果 item 构造收敛**：将 `toolExecutor` 中重复的 `tool_result` 结构生成抽到 `toolResultItems.ts`，统一 id/timestamp/result/isError 字段并让主执行器降至 400 行以内。
 - **chatStore turn 启动状态收敛**：将发送消息与恢复中断共用的流式状态重置、`activeClientId` 绑定和 stopped thread 清理抽到 `chatTurnState.ts` 纯 helper，保留两个 action 各自的 compaction/interrupt 清理差异。

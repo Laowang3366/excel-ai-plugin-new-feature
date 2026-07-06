@@ -334,6 +334,28 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1 可维护性：工具审批策略 helper 拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract tool approval policy`
+
+**覆盖范围**：
+- 新增 `agentLoop/toolApproval.ts`，集中权限模式判断、always-allowed 工具集合、审批请求默认放行和审批回调委托。
+- `toolExecutor.ts` 改为导入审批策略，并继续 re-export `ToolApprovalConfig`、`shouldRequireApproval()`、`requestToolApproval()`、`markToolAlwaysAllowed()`、`getAlwaysAllowedTools()`、`clearAlwaysAllowedTools()`，保持旧入口兼容。
+- 新增 `toolApproval.test.ts`，覆盖权限模式、always-allowed 覆盖、无回调默认批准和带回调委托审批。
+- 同步 `CHANGELOG.md` 当前测试源基线为 138 个测试文件、712 个 `it/test` 用例。
+
+**业务链路保护**：
+- `processToolCalls()` 的 sandbox forbidden/prompt 覆盖、审批取消/异常处理、工具执行、`TurnItem` 事件顺序、执行日志落库和结果 item 生成均未改动。
+- 旧测试仍从 `toolExecutor` 导入审批 API，证明外部调用路径保持兼容。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/core/agentLoop/toolApproval.test.ts electron/agent/core/agentLoop/toolExecutor.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复
@@ -1241,7 +1263,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `electron/agent/tools/implementations/officeOpenXml/advancedExcel.ts` | **662** | 400 | +262 | — |
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
-| `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
+| `electron/agent/core/agentLoop/toolExecutor.ts` | **355** | 400 | -45 | 已低于上限 |
 **完整超标清单**：共 29 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
@@ -1583,7 +1605,7 @@ useEffect(() => {
 | 662 | `electron/agent/tools/implementations/officeOpenXml/advancedExcel.ts` |
 | 623 | `src/store/chatStore.ts` |
 | 600 | `src/components/task/OCRTaskComposerPanel.tsx` |
-| 566 | `electron/agent/core/agentLoop/toolExecutor.ts` |
+| 355 | `electron/agent/core/agentLoop/toolExecutor.ts` |
 | 554 | `electron/agent/tools/executors/webSearchExecutors.ts` |
 | 544 | `electron/agent/knowledge/documentParser.ts` |
 | 537 | `electron/agent/knowledge/sqliteStore.ts` |

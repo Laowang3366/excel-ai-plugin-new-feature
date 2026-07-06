@@ -35,26 +35,22 @@ import {
 import { evaluateToolSandboxPolicy } from "./toolSandboxPolicy";
 import { resolveExecutableToolName } from "./toolNameResolution";
 import { createToolResultItem } from "./toolResultItems";
+import {
+  markToolAlwaysAllowed,
+  requestToolApproval,
+  shouldRequireApproval,
+  type ToolApprovalConfig,
+} from "./toolApproval";
 
 export type { ToolExecutionLogRecord } from "./toolExecutionLog";
-
-// ============================================================
-// 类型
-// ============================================================
-
-/** 工具审批配置 */
-export interface ToolApprovalConfig {
-  permissionMode: "normal" | "auto_approve_safe" | "confirm_all";
-  requestToolApproval?: (params: {
-    toolCallId: string;
-    toolName: string;
-    arguments: Record<string, unknown>;
-    riskLevel: "safe" | "moderate" | "dangerous";
-    description?: string;
-    /** 沙箱策略给出的理由（命中规则 justification 合并）；UI 用于向用户解释为什么弹窗 */
-    sandboxJustification?: string;
-  }) => Promise<{ approved: boolean; alwaysAllow?: boolean }>;
-}
+export {
+  clearAlwaysAllowedTools,
+  getAlwaysAllowedTools,
+  markToolAlwaysAllowed,
+  requestToolApproval,
+  shouldRequireApproval,
+} from "./toolApproval";
+export type { ToolApprovalConfig } from "./toolApproval";
 
 /**
  * 执行单个工具
@@ -100,88 +96,6 @@ export function getToolDefinitions(
 ): ToolDefinition[] {
   if (!executors || executors.size === 0) return [];
   return ALL_TOOL_DEFINITIONS.filter((def) => executors.has(def.name));
-}
-
-// ============================================================
-// 审批逻辑
-// ============================================================
-
-/** 始终允许的工具集合（模块级维护） */
-const alwaysAllowedTools = new Set<string>();
-
-/**
- * 判断工具是否需要审批
- *
- * 三种权限模式：
- * - normal（逐次确认）：所有工具调用都需要用户审批，无例外
- * - auto_approve_safe（自动审批）：safe 级别自动批准；moderate + dangerous 需要审批
- * - confirm_all（全部确认）：所有工具均自动批准，不要求手动审批。
- *   单元格清除、行列删除、子表操作、控件/图表删除等均直接放行。
- *   安全隐患由沙箱策略前置拦截（forbidden 直接拒绝）。
- *
- * alwaysAllowedTools 中的工具在三种模式下均跳过审批。
- */
-export function shouldRequireApproval(
-  toolName: string,
-  permissionMode: "normal" | "auto_approve_safe" | "confirm_all" = "normal"
-): boolean {
-  switch (permissionMode) {
-    case "normal":
-      // 逐次确认：但始终允许的工具可跳过
-      if (alwaysAllowedTools.has(toolName)) return false;
-      return true;
-
-    case "auto_approve_safe":
-      // 自动审批：safe 级别自动批准，其余需要审批
-      if (alwaysAllowedTools.has(toolName)) return false;
-      const safeDef = TOOL_DEFINITIONS_MAP.get(toolName);
-      return safeDef ? safeDef.riskLevel !== "safe" : true;
-
-    case "confirm_all":
-      // 全部确认：所有工具均自动批准，不要求手动审批。
-      // 表格的清除、行列删除、子表操作、控件/图表删除等均直接放行。
-      // 安全隐患由沙箱策略前置拦截（forbidden 直接拒绝）。
-      return false;
-
-    default:
-      return true;
-  }
-}
-
-/**
- * 请求工具审批
- */
-export async function requestToolApproval(
-  params: {
-    toolCallId: string;
-    toolName: string;
-    arguments: Record<string, unknown>;
-    riskLevel: "safe" | "moderate" | "dangerous";
-    description?: string;
-    /** 沙箱策略理由 */
-    sandboxJustification?: string;
-  },
-  config: ToolApprovalConfig
-): Promise<{ approved: boolean; alwaysAllow?: boolean }> {
-  if (config.requestToolApproval) {
-    return config.requestToolApproval(params);
-  }
-  return { approved: true };
-}
-
-/** 将工具标记为"始终允许" */
-export function markToolAlwaysAllowed(toolName: string): void {
-  alwaysAllowedTools.add(toolName);
-}
-
-/** 获取始终允许的工具集合（只读） */
-export function getAlwaysAllowedTools(): ReadonlySet<string> {
-  return alwaysAllowedTools;
-}
-
-/** 清除始终允许的工具集合（用于测试或重置） */
-export function clearAlwaysAllowedTools(): void {
-  alwaysAllowedTools.clear();
 }
 
 // ============================================================
