@@ -76,6 +76,30 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — PR6：ESLint / Prettier 工具链接入
+
+**状态**：✅ 第一版已落地
+
+**关联提交**：本节所在提交 `chore: add lint and format tooling`
+
+**覆盖范围**：
+- 新增 `desktop/eslint.config.js`，接入 ESLint flat config、TypeScript 推荐规则和 React Hooks 基础规则。
+- 新增 `desktop/.prettierrc` 与 `desktop/.prettierignore`，提供统一格式化入口，同时排除构建产物、依赖、安装包和 lockfile。
+- `desktop/package.json` 新增 `lint`、`lint:fix`、`format`、`format:check` 脚本。
+- CI 在 `npm audit --audit-level=high` 后新增 `npm run lint`，让静态检查进入持续验证链路。
+
+**业务链路保护**：
+- 不执行全仓格式化，不修改业务源码，避免一次性格式扰动影响追踪历史。
+- React Hooks 仅启用经典 `rules-of-hooks` error 和 `exhaustive-deps` warning；暂不启用新版 React Compiler 规则，避免把现有 effect 同步模式误升级为阻塞问题。
+- 保留现有 `typecheck`、`vitest`、`build` 门禁，Prettier 第一版只作为手动格式化工具，不接入 CI。
+
+**验证证据**：
+- `npm run lint`（0 errors，3 warnings：1 个历史无效 eslint-disable、2 个 hooks 依赖提示）
+- `npm test`（154 个测试文件、771 个测试通过）
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — T3：知识库分块/检索测试补强
 
 **状态**：✅ 阶段性已修复
@@ -2367,7 +2391,7 @@ useEffect(() => {
 | 11 | electronApi.d.ts 类型同步 | ✅ 已完成 | preload、类型声明与前端 IPC wrapper 已对齐 |
 | 12 | CHANGELOG 更新 | ✅ 持续执行 | 每项修复同步追加记录 |
 | 13 | 剩余超标文件拆分（Sidebar/settingsStore 等） | ✅ 阶段性关闭 | 主入口已收敛；剩余集中类型/桥接文件不为行数硬拆 |
-| 14 | 引入 ESLint + Prettier 工具链 | ⏳ 待决策 | 当前已有 `typecheck`、`vitest`、`build`、`git diff --check` 门禁；引入格式化链路需单独评估规则和历史代码扰动 |
+| 14 | 引入 ESLint + Prettier 工具链 | ✅ 第一版已落地 | ESLint 已接入 CI；Prettier 先提供脚本入口，不做全仓格式化、不进 CI |
 
 ---
 

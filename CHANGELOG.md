@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **ESLint / Prettier 工具链接入**：新增 `desktop/eslint.config.js`、`.prettierrc`、`.prettierignore` 和 `lint`/`format` 脚本；CI 增加 `npm run lint`，第一版仅启用低扰动静态检查，不执行全仓格式化。
 - **审查优先级状态闭环**：校正 `docs/code-review-report-2026-07-05.md` 顶部总评和第六章优先级表，将历史 IPC/行数风险改为当前完成状态账本，并明确剩余集中协议/桥接文件允许按自然职责边界继续优化，不为单纯行数硬拆。
 - **Office COM 进程探测共享化**：新增 `detectOfficeProcess()`，Word/PPT COM bridge 共用 Office/WPS 进程探测脚本；PPT 专用形状/版式 PowerShell 片段移入 `presentationComScripts.ts`，`presentationComBridge.ts` 降至 386 行。
 - **S1/S2 IPC 审查状态校正**：核对当前 `ipcHandlers`、`ipcFileHandlers`、`ipcAgentHandlers`、OCR/沙箱/AI 子 handler 后，更新审查报告中已过时的 “Schema 未调用” 表格，明确相关 IPC 已接入 `validateInput`。
@@ -28,7 +29,7 @@
 ### 2026-07-06 工程质量、RAG/知识库与桌面体验
 
 - **版本基线更新到 `0.1.61`**：以 `desktop/package.json` 为准，后续安装包和验收记录均按该版本线继续递增。
-- **当前测试源基线**：静态统计为 154 个测试文件、768 个 `it/test` 用例；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
+- **当前测试源基线**：本轮 `npm test` 通过 154 个测试文件、771 个测试；具体通过情况以每项修复记录中的 `vitest`、`typecheck` 和 `build` 验证命令为准。
 - **代码审查整改闭环**：新增 `docs/code-review-report-2026-07-05.md`，持续记录 IPC 安全、路径授权、大文件拆分、性能优化、类型同步和测试补强的修复状态、验证证据与关联提交。
 - **CI 依赖安全审计**：现有 GitHub Actions 在 `npm ci` 后执行 `npm audit --audit-level=high`，阻断 high/critical 级别漏洞进入主线。
 - **IPC 安全与路径授权加固**：补齐高风险 IPC 的 Zod 校验，统一文件/文件夹授权边界，保护拖拽、粘贴、OCR、文件预览、回收站、资源管理器打开等链路。
