@@ -362,6 +362,8 @@
 
 **位置**：`electron/main-modules/ipcHandlers.ts` 多处
 
+**状态**：✅ 已修复（2026-07-05，见“P0 安全：IPC 校验与路径授权”）
+
 **问题**：以下处理外部输入的 IPC 通道未使用 Zod schema 校验，仅依赖手写检查或直接消费参数：
 
 | 通道 | 行号 | 风险 |
@@ -386,6 +388,8 @@
 
 **位置**：`electron/main-modules/ipcHandlers.ts` + `electron/agent/interaction/ipcAgentHandlers.ts`
 
+**状态**：✅ 已修复（2026-07-05，见“P0 安全：IPC 校验与路径授权”）
+
 **问题**：`ipcSchemas.ts` 中已定义的 schema 未被对应 handler 使用：
 
 | Schema | 对应通道 | 状态 |
@@ -409,6 +413,8 @@
 #### 🔴 S5 — 文件操作缺少路径穿越防护
 
 **位置**：`electron/main-modules/ipcHandlers.ts`
+
+**状态**：✅ 已修复（2026-07-05，见“P0 安全：IPC 校验与路径授权”）
 
 **问题**：以下 IPC 通道接受任意文件路径，无路径范围限制：
 
@@ -499,6 +505,8 @@ pinnedFolders.forEach((folder) => {
 
 **位置**：`src/components/ChatPage.tsx:87-95`
 
+**状态**：✅ 已修复（2026-07-06，见“P1 性能：`ChatPage` 文件夹加载取消保护”）
+
 ```typescript
 useEffect(() => {
   if (currentFolderId) {
@@ -528,6 +536,8 @@ useEffect(() => {
 
 **位置**：`src/hooks/useExcelConnection.ts:63, 69, 72, 77, 93, 97, 102`
 
+**状态**：✅ 已修复（2026-07-06，见“P1 性能：`useExcelConnection` timeout 清理”）
+
 **问题**：6 处 `setTimeout` 用于 pulseDot/connectFailed 状态重置，均未在卸载时 `clearTimeout`。
 
 **建议**：用 `useRef` 保存 timer id，在 `useEffect` cleanup 中统一清理。
@@ -537,6 +547,8 @@ useEffect(() => {
 #### 🟡 P3-perf — Sidebar 渲染内未 memo 的排序数组
 
 **位置**：`src/components/Sidebar.tsx:429-461`
+
+**状态**：✅ 已修复（2026-07-06，见“P1 性能：`Sidebar` 排序派生数据 memo”）
 
 **问题**：每次 render 都重新创建 `compareText`、`sortThreads`、`ungroupedThreads`、`groupedByFolder`，当 threads > 50 时排序开销显著。
 
@@ -693,8 +705,8 @@ useEffect(() => {
 |---|------|------|
 | 1 | `Sidebar.tsx:190-206` | ✅ 已修复：拖拽 resize 改为 rAF 节流 |
 | 2 | `useComposer.ts:326-331` | textarea onChange 每键触发 setState + DOM 写入，可接受 |
-| 3 | `preload.ts:89` | onStreamDelta 回调 data 类型注解缺 clientId，与 electronApi.d.ts 不一致 |
-| 4 | `Sidebar.tsx` 多处 | 代码重复的排序逻辑可提取为公共函数 |
+| 3 | `preload.ts:89` | ✅ 已修复：onStreamDelta 回调 data 类型补齐 clientId |
+| 4 | `Sidebar.tsx` 多处 | ✅ 已修复：排序逻辑集中到 sortSidebarItems 并对派生数组 useMemo |
 | 5 | 全项目 | 魔法数字（如 50000、10000 的 slice 截断）应提取为命名常量 |
 
 ---
