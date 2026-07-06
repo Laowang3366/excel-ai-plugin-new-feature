@@ -30,6 +30,7 @@ import {
   deleteThread as deleteThreadAction,
   moveThreadToFolder as moveThreadToFolderAction,
 } from "./threadActions";
+import { buildTurnStartPatch } from "./chatTurnState";
 
 export { mergeBufferedStreamDeltas, STREAM_DELTA_STORE_FLUSH_MS };
 export type { StreamDeltaInput };
@@ -270,19 +271,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       return;
     }
 
-    set({
-      isStreaming: true,
-      streamingContent: "",
-      streamingReasoning: "",
-      activeStreamingRound: null,
-      turnStatus: "in_progress",
-      activeClientId: clientId,
-      stoppedThreadIds: state.activeThreadId
-        ? Object.fromEntries(Object.entries(state.stoppedThreadIds).filter(([id]) => id !== state.activeThreadId))
-        : state.stoppedThreadIds,
-      error: null,
-      compactionNotice: null,
-    });
+    set(buildTurnStartPatch(state, clientId, { compactionNotice: null }));
 
     try {
       const result = await ipcApi.agent.startTurn({
@@ -324,19 +313,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       return;
     }
 
-    set({
-      isStreaming: true,
-      streamingContent: "",
-      streamingReasoning: "",
-      activeStreamingRound: null,
-      turnStatus: "in_progress",
-      activeClientId: clientId,
-      stoppedThreadIds: get().activeThreadId
-        ? Object.fromEntries(Object.entries(get().stoppedThreadIds).filter(([id]) => id !== get().activeThreadId))
-        : get().stoppedThreadIds,
-      error: null,
-      lastInterruptContext: null,
-    });
+    set(buildTurnStartPatch(get(), clientId, { lastInterruptContext: null }));
 
     try {
       const result = await ipcApi.agent.continueTurn({

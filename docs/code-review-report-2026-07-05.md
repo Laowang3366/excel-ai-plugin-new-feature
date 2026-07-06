@@ -915,6 +915,27 @@
 - `npx vitest run electron/agent/core/agentLoop/toolSandboxPolicy.test.ts electron/agent/core/agentLoop/toolExecutor.test.ts`
 - `npm run typecheck`
 
+### 2026-07-06 — M1：`chatStore` turn 启动状态构造收敛
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: extract chat turn start state`
+
+**覆盖范围**：
+- 新增 `src/store/chatTurnState.ts`，集中构造 turn 开始时的流式状态重置、`activeClientId` 绑定、`turnStatus` 标记和 stopped thread 清理。
+- 新增 `chatTurnState.test.ts`，覆盖有 active thread 时移除 stopped 标记、无 active thread 时保留原 stopped map 引用，以及调用方额外清理字段。
+- `sendMessage` 仍额外清理 `compactionNotice`，`resumeFromInterruption` 仍额外清理 `lastInterruptContext`，差异通过 `extraPatch` 明确传入。
+
+**业务链路保护**：
+- 不改 `ensureAgentThread()`、`ipcApi.agent.startTurn()`、`ipcApi.agent.continueTurn()`、`enqueueTurn()` 和 `loadThreads()` 的调用顺序。
+- 不改变 streaming 中入队、未绑定 threadId 时拒绝入队、发送失败/恢复失败回滚状态和 active thread 绑定逻辑。
+- 仅抽取纯状态 patch，避免把发送/恢复 action 拆成更碎的异步流程模块。
+
+**验证证据**：
+- `npx vitest run src/store/chatTurnState.test.ts src/store/chatStore.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
