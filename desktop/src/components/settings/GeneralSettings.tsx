@@ -7,17 +7,7 @@ import { Copy, Database, FolderOpen, Activity, FileScan, Maximize2 } from "../co
 import { useSettingsStore, type AppLanguage, type AppTheme } from "../../store/settingsStore";
 import { formatTokensAsK, DEFAULT_CONTEXT_WINDOW } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
-
-function getSliderFillPercent(value: number, min: number, max: number): number {
-  if (max <= min) return 0;
-  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
-}
-
-function getSliderStyle(value: number, min: number, max: number): React.CSSProperties {
-  return {
-    "--slider-fill": `${getSliderFillPercent(value, min, max)}%`,
-  } as React.CSSProperties;
-}
+import { SettingsSliderField, SettingsSwitchField } from "./SettingsFields";
 
 const GENERAL_TEXT = {
   "zh-CN": {
@@ -278,18 +268,13 @@ export const GeneralSettings: React.FC = () => {
           <span className="form-hint">{text.themeHint}</span>
         </div>
 
-        <div className="form-group">
-          <label>{text.closeBehavior}</label>
-          <label className="settings-switch-row">
-            <input
-              type="checkbox"
-              checked={closeToTray}
-              onChange={(event) => setCloseToTray(event.target.checked)}
-            />
-            <span>{text.closeToTray}</span>
-          </label>
-          <span className="form-hint">{text.closeHint}</span>
-        </div>
+        <SettingsSwitchField
+          groupLabel={text.closeBehavior}
+          label={text.closeToTray}
+          checked={closeToTray}
+          onChange={setCloseToTray}
+          hint={text.closeHint}
+        />
       </div>
 
       <div className="settings-card">
@@ -301,50 +286,31 @@ export const GeneralSettings: React.FC = () => {
           <p>{text.windowAvoidanceDesc}</p>
         </div>
 
-        <div className="form-group">
-          <label className="settings-switch-row">
-            <input
-              type="checkbox"
-              checked={officeAutoCompactEnabled}
-              onChange={(event) => setOfficeAutoCompactEnabled(event.target.checked)}
-            />
-            <span>{text.officeAutoCompactEnabled}</span>
-          </label>
-          <span className="form-hint">{text.officeAutoCompactHint}</span>
-        </div>
+        <SettingsSwitchField
+          label={text.officeAutoCompactEnabled}
+          checked={officeAutoCompactEnabled}
+          onChange={setOfficeAutoCompactEnabled}
+          hint={text.officeAutoCompactHint}
+        />
 
-        <div className="form-group">
-          <label>{windowOpacityLabel}</label>
-          <div className="compaction-threshold-row">
-            <input
-              type="range"
-              className="compaction-slider"
-              min={windowOpacityMin}
-              max={windowOpacityMax}
-              step={5}
-              value={windowOpacityPercent}
-              style={getSliderStyle(windowOpacityPercent, windowOpacityMin, windowOpacityMax)}
-              onChange={(event) => setWindowOpacity(Number(event.target.value) / 100)}
-            />
-            <span className="compaction-threshold-value">
-              {windowOpacityPercent}%
-            </span>
-          </div>
-          <span className="form-hint">{windowOpacityHint}</span>
-        </div>
+        <SettingsSliderField
+          label={windowOpacityLabel}
+          value={windowOpacityPercent}
+          min={windowOpacityMin}
+          max={windowOpacityMax}
+          step={5}
+          valueText={`${windowOpacityPercent}%`}
+          onChange={(value) => setWindowOpacity(value / 100)}
+          hint={windowOpacityHint}
+        />
 
-        <div className="form-group">
-          <label>{text.dynamicArrayTitle}</label>
-          <label className="settings-switch-row">
-            <input
-              type="checkbox"
-              checked={dynamicArrayFunctionsEnabled}
-              onChange={(event) => setDynamicArrayFunctionsEnabled(event.target.checked)}
-            />
-            <span>{text.dynamicArrayFunctionsEnabled}</span>
-          </label>
-          <span className="form-hint">{text.dynamicArrayFunctionsHint}</span>
-        </div>
+        <SettingsSwitchField
+          groupLabel={text.dynamicArrayTitle}
+          label={text.dynamicArrayFunctionsEnabled}
+          checked={dynamicArrayFunctionsEnabled}
+          onChange={setDynamicArrayFunctionsEnabled}
+          hint={text.dynamicArrayFunctionsHint}
+        />
       </div>
 
       <div className="settings-card">
@@ -420,7 +386,6 @@ export const GeneralSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* 上下文管理卡片（参考 Codex auto_compact_token_limit） */}
       <div className="settings-card">
         <div className="settings-card-header">
           <div className="settings-card-title-row">
@@ -430,44 +395,32 @@ export const GeneralSettings: React.FC = () => {
           <p>{text.contextDesc}</p>
         </div>
 
-        <div className="form-group">
-          <label>{text.compactionEnabled}</label>
-          <label className="settings-switch-row">
-            <input
-              type="checkbox"
-              checked={compactionEnabled}
-              onChange={(event) => setCompactionEnabled(event.target.checked)}
-            />
-            <span>{text.compactionEnabled}</span>
-          </label>
-          <span className="form-hint">{text.compactionEnabledHint}</span>
-        </div>
+        <SettingsSwitchField
+          groupLabel={text.compactionEnabled}
+          label={text.compactionEnabled}
+          checked={compactionEnabled}
+          onChange={setCompactionEnabled}
+          hint={text.compactionEnabledHint}
+        />
 
-        <div className={`form-group ${!compactionEnabled ? "form-group-disabled" : ""}`}>
-          <label>{text.compactionThreshold}</label>
-          {/* 显示当前模型上下文窗口 */}
+        <SettingsSliderField
+          className={!compactionEnabled ? "form-group-disabled" : ""}
+          label={text.compactionThreshold}
+          value={autoCompactThresholdPercent}
+          min={autoCompactThresholdMin}
+          max={autoCompactThresholdMax}
+          step={5}
+          valueText={`${autoCompactThresholdPercent}%`}
+          disabled={!compactionEnabled}
+          onChange={setAutoCompactThresholdPercent}
+          hint={text.compactionThresholdHint}
+          info={(
           <div className="compaction-model-info">
             {text.currentModelContext}: <strong>{formatTokensAsK(currentContextWindow)}</strong>
             {currentModel && <span className="compaction-model-name">({currentModel})</span>}
           </div>
-          <div className="compaction-threshold-row">
-            <input
-              type="range"
-              className="compaction-slider"
-              min={autoCompactThresholdMin}
-              max={autoCompactThresholdMax}
-              step={5}
-              value={autoCompactThresholdPercent}
-              style={getSliderStyle(autoCompactThresholdPercent, autoCompactThresholdMin, autoCompactThresholdMax)}
-              onChange={(event) => setAutoCompactThresholdPercent(Number(event.target.value))}
-              disabled={!compactionEnabled}
-            />
-            <span className="compaction-threshold-value">
-              {autoCompactThresholdPercent}%
-            </span>
-          </div>
-          <span className="form-hint">{text.compactionThresholdHint}</span>
-        </div>
+          )}
+        />
       </div>
     </div>
   );

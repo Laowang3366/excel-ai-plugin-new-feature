@@ -578,6 +578,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：`GeneralSettings` 表单字段复用
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: reuse general settings fields`
+
+**覆盖范围**：
+- 新增 `src/components/settings/SettingsFields.tsx`，集中 `SettingsSwitchField` 与 `SettingsSliderField` 两类通用设置字段。
+- `GeneralSettings.tsx` 复用上述字段渲染关闭行为、Office 自动避让、窗口透明度、动态数组开关、自动压缩开关和压缩阈值滑块。
+- `GeneralSettings.tsx` 从 441 行降至 398 行，低于 TSX 文件 400 行上限；抽出的字段组件为 89 行。
+
+**业务链路保护**：
+- 不移动文案、store action、IPC 数据路径迁移、MinerU token 保存、透明度/动态数组/压缩设置写入逻辑。
+- 不改设置项顺序、CSS class、滑块填充变量、禁用态和百分比展示。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
