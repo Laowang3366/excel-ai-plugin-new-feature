@@ -74,6 +74,35 @@ describe("ipcApi wrapper", () => {
     expect(listDescendants).toHaveBeenCalledWith("parent", "open");
   });
 
+  it("forwards batch folder file listing through the wrapper", async () => {
+    const listFilesBatch = vi.fn().mockResolvedValue({
+      "C:\\docs": [{ fileName: "a.xlsx", filePath: "C:\\docs\\a.xlsx" }],
+      "C:\\decks": [{ fileName: "b.pptx", filePath: "C:\\decks\\b.pptx" }],
+    });
+    setElectronApi({ folder: { listFilesBatch } });
+
+    await expect(ipcApi.folder.listFilesBatch(["C:\\docs", "C:\\decks"])).resolves.toEqual({
+      "C:\\docs": [{ fileName: "a.xlsx", filePath: "C:\\docs\\a.xlsx" }],
+      "C:\\decks": [{ fileName: "b.pptx", filePath: "C:\\decks\\b.pptx" }],
+    });
+    expect(listFilesBatch).toHaveBeenCalledWith(["C:\\docs", "C:\\decks"]);
+  });
+
+  it("falls back to single folder listings when batch IPC is unavailable", async () => {
+    const listFiles = vi
+      .fn()
+      .mockResolvedValueOnce([{ fileName: "a.xlsx", filePath: "C:\\docs\\a.xlsx" }])
+      .mockResolvedValueOnce([{ fileName: "b.pptx", filePath: "C:\\decks\\b.pptx" }]);
+    setElectronApi({ folder: { listFiles } });
+
+    await expect(ipcApi.folder.listFilesBatch(["C:\\docs", "C:\\decks"])).resolves.toEqual({
+      "C:\\docs": [{ fileName: "a.xlsx", filePath: "C:\\docs\\a.xlsx" }],
+      "C:\\decks": [{ fileName: "b.pptx", filePath: "C:\\decks\\b.pptx" }],
+    });
+    expect(listFiles).toHaveBeenNthCalledWith(1, "C:\\docs");
+    expect(listFiles).toHaveBeenNthCalledWith(2, "C:\\decks");
+  });
+
   it("returns safe fallback values when thread IPC is unavailable", async () => {
     await expect(ipcApi.thread.runtimeStatus()).resolves.toEqual({
       status: "not_loaded",

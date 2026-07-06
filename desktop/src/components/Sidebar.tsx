@@ -186,14 +186,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     if (!searchOpen) return;
-    pinnedFolders.forEach((folder) => {
-      if (folderFiles[folder.path]) return;
-      ipcApi.folder.listFiles(folder.path).then((files) => {
-        setFolderFiles((prev) => ({ ...prev, [folder.path]: files }));
-      }).catch(() => {
-        setFolderFiles((prev) => ({ ...prev, [folder.path]: [] }));
+    const missingPaths = pinnedFolders
+      .map((folder) => folder.path)
+      .filter((folderPath) => !folderFiles[folderPath]);
+    if (missingPaths.length === 0) return;
+    let cancelled = false;
+    ipcApi.folder.listFilesBatch(missingPaths).then((filesByFolder) => {
+      if (cancelled) return;
+      setFolderFiles((prev) => {
+        const next = { ...prev };
+        missingPaths.forEach((folderPath) => {
+          next[folderPath] = filesByFolder[folderPath] || [];
+        });
+        return next;
+      });
+    }).catch(() => {
+      if (cancelled) return;
+      setFolderFiles((prev) => {
+        const next = { ...prev };
+        missingPaths.forEach((folderPath) => {
+          next[folderPath] = [];
+        });
+        return next;
       });
     });
+    return () => { cancelled = true; };
   }, [folderFiles, pinnedFolders, searchOpen]);
 
   useEffect(() => {

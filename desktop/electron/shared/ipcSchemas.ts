@@ -135,6 +135,7 @@ export const ThreadGraphListDescendantsInput = z.object({
 
 export const FilePathInput = z.string().min(1);
 export const FolderPathInput = z.string().min(1);
+export const FolderPathsInput = z.array(FolderPathInput).min(1, "文件夹列表不能为空").max(100, "一次最多读取 100 个文件夹");
 export const FileWriteTempFileInput = z.object({
   prefix: z.string().max(64).optional(),
   suffix: z.string().regex(/^\.[a-zA-Z0-9]{1,16}$/).optional(),

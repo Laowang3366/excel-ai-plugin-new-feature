@@ -246,6 +246,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1 性能：`Sidebar` 搜索文件夹批量加载
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `perf: batch sidebar folder file listing`
+
+**覆盖范围**：
+- 新增 `folder:listFilesBatch` IPC，批量读取多个已授权文件夹内的 Office 文件。
+- 将 `folder:listFiles` 的授权、扩展名过滤、stat 补全、排序和文件路径授权逻辑抽为 `listAuthorizedOfficeFiles()`，单条和批量接口共用，避免重复实现。
+- `Sidebar` 搜索面板打开时只对未缓存的 pinned folder 发起一次批量请求，不再每个文件夹一次 IPC。
+- `ipcApi`、`preload`、`electronApi.d.ts`、`ipcApiTypes.ts` 和 mock 工厂同步新增 `listFilesBatch()`。
+
+**业务链路保护**：
+- 添加文件夹、展开单个文件夹、删除/固定文件后的单文件夹刷新仍继续调用 `folder:listFiles`。
+- wrapper 在旧 preload 未暴露 `listFilesBatch` 时回退为逐个 `listFiles`，避免运行环境未更新时直接失效。
+- 批量接口对单个文件夹读取失败返回该文件夹空数组，不影响其它文件夹结果。
+
+**验证证据**：
+- `npm exec vitest run electron/main-modules/ipcFileHandlers.test.ts src/services/ipcApi.test.ts electron/shared/ipcSchemas.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -374,6 +397,8 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 #### 🟡 P1-perf — Sidebar 搜索触发 N+1 查询
 
 **位置**：`src/components/Sidebar.tsx:210-220`
+
+**状态**：✅ 已修复（2026-07-06，见“P1 性能：`Sidebar` 搜索文件夹批量加载”）
 
 ```typescript
 // 当前：每个 pinnedFolder 一次 IPC

@@ -323,6 +323,21 @@ export const ipcApi: IIpcApi = {
       if (!raw) return [];
       return raw.folder.listFiles(folderPath);
     },
+    listFilesBatch: async (folderPaths) => {
+      const raw = getRaw();
+      if (!raw) return {};
+      if (raw.folder.listFilesBatch) return raw.folder.listFilesBatch(folderPaths);
+      const entries = await Promise.all(
+        folderPaths.map(async (folderPath) => {
+          try {
+            return [folderPath, await raw.folder.listFiles(folderPath)] as const;
+          } catch {
+            return [folderPath, []] as const;
+          }
+        })
+      );
+      return Object.fromEntries(entries);
+    },
   },
 
   tools: {

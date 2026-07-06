@@ -178,6 +178,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     /** 列出文件夹内的 Office 文件（Excel/Word/PowerPoint） */
     listFiles: (folderPath: string) =>
       ipcRenderer.invoke("folder:listFiles", folderPath),
+    /** 批量列出多个文件夹内的 Office 文件 */
+    listFilesBatch: (folderPaths: string[]) =>
+      ipcRenderer.invoke("folder:listFilesBatch", folderPaths),
   },
 
   // ---- 工具列表 ----

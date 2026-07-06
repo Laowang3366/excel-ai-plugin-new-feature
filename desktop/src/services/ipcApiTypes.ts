@@ -135,6 +135,7 @@ export interface IIpcApi {
   };
   folder: {
     listFiles: (folderPath: string) => Promise<FolderFileInfo[]>;
+    listFilesBatch: (folderPaths: string[]) => Promise<Record<string, FolderFileInfo[]>>;
   };
   tools: {
     list: () => Promise<unknown[]>;

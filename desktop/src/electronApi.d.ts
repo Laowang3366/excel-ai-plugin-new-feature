@@ -419,6 +419,8 @@ export interface ElectronAPI {
   folder: {
     /** 列出文件夹内的 Office 文件（Excel/Word/PowerPoint） */
     listFiles: (folderPath: string) => Promise<FolderFileInfo[]>;
+    /** 批量列出多个文件夹内的 Office 文件 */
+    listFilesBatch: (folderPaths: string[]) => Promise<Record<string, FolderFileInfo[]>>;
   };
   tools: {
     list: () => Promise<unknown[]>;

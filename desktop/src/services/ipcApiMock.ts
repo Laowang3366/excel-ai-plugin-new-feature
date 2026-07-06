@@ -94,6 +94,7 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
     },
     folder: {
       listFiles: async () => [],
+      listFilesBatch: async () => ({}),
     },
     tools: {
       list: async () => [],

@@ -5,13 +5,47 @@ import {
   FilePathInput,
   FileWriteTempFileInput,
   FolderPathInput,
+  FolderPathsInput,
   validateInput,
 } from "../shared/ipcSchemas";
 import { assertAuthorizedPath, type PathAuthorizer } from "./ipcPathSecurity";
 
+export interface FolderFileInfo {
+  filePath: string;
+  fileName: string;
+  size: number;
+  lastModified: number;
+}
+
+const OFFICE_FILE_EXTENSIONS = new Set([".xlsx", ".xls", ".csv", ".doc", ".docx", ".ppt", ".pptx"]);
+
 interface RegisterFileIpcHandlersOptions {
   mainWindowRef: () => BrowserWindow | null;
   pathAuthorizer: PathAuthorizer;
+}
+
+export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthorizer: PathAuthorizer): Promise<FolderFileInfo[]> {
+  const authorizedFolderPath = assertAuthorizedPath(pathAuthorizer, folderPath);
+  const entries = await fs.promises.readdir(authorizedFolderPath, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && OFFICE_FILE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+    .map((entry) => {
+      const fullPath = path.join(authorizedFolderPath, entry.name);
+      pathAuthorizer.authorizePath(fullPath);
+      return { filePath: fullPath, fileName: entry.name };
+    });
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        const stat = await fs.promises.stat(file.filePath);
+        return { ...file, size: stat.size, lastModified: stat.mtimeMs };
+      } catch {
+        return { ...file, size: 0, lastModified: 0 };
+      }
+    })
+  );
+  results.sort((a, b) => a.fileName.localeCompare(b.fileName));
+  return results;
 }
 
 export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions): void {
@@ -58,31 +92,24 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
   ipcMain.handle("folder:listFiles", async (_event, folderPath: unknown) => {
     const validated = validateInput(FolderPathInput, folderPath);
     try {
-      const authorizedFolderPath = assertAuthorizedPath(pathAuthorizer, validated);
-      const officeExts = new Set([".xlsx", ".xls", ".csv", ".doc", ".docx", ".ppt", ".pptx"]);
-      const entries = await fs.promises.readdir(authorizedFolderPath, { withFileTypes: true });
-      const files = entries
-        .filter((entry) => entry.isFile() && officeExts.has(path.extname(entry.name).toLowerCase()))
-        .map((entry) => {
-          const fullPath = path.join(authorizedFolderPath, entry.name);
-          pathAuthorizer.authorizePath(fullPath);
-          return { filePath: fullPath, fileName: entry.name };
-        });
-      const results = await Promise.all(
-        files.map(async (file) => {
-          try {
-            const stat = await fs.promises.stat(file.filePath);
-            return { ...file, size: stat.size, lastModified: stat.mtimeMs };
-          } catch {
-            return { ...file, size: 0, lastModified: 0 };
-          }
-        })
-      );
-      results.sort((a, b) => a.fileName.localeCompare(b.fileName));
-      return results;
+      return await listAuthorizedOfficeFiles(validated, pathAuthorizer);
     } catch {
       return [];
     }
+  });
+
+  ipcMain.handle("folder:listFilesBatch", async (_event, folderPaths: unknown) => {
+    const validated = validateInput(FolderPathsInput, folderPaths);
+    const entries = await Promise.all(
+      validated.map(async (folderPath) => {
+        try {
+          return [folderPath, await listAuthorizedOfficeFiles(folderPath, pathAuthorizer)] as const;
+        } catch {
+          return [folderPath, []] as const;
+        }
+      })
+    );
+    return Object.fromEntries(entries);
   });
 
   ipcMain.on("file:authorizePathSync", (event, filePath: unknown) => {
