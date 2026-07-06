@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FolderFileInfo, ThreadMetadata } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import type { AppLanguage, PinnedFolder } from "../../store/settingsStore";
+import { useDocumentDismiss } from "../../hooks/useDocumentDismiss";
 import { buildSidebarSearchResults } from "../../utils/sidebarSearch";
 import { formatTime } from "../../utils/sidebarHelpers";
 import {
@@ -50,6 +51,7 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
   const [tab, setTab] = useState<SearchTab>("all");
   const cardRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dismissBoundaryRefs = useMemo(() => [cardRef], []);
 
   useEffect(() => {
     if (!open) return;
@@ -58,21 +60,12 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const closeOnOutside = (event: MouseEvent) => {
-      if (!cardRef.current?.contains(event.target as Node)) onClose();
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open, onClose]);
+  useDocumentDismiss({
+    active: open,
+    boundaryRefs: dismissBoundaryRefs,
+    onDismiss: onClose,
+    pointerEvent: "mousedown",
+  });
 
   const actions = useMemo(() => ([
     { id: "newThread", label: text.sidebar.newThread },

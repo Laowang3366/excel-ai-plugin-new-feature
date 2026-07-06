@@ -837,6 +837,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — P1：文档级弹层关闭逻辑复用
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: reuse document dismiss hook`
+
+**覆盖范围**：
+- 扩展 `src/hooks/useDocumentDismiss.ts`，支持 `boundaryRefs`，允许点击指定 ref 内部时不触发关闭。
+- `SidebarSearchPalette.tsx` 复用该 hook 替换手写 `mousedown` + `keydown[Escape]` document listener。
+- `ModelQuickSwitch.tsx` 复用该 hook 替换手写外部点击监听，保留原有“不按 Escape 关闭”的行为。
+- `useDocumentDismiss.test.ts` 增加 ref 边界回归测试，覆盖弹层内部点击不关闭。
+
+**业务链路保护**：
+- 不改搜索面板、模型切换下拉的 DOM、样式、选中模型逻辑、搜索结果逻辑和定位逻辑。
+- 搜索面板仍在打开时清空 query、聚焦输入框，并支持 Escape 关闭。
+- 模型快速切换仍只在外部 mousedown 时关闭，不额外引入 Escape 行为。
+
+**验证证据**：
+- `npx vitest run src/hooks/useDocumentDismiss.test.ts`
+- `npm run typecheck`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）

@@ -11,11 +11,12 @@
  * - 底部"管理模型配置"入口
  */
 
-import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { useSettingsStore, PROVIDER_TEMPLATES } from "../../store/settingsStore";
 import { Check, ChevronDown, Settings } from "../common/IconMap";
 import { getAppText } from "../../i18n";
 import type { SettingsSection } from "../SettingsPage";
+import { useDocumentDismiss } from "../../hooks/useDocumentDismiss";
 import {
   coerceReasoningMode,
   defaultReasoningModeForOptions,
@@ -39,21 +40,20 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dismissBoundaryRefs = useMemo(() => [dropdownRef], []);
+  const closeDropdown = useCallback(() => setOpen(false), []);
 
   const activeProvider = providers[activeProviderId];
   const text = getAppText(language);
 
   // 点击外部关闭
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  useDocumentDismiss({
+    active: open,
+    boundaryRefs: dismissBoundaryRefs,
+    closeOnEscape: false,
+    onDismiss: closeDropdown,
+    pointerEvent: "mousedown",
+  });
 
   useLayoutEffect(() => {
     if (!open) return;

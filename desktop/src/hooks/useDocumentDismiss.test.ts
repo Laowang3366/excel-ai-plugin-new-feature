@@ -25,6 +25,24 @@ describe("createDocumentDismissHandlers", () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  test("ignores pointer events inside boundary refs", () => {
+    const onDismiss = vi.fn();
+    const target = {};
+    const boundary = {
+      current: {
+        contains: (node: unknown) => node === target,
+      } as Element,
+    };
+    const handlers = createDocumentDismissHandlers({
+      onDismiss,
+      boundaryRefs: [boundary],
+    });
+
+    handlers.handlePointerEvent({ target } as unknown as MouseEvent);
+
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   test("dismisses on Escape only", () => {
     const onDismiss = vi.fn();
     const handlers = createDocumentDismissHandlers({ onDismiss });
