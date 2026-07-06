@@ -227,6 +227,25 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — PR4：IPC 类型声明同步
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `fix: sync preload ipc types`
+
+**覆盖范围**：
+- 补全 `desktop/src/electronApi.d.ts` 中 `excel.detectStatus()` 返回类型，与 `ipcApiTypes.ts` 保持一致，包含 `version`、`workbookName` 和 `availableHosts`。
+- 补全 `desktop/electron/preload.ts` 中 `agent.onStreamDelta()` 回调 data 类型的 `clientId` 字段，与渲染层全局声明和 wrapper 类型保持一致。
+
+**业务链路保护**：
+- 仅同步 TypeScript 类型声明，没有改动 IPC channel、参数透传或运行时 fallback。
+- `thread.runtimeStatus`、`threadGraph`、`excel.readRange(expand)` 等前一轮已补齐的 wrapper 能力保持不变。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ---
 
 ## 二、🔴 P0 问题清单（必须修复）
@@ -522,6 +541,8 @@ useEffect(() => {
 #### 🟡 PR4 — electronApi.d.ts 与 ipcApi.ts 类型不同步
 
 **位置**：`src/electronApi.d.ts:335-337` vs `src/services/ipcApi.ts:59-62`
+
+**状态**：✅ 已修复（2026-07-06，见“PR4：IPC 类型声明同步”）
 
 **问题**：Excel 状态类型不一致：
 - `electronApi.d.ts`: `detectStatus() => Promise<{ connected; host }>`（缺 version/workbookName/availableHosts）

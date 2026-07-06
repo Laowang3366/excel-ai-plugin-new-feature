@@ -332,7 +332,7 @@ export interface ElectronAPI {
     getAll: () => Promise<Record<string, unknown>>;
   };
   excel: {
-    detectStatus: () => Promise<{ connected: boolean; host: string }>;
+    detectStatus: () => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string; availableHosts?: string[] }>;
     connect: () => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
     selectHost: (host: "excel" | "wps") => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
     getSelection: () => Promise<{ address: string; values: unknown[][]; sheetName: string }>;

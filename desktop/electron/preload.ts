@@ -86,7 +86,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     },
 
     /** 监听流式增量 */
-    onStreamDelta: (callback: (data: { delta: string; itemType: string; roundId?: number; threadId?: string }) => void) => {
+    onStreamDelta: (callback: (data: { delta: string; itemType: string; roundId?: number; threadId?: string; clientId?: string }) => void) => {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on("agent:streamDelta", handler);
       return () => ipcRenderer.removeListener("agent:streamDelta", handler);
