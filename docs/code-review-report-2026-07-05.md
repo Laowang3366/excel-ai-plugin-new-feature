@@ -877,6 +877,25 @@
 - `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
 - `npm run typecheck`
 
+### P1 可维护性：Office COM action 脚本模板拆分
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract office com action scripts`
+
+**覆盖范围**：
+- 新增 `electron/agent/tools/implementations/office/officeComActionScripts.ts`，集中维护 Excel、Word、PowerPoint 三类 COM action PowerShell 模板。
+- 新增 `officeComActionScriptHelpers.ts`，集中维护参数解析、默认输出路径、颜色转换、PPT 删除页码解析和变更描述。
+- `officeComActionBridge.ts` 从约 469 行降至约 67 行，保留支持判断、执行、JSON 解析和结果归一化。
+
+**业务链路保护**：
+- `executePowerShell(script, 120000)`、`safeJsonParse`、`doneResult/failedResult`、unsupported 分支和 changes 透传保持不变。
+- Excel 图表、Word 目录、PPT 快照、PPT 删除页的脚本关键片段由原测试继续覆盖。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/tools/implementations/office/officeComActionBridge.test.ts electron/agent/tools/implementations/office/officeComPowerShell.test.ts`
+- `npm run typecheck`
+
 ### P1 可维护性：StateRuntime goals/memories 表级 CRUD 收敛
 
 **状态**：已修复
