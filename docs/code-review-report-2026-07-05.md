@@ -817,6 +817,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：设置页布局样式拆分
+
+**状态**：✅ 已修复
+**关联提交**：本节所在提交 `refactor: split settings layout styles`
+
+**覆盖范围**：
+- 新增 `src/styles/settings-layout.css`，集中设置页外壳、侧栏、主视图、账号 profile、旧版 `.settings-page` 兼容布局、双列网格、profile 卡片和编辑器空态样式。
+- `global.css` 在 `settings.css` 前导入布局样式，让设置页框架先加载，表单/模块样式后加载。
+- `settings.css` 从 686 行降至 333 行，低于 CSS 500 行上限；新布局样式文件为 369 行。
+
+**业务链路保护**：
+- 不改 `SettingsPage.tsx`、`ProviderCard.tsx` 或各设置页组件的 DOM、className、导航、折叠侧栏和 profile 展示逻辑。
+- 旧版 `.settings-page` / `.settings-grid` / `.profile-card` 兼容样式随布局文件迁移，避免遗留页面入口丢样式。
+- 至此审查报告中的 4 个 CSS 超标文件已全部关闭。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -931,8 +951,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/store/chatStore.ts` | **623** | 400 | +223 | action 抽到 chatActions.ts |
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
-| `src/styles/settings.css` | **686** | 500 | +186 | 按子组件区块拆分 |
-**完整超标清单**：共 29 个 TS/TSX 文件 + 1 个 CSS 文件（详见附录 A）
+**完整超标清单**：共 29 个 TS/TSX 文件 + 0 个 CSS 文件（详见附录 A）
 
 ---
 
@@ -1293,11 +1312,10 @@ useEffect(() => {
 | 416 | `src/components/settings/UsageStats.tsx` |
 | 404 | `electron/main-modules/mineruOcr.ts` |
 
-### CSS 文件（1 个）
+### CSS 文件（0 个）
 
 | 行数 | 文件 |
 |------|------|
-| 686 | `src/styles/settings.css` |
 
 ---
 

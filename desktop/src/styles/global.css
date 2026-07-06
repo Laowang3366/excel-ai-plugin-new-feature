@@ -52,6 +52,7 @@
 /* 任务编排面板 */
 @import "./task-panel.css";
 /* 设置页面 */
+@import "./settings-layout.css";
 @import "./settings.css";
 @import "./open-source-settings.css";
 @import "./usage-stats.css";
