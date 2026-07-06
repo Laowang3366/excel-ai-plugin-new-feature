@@ -877,6 +877,25 @@
 - `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
 - `npm run typecheck`
 
+### P1 可维护性：StateRuntime goals/memories 表级 CRUD 收敛
+
+**状态**：已修复
+
+**关联提交**：`refactor: extract state runtime memory tables`
+
+**覆盖范围**：
+- 新增 `electron/agent/memory/stateRuntimeGoals.ts`，集中维护 goals upsert/get。
+- 新增 `electron/agent/memory/stateRuntimeMemories.ts`，集中维护短期记忆、长期记忆、归档、筛选分页和 memory pipeline cursor。
+- `StateRuntimeStore` 从约 501 行降至约 378 行，保留初始化、关闭、迁移、事务、线程快照/运行时和派生索引回填编排。
+
+**业务链路保护**：
+- goals payload JSON、long-term memory metadata/citations JSON、状态归档、limit/offset 归一化和 pipeline cursor 默认值保持不变。
+- 跨库事务仍由 `StateRuntimeStore.transaction()` 统一管理，helper 只执行传入数据库连接上的同步 SQL。
+
+**验证证据**：
+- `npm exec vitest run electron/agent/memory/stateRuntimeStore.test.ts`
+- `npm run typecheck`
+
 ### P1 可维护性：StateRuntime 工具执行日志链路收敛
 
 **状态**：已修复

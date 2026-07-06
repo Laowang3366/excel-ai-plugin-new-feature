@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **StateRuntime goals/memories 表级 CRUD 收敛**：新增 `stateRuntimeGoals.ts` 与 `stateRuntimeMemories.ts`，将 goals、短期记忆、长期记忆和 memory pipeline cursor 的 SQL 细节下沉到表级 helper；`StateRuntimeStore` 回到 400 行以内，继续负责四库生命周期、事务和对外 API。
 - **StateRuntime 工具执行日志链路收敛**：新增 `electron/agent/memory/stateRuntimeToolLogs.ts`，集中维护 `tool_execution_logs` 写入、limit 归一化和行映射；`StateRuntimeStore` 继续保留公开入口与跨库事务编排。现有工具日志存储、查询和事务回滚测试继续通过。
 - **StateRuntime rollout 日志链路收敛**：新增 `electron/agent/memory/stateRuntimeRolloutEvents.ts`，集中维护 rollout events 写入、列表查询和 FTS 搜索；`StateRuntimeStore` 保留数据库生命周期、事务和公开 API。现有跨库事务、rollout 事件存储、FTS 搜索和派生索引回填测试继续通过。
 - **settingsStore Provider 状态收敛**：抽出 `src/store/settingsProviderState.ts`，集中维护供应商模板匹配、reasoning 配置归一化、增删改后的 `isConfigured` 计算和 provider id 生成；`settingsStore.ts` 继续保留持久化、加载、通用设置和 pinned folders 编排。补充单测覆盖更新激活供应商、添加非激活供应商时的配置状态，避免新增 provider 误影响当前激活配置。

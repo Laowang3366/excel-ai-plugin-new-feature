@@ -8,10 +8,6 @@ import type {
   ThreadRuntimeSnapshot,
 } from "../shared/types";
 import {
-  clampMemoryListOffset,
-  mapGoal,
-  mapLongTermMemory,
-  mapMemory,
   mapThreadSnapshot,
 } from "./stateRuntimeMappers";
 import { extractRolloutSearchContent } from "./rolloutSearchContent";
@@ -31,7 +27,20 @@ import {
 } from "./stateRuntimeSchema";
 import { openRuntimeDatabaseWithRecovery } from "./stateRuntimeRecovery";
 import { runSqliteTransaction } from "../storage/nodeSqlite";
-import { clampNumber } from "../shared/numberLimits";
+import {
+  getGoalFromDb,
+  upsertGoalInDb,
+} from "./stateRuntimeGoals";
+import {
+  archiveLongTermMemoryInDb,
+  getLongTermMemoryFromDb,
+  getMemoryPipelineCursorFromDb,
+  listLongTermMemoriesFromDb,
+  listMemoriesFromDb,
+  setMemoryPipelineCursorInDb,
+  upsertLongTermMemoryInDb,
+  upsertMemoryInDb,
+} from "./stateRuntimeMemories";
 import {
   appendRolloutItemsToLogs,
   listRolloutEventsFromLogs,
@@ -295,181 +304,45 @@ export class StateRuntimeStore {
   }
 
   async upsertGoal(goal: RuntimeGoalRecord): Promise<void> {
-    this.getDbs().goals.prepare(
-      `INSERT INTO goals (
-        goal_id, thread_id, objective, status, token_budget, token_usage,
-        created_at, updated_at, completed_at, payload_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(goal_id) DO UPDATE SET
-        thread_id = excluded.thread_id,
-        objective = excluded.objective,
-        status = excluded.status,
-        token_budget = excluded.token_budget,
-        token_usage = excluded.token_usage,
-        updated_at = excluded.updated_at,
-        completed_at = excluded.completed_at,
-        payload_json = excluded.payload_json`
-    ).run(
-      goal.goalId,
-      goal.threadId ?? null,
-      goal.objective,
-      goal.status,
-      goal.tokenBudget ?? null,
-      goal.tokenUsage ?? null,
-      goal.createdAt,
-      goal.updatedAt,
-      goal.completedAt ?? null,
-      goal.payload ? JSON.stringify(goal.payload) : null
-    );
+    upsertGoalInDb(this.getDbs().goals, goal);
   }
 
   async getGoal(goalId: string): Promise<RuntimeGoalRecord | null> {
-    const row = this.getDbs().goals.prepare(
-      `SELECT * FROM goals WHERE goal_id = ?`
-    ).get(goalId) as Record<string, any> | undefined;
-    return row ? mapGoal(row) : null;
+    return getGoalFromDb(this.getDbs().goals, goalId);
   }
 
   async upsertMemory(memory: RuntimeMemoryRecord): Promise<void> {
-    this.getDbs().memories.prepare(
-      `INSERT INTO memories (
-        memory_id, namespace, content, metadata_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(memory_id) DO UPDATE SET
-        namespace = excluded.namespace,
-        content = excluded.content,
-        metadata_json = excluded.metadata_json,
-        updated_at = excluded.updated_at`
-    ).run(
-      memory.memoryId,
-      memory.namespace,
-      memory.content,
-      memory.metadata ? JSON.stringify(memory.metadata) : null,
-      memory.createdAt,
-      memory.updatedAt
-    );
+    upsertMemoryInDb(this.getDbs().memories, memory);
   }
 
   async listMemories(namespace?: string): Promise<RuntimeMemoryRecord[]> {
-    const rows = namespace
-      ? this.getDbs().memories.prepare(
-          `SELECT * FROM memories WHERE namespace = ? ORDER BY updated_at DESC`
-        ).all(namespace)
-      : this.getDbs().memories.prepare(
-          `SELECT * FROM memories ORDER BY updated_at DESC`
-        ).all();
-    return (rows as Record<string, any>[]).map(mapMemory);
+    return listMemoriesFromDb(this.getDbs().memories, namespace);
   }
 
   async upsertLongTermMemory(memory: RuntimeLongTermMemoryRecord): Promise<void> {
-    this.getDbs().memories.prepare(
-      `INSERT INTO long_term_memories (
-        memory_id, namespace, kind, visibility, status, content, summary, confidence,
-        source_thread_id, source_event_id, workspace_fingerprint, expires_at,
-        metadata_json, citations_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(memory_id) DO UPDATE SET
-        namespace = excluded.namespace,
-        kind = excluded.kind,
-        visibility = excluded.visibility,
-        status = excluded.status,
-        content = excluded.content,
-        summary = excluded.summary,
-        confidence = excluded.confidence,
-        source_thread_id = excluded.source_thread_id,
-        source_event_id = excluded.source_event_id,
-        workspace_fingerprint = excluded.workspace_fingerprint,
-        expires_at = excluded.expires_at,
-        metadata_json = excluded.metadata_json,
-        citations_json = excluded.citations_json,
-        updated_at = excluded.updated_at`
-    ).run(
-      memory.memoryId,
-      memory.namespace,
-      memory.kind,
-      memory.visibility,
-      memory.status,
-      memory.content,
-      memory.summary ?? null,
-      memory.confidence ?? null,
-      memory.sourceThreadId ?? null,
-      memory.sourceEventId ?? null,
-      memory.workspaceFingerprint ?? null,
-      memory.expiresAt ?? null,
-      memory.metadata ? JSON.stringify(memory.metadata) : null,
-      memory.citations ? JSON.stringify(memory.citations) : null,
-      memory.createdAt,
-      memory.updatedAt
-    );
+    upsertLongTermMemoryInDb(this.getDbs().memories, memory);
   }
 
   async getLongTermMemory(memoryId: string): Promise<RuntimeLongTermMemoryRecord | null> {
-    const row = this.getDbs().memories.prepare(
-      `SELECT * FROM long_term_memories WHERE memory_id = ?`
-    ).get(memoryId) as Record<string, any> | undefined;
-    return row ? mapLongTermMemory(row) : null;
+    return getLongTermMemoryFromDb(this.getDbs().memories, memoryId);
   }
 
   async archiveLongTermMemory(memoryId: string, updatedAt = Date.now()): Promise<RuntimeLongTermMemoryRecord | null> {
-    const existing = await this.getLongTermMemory(memoryId);
-    if (!existing) return null;
-
-    this.getDbs().memories.prepare(
-      `UPDATE long_term_memories
-       SET status = 'archived', updated_at = ?
-       WHERE memory_id = ?`
-    ).run(updatedAt, memoryId);
-
-    return this.getLongTermMemory(memoryId);
+    return archiveLongTermMemoryInDb(this.getDbs().memories, memoryId, updatedAt);
   }
 
   async listLongTermMemories(
     options: RuntimeMemoryListOptions = {}
   ): Promise<RuntimeLongTermMemoryRecord[]> {
-    const filters: string[] = [];
-    const params: Array<string | number> = [];
-
-    if (options.namespace) {
-      filters.push("namespace = ?");
-      params.push(options.namespace);
-    }
-    if (options.kind) {
-      filters.push("kind = ?");
-      params.push(options.kind);
-    }
-    if (options.visibility) {
-      filters.push("visibility = ?");
-      params.push(options.visibility);
-    }
-    if (options.status) {
-      filters.push("status = ?");
-      params.push(options.status);
-    }
-
-    const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
-    const limit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
-    const offset = clampMemoryListOffset(options.offset);
-    const rows = this.getDbs().memories.prepare(
-      `SELECT * FROM long_term_memories ${where} ORDER BY updated_at DESC LIMIT ? OFFSET ?`
-    ).all(...params, limit, offset) as Record<string, any>[];
-    return rows.map(mapLongTermMemory);
+    return listLongTermMemoriesFromDb(this.getDbs().memories, options);
   }
 
   async getMemoryPipelineCursor(pipelineId: string): Promise<number> {
-    const row = this.getDbs().memories.prepare(
-      `SELECT last_event_id FROM memory_pipeline_state WHERE pipeline_id = ?`
-    ).get(pipelineId) as { last_event_id: number } | undefined;
-    return row?.last_event_id ?? 0;
+    return getMemoryPipelineCursorFromDb(this.getDbs().memories, pipelineId);
   }
 
   async setMemoryPipelineCursor(pipelineId: string, lastEventId: number): Promise<void> {
-    this.getDbs().memories.prepare(
-      `INSERT INTO memory_pipeline_state (pipeline_id, last_event_id, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(pipeline_id) DO UPDATE SET
-         last_event_id = excluded.last_event_id,
-         updated_at = excluded.updated_at`
-    ).run(pipelineId, lastEventId, Date.now());
+    setMemoryPipelineCursorInDb(this.getDbs().memories, pipelineId, lastEventId);
   }
 
   async transaction<T>(fn: (tx: StateRuntimeStore) => Promise<T>): Promise<T> {
