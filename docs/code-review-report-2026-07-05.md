@@ -560,6 +560,29 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1 可维护性：`ComposerArea` 思考模式按钮拆分
+
+**状态**：✅ 已修复
+
+**关联提交**：本节所在提交 `refactor: extract composer thinking mode`
+
+**覆盖范围**：
+- 新增 `src/components/chat/ComposerThinkingModeButton.tsx`，集中 composer 底部思考模式按钮的 provider/model 推理选项解析、当前模式标签和弹层选项渲染。
+- `ComposerArea.tsx` 保留输入框、附件、权限、上下文用量、模型切换、发送/停止等编排职责，文件从 324 行降至 267 行。
+- 新增 `ComposerThinkingModeButton.test.ts`，覆盖无 active provider 时隐藏、per-model reasoningMode 优先于 provider 级配置、无配置时按 provider/template 默认值适配。
+- 同步 `CHANGELOG.md` 当前测试源基线为 148 个测试文件、737 个 `it/test` 用例。
+
+**业务链路保护**：
+- 不改 `useComposer` 返回结构、附件上传/移除、权限切换、上下文用量显示、模型快速切换、发送和中止逻辑。
+- 思考模式仍通过 `updateProvider(activeProviderId, { reasoningMode })` 写回设置，保留原 `thinking-mode-*`、`composer-popover`、`popover-item` className。
+- 打开思考模式弹层时仍关闭附件与权限弹层，避免多个 popover 同时展开。
+
+**验证证据**：
+- `npm exec vitest run src/components/chat/ComposerThinkingModeButton.test.ts`
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ### 2026-07-06 — S7：依赖安全审计接入 CI
 
 **状态**：✅ 已修复

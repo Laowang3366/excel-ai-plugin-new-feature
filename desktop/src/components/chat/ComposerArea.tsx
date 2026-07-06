@@ -12,22 +12,17 @@
  * 加上少数 ChatPage 拥有的外部状态，避免 28 props 的 prop drilling。
  */
 
-import React, { useState } from "react";
+import React from "react";
 import { useChatStore } from "../../store/chatStore";
-import { useSettingsStore, PROVIDER_TEMPLATES, type PermissionMode } from "../../store/settingsStore";
-import type { ReasoningMode, FolderFileInfo, AttachedFile } from "../../electronApi";
+import { useSettingsStore } from "../../store/settingsStore";
+import type { FolderFileInfo } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import { formatEstimatedUsedTokens, formatTokensAsK } from "../../utils/modelContextWindows";
 import { PermissionIcon } from "../../utils/chatHelpers";
 import { ModelQuickSwitch } from "../chat/ModelQuickSwitch";
 import { AttachmentImagePreview } from "../chat/AttachmentImagePreview";
+import { ComposerThinkingModeButton } from "./ComposerThinkingModeButton";
 import type { SettingsSection } from "../SettingsPage";
-import {
-  buildReasoningOptions,
-  coerceReasoningMode,
-  defaultReasoningModeForOptions,
-  resolveReasoningOptionValues,
-} from "../../utils/reasoningSupport";
 import {
   Square,
   ArrowUp,
@@ -40,7 +35,6 @@ import {
   Activity,
   FolderOpen,
   X,
-  Brain,
   ChevronDown,
 } from "../common/IconMap";
 
@@ -90,7 +84,7 @@ export function ComposerArea({
     handleComposerDrop, handleKeyDown, handleTextareaChange, handlePaste,
   } = composer;
 
-  const { permissionMode, setPermissionMode, language, providers, activeProviderId, updateProvider } = useSettingsStore();
+  const { permissionMode, setPermissionMode, language } = useSettingsStore();
   const { contextUsage } = useChatStore();
   const text = getAppText(language);
 
@@ -238,65 +232,14 @@ export function ComposerArea({
             )}
             <ModelQuickSwitch onOpenSettings={onOpenSettings} />
             {/* 思考模式开关 */}
-            {(() => {
-              const activeProvider = providers[activeProviderId];
-              const activeTemplate = PROVIDER_TEMPLATES.find(t => t.provider === activeProvider?.provider);
-              const activeModel = activeProvider?.model || "";
-              const activeMc = (activeProvider?.modelConfigs || []).find(m => m.name === activeModel);
-
-              const reasoningOptionValues = activeProvider
-                ? resolveReasoningOptionValues(activeProvider, activeTemplate, activeMc)
-                : [];
-              const reasoningOptions = buildReasoningOptions(reasoningOptionValues, language);
-              const defaultMode = defaultReasoningModeForOptions(reasoningOptionValues, activeTemplate?.defaultReasoningMode);
-              const currentMode = coerceReasoningMode(
-                activeMc?.reasoningMode || activeProvider?.reasoningMode,
-                reasoningOptionValues,
-                defaultMode,
-              );
-              const isReasoningActive = currentMode !== "off";
-              if (reasoningOptions.length === 0) return null;
-              return (
-                <div className="composer-popover-wrapper thinking-mode-wrapper">
-                  <button
-                    className={`composer-action-btn thinking-mode-btn ${isReasoningActive ? "active" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowThinkingPopover(!showThinkingPopover);
-                      setShowAttachPopover(false);
-                      setShowPermissionPopover(false);
-                    }}
-                    title={text.chat.thinkingMode}
-                  >
-                    <Brain size={17} />
-                    <span className="thinking-mode-label">
-                      {isReasoningActive
-                        ? (reasoningOptions.find(o => o.value === currentMode)?.label || currentMode)
-                        : text.chat.thinkingOff}
-                    </span>
-                    <ChevronDown size={13} />
-                  </button>
-                  {showThinkingPopover && (
-                    <div className="composer-popover thinking-mode-popover" onClick={(e) => e.stopPropagation()}>
-                      {reasoningOptions.map((opt) => (
-                        <button
-                          key={opt.value}
-                          className={`popover-item ${currentMode === opt.value ? "active" : ""}`}
-                          onClick={() => {
-                            if (activeProviderId && currentMode !== opt.value) {
-                              updateProvider(activeProviderId, { reasoningMode: opt.value as ReasoningMode });
-                            }
-                            setShowThinkingPopover(false);
-                          }}
-                        >
-                          <Brain size={14} /> {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            <ComposerThinkingModeButton
+              open={showThinkingPopover}
+              setOpen={setShowThinkingPopover}
+              closePeerPopovers={() => {
+                setShowAttachPopover(false);
+                setShowPermissionPopover(false);
+              }}
+            />
             {isStreaming ? (
               <>
                 {hasInput && (
