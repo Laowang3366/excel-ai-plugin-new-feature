@@ -18,6 +18,7 @@
 /* 侧边栏 */
 @import "./sidebar.css";
 @import "./sidebar-search.css";
+@import "./sidebar-folder.css";
 /* 聊天页面 + 文件夹徽章 + 文件弹窗 */
 @import "./chat.css";
 @import "./floating-task-panel.css";

@@ -717,6 +717,26 @@
 - `npm run build`
 - `git diff --check`
 
+### 2026-07-06 — M1：侧边栏文件夹样式拆分
+
+**状态**：✅ 阶段性已修复
+**关联提交**：本节所在提交 `refactor: split sidebar folder styles`
+
+**覆盖范围**：
+- 新增 `src/styles/sidebar-folder.css`，集中 `FolderSection.tsx` 使用的文件夹分组、文件项、文件夹内会话缩进和文件夹操作按钮样式。
+- `global.css` 在 `sidebar.css` / `sidebar-search.css` 后导入文件夹样式，保持侧边栏基础布局先加载。
+- `sidebar.css` 从 891 行降至 739 行；新文件夹样式文件为 155 行。
+
+**业务链路保护**：
+- 不改 `FolderSection.tsx` 的 DOM、className、文件夹展开、文件列表切换、文件加入会话、右键菜单和新建文件夹会话逻辑。
+- 右键菜单分隔线、disabled 和箭头仍保留在 `sidebar.css`，因为它们同时服务 `ThreadContextMenu` 与 `FileContextMenu`，不是文件夹专属样式。
+- `sidebar.css` 仍超 CSS 500 行上限，后续继续按 footer、意图入口、线程列表等自然边界拆分。
+
+**验证证据**：
+- `npm run typecheck`
+- `npm run build`
+- `git diff --check`
+
 ## 二、🔴 P0 问题清单（必须修复）
 
 ### 安全性（8 项）
@@ -832,7 +852,7 @@ app:openPath      (150行)    — shell.openPath(targetPath)
 | `src/components/task/OCRTaskComposerPanel.tsx` | **600** | 300 | +300 | 拆分子表单组件 |
 | `electron/agent/core/agentLoop/toolExecutor.ts` | **566** | 400 | +166 | — |
 | `src/styles/settings.css` | **1444** | 500 | +944 | 按子组件区块拆分 |
-| `src/styles/sidebar.css` | **891** | 500 | +391 | 继续按自然职责边界拆分 |
+| `src/styles/sidebar.css` | **739** | 500 | +239 | 继续按自然职责边界拆分 |
 
 **完整超标清单**：共 29 个 TS/TSX 文件 + 2 个 CSS 文件（详见附录 A）
 
@@ -1200,7 +1220,7 @@ useEffect(() => {
 | 行数 | 文件 |
 |------|------|
 | 1444 | `src/styles/settings.css` |
-| 891 | `src/styles/sidebar.css` |
+| 739 | `src/styles/sidebar.css` |
 
 ---
 
