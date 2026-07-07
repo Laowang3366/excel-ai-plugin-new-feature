@@ -23,6 +23,7 @@ export type WindowDisplayMode = "normal" | "compact";
 const NORMAL_MIN_SIZE = { width: 900, height: 500 };
 const COMPACT_SIZE = { width: 420, minWidth: 360, minHeight: 500 };
 const WORK_AREA_GAP = 16;
+const APP_DISPLAY_NAME = "文格 AI 助手";
 
 export function getIsQuitting(): boolean { return isQuitting; }
 export function setIsQuitting(value: boolean): void { isQuitting = value; }
@@ -66,7 +67,7 @@ export function createWindow(
     height: 720,
     minWidth: 900,
     minHeight: 500,
-    title: "",
+    title: APP_DISPLAY_NAME,
     icon: getIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -94,7 +95,7 @@ export function createWindow(
 
   mw.on("page-title-updated", (event) => {
     event.preventDefault();
-    mw?.setTitle("");
+    mw?.setTitle(APP_DISPLAY_NAME);
   });
 
   mw.setMenuBarVisibility(false);
@@ -241,7 +242,7 @@ function createTray(mainWindow: BrowserWindow, recreateWindow?: () => BrowserWin
   if (tray) return;
 
   tray = new Tray(getIconPath());
-  tray.setToolTip("文格 AI 助手");
+  tray.setToolTip(APP_DISPLAY_NAME);
   const contextMenu = Menu.buildFromTemplate([
     {
       label: "显示主窗口",

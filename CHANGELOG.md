@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **窗口昵称显示修复**：将 Electron 系统窗口标题、HTML title 与托盘 tooltip 统一为“文格 AI 助手”，避免任务栏预览只显示图标不显示应用昵称。
 - **版本号递增到 `0.1.62`**：同步更新 `desktop/package.json` 与 `desktop/package-lock.json`，作为“文格 AI 助手”安装包图标与运行时图标修复后的下一版基线。
 - **安装包品牌与 UI 接入**：将 Windows 安装包名称、快捷方式名称和运行时窗口/托盘图标更新为“文格 AI 助手”，新增 NSIS 侧栏、头部品牌图、安装包 `.ico` 与运行时 `icon.png` 资源生成脚本，并接入 electron-builder 配置。
 - **安装包品牌设计定稿**：新增 `docs/superpowers/specs/2026-07-07-installer-ui-design.md`，确定安装包名称为“文格 AI 助手”，并记录 NSIS 安装器绿色办公风格、资源接入方式与验收标准。
