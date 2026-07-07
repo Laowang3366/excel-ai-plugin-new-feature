@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **修复常规设置透明度文案乱码**：恢复窗口透明度中文标签和说明，并将 `generalSettingsText.test.ts` 从 truthy 校验改为精确中文断言，防止 `?????` 类乱码再次漏过。
 - **审查报告统计口径校正**：将问题统计、测试基线和未覆盖测试附录标注为原始审查快照；附录 A 改为生产源码口径，并单列大型测试文件观察项，避免把测试覆盖套件误判为必须按行数硬拆。
 - **lint warning 清零**：移除 `sessionStore.test.ts` 中过期的 `any` 抑制注释，用显式反射类型调用私有解析入口；`App` 与 `SettingsPage` 的 settings 加载 effect 补齐 `loadSettings` 依赖，`npm run lint` 达到 0 warning。
 - **ESLint / Prettier 工具链接入**：新增 `desktop/eslint.config.js`、`.prettierrc`、`.prettierignore` 和 `lint`/`format` 脚本；CI 增加 `npm run lint`，第一版仅启用低扰动静态检查，不执行全仓格式化。
