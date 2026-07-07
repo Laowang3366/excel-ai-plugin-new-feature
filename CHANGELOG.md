@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **架构图文档补齐**：新增 `docs/architecture-map.md`，梳理 Renderer、preload、Electron 主进程、AgentLoop、工具、Office/OpenXML、知识库、OCR、记忆、设置与窗口链路，并用 Mermaid 与连接表记录关键文件调用关系。
+
 - **知识库维护工具补齐**：新增模型可调用的 `knowledge.listSources`、`knowledge.updateSource` 和 `knowledge.deleteSource`；支持确认已索引来源后替换/追加 `.md/.txt` 文本知识并重建索引，删除操作仅清理知识库索引内容，不删除磁盘原始文件；同步更新工具提示词、Agent README 与单元测试。
 
 - **修复常规设置透明度文案乱码**：恢复窗口透明度中文标签和说明，并将 `generalSettingsText.test.ts` 从 truthy 校验改为精确中文断言，防止 `?????` 类乱码再次漏过。
