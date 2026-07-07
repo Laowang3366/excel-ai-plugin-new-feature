@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { createHash, randomUUID } from "crypto";
 
-import type { KnowledgeEntry, KnowledgeSource } from "./types";
+import type { KnowledgeEntry, KnowledgeFileType, KnowledgeSource } from "./types";
 import type { EmbeddingProfile } from "./embeddingService";
 import { TextChunker } from "./textChunker";
 
@@ -21,6 +21,21 @@ export interface KnowledgeWriteResult {
   entryCount: number;
   entryIds: string[];
   indexedAt: number;
+}
+
+export type KnowledgeUpdateOperation = "replace" | "append";
+
+export interface KnowledgeUpdateSourceInput {
+  sourcePath: string;
+  operation: KnowledgeUpdateOperation;
+  content: string;
+  title?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeDeleteSourceInput {
+  sourcePath: string;
 }
 
 export interface KnowledgeWriterOptions {
@@ -75,19 +90,109 @@ export class KnowledgeWriter {
     const sourcePath = path.join(notesDir, sourceName);
     fs.writeFileSync(sourcePath, noteContent, "utf8");
 
+    const result = await this.indexTextSource({
+      sourcePath,
+      sourceName,
+      sourceType: "md",
+      text: noteContent,
+      metadata: {
+        title,
+        tags,
+        createdAt: new Date(now).toISOString(),
+        origin: "model",
+        ...(input.metadata || {}),
+      },
+      indexedAt: now,
+    });
+
+    return {
+      sourcePath,
+      sourceName,
+      entryCount: result.entryCount,
+      entryIds: result.entryIds,
+      indexedAt: result.indexedAt,
+    };
+  }
+
+  async updateSource(input: KnowledgeUpdateSourceInput): Promise<KnowledgeWriteResult> {
+    const sourcePath = normalizeSourcePath(input.sourcePath);
+    const content = input.content.trim();
+    if (!content) {
+      throw new Error("knowledge update content cannot be empty");
+    }
+    if (input.operation !== "replace" && input.operation !== "append") {
+      throw new Error("knowledge update operation must be replace or append");
+    }
+
+    const stat = fs.existsSync(sourcePath) ? fs.statSync(sourcePath) : null;
+    if (!stat?.isFile()) {
+      throw new Error(`knowledge source file does not exist: ${sourcePath}`);
+    }
+
+    const sourceType = getEditableSourceType(sourcePath);
+    const sourceName = path.basename(sourcePath);
+    const now = Date.now();
+    const title = normalizeTitle(input.title) || path.parse(sourceName).name;
+    const tags = normalizeTags(input.tags);
+    const nextText =
+      input.operation === "replace"
+        ? buildEditableText(sourceType, title, content, tags, now)
+        : appendEditableText(fs.readFileSync(sourcePath, "utf8"), content);
+
+    fs.writeFileSync(sourcePath, nextText, "utf8");
+
+    const result = await this.indexTextSource({
+      sourcePath,
+      sourceName,
+      sourceType,
+      text: nextText,
+      metadata: {
+        title,
+        tags,
+        updatedAt: new Date(now).toISOString(),
+        origin: "model",
+        operation: input.operation,
+        ...(input.metadata || {}),
+      },
+      indexedAt: now,
+    });
+
+    return {
+      sourcePath,
+      sourceName,
+      entryCount: result.entryCount,
+      entryIds: result.entryIds,
+      indexedAt: result.indexedAt,
+    };
+  }
+
+  async deleteSource(input: KnowledgeDeleteSourceInput): Promise<{ sourcePath: string }> {
+    const sourcePath = normalizeSourcePath(input.sourcePath);
+    if (!sourcePath) {
+      throw new Error("sourcePath cannot be empty");
+    }
+    if (!this.store.deleteSource) {
+      throw new Error("knowledge store does not support deleting sources");
+    }
+    this.store.deleteSource(sourcePath);
+    return { sourcePath };
+  }
+
+  private async indexTextSource(input: {
+    sourcePath: string;
+    sourceName: string;
+    sourceType: Extract<KnowledgeFileType, "md" | "txt">;
+    text: string;
+    metadata: Record<string, unknown>;
+    indexedAt: number;
+  }): Promise<{ entryCount: number; entryIds: string[]; indexedAt: number }> {
     const chunks = this.chunker.chunk([
       {
-        content: noteContent,
-        sourcePath,
-        sourceName,
-        sourceType: "md",
-        metadata: {
-          title,
-          tags,
-          createdAt: new Date(now).toISOString(),
-          origin: "model",
-          ...(input.metadata || {}),
-        },
+        content: input.text,
+        sourcePath: input.sourcePath,
+        sourceName: input.sourceName,
+        sourceType: input.sourceType,
+        metadata: input.metadata,
       },
     ]);
 
@@ -96,9 +201,9 @@ export class KnowledgeWriter {
     const entries: KnowledgeEntry[] = chunks.map((chunk, index) => ({
       id: randomUUID(),
       source: "note",
-      sourcePath,
-      sourceName,
-      sourceType: "md",
+      sourcePath: input.sourcePath,
+      sourceName: input.sourceName,
+      sourceType: input.sourceType,
       chunkIndex: chunk.index,
       content: chunk.content,
       metadata: chunk.metadata,
@@ -106,28 +211,26 @@ export class KnowledgeWriter {
       embeddingProvider: embeddingResult.embeddings[index] ? embeddingProfile?.provider : undefined,
       embeddingModel: embeddingResult.embeddings[index] ? embeddingProfile?.model : undefined,
       embeddingDimensions: embeddingResult.embeddings[index]?.length ?? embeddingProfile?.dimensions,
-      indexedAt: now,
+      indexedAt: input.indexedAt,
       tokenCount: chunk.tokenCount,
     }));
 
-    this.store.deleteSource?.(sourcePath);
+    this.store.deleteSource?.(input.sourcePath);
     this.store.bulkInsert(entries);
     this.store.upsertSource({
-      sourcePath,
-      sourceName,
-      sourceType: "md",
+      sourcePath: input.sourcePath,
+      sourceName: input.sourceName,
+      sourceType: input.sourceType,
       entryCount: entries.length,
-      firstIndexed: now,
-      lastIndexed: now,
-      fileHash: createHash("sha256").update(noteContent, "utf8").digest("hex").slice(0, 16),
+      firstIndexed: input.indexedAt,
+      lastIndexed: input.indexedAt,
+      fileHash: createHash("sha256").update(input.text, "utf8").digest("hex").slice(0, 16),
     });
 
     return {
-      sourcePath,
-      sourceName,
       entryCount: entries.length,
       entryIds: entries.map((entry) => entry.id),
-      indexedAt: now,
+      indexedAt: input.indexedAt,
     };
   }
 
@@ -169,6 +272,37 @@ function buildNoteContent(title: string, content: string, tags: string[], timest
   }
   lines.push("", content);
   return lines.join("\n");
+}
+
+function buildEditableText(
+  sourceType: Extract<KnowledgeFileType, "md" | "txt">,
+  title: string,
+  content: string,
+  tags: string[],
+  timestamp: number
+): string {
+  if (sourceType === "md") {
+    return buildNoteContent(title, content, tags, timestamp);
+  }
+  return content;
+}
+
+function appendEditableText(existing: string, content: string): string {
+  const trimmedExisting = existing.trimEnd();
+  return `${trimmedExisting}${trimmedExisting ? "\n\n" : ""}${content}`;
+}
+
+function normalizeSourcePath(sourcePath: unknown): string {
+  if (typeof sourcePath !== "string") return "";
+  const trimmed = sourcePath.trim();
+  return trimmed ? path.resolve(trimmed) : "";
+}
+
+function getEditableSourceType(sourcePath: string): Extract<KnowledgeFileType, "md" | "txt"> {
+  const ext = path.extname(sourcePath).toLowerCase();
+  if (ext === ".md") return "md";
+  if (ext === ".txt") return "txt";
+  throw new Error("only .md and .txt knowledge sources can be modified directly");
 }
 
 function normalizeTitle(title: unknown): string {

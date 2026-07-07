@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **知识库维护工具补齐**：新增模型可调用的 `knowledge.listSources`、`knowledge.updateSource` 和 `knowledge.deleteSource`；支持确认已索引来源后替换/追加 `.md/.txt` 文本知识并重建索引，删除操作仅清理知识库索引内容，不删除磁盘原始文件；同步更新工具提示词、Agent README 与单元测试。
+
 - **修复常规设置透明度文案乱码**：恢复窗口透明度中文标签和说明，并将 `generalSettingsText.test.ts` 从 truthy 校验改为精确中文断言，防止 `?????` 类乱码再次漏过。
 - **审查报告统计口径校正**：将问题统计、测试基线和未覆盖测试附录标注为原始审查快照；附录 A 改为生产源码口径，并单列大型测试文件观察项，避免把测试覆盖套件误判为必须按行数硬拆。
 - **lint warning 清零**：移除 `sessionStore.test.ts` 中过期的 `any` 抑制注释，用显式反射类型调用私有解析入口；`App` 与 `SettingsPage` 的 settings 加载 effect 补齐 `loadSettings` 依赖，`npm run lint` 达到 0 warning。

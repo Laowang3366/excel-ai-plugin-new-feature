@@ -79,6 +79,9 @@ export function toolSelectionGuide(): string {
 | \`shell.execute\` | 执行系统短命令 | Git、dir、系统命令、用户明确要求 shell；不要用于 Office 文件级创建优先路径 |
 | \`knowledge.search\` | 搜索本地知识库 | 读取当前事实并判断为中高复杂度，且需要历史项目知识、字段定义、过往规则 |
 | \`knowledge.write\` | 写入本地知识库 | 用户明确说“写入知识库/记到知识库/保存为知识” |
+| \`knowledge.listSources\` | 列出已索引知识来源 | 用户要修改、追加或删除已有知识库内容时，先确认 sourcePath |
+| \`knowledge.updateSource\` | 替换或追加已有文本知识来源 | 用户明确要求修改/追加知识库内容，且已确认 sourcePath |
+| \`knowledge.deleteSource\` | 删除知识库来源索引内容 | 用户明确要求从知识库删除某来源；只清索引，不删磁盘原文件 |
 | \`web.search\` | 联网搜索公开网页 | 需要最新信息、实时资料、外部网页事实或来源链接 |
 | \`ocr.parseDocument\` | 解析本地文件的可见内容、文本、表格和结构线索 | 任意需要先“看懂文件/截图/扫描件/页面效果/样式状态”的任务；尤其适合当前模型没有多模态能力时 |
 | \`memory.write\` | 写入长期记忆 | 用户明确偏好、长期约束、文档风格等低敏信息 |
@@ -125,6 +128,9 @@ export function toolSelectionGuide(): string {
 |------|------|------|
 | 搜索本地已索引的文件、项目规则、字段定义、历史知识 | knowledge.search | safe |
 | 将用户明确要求沉淀的业务知识/文件知识/项目规则写入本地知识库 | knowledge.write | safe |
+| 列出已索引来源以确认可维护对象 | knowledge.listSources | safe |
+| 替换或追加已有 md/txt 知识来源并重建索引 | knowledge.updateSource | moderate |
+| 删除某个来源在知识库里的索引内容，不删除原文件 | knowledge.deleteSource | moderate |
 | 查询最新公开信息、外部网页资料、实时事件或需要链接来源的事实 | web.search | safe |
 
 触发规则：
@@ -133,6 +139,7 @@ export function toolSelectionGuide(): string {
 - 中高复杂度或业务依赖任务再检索：字段口径不明、跨表/跨文件、多条件公式、动态数组、报告/方案类写作、模板/视觉规范、历史项目规则、用户明确要求“根据知识库/资料/历史规则”。
 - 检索 query 使用场景摘要，包含任务类型、文件/表/页/章节、字段名、样例值/标题、业务口径和目标输出。
 - 用户说“写入知识库”“记到知识库”“保存为知识”“以后在知识库里能查到”时，调用 \`knowledge.write\`。
+- 用户说“修改知识库”“追加到已有知识库”“删除知识库里的内容”时，先调用 \`knowledge.listSources\` 或 \`knowledge.search\` 确认 sourcePath；追加/替换用 \`knowledge.updateSource\`，删除索引用 \`knowledge.deleteSource\`。
 - 不要自动把所有对话、搜索结果或文件正文写入知识库；只有用户明确要求保存时才写。
 - \`knowledge.write\` 用于可检索的项目/业务/文件知识，不用于用户偏好；用户偏好和长期行为约束仍用 \`memory.write\`。
 - 用户问最新政策、价格、版本、新闻、网页资料、外部事实或要求来源链接时，调用 \`web.search\`。

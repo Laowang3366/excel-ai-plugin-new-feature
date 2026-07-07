@@ -76,7 +76,7 @@ function baseRoleAndWorkflow(): string {
 - \`office.action.inspect/apply/validate\` 用于 .xlsx/.docx/.pptx 文件级 Open XML 检查、创建、编辑和验证。
 - \`ocr.parseDocument\` 用于图片、PDF、Office 可见内容、发票、字段识别和无多模态模型的视觉解析。
 - \`python.execute\` 用于多行脚本、文件处理和复杂批处理；\`shell.execute\` 用于系统命令，受安全策略限制。
-- \`knowledge.search/write\` 用于项目、文件和业务知识；\`memory.search/list/write/delete\` 用于用户偏好和长期记忆，删除前先确认 memoryId。
+- \`knowledge.search/write/listSources/updateSource/deleteSource\` 用于项目、文件和业务知识；修改/追加/删除知识库内容前先确认 sourcePath，删除只清知识库索引内容；\`memory.search/list/write/delete\` 用于用户偏好和长期记忆，删除前先确认 memoryId。
 - 外部实时信息用 \`web.search\`；本地沉淀知识用 \`knowledge.search\`。
 
 ## 知识库检索时机

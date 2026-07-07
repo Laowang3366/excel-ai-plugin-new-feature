@@ -20,9 +20,10 @@ agent/
 │  ├─ rolloutArchive.ts         # 冷 JSONL gzip 归档快照
 │  └─ compaction.ts             # 历史压缩、token 估算、恢复上下文
 │
-├─ knowledge/                   # 知识层：本地文档解析、切块、embedding、索引、检索和知识库注册表
+├─ knowledge/                   # 知识层：本地文档解析、切块、embedding、索引、检索、文本来源维护和知识库注册表
 │  ├─ documentParser.ts         # 文件解析
 │  ├─ knowledgeIndexer.ts       # 索引构建
+│  ├─ knowledgeWriter.ts        # 模型写入笔记、修改/追加可写文本来源、删除来源索引内容
 │  ├─ retriever.ts              # 检索与结果格式化
 │  └─ sqliteStore.ts            # 知识库持久化
 │

@@ -7,7 +7,7 @@
 import type { ToolExecutor } from "../../shared/types";
 import type { Retriever } from "../../knowledge/retriever";
 import type { KnowledgeWriter } from "../../knowledge/knowledgeWriter";
-import { getKnowledgeRetriever, getKnowledgeWriter } from "../../knowledge/knowledgeRegistry";
+import { getKnowledgeRetriever, getKnowledgeStore, getKnowledgeWriter } from "../../knowledge/knowledgeRegistry";
 import { validateArgs } from "./validation";
 
 export interface KnowledgeExecutorDeps {
@@ -74,6 +74,97 @@ export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: K
       }
     },
   });
+
+  target.set("knowledge.listSources", {
+    name: "knowledge.listSources",
+    execute: async () => {
+      const store = getKnowledgeStore();
+      if (!store) {
+        return {
+          success: false,
+          error: "知识库尚未初始化，无法读取来源列表",
+        };
+      }
+      try {
+        return {
+          success: true,
+          data: {
+            message: "已读取知识库来源列表",
+            sources: store.listSources(),
+          },
+        };
+      } catch (e: any) {
+        return { success: false, error: `知识库来源读取失败: ${e.message}` };
+      }
+    },
+  });
+
+  target.set("knowledge.updateSource", {
+    name: "knowledge.updateSource",
+    execute: async (args: Record<string, unknown>) => {
+      const writer = getKnowledgeWriter() ?? deps.knowledgeWriter;
+      if (!writer) {
+        return {
+          success: false,
+          error: "知识库尚未初始化，无法更新知识库来源",
+        };
+      }
+      const err = validateArgs(args, { sourcePath: "string", operation: "string", content: "string" });
+      if (err) return { success: false, error: err };
+      const optionalErr = validateOptionalUpdateArgs(args);
+      if (optionalErr) return { success: false, error: optionalErr };
+      const operation = args.operation;
+      if (operation !== "replace" && operation !== "append") {
+        return { success: false, error: "参数 operation 必须是 replace 或 append" };
+      }
+      try {
+        const result = await writer.updateSource({
+          sourcePath: args.sourcePath as string,
+          operation,
+          content: args.content as string,
+          title: typeof args.title === "string" ? args.title : undefined,
+          tags: Array.isArray(args.tags) ? args.tags.filter((tag): tag is string => typeof tag === "string") : undefined,
+          metadata: { source: "tool:knowledge.updateSource" },
+        });
+        return {
+          success: true,
+          data: {
+            message: "已更新知识库来源",
+            ...result,
+          },
+        };
+      } catch (e: any) {
+        return { success: false, error: `知识库来源更新失败: ${e.message}` };
+      }
+    },
+  });
+
+  target.set("knowledge.deleteSource", {
+    name: "knowledge.deleteSource",
+    execute: async (args: Record<string, unknown>) => {
+      const writer = getKnowledgeWriter() ?? deps.knowledgeWriter;
+      if (!writer) {
+        return {
+          success: false,
+          error: "知识库尚未初始化，无法删除知识库来源索引",
+        };
+      }
+      const err = validateArgs(args, { sourcePath: "string" });
+      if (err) return { success: false, error: err };
+      try {
+        const result = await writer.deleteSource({ sourcePath: args.sourcePath as string });
+        return {
+          success: true,
+          data: {
+            message: "已删除知识库来源索引内容",
+            ...result,
+          },
+        };
+      } catch (e: any) {
+        return { success: false, error: `知识库来源索引删除失败: ${e.message}` };
+      }
+    },
+  });
 }
 
 function validateOptionalWriteArgs(args: Record<string, unknown>): string | null {
@@ -90,4 +181,8 @@ function validateOptionalWriteArgs(args: Record<string, unknown>): string | null
     }
   }
   return null;
+}
+
+function validateOptionalUpdateArgs(args: Record<string, unknown>): string | null {
+  return validateOptionalWriteArgs(args);
 }
