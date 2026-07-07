@@ -1,8 +1,10 @@
 const fs = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
 const ROOT = path.resolve(__dirname, "..");
 const BUILD_DIR = path.join(ROOT, "build");
+const PUBLIC_DIR = path.join(ROOT, "public");
 
 function rgb(r, g, b) {
   return { r, g, b };
@@ -218,6 +220,61 @@ function encodeIcoImage(canvas) {
   return buffer;
 }
 
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const typeBuffer = Buffer.from(type, "ascii");
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBuffer.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 8 + data.length);
+  return chunk;
+}
+
+function drawPng(canvas, filePath) {
+  const raw = Buffer.alloc((canvas.width * 4 + 1) * canvas.height);
+  let offset = 0;
+  for (let y = 0; y < canvas.height; y++) {
+    raw[offset++] = 0;
+    for (let x = 0; x < canvas.width; x++) {
+      const color = canvas.pixels[y * canvas.width + x];
+      raw[offset++] = color.r;
+      raw[offset++] = color.g;
+      raw[offset++] = color.b;
+      raw[offset++] = color.a ?? 255;
+    }
+  }
+
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(canvas.width, 0);
+  ihdr.writeUInt32BE(canvas.height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", zlib.deflateSync(raw, { level: 9 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, png);
+}
+
 function drawIco(filePath) {
   const sizes = [16, 24, 32, 48, 64, 128, 256];
   const images = sizes.map((size) => ({ size, data: encodeIcoImage(drawIconCanvas(size)) }));
@@ -289,5 +346,6 @@ drawHeader(path.join(BUILD_DIR, "installer-header.bmp"));
 drawIco(path.join(BUILD_DIR, "icon.ico"));
 drawIco(path.join(BUILD_DIR, "installerIcon.ico"));
 drawIco(path.join(BUILD_DIR, "uninstallerIcon.ico"));
+drawPng(drawIconCanvas(256), path.join(PUBLIC_DIR, "icon.png"));
 
 console.log("Generated installer assets in", BUILD_DIR);

@@ -241,7 +241,7 @@ function createTray(mainWindow: BrowserWindow, recreateWindow?: () => BrowserWin
   if (tray) return;
 
   tray = new Tray(getIconPath());
-  tray.setToolTip("Office AI 助手");
+  tray.setToolTip("文格 AI 助手");
   const contextMenu = Menu.buildFromTemplate([
     {
       label: "显示主窗口",
