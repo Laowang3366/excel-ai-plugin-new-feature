@@ -82,7 +82,7 @@
           ]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -90,7 +90,9 @@
       "createDesktopShortcut": true,
       "shortcutName": "文格 AI 助手",
       "installerSidebar": "build/installer-sidebar.bmp",
-      "installerHeader": "build/installer-header.bmp"
+      "installerHeader": "build/installer-header.bmp",
+      "installerIcon": "build/installerIcon.ico",
+      "uninstallerIcon": "build/uninstallerIcon.ico"
     }
   }
 }

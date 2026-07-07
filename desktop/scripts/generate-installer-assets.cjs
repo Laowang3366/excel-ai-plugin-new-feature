@@ -24,9 +24,17 @@ function createCanvas(width, height, fill) {
   };
 }
 
+function createTransparentCanvas(width, height) {
+  return {
+    width,
+    height,
+    pixels: Array.from({ length: width * height }, () => ({ r: 0, g: 0, b: 0, a: 0 })),
+  };
+}
+
 function setPixel(canvas, x, y, color) {
   if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
-  canvas.pixels[y * canvas.width + x] = { ...color };
+  canvas.pixels[y * canvas.width + x] = { a: 255, ...color };
 }
 
 function fillRect(canvas, x, y, width, height, color) {
@@ -117,6 +125,130 @@ function drawHeader(filePath) {
   drawBmp(canvas, filePath);
 }
 
+function drawIconCanvas(size) {
+  const canvas = createTransparentCanvas(size, size);
+  const margin = Math.max(2, Math.round(size * 0.1));
+  const inner = size - margin * 2;
+  const radius = Math.max(2, Math.round(size * 0.08));
+  const bgTop = rgb(18, 117, 86);
+  const bgBottom = rgb(35, 154, 112);
+
+  for (let y = margin; y < size - margin; y++) {
+    const t = (y - margin) / Math.max(1, inner - 1);
+    const color = mix(bgTop, bgBottom, t);
+    for (let x = margin; x < size - margin; x++) {
+      const left = x - margin;
+      const right = size - margin - 1 - x;
+      const top = y - margin;
+      const bottom = size - margin - 1 - y;
+      const inCorner =
+        (left >= radius || top >= radius || (left - radius) ** 2 + (top - radius) ** 2 <= radius ** 2) &&
+        (right >= radius || top >= radius || (right - radius) ** 2 + (top - radius) ** 2 <= radius ** 2) &&
+        (left >= radius || bottom >= radius || (left - radius) ** 2 + (bottom - radius) ** 2 <= radius ** 2) &&
+        (right >= radius || bottom >= radius || (right - radius) ** 2 + (bottom - radius) ** 2 <= radius ** 2);
+      if (inCorner) setPixel(canvas, x, y, color);
+    }
+  }
+
+  const gridMargin = Math.round(size * 0.24);
+  const gridSize = size - gridMargin * 2;
+  const gap = Math.max(1, Math.round(size * 0.035));
+  const cell = Math.floor((gridSize - gap * 2) / 3);
+  const start = Math.round((size - (cell * 3 + gap * 2)) / 2);
+  drawGridMark(
+    canvas,
+    start,
+    start,
+    cell,
+    gap,
+    rgb(239, 255, 248),
+    rgb(155, 226, 190)
+  );
+
+  const shine = rgb(255, 255, 255);
+  for (let i = 0; i < Math.max(1, Math.round(size * 0.018)); i++) {
+    fillRect(canvas, margin + Math.round(size * 0.12), margin + Math.round(size * 0.1) + i, Math.round(size * 0.42), 1, shine);
+  }
+  return canvas;
+}
+
+function encodeIcoImage(canvas) {
+  const width = canvas.width;
+  const height = canvas.height;
+  const headerSize = 40;
+  const xorStride = width * 4;
+  const andStride = Math.ceil(width / 32) * 4;
+  const imageSize = headerSize + xorStride * height + andStride * height;
+  const buffer = Buffer.alloc(imageSize);
+
+  buffer.writeUInt32LE(headerSize, 0);
+  buffer.writeInt32LE(width, 4);
+  buffer.writeInt32LE(height * 2, 8);
+  buffer.writeUInt16LE(1, 12);
+  buffer.writeUInt16LE(32, 14);
+  buffer.writeUInt32LE(0, 16);
+  buffer.writeUInt32LE(xorStride * height + andStride * height, 20);
+  buffer.writeInt32LE(2835, 24);
+  buffer.writeInt32LE(2835, 28);
+
+  let offset = headerSize;
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = 0; x < width; x++) {
+      const color = canvas.pixels[y * width + x];
+      buffer[offset++] = color.b;
+      buffer[offset++] = color.g;
+      buffer[offset++] = color.r;
+      buffer[offset++] = color.a ?? 255;
+    }
+  }
+
+  for (let y = height - 1; y >= 0; y--) {
+    for (let xByte = 0; xByte < andStride; xByte++) {
+      let value = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const x = xByte * 8 + bit;
+        if (x >= width) continue;
+        const alpha = canvas.pixels[y * width + x].a ?? 255;
+        if (alpha === 0) value |= 0x80 >> bit;
+      }
+      buffer[offset++] = value;
+    }
+  }
+
+  return buffer;
+}
+
+function drawIco(filePath) {
+  const sizes = [16, 24, 32, 48, 64, 128, 256];
+  const images = sizes.map((size) => ({ size, data: encodeIcoImage(drawIconCanvas(size)) }));
+  const headerSize = 6;
+  const dirSize = 16 * images.length;
+  const totalSize = headerSize + dirSize + images.reduce((sum, image) => sum + image.data.length, 0);
+  const buffer = Buffer.alloc(totalSize);
+
+  buffer.writeUInt16LE(0, 0);
+  buffer.writeUInt16LE(1, 2);
+  buffer.writeUInt16LE(images.length, 4);
+
+  let imageOffset = headerSize + dirSize;
+  images.forEach((image, index) => {
+    const dirOffset = headerSize + index * 16;
+    buffer[dirOffset] = image.size === 256 ? 0 : image.size;
+    buffer[dirOffset + 1] = image.size === 256 ? 0 : image.size;
+    buffer[dirOffset + 2] = 0;
+    buffer[dirOffset + 3] = 0;
+    buffer.writeUInt16LE(1, dirOffset + 4);
+    buffer.writeUInt16LE(32, dirOffset + 6);
+    buffer.writeUInt32LE(image.data.length, dirOffset + 8);
+    buffer.writeUInt32LE(imageOffset, dirOffset + 12);
+    image.data.copy(buffer, imageOffset);
+    imageOffset += image.data.length;
+  });
+
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, buffer);
+}
+
 function drawBmp(canvas, filePath) {
   const rowSize = Math.ceil((canvas.width * 3) / 4) * 4;
   const pixelArraySize = rowSize * canvas.height;
@@ -154,5 +286,8 @@ function drawBmp(canvas, filePath) {
 
 drawSidebar(path.join(BUILD_DIR, "installer-sidebar.bmp"));
 drawHeader(path.join(BUILD_DIR, "installer-header.bmp"));
+drawIco(path.join(BUILD_DIR, "icon.ico"));
+drawIco(path.join(BUILD_DIR, "installerIcon.ico"));
+drawIco(path.join(BUILD_DIR, "uninstallerIcon.ico"));
 
 console.log("Generated installer assets in", BUILD_DIR);

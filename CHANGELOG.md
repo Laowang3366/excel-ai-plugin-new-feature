@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **安装包品牌与 UI 接入**：将 Windows 安装包名称、快捷方式名称更新为“文格 AI 助手”，新增 NSIS 侧栏和头部品牌图资源生成脚本，并接入 electron-builder 配置。
+- **安装包品牌与 UI 接入**：将 Windows 安装包名称、快捷方式名称更新为“文格 AI 助手”，新增 NSIS 侧栏、头部品牌图和安装包 `.ico` 图标资源生成脚本，并接入 electron-builder 配置。
 - **安装包品牌设计定稿**：新增 `docs/superpowers/specs/2026-07-07-installer-ui-design.md`，确定安装包名称为“文格 AI 助手”，并记录 NSIS 安装器绿色办公风格、资源接入方式与验收标准。
 - **架构图文档补齐**：新增 `docs/architecture-map.md`，梳理 Renderer、preload、Electron 主进程、AgentLoop、工具、Office/OpenXML、知识库、OCR、记忆、设置与窗口链路，并用 Mermaid 与连接表记录关键文件调用关系。
 
