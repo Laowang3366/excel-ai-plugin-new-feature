@@ -47,7 +47,7 @@
   },
   "build": {
     "appId": "com.excel-ai.assistant",
-    "productName": "Office AI 助手",
+    "productName": "文格 AI 助手",
     "directories": {
       "output": "release"
     },
@@ -88,7 +88,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Office AI 助手"
+      "shortcutName": "文格 AI 助手",
+      "installerSidebar": "build/installer-sidebar.bmp",
+      "installerHeader": "build/installer-header.bmp"
     }
   }
 }
