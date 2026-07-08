@@ -84,8 +84,6 @@ export interface SettingsState {
 export interface SettingsActions {
   /** 从 electron-store 加载设置 */
   loadSettings: () => Promise<void>;
-  /** 保存设置到 electron-store */
-  saveSettings: () => Promise<void>;
   /** 设置活跃提供商 */
   setActiveProvider: (id: string) => void;
   /** 更新提供商配置 */
@@ -174,30 +172,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
     } catch {
       set({ isLoading: false });
     }
-  },
-
-  saveSettings: async () => {
-    const { providers, activeProviderId, permissionMode, showReasoning, language, theme, closeToTray, officeAutoCompactEnabled, dynamicArrayFunctionsEnabled, windowOpacity, compactionEnabled, autoCompactThresholdPercent, pinnedFolders } = get();
-
-    await ipcApi.settings.set("aiProviders", providers);
-    await ipcApi.settings.set("activeProvider", activeProviderId);
-    await ipcApi.settings.set("permissionMode", permissionMode);
-    await ipcApi.settings.set("showReasoning", showReasoning);
-    await ipcApi.settings.set("language", language);
-    await ipcApi.settings.set("theme", theme);
-    await ipcApi.settings.set("closeToTray", closeToTray);
-    await ipcApi.settings.set("officeAutoCompactEnabled", officeAutoCompactEnabled);
-    await ipcApi.settings.set("dynamicArrayFunctionsEnabled", dynamicArrayFunctionsEnabled);
-    await ipcApi.settings.set("windowOpacity", normalizeWindowOpacity(windowOpacity));
-    // 上下文压缩配置（百分比制，main.ts 会根据当前模型换算为实际 token 阈值）
-    const existingCompaction = await ipcApi.settings.get("compactionConfig") as Record<string, unknown> | null;
-    await ipcApi.settings.set("compactionConfig", {
-      ...(existingCompaction && typeof existingCompaction === "object" ? existingCompaction : {}),
-      enabled: compactionEnabled,
-      autoCompactThresholdPercent,
-    });
-    // 固定文件夹
-    await ipcApi.settings.set("pinnedFolders", pinnedFolders);
   },
 
   setActiveProvider: (id: string) => {

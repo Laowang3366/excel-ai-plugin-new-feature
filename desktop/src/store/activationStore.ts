@@ -6,6 +6,9 @@
 
 import { create } from "zustand";
 import { ipcApi } from "../services/ipcApi";
+import { logError } from "../utils/rendererLogger";
+
+const TAG = "ActivationStore";
 
 export interface ActivationStoreState {
   /** 是否已激活 */
@@ -70,7 +73,7 @@ export const useActivationStore = create<ActivationStoreState>((set, get) => ({
         isLoading: false,
       });
     } catch (err) {
-      console.error("加载激活状态失败:", err);
+      logError(TAG, "加载激活状态失败", err);
       set({ isLoading: false, showActivationDialog: true });
     }
   },
@@ -93,7 +96,7 @@ export const useActivationStore = create<ActivationStoreState>((set, get) => ({
       await ipcApi.activation.clear();
       set({ activated: false, info: null, showActivationDialog: true });
     } catch (err) {
-      console.error("清除激活状态失败:", err);
+      logError(TAG, "清除激活状态失败", err);
     }
   },
 
@@ -102,7 +105,7 @@ export const useActivationStore = create<ActivationStoreState>((set, get) => ({
       await ipcApi.activation.setServerUrl(url);
       set({ serverUrl: url });
     } catch (err) {
-      console.error("设置服务器地址失败:", err);
+      logError(TAG, "设置服务器地址失败", err);
     }
   },
 

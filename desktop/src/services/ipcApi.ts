@@ -61,6 +61,11 @@ export const ipcApi: IIpcApi = {
       if (!raw) return "";
       return raw.app.openExternal(targetUrl);
     },
+    log: async (level, tag, message) => {
+      const raw = getRaw();
+      if (!raw) return;
+      return raw.app.log(level, tag, message);
+    },
   },
 
   window: {

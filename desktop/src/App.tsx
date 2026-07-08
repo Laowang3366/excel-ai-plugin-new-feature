@@ -32,6 +32,7 @@ import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { ActivationDialog } from "./components/ActivationDialog";
 import { ChevronLeft, Maximize2, Menu, Pin } from "./components/common/IconMap";
+import { logWarn } from "./utils/rendererLogger";
 import { getAppText } from "./i18n";
 import { ipcApi } from "./services/ipcApi";
 import { useExcelConnection } from "./hooks/useExcelConnection";
@@ -89,7 +90,10 @@ export const App: React.FC = () => {
   useEffect(() => {
     ipcApi.window.getAlwaysOnTop()
       .then(setAlwaysOnTop)
-      .catch(() => setAlwaysOnTop(true));
+      .catch(() => {
+        logWarn("App", "获取窗口置顶状态失败，使用默认值");
+        setAlwaysOnTop(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -107,7 +111,10 @@ export const App: React.FC = () => {
     const syncActualMode = () => {
       ipcApi.window.getDisplayMode()
         .then((mode) => applyActualMode(mode))
-        .catch(() => applyActualMode("normal"));
+        .catch(() => {
+          logWarn("App", "获取窗口显示模式失败");
+          applyActualMode("normal");
+        });
     };
 
     const handleResize = () => {
@@ -142,7 +149,10 @@ export const App: React.FC = () => {
         if (currentMode !== "normal") return currentMode;
         ipcApi.window.setDisplayMode("compact")
           .then(setDisplayMode)
-          .catch(() => setDisplayMode(currentMode));
+          .catch(() => {
+            logWarn("App", "设置紧凑模式失败");
+            setDisplayMode(currentMode);
+          });
         return "compact";
       });
     };
@@ -160,6 +170,7 @@ export const App: React.FC = () => {
         setAlwaysOnTop(actual);
       }
     } catch {
+      logWarn("App", "切换窗口置顶失败");
       setAlwaysOnTop(alwaysOnTop);
     }
   };
@@ -170,6 +181,7 @@ export const App: React.FC = () => {
       const actual = await ipcApi.window.setDisplayMode(mode);
       setDisplayMode(actual);
     } catch {
+      logWarn("App", "切换窗口模式失败");
       setDisplayMode("normal");
     }
   };

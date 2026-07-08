@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("app:migrateDataPath", targetPath),
     openPath: (targetPath: string) => ipcRenderer.invoke("app:openPath", targetPath),
     openExternal: (targetUrl: string) => ipcRenderer.invoke("app:openExternal", targetUrl),
+    /** 将渲染进程日志转发到主进程持久化 */
+    log: (level: string, tag: string, message: string) =>
+      ipcRenderer.invoke("app:log", level, tag, message),
   },
 
   // ---- 窗口 ----

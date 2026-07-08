@@ -34,6 +34,7 @@ export interface IIpcApi {
     migrateDataPath: (targetPath: string) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
+    log: (level: string, tag: string, message: string) => Promise<void>;
   };
   window: {
     getAlwaysOnTop: () => Promise<boolean>;

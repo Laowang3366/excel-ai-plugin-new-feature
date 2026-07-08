@@ -47,6 +47,9 @@ import {
   SettingsSetInput,
   SetAlwaysOnTopInput,
   WindowDisplayModeInput,
+  ActivationActivateInput,
+  ActivationSetServerUrlInput,
+  ActivationUnbindDeviceInput,
 } from "../shared/ipcSchemas";
 import { createLogger } from "../shared/logger";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
@@ -74,6 +77,7 @@ import {
 } from "./activationManager";
 
 const logger = createLogger("IPC");
+const rendererLogger = createLogger("renderer");
 
 // ============================================================
 // Globals (assigned by registerIpcHandlers)
@@ -183,6 +187,17 @@ export function registerIpcHandlers(): void {
     } catch (error: any) {
       return error?.message || "Failed to open external URL";
     }
+  });
+
+  // 转发渲染进程日志到主进程持久化
+  ipcMain.handle("app:log", (_event, level: unknown, tag: unknown, message: unknown) => {
+    const levelStr = String(level ?? "info");
+    const tagStr = String(tag ?? "renderer");
+    const msgStr = String(message ?? "");
+    const logMsg = `[${tagStr}] ${msgStr}`;
+    if (levelStr === "error") rendererLogger.error(logMsg);
+    else if (levelStr === "warn") rendererLogger.warn(logMsg);
+    else rendererLogger.info(logMsg);
   });
 
   ipcMain.handle("app:selectDataPath", async () => {
@@ -357,10 +372,8 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("activation:activate", async (_event, key: unknown, serverUrl: unknown) => {
-    if (typeof key !== "string" || typeof serverUrl !== "string") {
-      return { success: false, error: "参数无效" };
-    }
-    const result = await activate(key, serverUrl);
+    const { key: validatedKey, serverUrl: validatedUrl } = validateInput(ActivationActivateInput, { key, serverUrl });
+    const result = await activate(validatedKey, validatedUrl);
     return result;
   });
 
@@ -374,9 +387,8 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("activation:setServerUrl", (_event, url: unknown) => {
-    if (typeof url === "string") {
-      setServerUrl(url);
-    }
+    const validatedUrl = validateInput(ActivationSetServerUrlInput, url);
+    setServerUrl(validatedUrl);
     return { success: true };
   });
 
@@ -396,10 +408,8 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("activation:unbindDevice", async (_event, targetMachineId: unknown) => {
-    if (typeof targetMachineId !== "string" || !targetMachineId.trim()) {
-      return { success: false, error: "设备 ID 无效" };
-    }
-    return unbindDevice(targetMachineId);
+    const validatedId = validateInput(ActivationUnbindDeviceInput, targetMachineId);
+    return unbindDevice(validatedId);
   });
 
 }

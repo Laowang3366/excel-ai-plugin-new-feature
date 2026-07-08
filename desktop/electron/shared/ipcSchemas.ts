@@ -229,3 +229,19 @@ export type KnowledgeIndexFileInput = z.infer<typeof KnowledgeIndexFileInput>;
 export type KnowledgeIndexFolderInput = z.infer<typeof KnowledgeIndexFolderInput>;
 export type KnowledgeDeleteInput = z.infer<typeof KnowledgeDeleteInput>;
 export type KnowledgeSearchInput = z.infer<typeof KnowledgeSearchInput>;
+
+// ============================================================
+// Activation（激活管理）
+// ============================================================
+
+export const ActivationActivateInput = z.object({
+  key: z.string().min(1, "卡密不能为空"),
+  serverUrl: z.string().min(1, "服务器地址不能为空"),
+});
+export type ActivationActivateInput = z.infer<typeof ActivationActivateInput>;
+
+export const ActivationSetServerUrlInput = z.string().min(1, "服务器地址不能为空");
+export type ActivationSetServerUrlInput = z.infer<typeof ActivationSetServerUrlInput>;
+
+export const ActivationUnbindDeviceInput = z.string().min(1, "设备 ID 不能为空");
+export type ActivationUnbindDeviceInput = z.infer<typeof ActivationUnbindDeviceInput>;
