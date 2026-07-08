@@ -1,11 +1,30 @@
 /**
  * 文格 AI 助手 — 激活管理后台 前端逻辑
  *
- * 无框架依赖，原生 JS SPA。
+ * 原生 JavaScript SPA（无框架依赖）。
+ *
+ * === 架构概览 ===
+ *
+ * 路由机制：
+ * - 使用 URL hash（#dashboard / #keys / #monitor）实现前端路由
+ * - hashchange 事件监听 + navigateTo 函数驱动页面切换
+ * - renderApp() 根据登录状态决定显示登录页或管理后台布局
+ *
+ * 数据流：
+ * - STATE 对象保存全局状态（token、username、currentPage）
+ * - 所有 API 请求通过 apiRequest() 统一发送，自动注入 JWT
+ * - 401 响应自动清除 token 并跳转登录页
+ * - 页面渲染函数（renderDashboard / renderKeys / renderMonitor）各自独立加载数据
+ *
+ * 交互模式：
+ * - 弹窗（Modal）使用遮罩层 + CSS class "open" 控制显隐
+ * - Toast 消息通过 DOM 元素 class 切换实现
+ * - 确认对话框通过 Promise 封装，支持异步 await
+ * - 搜索使用防抖（debounce）400ms 降低请求频率
  */
 
 // ============================================================
-// 状态管理
+// 全局状态管理
 // ============================================================
 
 const STATE = {
@@ -14,21 +33,24 @@ const STATE = {
   currentPage: "dashboard",
 };
 
-// API 基础路径
+/** API 基础路径（空字符串表示同源请求） */
 const API = "";
 
 // ============================================================
-// 工具函数
+// DOM 查询快捷函数
 // ============================================================
 
+/** @param {string} sel - CSS 选择器 */
 function $(sel) {
   return document.querySelector(sel);
 }
 
+/** @param {string} sel - CSS 选择器 */
 function $$(sel) {
   return document.querySelectorAll(sel);
 }
 
+/** HTML 转义，防止 XSS */
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)
@@ -38,7 +60,16 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-/** 显示 Toast 消息 */
+// ============================================================
+// UI 组件
+// ============================================================
+
+/**
+ * 显示 Toast 提示消息（自动 3 秒后消失）
+ *
+ * @param {string} message - 消息文本
+ * @param {string} [type="success"] - CSS 类（success | error）
+ */
 function showToast(message, type = "success") {
   let toast = $("#toast");
   if (!toast) {
@@ -49,13 +80,23 @@ function showToast(message, type = "success") {
   }
   toast.textContent = message;
   toast.className = `toast ${type}`;
-  // Trigger reflow
+  // 触发浏览器 reflow 使 CSS 过渡生效
   void toast.offsetWidth;
   toast.classList.add("show");
   clearTimeout(toast._hideTimer);
   toast._hideTimer = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
+/**
+ * 显示确认对话框（基于 Promise）
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.title="确认操作"]
+ * @param {string} opts.message
+ * @param {string} [opts.confirmText="确定"]
+ * @param {boolean} [opts.danger=false] - 是否为危险操作（红色按钮）
+ * @returns {Promise<boolean>} true 表示用户点击确认，false 表示取消
+ */
 function showConfirmDialog({ title = "确认操作", message, confirmText = "确定", danger = false } = {}) {
   let overlay = $("#confirm-modal");
   if (!overlay) {
@@ -109,7 +150,16 @@ function showConfirmDialog({ title = "确认操作", message, confirmText = "确
   });
 }
 
-/** API 请求（自动注入 JWT） */
+/**
+ * API 请求封装
+ *
+ * 自动注入 JWT Authorization 头、JSON 序列化请求体、解析响应 JSON。
+ * 遇到 401 响应自动清除登录状态并跳转登录页。
+ *
+ * @param {string} endpoint - API 路径（如 "/api/admin/keys"）
+ * @param {object} [options={}] - fetch 选项（method, body, headers 等）
+ * @returns {Promise<object>} 解析后的 JSON 响应
+ */
 async function apiRequest(endpoint, options = {}) {
   const headers = { "Content-Type": "application/json", ...options.headers };
   if (STATE.token) {
@@ -125,7 +175,7 @@ async function apiRequest(endpoint, options = {}) {
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Token 过期，跳转登录
+      // Token 过期或无效，清除登录状态并返回登录页
       STATE.token = null;
       STATE.username = null;
       localStorage.removeItem("admin_token");
@@ -142,7 +192,7 @@ async function apiRequest(endpoint, options = {}) {
 // 页面渲染函数
 // ============================================================
 
-/** 登录页面 */
+/** 登录页面 — 表单 + 错误提示 */
 function renderLogin() {
   const app = $("#app");
   app.innerHTML = `
@@ -166,6 +216,7 @@ function renderLogin() {
     </div>
   `;
 
+  // 登录表单提交处理
   $("#login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const username = $("#username").value.trim();
@@ -179,12 +230,14 @@ function renderLogin() {
     }
 
     try {
+      // 调用登录接口
       const result = await apiRequest("/api/admin/login", {
         method: "POST",
         body: JSON.stringify({ username, password }),
-        headers: {}, // 登录不需要 auth header
+        headers: {}, // 登录请求不携带 Authorization 头
       });
 
+      // 保存 token 到状态和 localStorage（页面刷新后保持登录）
       STATE.token = result.token;
       STATE.username = result.username;
       localStorage.setItem("admin_token", result.token);
@@ -197,7 +250,14 @@ function renderLogin() {
   });
 }
 
-/** 管理后台布局（侧边栏 + 内容区） */
+/**
+ * 管理后台布局（侧边栏 + 内容区）
+ *
+ * 包含：
+ * - 侧边栏导航（仪表盘、卡密管理、在线监控）
+ * - 管理员信息和退出登录按钮
+ * - 内容区由子页面渲染函数填充
+ */
 function renderAdminLayout() {
   const app = $("#app");
   const navItems = [
@@ -231,12 +291,12 @@ function renderAdminLayout() {
         </div>
       </aside>
       <main class="main-content" id="main-content">
-        <!-- 由子页面填充 -->
+        <!-- 由子页面渲染函数填充 -->
       </main>
     </div>
   `;
 
-  // 导航点击
+  // ---------- 导航点击事件（使用事件委托） ----------
   $("#sidebar-nav").addEventListener("click", (e) => {
     const link = e.target.closest("a[data-page]");
     if (link) {
@@ -246,7 +306,7 @@ function renderAdminLayout() {
     }
   });
 
-  // 退出登录
+  // ---------- 退出登录 ----------
   $("#logout-btn").addEventListener("click", () => {
     STATE.token = null;
     STATE.username = null;
@@ -255,19 +315,23 @@ function renderAdminLayout() {
     renderApp();
   });
 
-  // 监听 hash 变化
+  // ---------- 监听浏览器前进/后退触发的 hash 变化 ----------
   window.addEventListener("hashchange", handleHashChange);
 
   // 渲染当前页面
   renderPage(STATE.currentPage);
 }
 
-/** 根据 hash 更新当前页面 */
+/**
+ * 处理 hashchange 事件（浏览器前进/后退）
+ *
+ * 解析 URL hash，若为有效页面则切换并对齐导航高亮。
+ */
 function handleHashChange() {
   const hash = location.hash.slice(1) || "dashboard";
   if (hash !== STATE.currentPage && ["dashboard", "keys", "monitor"].includes(hash)) {
     STATE.currentPage = hash;
-    // 更新导航高亮
+    // 更新导航栏高亮
     $$("#sidebar-nav a").forEach((a) => {
       a.classList.toggle("active", a.dataset.page === hash);
     });
@@ -275,6 +339,11 @@ function handleHashChange() {
   }
 }
 
+/**
+ * 编程式导航到指定页面
+ *
+ * @param {string} page - 页面标识（dashboard | keys | monitor）
+ */
 function navigateTo(page) {
   STATE.currentPage = page;
   location.hash = page;
@@ -284,7 +353,7 @@ function navigateTo(page) {
   renderPage(page);
 }
 
-/** 页面路由 */
+/** 页面路由：根据 page 标识分发到对应渲染函数 */
 function renderPage(page) {
   switch (page) {
     case "dashboard":
@@ -300,14 +369,16 @@ function renderPage(page) {
 }
 
 // ============================================================
-// 仪表盘
+// 仪表盘页面
 // ============================================================
 
+/** 渲染仪表盘：统计数据卡片 + 趋势图 + 在线时长排行 */
 async function renderDashboard() {
   const container = $("#main-content");
   container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>加载中...</p></div>`;
 
   try {
+    // 请求仪表盘聚合数据
     const data = await apiRequest("/api/admin/dashboard");
 
     container.innerHTML = `
@@ -315,6 +386,7 @@ async function renderDashboard() {
         <h1>📊 仪表盘</h1>
       </div>
 
+      <!-- 统计卡片 -->
       <div class="stats-grid">
         <div class="stat-card blue">
           <div class="stat-label">总卡密数</div>
@@ -342,6 +414,7 @@ async function renderDashboard() {
         </div>
       </div>
 
+      <!-- 趋势图 + Top 10 双栏布局 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="detail-section">
           <h3>📈 近 7 天激活趋势</h3>
@@ -358,6 +431,14 @@ async function renderDashboard() {
   }
 }
 
+/**
+ * 渲染近 7 天激活趋势柱状图
+ *
+ * 使用纯 CSS 柱状图实现，无额外图表库依赖。
+ * 柱高按最大 count 归一化到 100%。
+ *
+ * @param {Array<{day: string, count: number}>} trend - 按天的激活计数
+ */
 function renderWeeklyTrend(trend) {
   if (!trend || trend.length === 0) {
     return `<div class="empty-state"><p>暂无数据</p></div>`;
@@ -381,6 +462,7 @@ function renderWeeklyTrend(trend) {
   `;
 }
 
+/** 渲染在线时长排行表格（Top 10） */
 function renderTopOnline(list) {
   if (!list || list.length === 0) {
     return `<div class="empty-state"><p>暂无数据</p></div>`;
@@ -414,17 +496,36 @@ function renderTopOnline(list) {
 }
 
 // ============================================================
-// 卡密管理
+// 卡密管理页面
 // ============================================================
 
+/**
+ * 卡密列表页面状态（分页 + 筛选条件）
+ *
+ * 注意：这些变量位于模块作用域而非 STATE，
+ * 切换页面时不会重置，回到此页时保持上次的浏览位置。
+ */
 let keysPageState = {
   page: 1,
   pageSize: 20,
   status: "",
   search: "",
 };
+
+/** 当前选中的卡密 ID 集合（用于批量操作） */
 const selectedKeyIds = new Set();
 
+/**
+ * 渲染卡密管理页面
+ *
+ * 包含：
+ * - 搜索框 + 状态筛选 + 批量操作栏
+ * - 卡密数据表格（支持分页）
+ * - 生成卡密弹窗
+ * - 卡密详情弹窗
+ * - 编辑卡密弹窗
+ * - 导出卡密弹窗
+ */
 async function renderKeys() {
   const container = $("#main-content");
   container.innerHTML = `
@@ -567,10 +668,10 @@ async function renderKeys() {
     </div>
   `;
 
-  // 加载卡密列表
+  // 加载卡密表格数据
   await loadKeysTable();
 
-  // 搜索事件（防抖）
+  // ---------- 搜索事件（防抖 400ms）----------
   let searchTimer;
   $("#key-search").addEventListener("input", () => {
     clearTimeout(searchTimer);
@@ -582,7 +683,7 @@ async function renderKeys() {
     }, 400);
   });
 
-  // 状态筛选
+  // ---------- 状态筛选事件 ----------
   $("#key-status-filter").addEventListener("change", () => {
     keysPageState.status = $("#key-status-filter").value;
     keysPageState.page = 1;
@@ -590,9 +691,10 @@ async function renderKeys() {
     loadKeysTable();
   });
 
-  // 生成卡密弹窗
+  // ---------- 生成卡密弹窗事件 ----------
   $("#btn-generate-key").addEventListener("click", () => {
     $("#generate-modal").classList.add("open");
+    // 重置表单
     $("#gen-result").style.display = "none";
     $("#gen-count").value = 1;
     $("#gen-duration").value = "";
@@ -604,6 +706,7 @@ async function renderKeys() {
     $("#generate-modal").classList.remove("open");
   });
 
+  // ---------- 其他操作按钮事件 ----------
   $("#btn-gen-confirm").addEventListener("click", handleGenerateKeys);
   $("#btn-export-keys").addEventListener("click", () => {
     $("#export-modal").classList.add("open");
@@ -612,6 +715,7 @@ async function renderKeys() {
   $("#btn-edit-confirm").addEventListener("click", handleEditKey);
   $("#btn-bulk-delete").addEventListener("click", handleBulkDelete);
 
+  // 弹窗关闭按钮
   $$("[data-close-modal]").forEach((btn) => {
     btn.addEventListener("click", () => {
       $(`#${btn.dataset.closeModal}`).classList.remove("open");
@@ -626,11 +730,18 @@ async function renderKeys() {
   });
 }
 
+/**
+ * 加载卡密列表并渲染表格
+ *
+ * 根据 keysPageState 中的分页、搜索、筛选条件请求数据。
+ * 渲染表格后绑定分页按钮、全选/反选、以及各行操作按钮的事件。
+ */
 async function loadKeysTable() {
   const container = $("#keys-table-container");
   if (!container) return;
 
   try {
+    // 构建查询参数
     const params = new URLSearchParams({
       page: keysPageState.page,
       pageSize: keysPageState.pageSize,
@@ -699,7 +810,7 @@ async function loadKeysTable() {
       </div>
     `;
 
-    // 分页事件
+    // ---------- 分页按钮事件 ----------
     $$(".page-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const page = parseInt(btn.dataset.page, 10);
@@ -711,6 +822,7 @@ async function loadKeysTable() {
       });
     });
 
+    // ---------- 全选 / 反选逻辑 ----------
     const selectAll = $("#select-all-keys");
     const checkboxes = $$(".key-select");
     if (selectAll) {
@@ -736,7 +848,8 @@ async function loadKeysTable() {
     syncSelectAllState();
     updateSelectedKeysUi();
 
-    // 操作按钮事件（委托）
+    // ---------- 操作按钮事件委托 ----------
+    // 点击表格中的任何按钮，根据 data-action 分发操作
     container.querySelector("table").addEventListener("click", async (e) => {
       const btn = e.target.closest("button[data-action]");
       if (!btn) return;
@@ -769,6 +882,9 @@ async function loadKeysTable() {
   }
 }
 
+/**
+ * 更新批量操作 UI（显示/隐藏删除按钮和选中计数）
+ */
 function updateSelectedKeysUi() {
   const bulkActions = $("#bulk-actions");
   const bulkBtn = $("#btn-bulk-delete");
@@ -779,6 +895,7 @@ function updateSelectedKeysUi() {
   if (countEl) countEl.textContent = `已选 ${selectedKeyIds.size} 项`;
 }
 
+/** 同步全选复选框的状态（已选 = 全部选中 / 未全选 = 不定态） */
 function syncSelectAllState() {
   const selectAll = $("#select-all-keys");
   const checkboxes = Array.from($$(".key-select"));
@@ -788,6 +905,7 @@ function syncSelectAllState() {
   selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
 }
 
+/** 卡密状态对应的中文标签映射 */
 const STATUS_LABELS = {
   active: "有效",
   disabled: "已禁用",
@@ -795,6 +913,11 @@ const STATUS_LABELS = {
   expired: "已过期",
 };
 
+/**
+ * 显示卡密详情弹窗
+ *
+ * 请求卡密详情（含设备列表），渲染到弹窗内容区。
+ */
 async function showKeyDetail(id) {
   const modal = $("#detail-modal");
   const content = $("#detail-content");
@@ -884,6 +1007,9 @@ async function showKeyDetail(id) {
   }
 }
 
+/**
+ * 打开编辑卡密弹窗并填充当前数据
+ */
 async function showEditKey(id) {
   const modal = $("#edit-modal");
   modal.dataset.keyId = id;
@@ -892,6 +1018,7 @@ async function showEditKey(id) {
   try {
     const key = await apiRequest(`/api/admin/keys/${id}`);
     $("#edit-key-code").textContent = key.key_code;
+    // 如果状态为 used，默认回退到 active（used 为自动状态，不可手动设置）
     $("#edit-status").value = key.status === "used" ? "active" : key.status;
     $("#edit-duration").value = key.duration_days || "";
     $("#edit-machines").value = key.max_machines || 1;
@@ -902,6 +1029,7 @@ async function showEditKey(id) {
   }
 }
 
+/** 提交编辑卡密表单 */
 async function handleEditKey() {
   const modal = $("#edit-modal");
   const id = modal.dataset.keyId;
@@ -930,6 +1058,7 @@ async function handleEditKey() {
   }
 }
 
+/** 删除单张卡密（含二次确认） */
 async function handleDeleteKey(id) {
   const confirmed = await showConfirmDialog({
     title: "删除卡密",
@@ -949,6 +1078,7 @@ async function handleDeleteKey(id) {
   }
 }
 
+/** 批量删除选中的卡密（含二次确认） */
 async function handleBulkDelete() {
   const ids = Array.from(selectedKeyIds);
   if (ids.length === 0) return;
@@ -973,6 +1103,12 @@ async function handleBulkDelete() {
   }
 }
 
+/**
+ * 导出卡密（触发文件下载）
+ *
+ * 通过 fetch 获取文件流，创建 Blob URL 触发浏览器下载。
+ * 文件名由服务端通过 Content-Disposition 头指定。
+ */
 async function handleExportKeys() {
   const filter = $("#export-filter").value;
   const headers = {};
@@ -1004,6 +1140,7 @@ async function handleExportKeys() {
   }
 }
 
+/** 提交生成卡密表单 */
 async function handleGenerateKeys() {
   const count = parseInt($("#gen-count").value, 10) || 1;
   const durationDays = parseInt($("#gen-duration").value, 10) || null;
@@ -1018,6 +1155,7 @@ async function handleGenerateKeys() {
       body: JSON.stringify({ count, duration_days: durationDays, max_machines: maxMachines, note }),
     });
 
+    // 显示生成结果
     resultDiv.style.display = "block";
     keysList.innerHTML = `<br>${data.keys.map((k) => `🔑 ${k}`).join("<br>")}<br><br><small style="color:var(--gray-400);">共生成 ${data.count} 个卡密</small>`;
     showToast(`成功生成 ${data.count} 个卡密`);
@@ -1028,13 +1166,25 @@ async function handleGenerateKeys() {
 }
 
 // ============================================================
-// 在线监控
+// 在线监控页面
 // ============================================================
 
+/** 自动刷新的定时器句柄（页面切换时需清除） */
 let monitorInterval = null;
 
+/**
+ * 渲染在线监控页面
+ *
+ * 功能：
+ * - 显示所有已激活设备的在线/离线状态
+ * - 每 30 秒自动刷新数据
+ * - 支持手动立即刷新
+ * - 显示在线/总数汇总
+ *
+ * 注意：离开此页时需清除定时器，防止切换页面后继续在后台请求。
+ */
 async function renderMonitor() {
-  // 清除旧定时器
+  // 清除旧定时器，防止切换页面后残留
   if (monitorInterval) {
     clearInterval(monitorInterval);
     monitorInterval = null;
@@ -1057,15 +1207,16 @@ async function renderMonitor() {
     </div>
   `;
 
+  // 首次加载
   await loadMonitorData();
 
-  // 立即刷新
+  // 立即刷新按钮
   $("#btn-refresh-now").addEventListener("click", async () => {
     await loadMonitorData();
     countdown = 30;
   });
 
-  // 自动刷新（30秒）
+  // 自动刷新：每秒更新倒计时，每 30 秒触发一次数据刷新
   let countdown = 30;
   monitorInterval = setInterval(async () => {
     countdown--;
@@ -1078,13 +1229,23 @@ async function renderMonitor() {
   }, 1000);
 }
 
+/**
+ * 加载监控数据
+ *
+ * 同时请求两个接口：
+ * 1. /api/admin/machines/online — 获取在线设备列表（精简版）
+ * 2. /api/admin/machines — 获取全部设备列表（含分页）
+ *
+ * 这样做是因为在线接口提供计数，全部设备接口提供离线设备信息。
+ * Promise.all 并发请求减少等待时间。
+ */
 async function loadMonitorData() {
   const container = $("#monitor-table-container");
   const summary = $("#online-summary");
   if (!container) return;
 
   try {
-    // 同时获取在线设备和全部设备
+    // 并发请求在线设备和全部设备数据
     const [onlineData, allData] = await Promise.all([
       apiRequest("/api/admin/machines/online"),
       apiRequest("/api/admin/machines?page=1&pageSize=100"),
@@ -1094,7 +1255,6 @@ async function loadMonitorData() {
       summary.textContent = `🟢 ${onlineData.count} 台在线 · 共 ${allData.pagination.total} 台已激活设备`;
     }
 
-    // 在线设备列表
     const onlineMachines = onlineData.machines || [];
     const allMachines = allData.machines || [];
 
@@ -1103,6 +1263,7 @@ async function loadMonitorData() {
       return;
     }
 
+    // 渲染设备表格（含在线/离线状态指示器）
     container.innerHTML = `
       <table>
         <thead>
@@ -1151,9 +1312,15 @@ async function loadMonitorData() {
 }
 
 // ============================================================
-// 辅助
+// 辅助函数
 // ============================================================
 
+/**
+ * 格式化秒数为可读时长
+ *
+ * @param {number|null} totalSeconds
+ * @returns {string}
+ */
 function formatDuration(totalSeconds) {
   if (!totalSeconds || totalSeconds <= 0) return "0 分钟";
   const hours = Math.floor(totalSeconds / 3600);
@@ -1166,6 +1333,14 @@ function formatDuration(totalSeconds) {
 // 应用初始化
 // ============================================================
 
+/**
+ * 根渲染函数 — 根据登录状态选择渲染登录页或管理后台
+ *
+ * 此函数在以下时机被调用：
+ * 1. 页面首次加载（底部 renderApp() 调用）
+ * 2. 登录成功后
+ * 3. Token 过期或退出登录后
+ */
 function renderApp() {
   if (STATE.token) {
     renderAdminLayout();
@@ -1174,5 +1349,5 @@ function renderApp() {
   }
 }
 
-// 启动
+// 启动 SPA
 renderApp();

@@ -1,7 +1,12 @@
 /**
  * 激活信息管理视图 — 设置页中的"激活信息"板块
  *
- * 显示当前激活状态、卡密信息，支持反激活。
+ * 展示内容：
+ * - 激活状态卡片（已激活 ✅ / 未激活 ❌）
+ * - 激活详情（卡密、设备标识、激活时间、过期时间等）
+ * - 反激活操作（带二次确认）
+ *
+ * 依赖 activationStore 中的 activated / info / isLoading 驱动渲染。
  */
 
 import React, { useEffect, useState } from "react";
@@ -18,22 +23,38 @@ export const ActivationAdminView: React.FC = () => {
   } = useActivationStore();
   const { language } = useSettingsStore();
 
+  /**
+   * machineInfo：从主进程获取的设备信息，用于展示设备标识与名称
+   * confirmDeactivate：反激活动作的二次确认状态，防止误操作
+   */
   const [machineInfo, setMachineInfo] = useState<{ machineId: string; machineName: string } | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
+  /**
+   * 组件挂载时加载最新激活状态并获取设备信息
+   * loadStatus 会触发 activationStore 的 IPC 调用链，更新 activated / info 等状态
+   */
   useEffect(() => {
     loadStatus();
-    // 获取设备信息
+    // 获取设备信息（异常静默处理，不影响主流程）
     import("../services/ipcApi").then(({ ipcApi }) => {
       ipcApi.activation.getMachineInfo().then(setMachineInfo).catch(() => {});
     });
   }, []);
 
+  /**
+   * 执行反激活（二次确认后的实际清除操作）
+   * 调用 Store 的 deactivate → IPC clear → 重置 store 状态并弹出激活框
+   */
   const handleDeactivate = async () => {
     await deactivate();
     setConfirmDeactivate(false);
   };
 
+  /**
+   * 日期格式化函数
+   * 优先使用 toLocaleString("zh-CN") 本地化，异常时直接返回原始字符串兜底
+   */
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     try {
@@ -44,8 +65,19 @@ export const ActivationAdminView: React.FC = () => {
     }
   };
 
+  /**
+   * 判断是否已过期
+   * 将 expiresAt 转为时间戳与当前时间对比
+   * - info.expiresAt 为 null → 永久有效，不过期
+   * - info.expiresAt 有值且小于 Date.now() → 已过期
+   */
   const isExpired = info?.expiresAt ? new Date(info.expiresAt).getTime() < Date.now() : false;
 
+  /**
+   * 多语言文案映射
+   * 根据 settingsStore 中的 language 选择中文或英文
+   * 默认兜底为中文
+   */
   const text = {
     "zh-CN": {
       title: "激活信息",
@@ -99,7 +131,7 @@ export const ActivationAdminView: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* 激活状态卡片 */}
+          {/* 激活状态卡片：通过 CSS 类名切换激活/未激活样式，视觉化展示当前状态 */}
           <div className={`activation-status-card ${activated ? "activated" : "not-activated"}`}>
             <div className="activation-status-icon">
               {activated ? "✅" : "❌"}
@@ -146,9 +178,10 @@ export const ActivationAdminView: React.FC = () => {
             </div>
           )}
 
-          {/* 反激活 */}
+          {/* 反激活（仅已激活时显示） */}
           {activated && (
             <div style={{ marginTop: 16 }}>
+              {/** 二次确认模式：点击"反激活"后先展示确认文案 + 确认/取消按钮，防止误触 */}
               {confirmDeactivate ? (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 13, color: "#ef4444" }}>{text.confirmDeactivate}</span>

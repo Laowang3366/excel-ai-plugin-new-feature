@@ -232,6 +232,14 @@ export type KnowledgeSearchInput = z.infer<typeof KnowledgeSearchInput>;
 
 // ============================================================
 // Activation（激活管理）
+//
+// Schemas for activation-related IPC channels:
+// - activation:activate  → ActivationActivateInput (key + serverUrl)
+// - activation:setServerUrl → ActivationSetServerUrlInput (url string)
+// - activation:unbindDevice  → ActivationUnbindDeviceInput (machineId string)
+//
+// These schemas are validated at runtime in ipcHandlers.ts
+// before delegating to activationManager functions.
 // ============================================================
 
 export const ActivationActivateInput = z.object({

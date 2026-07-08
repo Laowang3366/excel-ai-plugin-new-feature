@@ -127,6 +127,23 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       deleteFile: async () => ({ success: false, error: "not implemented" }),
       reindexAll: async () => ({ success: false, error: "not implemented" }),
     },
+    /**
+     * 激活模块 Mock 默认值
+     *
+     * 默认状态为"未激活"（activated: false），
+     * 单元测试中可通过 overrides.activation 覆盖各方法的行为。
+     *
+     * 各方法返回值的含义：
+     * - getStatus → { activated: false } 表示"未激活"
+     * - activate → { success: false, error: ... } 模拟激活失败
+     * - clear → { success: true } 清除操作默认成功
+     * - getServerUrl → "http://localhost:3456" 默认服务器地址
+     * - setServerUrl → { success: true } 设置地址默认成功
+     * - checkValid → false 默认验证无效
+     * - getMachineInfo → 返回 mock 设备信息
+     * - listDevices → 返回空设备列表
+     * - unbindDevice → 默认解绑成功，不触发本机解绑
+     */
     activation: {
       getStatus: async () => ({ activated: false }),
       activate: async () => ({ success: false, error: "mock not implemented" }),

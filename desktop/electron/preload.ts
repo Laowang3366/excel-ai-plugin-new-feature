@@ -255,25 +255,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   // ---- 激活管理 ----
+  // 通过 activation:* IPC 通道与主进程交互，管理卡密激活、心跳维持和设备绑定
   activation: {
-    /** 检查本地激活状态 */
+    /** 查询本地持久化的激活状态（仅读取本地存储，不发起网络请求） */
     getStatus: () => ipcRenderer.invoke("activation:getStatus"),
-    /** 执行激活 */
+    /** 执行激活：向服务端验证卡密并绑定当前设备 */
     activate: (key: string, serverUrl: string) =>
       ipcRenderer.invoke("activation:activate", key, serverUrl),
-    /** 清除激活状态 */
+    /** 清除本地激活状态并停止心跳定时器 */
     clear: () => ipcRenderer.invoke("activation:clear"),
-    /** 获取服务器地址 */
+    /** 获取当前使用的激活服务器地址 */
     getServerUrl: () => ipcRenderer.invoke("activation:getServerUrl"),
-    /** 设置服务器地址 */
+    /** 设置激活服务器地址 */
     setServerUrl: (url: string) => ipcRenderer.invoke("activation:setServerUrl", url),
-    /** 检查激活是否有效 */
+    /** 本地快速检查激活是否仍在有效期内（基于离线容忍时间和卡密过期时间） */
     checkValid: () => ipcRenderer.invoke("activation:checkValid"),
-    /** 获取设备信息 */
+    /** 获取本机设备标识（machineId）和设备名称（machineName） */
     getMachineInfo: () => ipcRenderer.invoke("activation:getMachineInfo"),
-    /** 获取当前卡密绑定设备 */
+    /** 查询当前卡密已绑定的所有设备列表 */
     listDevices: () => ipcRenderer.invoke("activation:listDevices"),
-    /** 解绑指定设备 */
+    /** 解绑指定设备，释放该设备的激活名额 */
     unbindDevice: (targetMachineId: string) =>
       ipcRenderer.invoke("activation:unbindDevice", targetMachineId),
   },

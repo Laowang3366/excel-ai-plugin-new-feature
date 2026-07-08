@@ -1,7 +1,19 @@
 /**
  * 激活弹窗组件
  *
- * 应用首次启动或激活失效时显示，要求用户输入卡密。
+ * 状态机：loading → input → activating → success / error
+ * - loading：首次启动，正在从主进程获取激活状态。
+ * - input：展示卡密输入框，等待用户提交。
+ * - activating：已提交，正在调用 IPC 执行激活。
+ * - success：激活成功，展示对勾动画，1.5 秒后自动关闭弹窗。
+ * - error：激活失败，在输入框下方展示红色错误提示。
+ *
+ * 视觉设计：
+ * - 使用 fixed + z-index:9999 的全屏遮罩层（activation-overlay）
+ * - 居中卡片（activation-card），深色渐变背景
+ * - 成功状态展示绿色圆圈对勾，失败状态保留输入框以便重试
+ *
+ * 当 isLoading（Store 层正在加载）时，组件不论内部状态都优先展示 loading spinner。
  */
 
 import React, { useState } from "react";
@@ -14,11 +26,27 @@ interface ActivationDialogProps {
 export const ActivationDialog: React.FC<ActivationDialogProps> = ({ onActivated }) => {
   const { activate, isLoading } = useActivationStore();
 
+  /**
+   * 组件内部状态
+   * - key: 卡密输入框的值，始终大写（见 onChange 处理）
+   * - error: 激活失败时的错误文案，清空输入时自动重置
+   * - activating: 正在调用 IPC 执行激活，按钮展示"验证中..."
+   * - success: IPC 返回成功，展示成功界面后自动关闭
+   */
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
   const [activating, setActivating] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  /**
+   * 提交激活表单
+   *
+   * 流程：
+   * 1. 去除首尾空格后做空值校验
+   * 2. 调用 Store 的 activate（内部通过 IPC → 主进程 → 许可证服务器）
+   * 3. 成功 → 展示 success 界面，1.5s 后调用 onActivated 回调关闭弹窗
+   * 4. 失败 → 在输入框下方展示错误信息，用户可重新输入
+   */
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedKey = key.trim();
@@ -48,6 +76,10 @@ export const ActivationDialog: React.FC<ActivationDialogProps> = ({ onActivated 
   };
 
   if (isLoading) {
+    /**
+     * loading 状态：Store 尚未完成初始化，展示 spinner
+     * 此时不渲染表单，避免用户看到空白输入框
+     */
     return (
       <div className="activation-overlay">
         <div className="activation-card">
@@ -81,6 +113,7 @@ export const ActivationDialog: React.FC<ActivationDialogProps> = ({ onActivated 
                   placeholder="请输入卡密（如：XXXX-XXXX-XXXX-XXXX）"
                   value={key}
                   onChange={(e) => {
+                    /** 统一转为大写字母，提升卡密输入体验（卡密通常仅含大写字母与数字） */
                     setKey(e.target.value.toUpperCase());
                     setError("");
                   }}

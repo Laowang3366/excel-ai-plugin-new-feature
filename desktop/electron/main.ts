@@ -67,7 +67,12 @@ setupGlobalErrorHandlers();
 
 let mainWindow: BrowserWindow | null = null;
 
-// ==== 引用函数（供 IPC 处理器使用）====
+// ==== Getter closures for module references ====
+// IPC handlers are registered before Agent Runtime and Window are fully
+// initialized (see initialization order below). Passing getter closures
+// (() => T) instead of direct values ensures handlers always read the
+// latest reference at invocation time, avoiding initialization-order
+// dependency issues.
 setMainWindowRef(() => mainWindow);
 setAgentLoopRef(() => getAgentLoop());
 setAgentLoopsRef(() => getAgentLoops());
@@ -97,6 +102,13 @@ function recreateMainWindow(): BrowserWindow {
 // 应用生命周期
 // ============================================================
 
+// ---- 启动初始化序列（顺序敏感）----
+// 1. SessionStore 提前初始化，确保后续模块可读写持久化数据
+// 2. Agent Runtime 初始化（含 Office bridge + RAG），这是核心业务引擎
+// 3. 注册 IPC 处理器，使渲染进程可调用主进程能力
+// 4. 将用户配置的沙箱规则热更新到沙箱单例
+// 5. 初始化激活系统（读取本地状态，启动心跳）
+// 6. 创建窗口并保存引用，此时 UI 就绪
 app.whenReady().then(async () => {
   getSessionStoreInstance(); // 提前初始化 SessionStore
   await getOrCreateAgentRuntime({
@@ -121,6 +133,10 @@ app.whenReady().then(async () => {
       mainWindow.focus();
     }
   });
+// ---- 启动失败处理 ----
+// 如果启动过程中任何一步抛出异常，捕获并记录日志。
+// 若窗口尚未创建，则创建一个简易错误窗口展示异常信息，
+// 确保用户能看到错误提示而不是白屏。
 }).catch((err) => {
   mainLogger.error("Fatal startup error", err instanceof Error ? { message: err.message, stack: err.stack } : { error: String(err) });
   // 如果窗口未创建，尝试创建并显示错误页面
@@ -146,6 +162,12 @@ app.on("window-all-closed", () => {
   }
 });
 
+// ---- 应用关闭前清理（顺序敏感）----
+// 1. 标记正在退出，阻止窗口管理器的误操作（如最小化到托盘）
+// 2. 停止心跳上报，避免关闭后仍有网络请求
+// 3. 刷写 SessionStore 中积压的滚动写入
+// 4. 关闭状态运行时存储
+// 5. 断开 Office bridge 连接（Excel/WPS 等 COM 对象）
 app.on("before-quit", async () => {
   setIsQuitting(true);
   stopHeartbeat();
