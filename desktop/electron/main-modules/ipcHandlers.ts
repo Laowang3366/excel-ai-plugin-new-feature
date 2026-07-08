@@ -59,6 +59,19 @@ import {
   setWindowDisplayMode,
   type WindowDisplayMode,
 } from "./windowManager";
+import {
+  activate,
+  getLocalActivationState,
+  clearActivationState,
+  checkActivationValid,
+  getMachineId,
+  getMachineName,
+  getServerUrl,
+  listBoundDevices,
+  setServerUrl,
+  startHeartbeat,
+  unbindDevice,
+} from "./activationManager";
 
 const logger = createLogger("IPC");
 
@@ -336,6 +349,57 @@ export function registerIpcHandlers(): void {
     } catch (err: any) {
       return { success: false, error: err.message };
     }
+  });
+
+  // ---- 激活管理 ----
+  ipcMain.handle("activation:getStatus", () => {
+    return getLocalActivationState();
+  });
+
+  ipcMain.handle("activation:activate", async (_event, key: unknown, serverUrl: unknown) => {
+    if (typeof key !== "string" || typeof serverUrl !== "string") {
+      return { success: false, error: "参数无效" };
+    }
+    const result = await activate(key, serverUrl);
+    return result;
+  });
+
+  ipcMain.handle("activation:clear", () => {
+    clearActivationState();
+    return { success: true };
+  });
+
+  ipcMain.handle("activation:getServerUrl", () => {
+    return getServerUrl();
+  });
+
+  ipcMain.handle("activation:setServerUrl", (_event, url: unknown) => {
+    if (typeof url === "string") {
+      setServerUrl(url);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle("activation:checkValid", () => {
+    return checkActivationValid();
+  });
+
+  ipcMain.handle("activation:getMachineInfo", () => {
+    return {
+      machineId: getMachineId(),
+      machineName: getMachineName(),
+    };
+  });
+
+  ipcMain.handle("activation:listDevices", async () => {
+    return listBoundDevices();
+  });
+
+  ipcMain.handle("activation:unbindDevice", async (_event, targetMachineId: unknown) => {
+    if (typeof targetMachineId !== "string" || !targetMachineId.trim()) {
+      return { success: false, error: "设备 ID 无效" };
+    }
+    return unbindDevice(targetMachineId);
   });
 
 }

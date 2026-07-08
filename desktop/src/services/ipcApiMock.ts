@@ -126,6 +126,17 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       deleteFile: async () => ({ success: false, error: "not implemented" }),
       reindexAll: async () => ({ success: false, error: "not implemented" }),
     },
+    activation: {
+      getStatus: async () => ({ activated: false }),
+      activate: async () => ({ success: false, error: "mock not implemented" }),
+      clear: async () => ({ success: true }),
+      getServerUrl: async () => "http://localhost:3456",
+      setServerUrl: async () => ({ success: true }),
+      checkValid: async () => false,
+      getMachineInfo: async () => ({ machineId: "mock-id", machineName: "mock-machine" }),
+      listDevices: async () => ({ success: true, data: { machines: [] } }),
+      unbindDevice: async () => ({ success: true, currentDeviceUnbound: false }),
+    },
   };
 
   // 浅合并每个命名空间

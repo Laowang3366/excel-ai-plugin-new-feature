@@ -250,4 +250,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
     /** 重建全部索引 */
     reindexAll: () => ipcRenderer.invoke("knowledge:reindexAll"),
   },
+
+  // ---- 激活管理 ----
+  activation: {
+    /** 检查本地激活状态 */
+    getStatus: () => ipcRenderer.invoke("activation:getStatus"),
+    /** 执行激活 */
+    activate: (key: string, serverUrl: string) =>
+      ipcRenderer.invoke("activation:activate", key, serverUrl),
+    /** 清除激活状态 */
+    clear: () => ipcRenderer.invoke("activation:clear"),
+    /** 获取服务器地址 */
+    getServerUrl: () => ipcRenderer.invoke("activation:getServerUrl"),
+    /** 设置服务器地址 */
+    setServerUrl: (url: string) => ipcRenderer.invoke("activation:setServerUrl", url),
+    /** 检查激活是否有效 */
+    checkValid: () => ipcRenderer.invoke("activation:checkValid"),
+    /** 获取设备信息 */
+    getMachineInfo: () => ipcRenderer.invoke("activation:getMachineInfo"),
+    /** 获取当前卡密绑定设备 */
+    listDevices: () => ipcRenderer.invoke("activation:listDevices"),
+    /** 解绑指定设备 */
+    unbindDevice: (targetMachineId: string) =>
+      ipcRenderer.invoke("activation:unbindDevice", targetMachineId),
+  },
 });

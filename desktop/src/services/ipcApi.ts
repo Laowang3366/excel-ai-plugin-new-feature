@@ -296,4 +296,52 @@ export const ipcApi: IIpcApi = {
   },
 
   knowledge: createKnowledgeIpcApi(getRaw),
+
+  activation: {
+    getStatus: async () => {
+      const raw = getRaw();
+      if (!raw?.activation?.getStatus) return { activated: false };
+      return raw.activation.getStatus();
+    },
+    activate: async (key, serverUrl) => {
+      const raw = getRaw();
+      if (!raw?.activation?.activate) return { success: false, error: "IPC not available" };
+      return raw.activation.activate(key, serverUrl);
+    },
+    clear: async () => {
+      const raw = getRaw();
+      if (!raw?.activation?.clear) return { success: false };
+      return raw.activation.clear();
+    },
+    getServerUrl: async () => {
+      const raw = getRaw();
+      if (!raw?.activation?.getServerUrl) return "http://localhost:3456";
+      return raw.activation.getServerUrl();
+    },
+    setServerUrl: async (url) => {
+      const raw = getRaw();
+      if (!raw?.activation?.setServerUrl) return { success: false };
+      return raw.activation.setServerUrl(url);
+    },
+    checkValid: async () => {
+      const raw = getRaw();
+      if (!raw?.activation?.checkValid) return false;
+      return raw.activation.checkValid();
+    },
+    getMachineInfo: async () => {
+      const raw = getRaw();
+      if (!raw?.activation?.getMachineInfo) return { machineId: "", machineName: "" };
+      return raw.activation.getMachineInfo();
+    },
+    listDevices: async () => {
+      const raw = getRaw();
+      if (!raw?.activation?.listDevices) return { success: false, error: "IPC not available" };
+      return raw.activation.listDevices();
+    },
+    unbindDevice: async (targetMachineId) => {
+      const raw = getRaw();
+      if (!raw?.activation?.unbindDevice) return { success: false, error: "IPC not available" };
+      return raw.activation.unbindDevice(targetMachineId);
+    },
+  },
 };

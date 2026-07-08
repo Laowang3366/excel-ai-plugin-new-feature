@@ -51,6 +51,7 @@ import {
 } from "./main-modules/ipcHandlers";
 import { requestToolApproval } from "./agent/interaction/eventForwarder";
 import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
+import { initActivation, stopHeartbeat } from "./main-modules/activationManager";
 
 const mainLogger = createLogger("main");
 
@@ -108,6 +109,7 @@ app.whenReady().then(async () => {
   }); // 提前初始化 Agent（含 Office bridge + RAG）
   registerIpcHandlers();
   applySandboxConfig();    // 把 electron-store 中的用户规则热更新到沙箱单例
+  initActivation();        // 初始化激活系统（检查本地激活状态，启动心跳）
   recreateMainWindow();     // 创建窗口并保存引用
 
   app.on("activate", () => {
@@ -146,6 +148,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", async () => {
   setIsQuitting(true);
+  stopHeartbeat();
   await getSessionStoreInstance().flushRolloutWrites();
   await closeStateRuntimeStore();
   await disconnectOfficeBridges();

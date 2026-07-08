@@ -185,4 +185,16 @@ export interface IIpcApi {
     deleteFile: (sourcePath: string) => Promise<{ success: boolean; error?: string }>;
     reindexAll: () => Promise<{ success: boolean; error?: string; results?: any[] }>;
   };
+  /** 激活管理 */
+  activation: {
+    getStatus: () => Promise<{ activated: boolean; info?: any }>;
+    activate: (key: string, serverUrl: string) => Promise<{ success: boolean; error?: string; data?: any }>;
+    clear: () => Promise<{ success: boolean }>;
+    getServerUrl: () => Promise<string>;
+    setServerUrl: (url: string) => Promise<{ success: boolean }>;
+    checkValid: () => Promise<boolean>;
+    getMachineInfo: () => Promise<{ machineId: string; machineName: string }>;
+    listDevices: () => Promise<{ success: boolean; error?: string; data?: any }>;
+    unbindDevice: (targetMachineId: string) => Promise<{ success: boolean; error?: string; currentDeviceUnbound?: boolean }>;
+  };
 }

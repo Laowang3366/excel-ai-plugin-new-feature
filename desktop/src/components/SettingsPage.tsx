@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   BookOpen,
   Package,
+  ShieldCheck,
 } from "./common/IconMap";
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { ModelSettings } from "./settings/ModelSettings";
@@ -25,8 +26,9 @@ import { UsageStats } from "./settings/UsageStats";
 import { ExecPolicySettings } from "./settings/ExecPolicySettings";
 import { KnowledgeSettings } from "./settings/KnowledgeSettings";
 import { OpenSourceSettings } from "./settings/OpenSourceSettings";
+import { ActivationAdminView } from "./ActivationAdminView";
 
-export type SettingsSection = "profile" | "general" | "model" | "usage" | "safety" | "knowledge" | "opensource";
+export type SettingsSection = "profile" | "general" | "model" | "usage" | "safety" | "knowledge" | "opensource" | "activation";
 
 const SETTINGS_TEXT = {
   "zh-CN": {
@@ -40,6 +42,7 @@ const SETTINGS_TEXT = {
       safety: "安全策略",
       knowledge: "知识库",
       opensource: "开源项目",
+      activation: "激活信息",
     },
     profileTitle: "个人资料",
     profileDesc: "查看当前桌面端账户信息。",
@@ -57,6 +60,7 @@ const SETTINGS_TEXT = {
       safety: "Safety",
       knowledge: "Knowledge",
       opensource: "Open Source",
+      activation: "Activation",
     },
     profileTitle: "Profile",
     profileDesc: "View the current desktop account information.",
@@ -72,6 +76,7 @@ const SECTIONS = [
   { key: "usage" as const, icon: BarChart3 },
   { key: "safety" as const, icon: ShieldAlert },
   { key: "knowledge" as const, icon: BookOpen },
+  { key: "activation" as const, icon: ShieldCheck },
   { key: "opensource" as const, icon: Package },
 ];
 
@@ -136,6 +141,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, initialSecti
         {section === "safety" && <ExecPolicySettings />}
         {section === "knowledge" && <KnowledgeSettings />}
         {section === "opensource" && <OpenSourceSettings />}
+        {section === "activation" && <ActivationAdminView />}
       </main>
     </div>
   );
