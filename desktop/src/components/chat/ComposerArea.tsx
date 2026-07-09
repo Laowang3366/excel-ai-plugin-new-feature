@@ -74,28 +74,14 @@ export function ComposerArea({
   onOpenSettings,
 }: ComposerAreaProps) {
   const {
-    inputText,
-    textareaRef,
-    hasInput,
-    isStreaming,
-    composerDragOver,
+    inputText, textareaRef, hasInput, isStreaming, composerDragOver,
     attachedFiles,
-    showAttachPopover,
-    setShowAttachPopover,
-    showPermissionPopover,
-    setShowPermissionPopover,
-    showThinkingPopover,
-    setShowThinkingPopover,
-    handleOpenFile,
-    handleOpenImage,
-    handleOpenFolder,
-    removeAttachedFile,
-    handleComposerDragOver,
-    handleComposerDragLeave,
-    handleComposerDrop,
-    handleKeyDown,
-    handleTextareaChange,
-    handlePaste,
+    showAttachPopover, setShowAttachPopover,
+    showPermissionPopover, setShowPermissionPopover,
+    showThinkingPopover, setShowThinkingPopover,
+    handleOpenFile, handleOpenImage, handleOpenFolder,
+    removeAttachedFile, handleComposerDragOver, handleComposerDragLeave,
+    handleComposerDrop, handleKeyDown, handleTextareaChange, handlePaste,
   } = composer;
 
   const { permissionMode, setPermissionMode, language } = useSettingsStore();
@@ -104,194 +90,181 @@ export function ComposerArea({
 
   return (
     <div className="chat-input-area">
-      <div className="composer-design-shell">
-        <div
-          className={`composer${composerDragOver ? " drag-over" : ""}`}
-          onDragOver={handleComposerDragOver}
-          onDragLeave={handleComposerDragLeave}
-          onDrop={handleComposerDrop}
-        >
-          {/* 附件 chip 列表 */}
-          {attachedFiles.length > 0 && (
-            <div className="composer-attachments">
-              {attachedFiles.map((f, i) =>
-                f.fileType === "image" ? (
-                  <AttachmentImagePreview
-                    key={`${f.filePath}-${i}`}
-                    attachment={f}
-                    variant="composer"
-                    onRemove={() => removeAttachedFile(i)}
-                  />
-                ) : (
-                  <div key={`${f.filePath}-${i}`} className={`attach-chip ${f.fileType}`}>
-                    <Paperclip size={12} />
-                    <span className="attach-chip-name">{f.fileName}</span>
-                    <button className="attach-chip-remove" onClick={() => removeAttachedFile(i)}>
-                      <X size={10} />
-                    </button>
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-          <textarea
-            ref={textareaRef}
-            className="composer-textarea"
-            value={inputText}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              isStreaming
-                ? text.chat.aiReplying
-                : showWelcomeComposer
-                  ? text.chat.welcomePlaceholder
-                  : text.chat.inputPlaceholder
-            }
-            rows={2}
-            onPaste={handlePaste}
-          />
-          <div className="composer-toolbar">
-            <div className="composer-left">
-              {/* + 附件/图片按钮 */}
-              <div className="composer-popover-wrapper">
-                <button
-                  className={`composer-action-btn ${showAttachPopover ? "active" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowAttachPopover(!showAttachPopover);
-                    setShowPermissionPopover(false);
-                    setShowThinkingPopover(false);
-                  }}
-                  title={text.chat.addAttachmentTitle}
-                >
-                  <Plus size={19} />
-                </button>
-                {showAttachPopover && (
-                  <div className="composer-popover" onClick={(e) => e.stopPropagation()}>
-                    <button className="popover-item" onClick={handleOpenFile}>
-                      <Paperclip size={14} /> {text.chat.addAttachment}
-                    </button>
-                    <button className="popover-item" onClick={handleOpenImage}>
-                      <Image size={14} /> {text.chat.uploadImage}
-                    </button>
-                    <button className="popover-item" onClick={handleOpenFolder}>
-                      <FolderOpen size={14} /> {text.chat.addFolder}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* 权限模式切换 */}
-              <div className="composer-popover-wrapper">
-                <button
-                  className={`composer-action-btn permission-btn permission-${permissionMode} ${showPermissionPopover ? "active" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowPermissionPopover(!showPermissionPopover);
-                    setShowAttachPopover(false);
-                    setShowThinkingPopover(false);
-                  }}
-                  title={text.chat.permissionMode}
-                >
-                  <PermissionIcon mode={permissionMode} />
-                  <span className="permission-label">
-                    {text.chat.permissionLabels[permissionMode]}
-                  </span>
-                  <ChevronDown size={13} />
-                </button>
-                {showPermissionPopover && (
-                  <div className="composer-popover" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className={`popover-item permission-option permission-normal ${permissionMode === "normal" ? "active" : ""}`}
-                      onClick={() => {
-                        setPermissionMode("normal");
-                        setShowPermissionPopover(false);
-                      }}
-                    >
-                      <ShieldAlert size={15} /> {text.chat.permissionLabels.normal}
-                    </button>
-                    <button
-                      className={`popover-item permission-option permission-auto_approve_safe ${permissionMode === "auto_approve_safe" ? "active" : ""}`}
-                      onClick={() => {
-                        setPermissionMode("auto_approve_safe");
-                        setShowPermissionPopover(false);
-                      }}
-                    >
-                      <ShieldCheck size={15} /> {text.chat.permissionLabels.auto_approve_safe}
-                    </button>
-                    <button
-                      className={`popover-item permission-option permission-confirm_all ${permissionMode === "confirm_all" ? "active" : ""}`}
-                      onClick={() => {
-                        setPermissionMode("confirm_all");
-                        setShowPermissionPopover(false);
-                      }}
-                    >
-                      <ShieldX size={15} /> {text.chat.permissionLabels.confirm_all}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="composer-right">
-              {/* 上下文使用量指示器 */}
-              {contextUsage && (
-                <div
-                  className={`context-indicator ${
-                    contextUsage.percentage >= 90
-                      ? "danger"
-                      : contextUsage.percentage >= 70
-                        ? "warning"
-                        : "normal"
-                  }`}
-                  title={`${text.chat.contextUsage}: ${contextUsage.estimatedTokens.toLocaleString()} / ${contextUsage.contextWindowSize.toLocaleString()} tokens (${contextUsage.percentage}%)`}
-                >
-                  <Activity size={14} />
-                  <span className="context-indicator-pct">
-                    {formatEstimatedUsedTokens(contextUsage.estimatedTokens)}/
-                    {formatTokensAsK(contextUsage.contextWindowSize)}
-                  </span>
+      <div
+        className={`composer${composerDragOver ? " drag-over" : ""}`}
+        onDragOver={handleComposerDragOver}
+        onDragLeave={handleComposerDragLeave}
+        onDrop={handleComposerDrop}
+      >
+        {/* 附件 chip 列表 */}
+        {attachedFiles.length > 0 && (
+          <div className="composer-attachments">
+            {attachedFiles.map((f, i) => (
+              f.fileType === "image" ? (
+                <AttachmentImagePreview
+                  key={`${f.filePath}-${i}`}
+                  attachment={f}
+                  variant="composer"
+                  onRemove={() => removeAttachedFile(i)}
+                />
+              ) : (
+                <div key={`${f.filePath}-${i}`} className={`attach-chip ${f.fileType}`}>
+                  <Paperclip size={12} />
+                  <span className="attach-chip-name">{f.fileName}</span>
+                  <button className="attach-chip-remove" onClick={() => removeAttachedFile(i)}>
+                    <X size={10} />
+                  </button>
+                </div>
+              )
+            ))}
+          </div>
+        )}
+        <textarea
+          ref={textareaRef}
+          className="composer-textarea"
+          value={inputText}
+          onChange={handleTextareaChange}
+          onKeyDown={handleKeyDown}
+          placeholder={
+            isStreaming
+              ? text.chat.aiReplying
+              : showWelcomeComposer
+              ? text.chat.welcomePlaceholder
+              : text.chat.inputPlaceholder
+          }
+          rows={2}
+          onPaste={handlePaste}
+        />
+        <div className="composer-toolbar">
+          <div className="composer-left">
+            {/* + 附件/图片按钮 */}
+            <div className="composer-popover-wrapper">
+              <button
+                className={`composer-action-btn ${showAttachPopover ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAttachPopover(!showAttachPopover);
+                  setShowPermissionPopover(false);
+                  setShowThinkingPopover(false);
+                }}
+                title={text.chat.addAttachmentTitle}
+              >
+                <Plus size={19} />
+              </button>
+              {showAttachPopover && (
+                <div className="composer-popover" onClick={(e) => e.stopPropagation()}>
+                  <button className="popover-item" onClick={handleOpenFile}>
+                    <Paperclip size={14} /> {text.chat.addAttachment}
+                  </button>
+                  <button className="popover-item" onClick={handleOpenImage}>
+                    <Image size={14} /> {text.chat.uploadImage}
+                  </button>
+                  <button className="popover-item" onClick={handleOpenFolder}>
+                    <FolderOpen size={14} /> {text.chat.addFolder}
+                  </button>
                 </div>
               )}
-              <ModelQuickSwitch onOpenSettings={onOpenSettings} />
-              {/* 思考模式开关 */}
-              <ComposerThinkingModeButton
-                open={showThinkingPopover}
-                setOpen={setShowThinkingPopover}
-                closePeerPopovers={() => {
+            </div>
+
+            {/* 权限模式切换 */}
+            <div className="composer-popover-wrapper">
+              <button
+                className={`composer-action-btn permission-btn permission-${permissionMode} ${showPermissionPopover ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPermissionPopover(!showPermissionPopover);
                   setShowAttachPopover(false);
-                  setShowPermissionPopover(false);
+                  setShowThinkingPopover(false);
                 }}
-              />
-              {isStreaming ? (
-                <>
-                  {hasInput && (
-                    <button
-                      className="btn-send-circle active"
-                      onClick={onSend}
-                      title={text.chat.send}
-                    >
-                      <ArrowUp size={18} strokeWidth={2.4} />
-                    </button>
-                  )}
+                title={text.chat.permissionMode}
+              >
+                <PermissionIcon mode={permissionMode} />
+                <span className="permission-label">{text.chat.permissionLabels[permissionMode]}</span>
+                <ChevronDown size={13} />
+              </button>
+              {showPermissionPopover && (
+                <div className="composer-popover" onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="btn-stop-circle"
-                    onClick={onInterrupt}
-                    title={text.chat.stopGenerating}
+                    className={`popover-item permission-option permission-normal ${permissionMode === "normal" ? "active" : ""}`}
+                    onClick={() => {
+                      setPermissionMode("normal");
+                      setShowPermissionPopover(false);
+                    }}
                   >
-                    <Square size={14} />
+                    <ShieldAlert size={15} /> {text.chat.permissionLabels.normal}
                   </button>
-                </>
-              ) : (
-                <button
-                  className={`btn-send-circle ${hasInput ? "active" : "inactive"}`}
-                  onClick={onSend}
-                  disabled={!hasInput}
-                  title={text.chat.send}
-                >
-                  <ArrowUp size={18} strokeWidth={2.4} />
-                </button>
+                  <button
+                    className={`popover-item permission-option permission-auto_approve_safe ${permissionMode === "auto_approve_safe" ? "active" : ""}`}
+                    onClick={() => {
+                      setPermissionMode("auto_approve_safe");
+                      setShowPermissionPopover(false);
+                    }}
+                  >
+                    <ShieldCheck size={15} /> {text.chat.permissionLabels.auto_approve_safe}
+                  </button>
+                  <button
+                    className={`popover-item permission-option permission-confirm_all ${permissionMode === "confirm_all" ? "active" : ""}`}
+                    onClick={() => {
+                      setPermissionMode("confirm_all");
+                      setShowPermissionPopover(false);
+                    }}
+                  >
+                    <ShieldX size={15} /> {text.chat.permissionLabels.confirm_all}
+                  </button>
+                </div>
               )}
             </div>
+          </div>
+          <div className="composer-right">
+            {/* 上下文使用量指示器 */}
+            {contextUsage && (
+              <div
+                className={`context-indicator ${
+                  contextUsage.percentage >= 90 ? "danger" : contextUsage.percentage >= 70 ? "warning" : "normal"
+                }`}
+                title={`${text.chat.contextUsage}: ${contextUsage.estimatedTokens.toLocaleString()} / ${contextUsage.contextWindowSize.toLocaleString()} tokens (${contextUsage.percentage}%)`}
+              >
+                <Activity size={14} />
+                <span className="context-indicator-pct">
+                  {formatEstimatedUsedTokens(contextUsage.estimatedTokens)}/{formatTokensAsK(contextUsage.contextWindowSize)}
+                </span>
+              </div>
+            )}
+            <ModelQuickSwitch onOpenSettings={onOpenSettings} />
+            {/* 思考模式开关 */}
+            <ComposerThinkingModeButton
+              open={showThinkingPopover}
+              setOpen={setShowThinkingPopover}
+              closePeerPopovers={() => {
+                setShowAttachPopover(false);
+                setShowPermissionPopover(false);
+              }}
+            />
+            {isStreaming ? (
+              <>
+                {hasInput && (
+                  <button
+                    className="btn-send-circle active"
+                    onClick={onSend}
+                    title={text.chat.send}
+                  >
+                    <ArrowUp size={18} strokeWidth={2.4} />
+                  </button>
+                )}
+                <button className="btn-stop-circle" onClick={onInterrupt} title={text.chat.stopGenerating}>
+                  <Square size={14} />
+                </button>
+              </>
+            ) : (
+              <button
+                className={`btn-send-circle ${hasInput ? "active" : "inactive"}`}
+                onClick={onSend}
+                disabled={!hasInput}
+                title={text.chat.send}
+              >
+                <ArrowUp size={18} strokeWidth={2.4} />
+              </button>
+            )}
           </div>
         </div>
       </div>

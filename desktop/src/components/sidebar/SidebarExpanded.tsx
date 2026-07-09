@@ -2,11 +2,7 @@ import React from "react";
 import type { AppPage } from "../../App";
 import type { ThreadMetadata } from "../../electronApi";
 import type { AppLanguage, PinnedFolder } from "../../store/settingsStore";
-import type {
-  ExcelStatus,
-  SidebarGroupedFolder,
-  SidebarSortMode,
-} from "../../utils/sidebarHelpers";
+import type { ExcelStatus, SidebarGroupedFolder, SidebarSortMode } from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";
 import type { getAppText } from "../../i18n";
 import type { SettingsSection } from "../SettingsPage";
@@ -19,7 +15,12 @@ import {
 } from "./FolderSection";
 import { ThreadContextMenu, type ContextMenuState } from "./ThreadContextMenu";
 import { SidebarFooter } from "./SidebarFooter";
-import { Plus, RefreshCw, Search } from "../common/IconMap";
+import {
+  PenLine,
+  Plus,
+  RefreshCw,
+  Search,
+} from "../common/IconMap";
 import { SidebarSectionHeader } from "./SidebarSectionHeader";
 import { SidebarSortMenu, type SidebarSortSection } from "./SidebarSortMenu";
 
@@ -147,19 +148,9 @@ export function SidebarExpanded({
   onOpenSettingsSection,
   onCloseSettingsMenu,
 }: SidebarExpandedProps) {
-  const searchPlaceholder =
-    language === "zh-CN" ? "搜索会话、文件、操作..." : "Search chats, files, actions...";
-
   return (
-    <aside
-      className={`sidebar${isResizing ? " no-transition" : ""}`}
-      ref={sidebarRef}
-      style={{ width: isResizing || sidebarWidth !== 260 ? sidebarWidth : undefined }}
-    >
-      <div
-        className={`sidebar-resize-handle${isResizing ? " resizing" : ""}`}
-        onMouseDown={onResizeStart}
-      />
+    <aside className={`sidebar${isResizing ? " no-transition" : ""}`} ref={sidebarRef} style={{ width: isResizing || sidebarWidth !== 260 ? sidebarWidth : undefined }}>
+      <div className={`sidebar-resize-handle${isResizing ? " resizing" : ""}`} onMouseDown={onResizeStart} />
       <div className="sidebar-primary-nav">
         <button
           className={`sidebar-primary-action${creatingNewThread ? " creating" : ""}`}
@@ -167,17 +158,16 @@ export function SidebarExpanded({
           disabled={creatingNewThread}
           title={text.sidebar.newThread}
         >
-          {creatingNewThread ? <RefreshCw size={16} className="spin" /> : <Plus size={16} />}
+          {creatingNewThread ? <RefreshCw size={16} className="spin" /> : <PenLine size={16} />}
           <span>{text.sidebar.newThread}</span>
-          <kbd>Ctrl+N</kbd>
         </button>
         <button
-          className={`sidebar-search-field${searchOpen ? " active" : ""}`}
+          className={`sidebar-primary-action${searchOpen ? " active" : ""}`}
           onClick={onToggleSearch}
           title={text.sidebar.search}
         >
-          <Search size={15} />
-          <span>{searchPlaceholder}</span>
+          <Search size={16} />
+          <span>{text.sidebar.search}</span>
         </button>
       </div>
 
@@ -226,9 +216,7 @@ export function SidebarExpanded({
             expanded={conversationsExpanded}
             sortTitle={text.sidebar.sort}
             actionTitle={text.sidebar.newThread}
-            actionIcon={
-              creatingNewThread ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />
-            }
+            actionIcon={creatingNewThread ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
             actionClassName={creatingNewThread ? " creating" : ""}
             actionDisabled={creatingNewThread}
             onToggle={onToggleConversationsExpanded}
@@ -253,11 +241,9 @@ export function SidebarExpanded({
 
         {showNoSearchResults ? (
           <div className="sidebar-empty">{text.sidebar.noSearchResults}</div>
-        ) : (
-          !hasSearchQuery &&
-          !hasProjectItems &&
-          !hasConversationItems && <div className="sidebar-empty">{text.sidebar.noThreads}</div>
-        )}
+        ) : (!hasSearchQuery && !hasProjectItems && !hasConversationItems && (
+          <div className="sidebar-empty">{text.sidebar.noThreads}</div>
+        ))}
       </div>
 
       {sortMenu && (

@@ -1,11 +1,11 @@
 /* Composer controls, popovers, status, and send buttons */
 
 .composer-action-btn {
-  background: transparent;
+  background: none;
   border: none;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
+  padding: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-faint);
   transition: all 0.15s;
   display: flex;
@@ -13,14 +13,8 @@
   justify-content: center;
 }
 
-.composer-action-btn:hover {
-  color: var(--primary);
-  background: var(--primary-light);
-}
-.composer-action-btn.active {
-  color: var(--primary);
-  background: var(--primary-light);
-}
+.composer-action-btn:hover { color: var(--primary); background: var(--primary-light); }
+.composer-action-btn.active { color: var(--primary); background: var(--primary-light); }
 
 .composer-action-btn.permission-btn {
   gap: 6px;
@@ -107,27 +101,17 @@
   flex-shrink: 0;
 }
 
-.connection-indicator.connected .connection-dot {
-  background: var(--success);
-}
-.connection-indicator.disconnected .connection-dot {
-  background: var(--text-faint);
-}
+.connection-indicator.connected .connection-dot { background: var(--success); }
+.connection-indicator.disconnected .connection-dot { background: var(--text-faint); }
 
 .connection-dot.pulse {
   animation: pulse-success 1.5s ease-out;
 }
 
 @keyframes pulse-success {
-  0% {
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(22, 163, 74, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
 }
 
 .connection-failed {
@@ -135,16 +119,9 @@
 }
 
 @keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-4px);
-  }
-  75% {
-    transform: translateX(4px);
-  }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
 .composer-popover-wrapper {
@@ -181,14 +158,8 @@
   text-align: left;
 }
 
-.popover-item:hover {
-  background: var(--primary-light);
-  color: var(--primary);
-}
-.popover-item.active {
-  color: var(--primary);
-  font-weight: 600;
-}
+.popover-item:hover { background: var(--primary-light); color: var(--primary); }
+.popover-item.active { color: var(--primary); font-weight: 600; }
 
 .popover-item.permission-option.permission-normal {
   color: var(--success);
@@ -234,14 +205,11 @@
   justify-content: center;
 }
 
-.composer-btn:hover {
-  color: var(--primary);
-  background: var(--primary-light);
-}
+.composer-btn:hover { color: var(--primary); background: var(--primary-light); }
 
 .btn-send-circle {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   border: none;
   cursor: pointer;
@@ -260,13 +228,13 @@
 }
 
 .btn-send-circle.active {
-  background: #ef4444;
+  background: #777b82;
   color: white;
-  box-shadow: 0 8px 16px rgba(239, 68, 68, 0.24);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
 }
 
 .btn-send-circle.active:hover {
-  background: #dc2626;
+  background: #5f636a;
 }
 
 :root[data-theme="dark"] .btn-send-circle.inactive {
@@ -285,23 +253,22 @@
 }
 
 .btn-stop-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  background: #ef4444;
-  color: white;
+  background: var(--danger-bg);
+  color: var(--danger);
   transition: all 0.15s;
   flex-shrink: 0;
-  box-shadow: 0 8px 16px rgba(239, 68, 68, 0.24);
 }
 
 .btn-stop-circle:hover {
-  background: #dc2626;
+  background: var(--danger);
   color: white;
 }

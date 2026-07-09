@@ -31,7 +31,7 @@ import { ChatPage } from "./components/ChatPage";
 import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { ActivationDialog } from "./components/ActivationDialog";
-import { ChevronLeft, Maximize2, Menu, Pin, Settings } from "./components/common/IconMap";
+import { ChevronLeft, Maximize2, Menu, Pin } from "./components/common/IconMap";
 import { logWarn } from "./utils/rendererLogger";
 import { getAppText } from "./i18n";
 import { ipcApi } from "./services/ipcApi";
@@ -57,8 +57,6 @@ export const App: React.FC = () => {
     language,
     theme,
     officeAutoCompactEnabled,
-    windowOpacity,
-    setWindowOpacity,
   } = useSettingsStore();
   const {
     showActivationDialog,
@@ -75,8 +73,7 @@ export const App: React.FC = () => {
   const { excelStatus } = useExcelConnection();
   const { wordStatus, presentationStatus } = useOfficeConnection();
   const text = getAppText(language);
-  const hasConnectedOffice =
-    excelStatus.connected || wordStatus.connected || presentationStatus.connected;
+  const hasConnectedOffice = excelStatus.connected || wordStatus.connected || presentationStatus.connected;
   const chatSidebarCollapsed = displayMode === "compact" || sidebarCollapsed;
   const settingsNavCollapsed = displayMode === "compact" || settingsSidebarCollapsed;
 
@@ -91,8 +88,7 @@ export const App: React.FC = () => {
   }, [language, theme]);
 
   useEffect(() => {
-    ipcApi.window
-      .getAlwaysOnTop()
+    ipcApi.window.getAlwaysOnTop()
       .then(setAlwaysOnTop)
       .catch(() => {
         logWarn("App", "获取窗口置顶状态失败，使用默认值");
@@ -113,8 +109,7 @@ export const App: React.FC = () => {
     };
 
     const syncActualMode = () => {
-      ipcApi.window
-        .getDisplayMode()
+      ipcApi.window.getDisplayMode()
         .then((mode) => applyActualMode(mode))
         .catch(() => {
           logWarn("App", "获取窗口显示模式失败");
@@ -152,8 +147,7 @@ export const App: React.FC = () => {
     const handleBlur = () => {
       setDisplayMode((currentMode) => {
         if (currentMode !== "normal") return currentMode;
-        ipcApi.window
-          .setDisplayMode("compact")
+        ipcApi.window.setDisplayMode("compact")
           .then(setDisplayMode)
           .catch(() => {
             logWarn("App", "设置紧凑模式失败");
@@ -196,64 +190,37 @@ export const App: React.FC = () => {
     setWindowMode(displayMode === "normal" ? "compact" : "normal");
   };
 
-  const openGeneralSettings = () => {
-    setSettingsSection("general");
-    setCurrentPage("settings");
-  };
-
   const renderTitlebar = (
     showSidebarToggle: boolean,
     collapsed = false,
-    onToggleSidebar?: () => void,
+    onToggleSidebar?: () => void
   ) => (
     <div className="app-titlebar">
-      <div className="titlebar-left-controls">
-        {showSidebarToggle && (
-          <button
-            className="titlebar-sidebar-toggle"
-            onClick={onToggleSidebar}
-            title={collapsed ? text.app.expandSidebar : text.app.collapseSidebar}
-          >
-            <Menu size={16} />
-          </button>
-        )}
+      {showSidebarToggle && (
         <button
-          className={`titlebar-window-mode-toggle ${displayMode === "compact" ? "active" : ""}`}
-          onClick={toggleCompactMode}
-          title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
-          aria-pressed={displayMode === "compact"}
+          className="titlebar-sidebar-toggle"
+          onClick={onToggleSidebar}
+          title={collapsed ? text.app.expandSidebar : text.app.collapseSidebar}
         >
-          {displayMode === "normal" ? <ChevronLeft size={15} /> : <Maximize2 size={15} />}
+          <Menu size={16} />
         </button>
-        <button
-          className={`titlebar-pin-toggle ${alwaysOnTop ? "active" : ""}`}
-          onClick={toggleAlwaysOnTop}
-          title={alwaysOnTop ? text.app.pinOff : text.app.pinOn}
-          aria-pressed={alwaysOnTop}
-        >
-          <Pin size={15} />
-        </button>
-      </div>
-      <div className="titlebar-right-controls">
-        <label className="titlebar-opacity-control" title="窗口透明度">
-          <span>透明度</span>
-          <input
-            type="range"
-            min={55}
-            max={100}
-            value={Math.round(windowOpacity * 100)}
-            onChange={(event) => setWindowOpacity(Number(event.currentTarget.value) / 100)}
-            aria-label="窗口透明度"
-          />
-        </label>
-        <button
-          className="titlebar-settings-btn"
-          onClick={openGeneralSettings}
-          title={text.sidebar.settings}
-        >
-          <Settings size={16} />
-        </button>
-      </div>
+      )}
+      <button
+        className={`titlebar-window-mode-toggle ${displayMode === "compact" ? "active" : ""}`}
+        onClick={toggleCompactMode}
+        title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
+        aria-pressed={displayMode === "compact"}
+      >
+        {displayMode === "normal" ? <ChevronLeft size={15} /> : <Maximize2 size={15} />}
+      </button>
+      <button
+        className={`titlebar-pin-toggle ${alwaysOnTop ? "active" : ""}`}
+        onClick={toggleAlwaysOnTop}
+        title={alwaysOnTop ? text.app.pinOff : text.app.pinOn}
+        aria-pressed={alwaysOnTop}
+      >
+        <Pin size={15} />
+      </button>
     </div>
   );
 
@@ -278,13 +245,7 @@ export const App: React.FC = () => {
 
   // 激活状态：加载完成但未激活时显示激活弹窗
   if (!activationLoading && showActivationDialog && !isLoading) {
-    return (
-      <ActivationDialog
-        onActivated={() => {
-          window.location.reload();
-        }}
-      />
-    );
+    return <ActivationDialog onActivated={() => { window.location.reload(); }} />;
   }
 
   // 设置页：独立全页，不显示主侧边栏
@@ -292,9 +253,7 @@ export const App: React.FC = () => {
     return (
       <ErrorBoundary>
         <div className={`app-shell ${displayMode}-mode`}>
-          {renderTitlebar(true, settingsNavCollapsed, () =>
-            setSettingsSidebarCollapsed((collapsed) => !collapsed),
-          )}
+          {renderTitlebar(true, settingsNavCollapsed, () => setSettingsSidebarCollapsed((collapsed) => !collapsed))}
           <div className="app-view">
             <SettingsPage
               onBack={() => setCurrentPage("chat")}
@@ -311,9 +270,7 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className={`app-shell ${displayMode}-mode`}>
-        {renderTitlebar(true, chatSidebarCollapsed, () =>
-          setSidebarCollapsed((collapsed) => !collapsed),
-        )}
+        {renderTitlebar(true, chatSidebarCollapsed, () => setSidebarCollapsed((collapsed) => !collapsed))}
         <div className={`app ${chatSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <Sidebar
             collapsed={chatSidebarCollapsed}
