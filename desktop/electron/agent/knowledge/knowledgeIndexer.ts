@@ -32,10 +32,14 @@ export interface IndexOptions {
   maxTokens?: number;
   /** 是否跳过已索引且未变更的文件（增量模式默认 true） */
   skipUnchanged?: boolean;
+  /** Skip embedding generation and rely on keyword retrieval only. */
+  skipEmbedding?: boolean;
   /** 嵌入批处理大小（默认 20） */
   batchSize?: number;
   /** 回调函数：进度通知 */
   onProgress?: (current: number, total: number, file: string) => void;
+  /** Precomputed content hash for bundled or otherwise immutable sources. */
+  knownFileHash?: string;
 }
 
 // ============================================================
@@ -78,6 +82,11 @@ export class KnowledgeIndexer {
       batchSize: 20,
       ...options,
     };
+    let fileHash = opts.knownFileHash || "";
+    const getFileHash = () => {
+      if (!fileHash) fileHash = this.computeFileHash(filePath);
+      return fileHash;
+    };
 
     try {
       // 验证文件存在
@@ -93,12 +102,12 @@ export class KnowledgeIndexer {
 
       // 增量模式：检查文件哈希
       if (opts.skipUnchanged) {
-        const fileHash = this.computeFileHash(filePath);
+        const currentFileHash = getFileHash();
         const existing = this.store.getSource(filePath);
         if (
           existing
-          && existing.fileHash === fileHash
-          && this.store.hasSourceEmbeddingProfile(filePath, this.embedder.getProfile())
+          && existing.fileHash === currentFileHash
+          && (opts.skipEmbedding || this.store.hasSourceEmbeddingProfile(filePath, this.embedder.getProfile()))
         ) {
           return {
             sourcePath: filePath,
@@ -126,14 +135,16 @@ export class KnowledgeIndexer {
 
       // 3. 生成嵌入向量（批处理）。Embedding 不可用时仍保存文本索引，检索时走关键词兜底。
       const texts = textChunks.map((c) => c.content);
-      const embeddingResult = await this.embedChunks(texts);
+      const embeddingResult = opts.skipEmbedding
+        ? { embeddings: texts.map(() => null), profile: undefined }
+        : await this.embedChunks(texts);
 
       // 4. 构建 KnowledgeEntry 并批量写入
       const now = Date.now();
       const sourceType = this.getSourceType(filePath);
       const sourceName = path.basename(filePath);
       const sourceFileType = this.getSourceFileType(filePath);
-      const fileHash = this.computeFileHash(filePath);
+      const currentFileHash = getFileHash();
       const embeddingProfile = embeddingResult.profile;
 
       // 先删除旧索引
@@ -170,7 +181,7 @@ export class KnowledgeIndexer {
         entryCount: entries.length,
         firstIndexed: now,
         lastIndexed: now,
-        fileHash,
+        fileHash: currentFileHash,
       });
 
       return {

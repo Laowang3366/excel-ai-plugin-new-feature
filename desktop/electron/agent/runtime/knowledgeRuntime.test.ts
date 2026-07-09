@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getKnowledgeRetriever, resetKnowledgeRegistry } from "../knowledge";
 import type { AIClientConfig } from "../providers/aiClient";
@@ -12,8 +12,15 @@ import {
 
 describe("knowledgeRuntime", () => {
   const tempDirs: string[] = [];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    mockEmbeddingFetch();
+  });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
     resetKnowledgeRuntime();
     resetKnowledgeRegistry();
     for (const dir of tempDirs.splice(0)) {
@@ -55,4 +62,66 @@ describe("knowledgeRuntime", () => {
     expect(getKnowledgeRetriever()).toBe(second.retriever);
     expect(getKnowledgeRetriever()).not.toBe(firstRetriever);
   });
+
+  it("indexes builtin knowledge on startup", async () => {
+    const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-runtime-"));
+    tempDirs.push(dataRoot);
+
+    const config: AIClientConfig = {
+      provider: "openai",
+      apiKey: "sk-test",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o",
+    };
+
+    const runtime = await initializeKnowledgeRuntime(config, dataRoot);
+    const sources = runtime.store?.listSources() ?? [];
+    const builtin = sources.find((source) =>
+      source.sourceName === "wps-office-excel-formula-differences.md"
+    );
+
+    expect(builtin).toBeTruthy();
+    expect(builtin?.entryCount).toBeGreaterThan(0);
+    const entries = runtime.store?.getEntriesBySource(builtin!.sourcePath) ?? [];
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => entry.embedding)).toBe(true);
+    expect(entries.every((entry) => entry.embeddingProvider === "openai")).toBe(true);
+    expect(entries.every((entry) => entry.embeddingModel === "text-embedding-3-small")).toBe(true);
+  });
+
+  it("reuses unchanged builtin knowledge embeddings across startups", async () => {
+    const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-runtime-"));
+    tempDirs.push(dataRoot);
+
+    const config: AIClientConfig = {
+      provider: "openai",
+      apiKey: "sk-test",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o",
+    };
+
+    await initializeKnowledgeRuntime(config, dataRoot);
+    resetKnowledgeRuntime();
+
+    const fetchCallsAfterFirstStartup = vi.mocked(globalThis.fetch).mock.calls.length;
+    expect(fetchCallsAfterFirstStartup).toBeGreaterThan(0);
+
+    await initializeKnowledgeRuntime(config, dataRoot);
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(fetchCallsAfterFirstStartup);
+  });
 });
+
+function mockEmbeddingFetch(): void {
+  globalThis.fetch = vi.fn(async (_url, init) => {
+    const body = JSON.parse(String(init?.body || "{}")) as { input?: string[] | string };
+    const inputCount = Array.isArray(body.input) ? body.input.length : 1;
+    const embedding = Array.from({ length: 1536 }, (_, index) => index / 1536);
+    return {
+      ok: true,
+      json: async () => ({
+        data: Array.from({ length: inputCount }, () => ({ embedding })),
+      }),
+    } as Response;
+  }) as typeof fetch;
+}

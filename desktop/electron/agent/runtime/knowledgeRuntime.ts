@@ -13,6 +13,7 @@ import {
   setKnowledgeStore,
   setKnowledgeWriter,
 } from "../knowledge";
+import { indexBuiltinKnowledge } from "../knowledge/builtinKnowledge";
 import { createLogger } from "../../shared/logger";
 
 const knowledgeRuntimeLogger = createLogger("KnowledgeRuntime");
@@ -71,6 +72,9 @@ export async function initializeKnowledgeRuntime(
       setKnowledgeRetriever(knowledgeRetriever);
       setKnowledgeIndexer(knowledgeIndexer);
       setKnowledgeWriter(knowledgeWriter);
+
+      await indexBuiltinKnowledge(knowledgeIndexer);
+
       knowledgeRuntimeSignature = signature;
       knowledgeRuntimeError = null;
     } catch (e) {

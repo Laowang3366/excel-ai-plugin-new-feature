@@ -290,16 +290,23 @@ export class SqliteStore {
   hasSourceEmbeddingProfile(sourcePath: string, profile: EmbeddingProfile): boolean {
     const row = this.db
       .prepare(
-        `SELECT COUNT(*) as count
-         FROM knowledge_entries
-         WHERE source_path = ?
-           AND embedding_provider = ?
-           AND embedding_model = ?
-           AND embedding_dimensions = ?`
+        `SELECT
+           ks.entry_count as entryCount,
+           COUNT(ke.id) as matchingCount
+         FROM knowledge_sources ks
+         LEFT JOIN knowledge_entries ke
+           ON ke.source_path = ks.source_path
+          AND ke.embedding_provider = ?
+          AND ke.embedding_model = ?
+          AND ke.embedding_dimensions = ?
+         WHERE ks.source_path = ?
+         GROUP BY ks.entry_count`
       )
-      .get(sourcePath, profile.provider, profile.model, profile.dimensions) as { count: number } | undefined;
+      .get(profile.provider, profile.model, profile.dimensions, sourcePath) as
+        | { entryCount: number; matchingCount: number }
+        | undefined;
 
-    return (row?.count ?? 0) > 0;
+    return (row?.entryCount ?? 0) > 0 && (row?.matchingCount ?? 0) >= (row?.entryCount ?? 0);
   }
 
   /** 获取指定来源的所有条目 */
