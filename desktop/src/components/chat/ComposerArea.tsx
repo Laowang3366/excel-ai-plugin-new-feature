@@ -38,6 +38,10 @@ import {
   ChevronDown,
 } from "../common/IconMap";
 
+export function isComposerSubmitKey(key: string, shiftKey: boolean): boolean {
+  return key === "Enter" && !shiftKey;
+}
+
 // ============================================================
 // 类型
 // ============================================================
@@ -81,12 +85,17 @@ export function ComposerArea({
     showThinkingPopover, setShowThinkingPopover,
     handleOpenFile, handleOpenImage, handleOpenFolder,
     removeAttachedFile, handleComposerDragOver, handleComposerDragLeave,
-    handleComposerDrop, handleKeyDown, handleTextareaChange, handlePaste,
+    handleComposerDrop, handleTextareaChange, handlePaste,
   } = composer;
 
   const { permissionMode, setPermissionMode, language } = useSettingsStore();
   const { contextUsage } = useChatStore();
   const text = getAppText(language);
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!isComposerSubmitKey(event.key, event.shiftKey)) return;
+    event.preventDefault();
+    onSend();
+  };
 
   return (
     <div className="chat-input-area">
@@ -124,7 +133,7 @@ export function ComposerArea({
           className="composer-textarea"
           value={inputText}
           onChange={handleTextareaChange}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleComposerKeyDown}
           placeholder={
             isStreaming
               ? text.chat.aiReplying

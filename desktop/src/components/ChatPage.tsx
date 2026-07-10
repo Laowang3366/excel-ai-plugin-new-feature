@@ -69,9 +69,10 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
   const featureSidebarToggleRef = useRef<HTMLButtonElement>(null);
 
   const closeFeatureSidebar = useCallback(() => {
+    if (!featureSidebarOpen) return;
     dispatchFeatureSidebar({ type: "close" });
     window.requestAnimationFrame(() => featureSidebarToggleRef.current?.focus());
-  }, []);
+  }, [featureSidebarOpen]);
 
   const selectFeature = useCallback((intent: NonNullable<IntentKind>) => {
     dispatchFeatureSidebar({ type: "select", intent });

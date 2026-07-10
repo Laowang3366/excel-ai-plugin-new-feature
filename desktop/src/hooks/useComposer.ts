@@ -242,14 +242,6 @@ export function useComposer(draftKey = "new") {
     }
   }, []);
 
-  // 处理键盘事件
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  }, [handleSend]);
-
   // textarea 自动高度
   const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value);
@@ -334,7 +326,6 @@ export function useComposer(draftKey = "new") {
     handleComposerDragOver,
     handleComposerDragLeave,
     handleComposerDrop,
-    handleKeyDown,
     handleTextareaChange,
     handlePaste,
   };
