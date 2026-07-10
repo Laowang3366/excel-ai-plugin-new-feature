@@ -8,6 +8,8 @@ const ipcMocks = vi.hoisted(() => ({
   interrupt: vi.fn(),
   resumeThread: vi.fn(),
   listThreads: vi.fn(),
+  loadThread: vi.fn(),
+  deleteThread: vi.fn(),
   newThread: vi.fn(),
   onEvent: vi.fn(() => () => {}),
   onStreamDelta: vi.fn(() => () => {}),
@@ -26,12 +28,24 @@ vi.mock("../services/ipcApi", () => ({
     thread: {
       resume: ipcMocks.resumeThread,
       list: ipcMocks.listThreads,
+      load: ipcMocks.loadThread,
+      delete: ipcMocks.deleteThread,
       newThread: ipcMocks.newThread,
     },
   },
 }));
 
 import { mergeBufferedStreamDeltas, useChatStore } from "./chatStore";
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 describe("chatStore sendMessage", () => {
   beforeEach(() => {
@@ -83,6 +97,340 @@ describe("chatStore sendMessage", () => {
     expect(ipcMocks.startTurn).not.toHaveBeenCalled();
     expect(useChatStore.getState().error).toBe("会话正在创建中，请等待连接完成后再发送");
     expect(useChatStore.getState().isStreaming).toBe(true);
+  });
+});
+
+describe("chatStore switchThread", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useChatStore.setState({
+      activeThreadId: null,
+      activeTurnId: null,
+      activeClientId: null,
+      messages: [],
+      isStreaming: false,
+      runningThreadIds: {},
+      pendingInterruptThreadIds: {},
+      stoppedThreadIds: {},
+      turnStatus: "idle",
+      error: null,
+    });
+  });
+
+  it("keeps the newest thread when an older load finishes last", async () => {
+    const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
+    const loadB = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.loadThread.mockImplementation((threadId: string) =>
+      threadId === "thread-a" ? loadA.promise : loadB.promise
+    );
+
+    const switchA = useChatStore.getState().switchThread("thread-a");
+    const switchB = useChatStore.getState().switchThread("thread-b");
+
+    loadB.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-b",
+        content: "会话 B",
+        timestamp: 2,
+      }],
+    });
+    await switchB;
+
+    loadA.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-a",
+        content: "会话 A",
+        timestamp: 1,
+      }],
+    });
+    await switchA;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-b");
+    expect(useChatStore.getState().messages).toMatchObject([
+      { id: "message-b", content: "会话 B" },
+    ]);
+  });
+
+  it("ignores an older load error after a newer switch succeeds", async () => {
+    const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
+    const loadB = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.loadThread.mockImplementation((threadId: string) =>
+      threadId === "thread-a" ? loadA.promise : loadB.promise
+    );
+
+    const switchA = useChatStore.getState().switchThread("thread-a");
+    const switchB = useChatStore.getState().switchThread("thread-b");
+
+    loadB.resolve({ items: [] });
+    await switchB;
+    loadA.reject(new Error("A 加载失败"));
+    await switchA;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-b");
+    expect(useChatStore.getState().error).toBeNull();
+  });
+
+  it("ignores an older load after creating a new thread", async () => {
+    const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.loadThread.mockReturnValue(loadA.promise);
+    ipcMocks.newThread.mockResolvedValue({ success: true });
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const switchA = useChatStore.getState().switchThread("thread-a");
+    await useChatStore.getState().createNewThread("D:\\work");
+
+    loadA.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-a",
+        content: "会话 A",
+        timestamp: 1,
+      }],
+    });
+    await switchA;
+
+    expect(useChatStore.getState().activeThreadId).toBeNull();
+    expect(useChatStore.getState().messages).toEqual([]);
+    expect(useChatStore.getState().pendingFolderId).toBe("D:\\work");
+  });
+
+  it("ignores an older load after deleting the current thread", async () => {
+    const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.loadThread.mockReturnValue(loadA.promise);
+    ipcMocks.deleteThread.mockResolvedValue({ success: true });
+    ipcMocks.listThreads.mockResolvedValue([]);
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const switchA = useChatStore.getState().switchThread("thread-a");
+    await useChatStore.getState().deleteThread("thread-current");
+
+    loadA.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-a",
+        content: "会话 A",
+        timestamp: 1,
+      }],
+    });
+    await switchA;
+
+    expect(useChatStore.getState().activeThreadId).toBeNull();
+    expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it("ignores a load after deleting its pending target thread", async () => {
+    const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.loadThread.mockReturnValue(loadA.promise);
+    ipcMocks.deleteThread.mockResolvedValue({ success: true });
+    ipcMocks.listThreads.mockResolvedValue([]);
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const switchA = useChatStore.getState().switchThread("thread-a");
+    await useChatStore.getState().deleteThread("thread-a");
+
+    loadA.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-a",
+        content: "会话 A",
+        timestamp: 1,
+      }],
+    });
+    await switchA;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-current");
+    expect(useChatStore.getState().messages).toMatchObject([
+      { id: "message-current", content: "当前会话" },
+    ]);
+  });
+
+  it("allows a pending switch to finish after deleting an unrelated thread", async () => {
+    const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.loadThread.mockReturnValue(loadA.promise);
+    ipcMocks.deleteThread.mockResolvedValue({ success: true });
+    ipcMocks.listThreads.mockResolvedValue([]);
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const switchA = useChatStore.getState().switchThread("thread-a");
+    await useChatStore.getState().deleteThread("thread-b");
+
+    loadA.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-a",
+        content: "会话 A",
+        timestamp: 1,
+      }],
+    });
+    await switchA;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-a");
+    expect(useChatStore.getState().messages).toMatchObject([
+      { id: "message-a", content: "会话 A" },
+    ]);
+  });
+
+  it("keeps a newer switch when an older new-thread request finishes last", async () => {
+    const createRequest = deferred<{ success: boolean }>();
+    ipcMocks.newThread.mockReturnValue(createRequest.promise);
+    ipcMocks.loadThread.mockResolvedValue({
+      items: [{
+        type: "assistant_message",
+        id: "message-b",
+        content: "会话 B",
+        timestamp: 2,
+      }],
+    });
+
+    const createThread = useChatStore.getState().createNewThread("D:\\work");
+    const switchB = useChatStore.getState().switchThread("thread-b");
+    await switchB;
+
+    createRequest.resolve({ success: true });
+    await createThread;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-b");
+    expect(useChatStore.getState().messages).toMatchObject([
+      { id: "message-b", content: "会话 B" },
+    ]);
+  });
+
+  it("keeps a newer switch when an older delete finishes last", async () => {
+    const deleteRequest = deferred<{ success: boolean }>();
+    ipcMocks.deleteThread.mockReturnValue(deleteRequest.promise);
+    ipcMocks.listThreads.mockResolvedValue([]);
+    ipcMocks.loadThread.mockResolvedValue({
+      items: [{
+        type: "assistant_message",
+        id: "message-b",
+        content: "会话 B",
+        timestamp: 2,
+      }],
+    });
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const deleteCurrent = useChatStore.getState().deleteThread("thread-current");
+    const switchB = useChatStore.getState().switchThread("thread-b");
+    await switchB;
+
+    deleteRequest.resolve({ success: true });
+    await deleteCurrent;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-b");
+    expect(useChatStore.getState().messages).toMatchObject([
+      { id: "message-b", content: "会话 B" },
+    ]);
+  });
+
+  it("clears a thread selected after its deletion request began", async () => {
+    const deleteRequest = deferred<{ success: boolean }>();
+    ipcMocks.deleteThread.mockReturnValue(deleteRequest.promise);
+    ipcMocks.listThreads.mockResolvedValue([]);
+    ipcMocks.loadThread.mockResolvedValue({
+      items: [{
+        type: "assistant_message",
+        id: "message-b",
+        content: "会话 B",
+        timestamp: 2,
+      }],
+    });
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const deleteB = useChatStore.getState().deleteThread("thread-b");
+    await useChatStore.getState().switchThread("thread-b");
+
+    deleteRequest.resolve({ success: true });
+    await deleteB;
+
+    expect(useChatStore.getState().activeThreadId).toBeNull();
+    expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it("cancels a pending switch when its target is deleted", async () => {
+    const deleteRequest = deferred<{ success: boolean }>();
+    const loadB = deferred<{ items: Array<Record<string, unknown>> }>();
+    ipcMocks.deleteThread.mockReturnValue(deleteRequest.promise);
+    ipcMocks.listThreads.mockResolvedValue([]);
+    ipcMocks.loadThread.mockReturnValue(loadB.promise);
+    useChatStore.setState({
+      activeThreadId: "thread-current",
+      messages: [{
+        type: "assistant_message",
+        id: "message-current",
+        content: "当前会话",
+        timestamp: 0,
+      }],
+    });
+
+    const deleteB = useChatStore.getState().deleteThread("thread-b");
+    const switchB = useChatStore.getState().switchThread("thread-b");
+
+    deleteRequest.resolve({ success: true });
+    await deleteB;
+    loadB.resolve({
+      items: [{
+        type: "assistant_message",
+        id: "message-b",
+        content: "会话 B",
+        timestamp: 2,
+      }],
+    });
+    await switchB;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-current");
+    expect(useChatStore.getState().messages).toMatchObject([
+      { id: "message-current", content: "当前会话" },
+    ]);
   });
 });
 

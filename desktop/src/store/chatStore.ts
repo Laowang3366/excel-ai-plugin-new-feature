@@ -180,6 +180,27 @@ function applyPatches(patches: Array<Partial<ChatState>>): Partial<ChatState> {
   return Object.assign({}, ...patches.filter((p) => Object.keys(p).length > 0));
 }
 
+let latestThreadNavigationRequestId = 0;
+let pendingThreadSwitchTargetId: string | null = null;
+
+function beginThreadNavigation(targetThreadId: string | null): number {
+  pendingThreadSwitchTargetId = targetThreadId;
+  return ++latestThreadNavigationRequestId;
+}
+
+function completeThreadNavigation(requestId: number): boolean {
+  if (requestId !== latestThreadNavigationRequestId) {
+    return false;
+  }
+  pendingThreadSwitchTargetId = null;
+  return true;
+}
+
+function invalidateThreadNavigation(): void {
+  latestThreadNavigationRequestId += 1;
+  pendingThreadSwitchTargetId = null;
+}
+
 // ============================================================
 // Zustand Store
 // ============================================================
@@ -286,8 +307,12 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   },
 
   switchThread: async (threadId: string) => {
+    const requestId = beginThreadNavigation(threadId);
     const current = get();
     const result = await switchThreadAction(threadId, current);
+    if (!completeThreadNavigation(requestId)) {
+      return;
+    }
     if (result.error) {
       set({ error: result.error });
     } else if (result.patches.length > 0) {
@@ -296,9 +321,13 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   },
 
   createNewThread: async (folderId?: string) => {
+    const requestId = beginThreadNavigation(null);
     const { isStreaming, runningThreadIds } = get();
     const hasRunningThread = isStreaming || Object.values(runningThreadIds).some(Boolean);
     const result = await createNewThreadAction(folderId, hasRunningThread);
+    if (!completeThreadNavigation(requestId)) {
+      return;
+    }
     if (result.error) {
       set({ error: result.error });
     } else if (result.patches.length > 0) {
@@ -308,11 +337,32 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   deleteThread: async (threadId: string) => {
     const current = get();
+    const changesActiveThread = current.activeThreadId === threadId ||
+      pendingThreadSwitchTargetId === threadId;
+    const requestId = changesActiveThread ? beginThreadNavigation(null) : null;
     const result = await deleteThreadAction(threadId, current);
     if (result.error) {
-      set({ error: result.error });
-    } else if (result.patches.length > 0) {
-      set(applyPatches(result.patches));
+      if (requestId === null || completeThreadNavigation(requestId)) {
+        set({ error: result.error });
+      }
+    } else {
+      if (requestId !== null) {
+        completeThreadNavigation(requestId);
+      }
+
+      const latest = get();
+      if (pendingThreadSwitchTargetId === threadId) {
+        invalidateThreadNavigation();
+      }
+      if (latest.activeThreadId === threadId) {
+        set({
+          ...createClearedMessagesPatch(),
+          activeThreadId: null,
+          activeClientId: null,
+          isStreaming: false,
+          pendingFolderId: null,
+        });
+      }
     }
     get().loadThreads();
   },
