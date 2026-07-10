@@ -112,6 +112,7 @@ export function getToolDefinitions(
  * @param approvalConfig - 审批配置
  * @param callbacks - 事件回调
  * @param sessionStoreAppend - 持久化回调（调用方提供）
+ * @param throwIfAborted - 在开始下一项工作前检查当前 Turn 是否已中断
  */
 export async function processToolCalls(
   toolCalls: ToolCallInfo[],
@@ -121,9 +122,11 @@ export async function processToolCalls(
   approvalConfig: ToolApprovalConfig,
   callbacks: AgentTurnCallbacks,
   sessionStoreAppend: (threadId: string, turnId: string, item: TurnItem) => Promise<void>,
-  appendToolExecutionLog?: (record: ToolExecutionLogRecord) => Promise<void>
+  appendToolExecutionLog?: (record: ToolExecutionLogRecord) => Promise<void>,
+  throwIfAborted?: () => void
 ): Promise<void> {
   for (const tc of toolCalls) {
+    throwIfAborted?.();
     const startedAt = Date.now();
     const resolvedToolName = resolveExecutableToolName(tc.name, executors) ?? desanitizeToolName(tc.name);
     const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedToolName) ?? TOOL_DEFINITIONS_MAP.get(tc.name);
@@ -322,6 +325,7 @@ export async function processToolCalls(
     }
 
     // 执行工具
+    throwIfAborted?.();
     const result = await executeTool(
       canonicalToolName,
       tc.arguments,

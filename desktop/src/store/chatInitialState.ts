@@ -13,6 +13,7 @@ export function createInitialChatState(): ChatState {
     activeThreadId: null,
     activeClientId: null,
     runningThreadIds: {},
+    pendingInterruptThreadIds: {},
     stoppedThreadIds: {},
     turnStatus: "idle",
     lastInterruptContext: null,

@@ -43,7 +43,8 @@ export async function handleToolRound(input: {
     input.approvalConfig,
     input.callbacks,
     input.appendTurnItem,
-    input.appendToolExecutionLog
+    input.appendToolExecutionLog,
+    input.throwIfAborted
   );
   input.throwIfAborted();
 

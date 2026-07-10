@@ -72,6 +72,8 @@ export interface ChatState {
   activeClientId: string | null;
   /** 正在执行中的会话 ID 映射，用于切换会话后仍展示运行态 */
   runningThreadIds: Record<string, boolean>;
+  /** 已发送停止请求、等待主进程确认的会话 ID 映射 */
+  pendingInterruptThreadIds: Record<string, boolean>;
   /** 用户明确点击停止的会话 ID，用于屏蔽旧快照里的 in_progress 状态 */
   stoppedThreadIds: Record<string, boolean>;
   /** Turn 状态 */
@@ -122,7 +124,7 @@ export interface ChatActions {
   /** 从中断处继续 */
   resumeFromInterruption: (content: string, attachments?: FileAttachment[]) => Promise<void>;
   /** 中断当前 Turn */
-  interruptTurn: () => void;
+  interruptTurn: () => Promise<void>;
   /** 切换推理显示 */
   toggleReasoning: (itemId?: string) => void;
   /** 清除错误 */
@@ -216,12 +218,22 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   handleAgentEvent: (event: AgentEvent) => {
     const current = get();
+    const isPendingInterruptEvent = Boolean(
+      event.type === "turn_interrupted" &&
+      event.threadId &&
+      current.pendingInterruptThreadIds[event.threadId]
+    );
     const patches = handleAgentEvent(event, current, []);
     const merged = applyPatches(patches);
     if (Object.keys(merged).length > 0) {
       set(merged);
     }
-    if (event.type === "turn_completed" || event.type === "turn_interrupted" || event.type === "turn_failed") {
+    if (
+      !isPendingInterruptEvent &&
+      (event.type === "turn_completed" ||
+        event.type === "turn_interrupted" ||
+        event.type === "turn_failed")
+    ) {
       get().loadThreads();
     }
   },

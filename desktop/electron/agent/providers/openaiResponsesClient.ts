@@ -51,7 +51,7 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      return { content: formatProviderHttpError("Responses API 请求失败", response.status, errorText) };
+      throw new Error(formatProviderHttpError("Responses API 请求失败", response.status, errorText));
     }
 
     const data: any = await response.json();

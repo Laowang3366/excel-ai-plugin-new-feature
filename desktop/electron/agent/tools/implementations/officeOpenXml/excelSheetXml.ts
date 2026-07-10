@@ -70,49 +70,78 @@ export function mergeSheetDataXml(
   targetRef?: string,
   clearBlankCells = false
 ): string {
-  const cellsByRow = new Map<number, Map<number, string>>();
+  const rows = new Map<number, SheetRow>();
   const sheetDataMatch = /<sheetData\b[^>]*>([\s\S]*?)<\/sheetData>/.exec(xml);
   if (sheetDataMatch) {
-    const rowRe = /<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g;
+    const rowRe = /<row\b[^>]*(?:\/>|>[\s\S]*?<\/row>)/gi;
     let rowMatch: RegExpExecArray | null;
     while ((rowMatch = rowRe.exec(sheetDataMatch[1]))) {
-      const rowNumber = Number(rowMatch[1]);
-      const rowCells = getOrCreateRow(cellsByRow, rowNumber);
-      const cellRe = /<c\b[^>]*\br="([A-Z]+\d+)"[^>]*(?:>[\s\S]*?<\/c>|\/>)/gi;
-      let cellMatch: RegExpExecArray | null;
-      while ((cellMatch = cellRe.exec(rowMatch[2]))) {
-        const parsed = parseCellAddress(cellMatch[1]);
-        rowCells.set(parsed.col, cellMatch[0]);
-      }
+      const parsedRow = parseSheetRow(rowMatch[0]);
+      if (parsedRow) rows.set(parsedRow.rowNumber, parsedRow);
     }
   }
 
   const start = parseCellAddress(startCell);
   values.forEach((row, rowOffset) => {
     const rowNumber = start.row + rowOffset;
-    const rowCells = getOrCreateRow(cellsByRow, rowNumber);
+    const sheetRow = getOrCreateRow(rows, rowNumber);
     row.forEach((value, colOffset) => {
       const colNumber = start.col + colOffset;
       const nextCellXml = cellXml(toCellAddress(colNumber, rowNumber), value, targetRef, clearBlankCells);
       if (nextCellXml) {
-        rowCells.set(colNumber, nextCellXml);
+        sheetRow.cells.set(colNumber, nextCellXml);
       } else {
-        rowCells.delete(colNumber);
+        sheetRow.cells.delete(colNumber);
       }
     });
   });
 
-  const mergedSheetData = [...cellsByRow.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([rowNumber, cells]) => {
-      const cellXmls = [...cells.entries()]
+  const mergedSheetData = [...rows.values()]
+    .sort((a, b) => a.rowNumber - b.rowNumber)
+    .map((row) => {
+      const cellXmls = [...row.cells.entries()]
         .sort(([a], [b]) => a - b)
         .map(([, cell]) => cell)
         .join("");
-      return `<row r="${rowNumber}">${cellXmls}</row>`;
+      return `${row.openingTag}${cellXmls}${row.nonCellXml}</row>`;
     })
     .join("");
   return replaceSheetData(xml, mergedSheetData);
+}
+
+interface SheetRow {
+  rowNumber: number;
+  openingTag: string;
+  cells: Map<number, string>;
+  nonCellXml: string;
+}
+
+function parseSheetRow(rowXml: string): SheetRow | null {
+  const openingTag = /^<row\b[^>]*>/.exec(rowXml)?.[0];
+  const selfClosingTag = /^<row\b[^>]*\/>/.exec(rowXml)?.[0];
+  const sourceTag = openingTag || selfClosingTag;
+  if (!sourceTag) return null;
+
+  const rowNumberMatch = /\br="(\d+)"/i.exec(sourceTag);
+  if (!rowNumberMatch) return null;
+
+  const body = selfClosingTag
+    ? ""
+    : rowXml.slice(sourceTag.length, rowXml.length - "</row>".length);
+  const cells = new Map<number, string>();
+  const cellRe = /<c\b[^>]*\br="([A-Z]+\d+)"[^>]*(?:>[\s\S]*?<\/c>|\/>)/gi;
+  let cellMatch: RegExpExecArray | null;
+  while ((cellMatch = cellRe.exec(body))) {
+    const parsed = parseCellAddress(cellMatch[1]);
+    cells.set(parsed.col, cellMatch[0]);
+  }
+
+  return {
+    rowNumber: Number(rowNumberMatch[1]),
+    openingTag: selfClosingTag ? selfClosingTag.replace(/\/>$/, ">") : sourceTag,
+    cells,
+    nonCellXml: body.replace(cellRe, ""),
+  };
 }
 
 function replaceSheetData(xml: string, sheetData: string): string {
@@ -126,10 +155,15 @@ function insertBeforeWorksheetEnd(xml: string, addition: string): string {
   return xml.includes("</worksheet>") ? xml.replace("</worksheet>", `${addition}</worksheet>`) : `${xml}${addition}`;
 }
 
-function getOrCreateRow(rows: Map<number, Map<number, string>>, rowNumber: number): Map<number, string> {
+function getOrCreateRow(rows: Map<number, SheetRow>, rowNumber: number): SheetRow {
   const existing = rows.get(rowNumber);
   if (existing) return existing;
-  const next = new Map<number, string>();
+  const next: SheetRow = {
+    rowNumber,
+    openingTag: `<row r="${rowNumber}">`,
+    cells: new Map<number, string>(),
+    nonCellXml: "",
+  };
   rows.set(rowNumber, next);
   return next;
 }

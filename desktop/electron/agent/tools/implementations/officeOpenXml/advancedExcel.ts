@@ -170,8 +170,8 @@ async function setDataValidation(input: ExcelAdvancedActionInput): Promise<Offic
     : "";
   const type = typeof input.params?.type === "string" ? input.params.type : "list";
   const xml = await part.async("text");
-  const validationXml = `<dataValidations count="1"><dataValidation type="${escapeXml(type)}" allowBlank="1" sqref="${escapeXml(address)}"><formula1>"${escapeXml(values)}"</formula1></dataValidation></dataValidations>`;
-  zip.file(partName, insertBeforeWorksheetEnd(removeExistingDataValidations(xml), validationXml));
+  const validationXml = `<dataValidation type="${escapeXml(type)}" allowBlank="1" sqref="${escapeXml(address)}"><formula1>"${escapeXml(values)}"</formula1></dataValidation>`;
+  zip.file(partName, mergeDataValidationsXml(xml, validationXml));
 
   const outputPath = input.outputPath || defaultOutputPath(input.filePath);
   await writeFile(outputPath, await zip.generateAsync({ type: "nodebuffer" }));
@@ -305,8 +305,42 @@ function firstCellAddress(address: string): string {
   return address.split(":")[0]?.trim() || "A1";
 }
 
-function removeExistingDataValidations(xml: string): string {
-  return xml.replace(/<dataValidations\b[\s\S]*?<\/dataValidations>/g, "");
+function mergeDataValidationsXml(xml: string, validationXml: string): string {
+  const containerMatch = /<dataValidations\b[^>]*>([\s\S]*?)<\/dataValidations>/.exec(xml);
+  if (containerMatch) {
+    const openingTag = /^<dataValidations\b[^>]*>/.exec(containerMatch[0])?.[0];
+    if (!openingTag) return xml;
+    const count = (containerMatch[1].match(/<dataValidation\b/g) || []).length + 1;
+    const updatedOpeningTag = setXmlAttribute(openingTag, "count", String(count));
+    const replacement = `${updatedOpeningTag}${containerMatch[1]}${validationXml}</dataValidations>`;
+    return xml.replace(containerMatch[0], replacement);
+  }
+
+  const selfClosingMatch = /<dataValidations\b[^>]*\/>/.exec(xml);
+  if (selfClosingMatch) {
+    const openingTag = setXmlAttribute(
+      selfClosingMatch[0].replace(/\/>$/, ">"),
+      "count",
+      "1"
+    );
+    return xml.replace(
+      selfClosingMatch[0],
+      `${openingTag}${validationXml}</dataValidations>`
+    );
+  }
+
+  return insertBeforeWorksheetEnd(
+    xml,
+    `<dataValidations count="1">${validationXml}</dataValidations>`
+  );
+}
+
+function setXmlAttribute(tagXml: string, name: string, value: string): string {
+  const attributeRe = new RegExp(`\\b${name}\\s*=\\s*["'][^"']*["']`);
+  if (attributeRe.test(tagXml)) {
+    return tagXml.replace(attributeRe, `${name}="${value}"`);
+  }
+  return tagXml.replace(/>$/, ` ${name}="${value}">`);
 }
 
 function insertBeforeWorksheetEnd(xml: string, addition: string): string {

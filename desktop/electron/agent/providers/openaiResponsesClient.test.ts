@@ -102,6 +102,18 @@ describe("OpenAIResponsesClient", () => {
     ]);
   });
 
+  it("rejects non-stream chat when the Responses endpoint returns an HTTP failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response("service unavailable", { status: 503 })
+    ));
+
+    const client = new OpenAIResponsesClient({ ...baseConfig, apiFormat: "responses" });
+
+    await expect(client.chat({
+      messages: [{ role: "user", content: "生成摘要" }],
+    })).rejects.toThrow("Responses API 请求失败 (503)");
+  });
+
   it("sends OpenAI reasoning effort and visible summary request when enabled", async () => {
     const fetchMock = vi.fn(async (_url: string, _init: RequestInit) =>
       new Response(JSON.stringify({

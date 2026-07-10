@@ -11,6 +11,14 @@ interface TurnActionContext {
   get: ChatGet;
 }
 
+function removeThreadFlag(
+  flags: Record<string, boolean>,
+  threadId: string | null
+): Record<string, boolean> {
+  if (!threadId) return flags;
+  return Object.fromEntries(Object.entries(flags).filter(([id]) => id !== threadId));
+}
+
 function markThreadStopped(
   threads: ThreadMetadata[],
   threadId: string | null,
@@ -154,25 +162,69 @@ export async function resumeFromInterruptionAction(
   }
 }
 
-export function interruptTurnAction({ set, get }: TurnActionContext) {
+export async function interruptTurnAction({ set, get }: TurnActionContext) {
   const activeThreadId = get().activeThreadId;
-  ipcApi.agent.interrupt(activeThreadId);
-  set({
-    streamingContent: "",
-    streamingReasoning: "",
-    activeStreamingRound: null,
-    isStreaming: false,
-    activeTurnId: null,
-    activeClientId: null,
-    runningThreadIds: activeThreadId
-      ? Object.fromEntries(Object.entries(get().runningThreadIds).filter(([id]) => id !== activeThreadId))
-      : get().runningThreadIds,
-    stoppedThreadIds: activeThreadId
-      ? { ...get().stoppedThreadIds, [activeThreadId]: true }
-      : get().stoppedThreadIds,
-    threads: markThreadStopped(get().threads, activeThreadId, "interrupted"),
-    turnStatus: "interrupted",
-    lastInterruptContext: "对话已被中断，你可以继续提问让 AI 从断点恢复",
+  if (activeThreadId) {
+    set((state) => ({
+      pendingInterruptThreadIds: {
+        ...state.pendingInterruptThreadIds,
+        [activeThreadId]: true,
+      },
+    }));
+  }
+
+  try {
+    const result = await ipcApi.agent.interrupt(activeThreadId);
+    if (!result.success) {
+      set((state) => ({
+        pendingInterruptThreadIds: removeThreadFlag(
+          state.pendingInterruptThreadIds,
+          activeThreadId
+        ),
+        error: "停止当前任务失败，请稍后重试",
+      }));
+      return;
+    }
+  } catch {
+    set((state) => ({
+      pendingInterruptThreadIds: removeThreadFlag(
+        state.pendingInterruptThreadIds,
+        activeThreadId
+      ),
+      error: "停止当前任务失败，请稍后重试",
+    }));
+    return;
+  }
+
+  set((state) => {
+    const threadStatePatch = {
+      runningThreadIds: removeThreadFlag(state.runningThreadIds, activeThreadId),
+      pendingInterruptThreadIds: removeThreadFlag(
+        state.pendingInterruptThreadIds,
+        activeThreadId
+      ),
+      stoppedThreadIds: activeThreadId
+        ? { ...state.stoppedThreadIds, [activeThreadId]: true }
+        : state.stoppedThreadIds,
+      threads: markThreadStopped(state.threads, activeThreadId, "interrupted"),
+    };
+
+    if (state.activeThreadId !== activeThreadId) {
+      return threadStatePatch;
+    }
+
+    return {
+      ...threadStatePatch,
+      streamingContent: "",
+      streamingReasoning: "",
+      activeStreamingRound: null,
+      isStreaming: false,
+      activeTurnId: null,
+      activeClientId: null,
+      turnStatus: "interrupted",
+      lastInterruptContext: "对话已被中断，你可以继续提问让 AI 从断点恢复",
+      error: null,
+    };
   });
   void get().loadThreads();
 }

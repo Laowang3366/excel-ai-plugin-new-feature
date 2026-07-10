@@ -144,6 +144,7 @@ function ${functionName}($app, $targetPath) {
         } catch {}
       }
     } catch {}
+    return $null
   }
   try { if ($null -ne $app.${activeProperty}) { return $app.${activeProperty} } } catch {}
   return $null

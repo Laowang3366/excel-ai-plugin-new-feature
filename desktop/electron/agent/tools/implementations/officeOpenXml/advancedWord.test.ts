@@ -101,4 +101,107 @@ describe("applyWordAdvancedAction", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it.each(["header", "footer"] as const)(
+    "connects a %s part to the document relationship graph",
+    async (kind) => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), `openxml-word-${kind}-`));
+      try {
+        const filePath = path.join(tempDir, "report.docx");
+        const outputPath = path.join(tempDir, `report-${kind}.docx`);
+        await applyWordAdvancedAction({
+          operation: "createDocument",
+          filePath,
+          action: "insert",
+          params: { paragraphs: ["正文"] },
+        });
+
+        const result = await applyWordAdvancedAction({
+          operation: "setHeaderFooter",
+          filePath,
+          outputPath,
+          params: { kind, text: `${kind}-text` },
+        });
+
+        const partName = kind === "footer" ? "word/footer1.xml" : "word/header1.xml";
+        const relationshipType = kind === "footer" ? "footer" : "header";
+        const referenceName = kind === "footer" ? "footerReference" : "headerReference";
+        const contentType = kind === "footer"
+          ? "wordprocessingml.footer+xml"
+          : "wordprocessingml.header+xml";
+        const partXml = await readZipText(outputPath, partName);
+        const documentXml = await readZipText(outputPath, "word/document.xml");
+        const relsXml = await readZipText(outputPath, "word/_rels/document.xml.rels");
+        const contentTypesXml = await readZipText(outputPath, "[Content_Types].xml");
+        const relationship = new RegExp(
+          `<Relationship\\b[^>]*Id="([^"]+)"[^>]*Type="[^"]+/relationships/${relationshipType}"[^>]*Target="([^"]+)"`
+        ).exec(relsXml);
+
+        expect(result.status).toBe("done");
+        expect(partXml).toContain('xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"');
+        expect(partXml).toContain(`${kind}-text`);
+        expect(relationship).not.toBeNull();
+        expect(relationship?.[2]).toBe(`${relationshipType}1.xml`);
+        expect(documentXml).toContain('xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"');
+        expect(documentXml).toContain(
+          `w:${referenceName} w:type="default" r:id="${relationship?.[1]}"`
+        );
+        expect(contentTypesXml).toContain(`PartName="/word/${relationshipType}1.xml"`);
+        expect(contentTypesXml).toContain(contentType);
+        expect(result.changes.map((change) => change.target)).toEqual(expect.arrayContaining([
+          partName,
+          "word/document.xml",
+          "word/_rels/document.xml.rels",
+          "[Content_Types].xml",
+        ]));
+        expect(result.validation?.checks.map((check) => check.name)).toEqual(expect.arrayContaining([
+          "header-footer-part",
+          "header-footer-relationship",
+          "section-reference",
+          "content-type",
+        ]));
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it("keeps header references before footer references when both are set", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-word-header-footer-"));
+    try {
+      const filePath = path.join(tempDir, "report.docx");
+      const headerPath = path.join(tempDir, "report-header.docx");
+      const outputPath = path.join(tempDir, "report-header-footer.docx");
+      await applyWordAdvancedAction({
+        operation: "createDocument",
+        filePath,
+        action: "insert",
+        params: { paragraphs: ["正文"] },
+      });
+
+      await applyWordAdvancedAction({
+        operation: "setHeaderFooter",
+        filePath,
+        outputPath: headerPath,
+        params: { kind: "header", text: "页眉" },
+      });
+      const result = await applyWordAdvancedAction({
+        operation: "setHeaderFooter",
+        filePath: headerPath,
+        outputPath,
+        params: { kind: "footer", text: "页脚" },
+      });
+
+      const documentXml = await readZipText(outputPath, "word/document.xml");
+      const sectionXml = /<w:sectPr\b[^>]*>[\s\S]*?<\/w:sectPr>/.exec(documentXml)?.[0] || "";
+      const headerIndex = sectionXml.indexOf("<w:headerReference");
+      const footerIndex = sectionXml.indexOf("<w:footerReference");
+
+      expect(result.status).toBe("done");
+      expect(headerIndex).toBeGreaterThanOrEqual(0);
+      expect(footerIndex).toBeGreaterThan(headerIndex);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });

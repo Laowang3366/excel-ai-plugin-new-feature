@@ -80,9 +80,10 @@ export function createRemoteCompactionProvider(
       const summary = json.summary
         || json.content
         || json.choices?.[0]?.message?.content;
-      return typeof summary === "string" && summary.trim()
-        ? summary.trim()
-        : "无法生成摘要";
+      if (typeof summary !== "string" || !summary.trim()) {
+        throw new Error("远程压缩返回空摘要");
+      }
+      return summary.trim();
     },
   };
 }

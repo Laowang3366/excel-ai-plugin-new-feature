@@ -84,6 +84,57 @@ describe("applyExcelAdvancedAction", () => {
     }
   });
 
+  it("preserves row formatting and non-cell children when writing a range", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-excel-row-format-"));
+    try {
+      const filePath = path.join(tempDir, "book.xlsx");
+      await writeZip(filePath, {
+        "[Content_Types].xml": "<Types />",
+        "xl/workbook.xml": `
+          <workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+            <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1" /></sheets>
+          </workbook>
+        `,
+        "xl/_rels/workbook.xml.rels": `
+          <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+            <Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml" />
+          </Relationships>
+        `,
+        "xl/worksheets/sheet1.xml": [
+          "<worksheet><sheetData>",
+          '<row r="2" ht="24" customHeight="1" hidden="1" outlineLevel="2" collapsed="1" s="5" customFormat="1">',
+          '<c r="A2" t="inlineStr"><is><t>keep</t></is></c>',
+          '<extLst><ext uri="keep"/></extLst>',
+          "</row>",
+          "</sheetData></worksheet>",
+        ].join(""),
+      });
+
+      const result = await applyExcelAdvancedAction({
+        operation: "writeRange",
+        filePath,
+        target: "range:Sheet1!B2",
+        params: { values: [["new"]] },
+      });
+
+      const sheetXml = await readZipText(filePath, "xl/worksheets/sheet1.xml");
+      const rowXml = /<row\b[^>]*\br="2"[^>]*>[\s\S]*?<\/row>/.exec(sheetXml)?.[0] || "";
+      expect(result.status).toBe("done");
+      expect(rowXml).toContain('ht="24"');
+      expect(rowXml).toContain('customHeight="1"');
+      expect(rowXml).toContain('hidden="1"');
+      expect(rowXml).toContain('outlineLevel="2"');
+      expect(rowXml).toContain('collapsed="1"');
+      expect(rowXml).toContain('s="5"');
+      expect(rowXml).toContain('customFormat="1"');
+      expect(rowXml).toContain("<t>keep</t>");
+      expect(rowXml).toContain('r="B2"');
+      expect(rowXml).toContain('<extLst><ext uri="keep"/></extLst>');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("writes dynamic array formulas with Open XML array metadata and clears spill placeholders", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-excel-dynamic-array-"));
     try {
@@ -150,6 +201,44 @@ describe("applyExcelAdvancedAction", () => {
       expect(result.status).toBe("done");
       expect(sheetXml).toContain("<dataValidations");
       expect(sheetXml).toContain("通过,失败");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves existing data validations when adding a new rule", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-excel-validation-merge-"));
+    try {
+      const filePath = path.join(tempDir, "book.xlsx");
+      const outputPath = path.join(tempDir, "book-edited.xlsx");
+      await writeZip(filePath, {
+        "[Content_Types].xml": "<Types />",
+        "xl/worksheets/sheet1.xml": [
+          "<worksheet><sheetData />",
+          '<dataValidations count="1" disablePrompts="1">',
+          '<dataValidation type="whole" sqref="C2:C10">',
+          "<formula1>1</formula1><formula2>10</formula2>",
+          "</dataValidation>",
+          "</dataValidations>",
+          "</worksheet>",
+        ].join(""),
+      });
+
+      const result = await applyExcelAdvancedAction({
+        operation: "setDataValidation",
+        filePath,
+        outputPath,
+        target: "range:Sheet1!A2:A10",
+        params: { type: "list", values: ["通过", "失败"] },
+      });
+
+      const sheetXml = await readZipText(outputPath, "xl/worksheets/sheet1.xml");
+      expect(result.status).toBe("done");
+      expect(sheetXml).toContain('sqref="C2:C10"');
+      expect(sheetXml).toContain('sqref="A2:A10"');
+      expect(sheetXml).toContain('disablePrompts="1"');
+      expect(sheetXml.match(/<dataValidation\b/g)).toHaveLength(2);
+      expect(sheetXml).toMatch(/<dataValidations\b[^>]*\bcount="2"/);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

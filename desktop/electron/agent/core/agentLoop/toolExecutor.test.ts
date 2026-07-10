@@ -369,4 +369,41 @@ describe("processToolCalls", () => {
       isError: false,
     });
   });
+
+  it("checks interruption before starting the next tool in a batch", async () => {
+    const turn = createTurn();
+    let aborted = false;
+    const firstExecute = vi.fn(async () => {
+      aborted = true;
+      return { success: true, data: "first" };
+    });
+    const secondExecute = vi.fn(async () => ({ success: true, data: "second" }));
+    const throwIfAborted = vi.fn(() => {
+      if (!aborted) return;
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    });
+
+    await expect(processToolCalls(
+      [
+        { id: "call-first", name: "tool.first", arguments: "{}" },
+        { id: "call-second", name: "tool.second", arguments: "{}" },
+      ],
+      new Map(),
+      turn,
+      new Map([
+        ["tool.first", { name: "tool.first", execute: firstExecute }],
+        ["tool.second", { name: "tool.second", execute: secondExecute }],
+      ]),
+      { permissionMode: "confirm_all" },
+      createCallbacks(),
+      vi.fn(async () => {}),
+      undefined,
+      throwIfAborted
+    )).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(firstExecute).toHaveBeenCalledOnce();
+    expect(secondExecute).not.toHaveBeenCalled();
+  });
 });

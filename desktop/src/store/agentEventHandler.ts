@@ -82,6 +82,12 @@ export function handleAgentEvent(
   current: ChatState,
   patches: Array<Partial<ChatState>>
 ): Array<Partial<ChatState>> {
+  const isPendingInterruptEvent = Boolean(
+    event.type === "turn_interrupted" &&
+    event.threadId &&
+    current.pendingInterruptThreadIds[event.threadId]
+  );
+
   if (event.threadId) {
     if (event.type === "turn_started") {
       const { [event.threadId]: _stoppedThread, ...stoppedRest } = current.stoppedThreadIds;
@@ -93,12 +99,22 @@ export function handleAgentEvent(
         stoppedThreadIds: stoppedRest,
       });
     } else if (
-      event.type === "turn_completed" ||
-      event.type === "turn_interrupted" ||
-      event.type === "turn_failed"
+      (
+        event.type === "turn_completed" ||
+        event.type === "turn_interrupted" ||
+        event.type === "turn_failed"
+      ) &&
+      !isPendingInterruptEvent
     ) {
       const { [event.threadId]: _completedThread, ...rest } = current.runningThreadIds;
-      patches.push({ runningThreadIds: rest });
+      const {
+        [event.threadId]: _pendingInterrupt,
+        ...pendingInterruptRest
+      } = current.pendingInterruptThreadIds;
+      patches.push({
+        runningThreadIds: rest,
+        pendingInterruptThreadIds: pendingInterruptRest,
+      });
     }
   }
 
@@ -149,6 +165,7 @@ export function handleAgentEvent(
       break;
 
     case "turn_interrupted":
+      if (isPendingInterruptEvent) break;
       patches.push({
         isStreaming: false,
         streamingContent: "",

@@ -97,6 +97,24 @@ describe("RemoteCompactionProvider", () => {
     }
   });
 
+  it("rejects successful remote responses that do not contain a summary", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      summary: "   ",
+    }), { status: 200, headers: { "Content-Type": "application/json" } })) as any;
+
+    try {
+      const provider = createRemoteCompactionProvider({
+        endpoint: "https://compact.example.test/v2",
+      });
+
+      await expect(provider.generateSummary({ historyPrompt: "历史内容" }))
+        .rejects.toThrow("远程压缩返回空摘要");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("selects the remote provider only when remote settings are complete", async () => {
     const aiClient = {
       chat: vi.fn(async () => ({ content: "本地摘要" })),

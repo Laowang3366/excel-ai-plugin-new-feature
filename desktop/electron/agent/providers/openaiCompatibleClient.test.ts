@@ -73,6 +73,18 @@ describe("OpenAICompatibleClient errors", () => {
       },
     ]);
   });
+
+  it("rejects non-stream chat when the stream reports an HTTP failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response("upstream unavailable", { status: 502 })
+    ));
+
+    const client = new OpenAICompatibleClient(baseConfig);
+
+    await expect(client.chat({
+      messages: [{ role: "user", content: "生成摘要" }],
+    })).rejects.toThrow("API 请求失败 (502)");
+  });
 });
 
 describe("OpenAICompatibleClient streaming text", () => {

@@ -129,6 +129,103 @@ describe("chatStore stream delta handling", () => {
   });
 });
 
+describe("chatStore interruptTurn", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ipcMocks.listThreads.mockResolvedValue([]);
+    useChatStore.setState({
+      isStreaming: true,
+      turnStatus: "in_progress",
+      activeThreadId: "thread-1",
+      activeTurnId: "turn-1",
+      activeClientId: null,
+      runningThreadIds: { "thread-1": true },
+      pendingInterruptThreadIds: {},
+      stoppedThreadIds: {},
+      error: null,
+    });
+  });
+
+  it("keeps the conversation locked until the interrupt IPC confirms completion", async () => {
+    let resolveInterrupt!: (value: { success: boolean }) => void;
+    ipcMocks.interrupt.mockReturnValue(new Promise((resolve) => {
+      resolveInterrupt = resolve;
+    }));
+
+    const interruptResult = useChatStore.getState().interruptTurn();
+    useChatStore.getState().handleAgentEvent({
+      type: "turn_interrupted",
+      turnId: "turn-1",
+      threadId: "thread-1",
+    });
+
+    expect(useChatStore.getState().runningThreadIds).toEqual({ "thread-1": true });
+    expect(useChatStore.getState().stoppedThreadIds).toEqual({});
+    expect(useChatStore.getState().isStreaming).toBe(true);
+    expect(useChatStore.getState().turnStatus).toBe("in_progress");
+
+    resolveInterrupt({ success: true });
+    await interruptResult;
+
+    expect(useChatStore.getState().runningThreadIds).toEqual({});
+    expect(useChatStore.getState().stoppedThreadIds).toEqual({ "thread-1": true });
+    expect(useChatStore.getState().isStreaming).toBe(false);
+    expect(useChatStore.getState().turnStatus).toBe("interrupted");
+  });
+
+  it("keeps the running state when interrupt IPC fails", async () => {
+    ipcMocks.interrupt.mockResolvedValue({ success: false });
+
+    await useChatStore.getState().interruptTurn();
+
+    expect(useChatStore.getState().runningThreadIds).toEqual({ "thread-1": true });
+    expect(useChatStore.getState().stoppedThreadIds).toEqual({});
+    expect(useChatStore.getState().isStreaming).toBe(true);
+    expect(useChatStore.getState().turnStatus).toBe("in_progress");
+    expect(useChatStore.getState().error).toBe("停止当前任务失败，请稍后重试");
+  });
+
+  it("keeps the running state when interrupt IPC throws", async () => {
+    ipcMocks.interrupt.mockRejectedValue(new Error("ipc unavailable"));
+
+    await useChatStore.getState().interruptTurn();
+
+    expect(useChatStore.getState().runningThreadIds).toEqual({ "thread-1": true });
+    expect(useChatStore.getState().stoppedThreadIds).toEqual({});
+    expect(useChatStore.getState().isStreaming).toBe(true);
+    expect(useChatStore.getState().turnStatus).toBe("in_progress");
+    expect(useChatStore.getState().error).toBe("停止当前任务失败，请稍后重试");
+  });
+
+  it("does not unlock a different thread selected while interrupt is pending", async () => {
+    let resolveInterrupt!: (value: { success: boolean }) => void;
+    ipcMocks.interrupt.mockReturnValue(new Promise((resolve) => {
+      resolveInterrupt = resolve;
+    }));
+
+    const interruptResult = useChatStore.getState().interruptTurn();
+    useChatStore.setState({
+      activeThreadId: "thread-2",
+      activeTurnId: "turn-2",
+      isStreaming: true,
+      streamingContent: "thread-2 output",
+      turnStatus: "in_progress",
+      runningThreadIds: { "thread-1": true, "thread-2": true },
+    });
+
+    resolveInterrupt({ success: true });
+    await interruptResult;
+
+    expect(useChatStore.getState().activeThreadId).toBe("thread-2");
+    expect(useChatStore.getState().activeTurnId).toBe("turn-2");
+    expect(useChatStore.getState().isStreaming).toBe(true);
+    expect(useChatStore.getState().streamingContent).toBe("thread-2 output");
+    expect(useChatStore.getState().turnStatus).toBe("in_progress");
+    expect(useChatStore.getState().runningThreadIds).toEqual({ "thread-2": true });
+    expect(useChatStore.getState().stoppedThreadIds).toEqual({ "thread-1": true });
+  });
+});
+
 describe("chatStore loadThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -321,6 +321,9 @@ export class OpenAICompatibleClient {
     let usage: TokenUsage | undefined;
 
     for (const event of events) {
+      if (event.type === "error") {
+        throw new Error(event.error);
+      }
       if (event.type === "text_delta") content += event.delta;
       if (event.type === "usage") usage = event.usage;
     }

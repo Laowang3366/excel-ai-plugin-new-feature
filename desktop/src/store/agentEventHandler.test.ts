@@ -16,6 +16,7 @@ function makeState(patch: Partial<ChatState> = {}): ChatState {
     activeThreadId: "thread-1",
     activeClientId: null,
     runningThreadIds: {},
+    pendingInterruptThreadIds: {},
     stoppedThreadIds: {},
     turnStatus: "in_progress",
     lastInterruptContext: null,
@@ -201,6 +202,7 @@ describe("handleAgentEvent", () => {
 
     expect(patches).toEqual([{
       runningThreadIds: { "thread-2": true },
+      pendingInterruptThreadIds: {},
     }]);
   });
 

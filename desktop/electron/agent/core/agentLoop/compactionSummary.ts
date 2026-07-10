@@ -42,9 +42,16 @@ export async function generateCompactionSummary(input: {
       retryOverride: input.retryOverride,
     }),
     signal: input.signal,
-    operation: () => input.provider.generateSummary({
-      historyPrompt: input.historyPrompt,
-      config,
-    }),
+    operation: async () => {
+      const summary = await input.provider.generateSummary({
+        historyPrompt: input.historyPrompt,
+        config,
+      });
+      const normalized = summary.trim();
+      if (!normalized) {
+        throw new Error("压缩摘要为空");
+      }
+      return normalized;
+    },
   });
 }

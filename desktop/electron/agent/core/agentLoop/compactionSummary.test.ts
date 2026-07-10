@@ -55,4 +55,16 @@ describe("compactionSummary", () => {
       }),
     });
   });
+
+  it("rejects blank summaries before they can replace conversation history", async () => {
+    const provider = {
+      generateSummary: vi.fn().mockResolvedValue("   "),
+    };
+
+    await expect(generateCompactionSummary({
+      provider,
+      historyPrompt: "历史",
+      retryOverride: { maxRetries: 0 },
+    })).rejects.toThrow("压缩摘要为空");
+  });
 });

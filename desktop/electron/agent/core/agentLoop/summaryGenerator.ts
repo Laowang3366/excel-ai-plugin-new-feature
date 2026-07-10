@@ -36,5 +36,9 @@ export async function generateSummary(
     maxTokens: 2000,
     temperature: 0.3,
   });
-  return result.content || "无法生成摘要";
+  const summary = result.content?.trim();
+  if (!summary) {
+    throw new Error("压缩摘要为空");
+  }
+  return summary;
 }

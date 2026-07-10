@@ -156,4 +156,64 @@ describe("compactionRunner", () => {
     expect(deps.archiveRolloutIfConfigured).toHaveBeenCalledWith("thread-1");
     expect(events.some((event) => (event as { type?: string }).type === "context_compacted")).toBe(true);
   });
+
+  it("keeps pre-turn history unchanged when summary generation fails", async () => {
+    const allItems = [userItem("u1", "历史消息")];
+    const thread = createThread(allItems);
+    const originalTurns = thread.turns;
+    const events: unknown[] = [];
+    const compactedHistory: TurnItem[][] = [];
+    const deps = createDeps({ allItems, activeThread: thread, compactedHistory, events });
+    const failure = new Error("summary failed");
+    deps.generateCompactionSummary.mockRejectedValueOnce(failure);
+
+    await expect(runAutoCompaction({
+      thread,
+      reason: "auto_pre_turn",
+      callbacks: createCallbacks(events),
+      deps,
+    })).rejects.toBe(failure);
+
+    expect(thread.turns).toBe(originalTurns);
+    expect(compactedHistory).toEqual([]);
+    expect(deps.sessionStore.appendRolloutItems).not.toHaveBeenCalled();
+    expect(deps.archiveRolloutIfConfigured).not.toHaveBeenCalled();
+    expect(deps.completeCompactionProgress).not.toHaveBeenCalled();
+    expect(deps.failCompactionProgress).toHaveBeenCalledOnce();
+  });
+
+  it("keeps current turn items unchanged when mid-turn summary generation fails", async () => {
+    const currentUser = userItem("u-current", "当前问题");
+    const intermediate = assistantItem("a1", "中间过程");
+    const turn: Turn = {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      status: "in_progress",
+      startedAt: 1,
+      items: [currentUser, intermediate],
+    };
+    const originalItems = turn.items;
+    const allItems = [userItem("u-old", "历史"), currentUser, intermediate];
+    const thread = createThread([userItem("u-old", "历史")]);
+    const originalTurns = thread.turns;
+    const events: unknown[] = [];
+    const compactedHistory: TurnItem[][] = [];
+    const deps = createDeps({ allItems, activeThread: thread, compactedHistory, events });
+    const failure = new Error("summary failed");
+    deps.generateCompactionSummary.mockRejectedValueOnce(failure);
+
+    await expect(runMidTurnCompaction({
+      turn,
+      callbacks: createCallbacks(events),
+      deps,
+    })).rejects.toBe(failure);
+
+    expect(turn.items).toBe(originalItems);
+    expect(thread.turns).toBe(originalTurns);
+    expect(compactedHistory).toEqual([]);
+    expect(deps.sessionStore.appendRolloutItems).not.toHaveBeenCalled();
+    expect(deps.archiveRolloutIfConfigured).not.toHaveBeenCalled();
+    expect(deps.completeCompactionProgress).not.toHaveBeenCalled();
+    expect(deps.failCompactionProgress).toHaveBeenCalledOnce();
+  });
 });

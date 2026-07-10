@@ -52,6 +52,56 @@ describe("officeComPowerShell", () => {
     expect(script).toContain("$app.ActivePresentation");
   });
 
+  test("does not fall back to the active file when an explicit target path is missing", async () => {
+    const { executePowerShell: executeRealPowerShell } =
+      await vi.importActual<typeof import("../../../automation/powershell")>(
+        "../../../automation/powershell"
+      );
+    const resolver = buildTargetOfficeFileResolverScript({
+      functionName: "Resolve-TargetPresentation",
+      collectionProperty: "Presentations",
+      activeProperty: "ActivePresentation",
+    });
+
+    const output = await executeRealPowerShell(`
+${resolver}
+$other = [pscustomobject]@{ FullName = 'C:\\docs\\other.pptx' }
+$app = [pscustomobject]@{
+  Presentations = @($other)
+  ActivePresentation = $other
+}
+$resolved = Resolve-TargetPresentation $app 'C:\\docs\\missing.pptx'
+if ($null -eq $resolved) { 'NULL' } else { [string]$resolved.FullName }
+`);
+
+    expect(output).toBe("NULL");
+  });
+
+  test("still uses the active file when no explicit target path is available", async () => {
+    const { executePowerShell: executeRealPowerShell } =
+      await vi.importActual<typeof import("../../../automation/powershell")>(
+        "../../../automation/powershell"
+      );
+    const resolver = buildTargetOfficeFileResolverScript({
+      functionName: "Resolve-TargetDocument",
+      collectionProperty: "Documents",
+      activeProperty: "ActiveDocument",
+    });
+
+    const output = await executeRealPowerShell(`
+${resolver}
+$active = [pscustomobject]@{ FullName = 'C:\\docs\\active.docx' }
+$app = [pscustomobject]@{
+  Documents = @($active)
+  ActiveDocument = $active
+}
+$resolved = Resolve-TargetDocument $app $null
+if ($null -eq $resolved) { 'NULL' } else { [string]$resolved.FullName }
+`);
+
+    expect(output).toBe("C:\\docs\\active.docx");
+  });
+
   test("injects nullable PowerShell variables consistently", () => {
     expect(psNullableVar("_path", null)).toBe("$_path = $null");
     expect(psNullableVar("_path", "C:\\demo.docx")).toContain("$_path = [System.Text.Encoding]::Unicode.GetString");
