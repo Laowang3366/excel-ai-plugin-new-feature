@@ -5,6 +5,7 @@
 import { ipcApi } from "../services/ipcApi";
 import type { ThreadMetadata } from "../electronApi";
 import type { ChatState } from "./chatStore";
+import { isThreadMetadataRunning } from "./chatThreadRuntimeState";
 
 export async function loadThreads(): Promise<{ threads: ThreadMetadata[] }> {
   try {
@@ -20,13 +21,8 @@ function isThreadRunning(threadId: string, current: ChatState): boolean {
   const metadata = current.threads?.find((thread) => thread.threadId === threadId);
   return Boolean(
     current.runningThreadIds?.[threadId] ||
-    metadata?.activeTurnId ||
-    metadata?.lastTurnStatus === "in_progress"
+    isThreadMetadataRunning(metadata)
   );
-}
-
-function isMetadataRunning(metadata: ThreadMetadata | undefined): boolean {
-  return Boolean(metadata?.activeTurnId || metadata?.lastTurnStatus === "in_progress");
 }
 
 export async function switchThread(
@@ -52,7 +48,7 @@ export async function switchThread(
     const targetMetadata = loadedMetadata ?? cachedMetadata;
     const targetRunning = !current.stoppedThreadIds?.[threadId] && (
       Boolean(current.runningThreadIds?.[threadId]) ||
-      isMetadataRunning(loadedMetadata) ||
+      isThreadMetadataRunning(loadedMetadata) ||
       (!loadedMetadata && isThreadRunning(threadId, current))
     );
 

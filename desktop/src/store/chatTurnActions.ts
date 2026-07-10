@@ -175,7 +175,9 @@ export async function interruptTurnAction({ set, get }: TurnActionContext) {
 
   try {
     const result = await ipcApi.agent.interrupt(activeThreadId);
-    if (!result.success) {
+    const isAlreadyStopped =
+      !result.success && result.error === "没有正在运行的 Agent";
+    if (!result.success && !isAlreadyStopped) {
       set((state) => ({
         pendingInterruptThreadIds: removeThreadFlag(
           state.pendingInterruptThreadIds,

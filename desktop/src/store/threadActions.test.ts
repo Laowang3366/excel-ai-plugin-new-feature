@@ -111,6 +111,35 @@ describe("threadActions", () => {
     });
   });
 
+  test("does not restore streaming from a stale active turn id after interruption", async () => {
+    mocks.load.mockResolvedValue({
+      metadata: {
+        threadId: "thread-1",
+        preview: "已中断的会话",
+        modelProvider: "test",
+        createdAt: 1,
+        updatedAt: 3,
+        activeTurnId: "turn-stale",
+        lastTurnStatus: "interrupted",
+      },
+      turns: [],
+    });
+
+    const result = await switchThread("thread-1", {
+      isStreaming: false,
+      runningThreadIds: {},
+      stoppedThreadIds: {},
+      threads: [],
+    } as unknown as ChatState);
+
+    expect(result.patches[0]).toMatchObject({
+      activeThreadId: "thread-1",
+      isStreaming: false,
+      activeTurnId: null,
+      turnStatus: "idle",
+    });
+  });
+
   test("keeps a live running marker even when loaded rollout metadata looks interrupted", async () => {
     mocks.load.mockResolvedValue({
       metadata: {

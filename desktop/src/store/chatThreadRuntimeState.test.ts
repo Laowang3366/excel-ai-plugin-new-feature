@@ -45,4 +45,24 @@ describe("reconcileRunningThreadIds", () => {
       },
     })).toEqual({});
   });
+
+  it("lets a terminal status override a stale active turn id", () => {
+    expect(reconcileRunningThreadIds({
+      threads: [
+        thread("thread-interrupted", {
+          activeTurnId: "turn-stale",
+          lastTurnStatus: "interrupted",
+        }),
+        thread("thread-failed", {
+          activeTurnId: "turn-stale",
+          lastTurnStatus: "failed",
+        }),
+      ],
+      runningThreadIds: {
+        "thread-interrupted": true,
+        "thread-failed": true,
+      },
+      stoppedThreadIds: {},
+    })).toEqual({});
+  });
 });

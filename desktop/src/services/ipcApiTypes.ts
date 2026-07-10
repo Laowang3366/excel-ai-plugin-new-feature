@@ -89,7 +89,7 @@ export interface IIpcApi {
       threadId?: string | null;
       isResume?: boolean;
     }) => Promise<{ success: boolean; queued?: boolean; queueSize?: number; turnId?: string; threadId?: string; error?: string }>;
-    interrupt: (threadId?: string | null) => Promise<{ success: boolean }>;
+    interrupt: (threadId?: string | null) => Promise<{ success: boolean; error?: string }>;
     onEvent: (callback: (event: AgentEvent) => void) => () => void;
     onStreamDelta: (callback: (data: { delta: string; itemType: string; roundId?: number; threadId?: string; clientId?: string }) => void) => () => void;
   };

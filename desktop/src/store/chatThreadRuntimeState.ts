@@ -6,6 +6,16 @@ export interface ReconcileRunningThreadIdsParams {
   stoppedThreadIds: Record<string, boolean>;
 }
 
+export function isThreadMetadataRunning(
+  metadata: Pick<ThreadMetadata, "activeTurnId" | "lastTurnStatus"> | undefined
+): boolean {
+  if (!metadata) return false;
+  if (metadata.lastTurnStatus) {
+    return metadata.lastTurnStatus === "in_progress";
+  }
+  return Boolean(metadata.activeTurnId);
+}
+
 export function reconcileRunningThreadIds({
   threads,
   runningThreadIds,
@@ -14,7 +24,7 @@ export function reconcileRunningThreadIds({
   return threads.reduce((next, thread) => {
     if (stoppedThreadIds[thread.threadId]) {
       delete next[thread.threadId];
-    } else if (thread.activeTurnId || thread.lastTurnStatus === "in_progress") {
+    } else if (isThreadMetadataRunning(thread)) {
       next[thread.threadId] = true;
     } else {
       delete next[thread.threadId];

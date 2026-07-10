@@ -533,6 +533,22 @@ describe("chatStore interruptTurn", () => {
     expect(useChatStore.getState().error).toBe("停止当前任务失败，请稍后重试");
   });
 
+  it("unlocks stale running state when the backend reports no active agent", async () => {
+    ipcMocks.interrupt.mockResolvedValue({
+      success: false,
+      error: "没有正在运行的 Agent",
+    });
+
+    await useChatStore.getState().interruptTurn();
+
+    expect(useChatStore.getState().runningThreadIds).toEqual({});
+    expect(useChatStore.getState().stoppedThreadIds).toEqual({ "thread-1": true });
+    expect(useChatStore.getState().isStreaming).toBe(false);
+    expect(useChatStore.getState().activeTurnId).toBeNull();
+    expect(useChatStore.getState().turnStatus).toBe("interrupted");
+    expect(useChatStore.getState().error).toBeNull();
+  });
+
   it("keeps the running state when interrupt IPC throws", async () => {
     ipcMocks.interrupt.mockRejectedValue(new Error("ipc unavailable"));
 
