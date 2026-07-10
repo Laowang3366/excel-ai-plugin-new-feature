@@ -7,6 +7,29 @@ import {
 } from "./useTaskDrafts";
 
 describe("task draft store helpers", () => {
+  it("returns a complete formula draft without changing the store", () => {
+    const formulaDraft = {
+      dataSourceRanges: ["Sheet1!A1:B10"],
+      dataSourceInput: "Sheet1!A1:B10",
+      referenceSampleRange: "Sheet1!D1:D3",
+      referenceSampleMode: "partial" as const,
+      outputRange: "Sheet1!C1:C10",
+      hostEnvironment: "microsoft_excel" as const,
+      task: "计算同比增长率",
+    };
+    const store: TaskDraftStore = {
+      "thread-1": {
+        formula: formulaDraft,
+      },
+    };
+    const originalStore = structuredClone(store);
+
+    const drafts = getTaskDraftsForKey(store, "thread-1");
+
+    expect(drafts.formula).toEqual(formulaDraft);
+    expect(store).toEqual(originalStore);
+  });
+
   it("keeps task drafts isolated by draft key", () => {
     let store: TaskDraftStore = {};
 

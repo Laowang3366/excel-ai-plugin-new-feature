@@ -25,7 +25,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSettingsStore } from "./store/settingsStore";
-import { Sidebar, type IntentKind } from "./components/Sidebar";
+import { Sidebar } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
 import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
@@ -59,7 +59,6 @@ export const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<AppPage>("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState(false);
-  const [activeIntent, setActiveIntent] = useState<IntentKind>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("general");
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [displayMode, setDisplayMode] = useState<WindowDisplayMode>("normal");
@@ -274,8 +273,6 @@ export const App: React.FC = () => {
                 setSettingsSection(section);
                 setCurrentPage("settings");
               }}
-              activeIntent={activeIntent}
-              onIntentClick={setActiveIntent}
             />
           </main>
         </div>
