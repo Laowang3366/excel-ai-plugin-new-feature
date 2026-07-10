@@ -1,84 +1,127 @@
-# Open Access And P0 Fixes Design
+# 开放使用与 P0 问题修复设计
 
-## Goal
+## 目标
 
-Make the desktop application available without activation or license checks, remove the activation server and its data, and fix the two remaining P0 Office issues: approval bypass through safe tools and destructive Excel style replacement.
+取消桌面端的激活和卡密限制，删除激活服务及其数据，同时修复剩余两个 P0 级 Office 问题：
 
-## Scope
+1. 安全工具可绕过审批执行写操作。
+2. Excel 表格美化会覆盖工作簿原有样式库。
 
-### Remove activation and licensing
+## 实施范围
 
-- Delete the standalone `admin-server` directory, including its source, tests, UI, activation database, WAL/SHM files, and logs.
-- Remove desktop activation state management, heartbeat handling, offline tolerance, activation IPC handlers, preload APIs, renderer stores, activation dialogs, administration views, device management views, and navigation entries.
-- Remove startup and feature gates that depend on activation status. The desktop application must open directly into its normal working UI.
-- Remove activation-only types, tests, imports, documentation, and build references.
-- Do not retain a feature flag or compatibility mode. Existing activation files on previously installed user machines are ignored because no runtime code will read them.
+### 一、彻底移除激活和卡密系统
 
-### Prevent Office approval bypass
+- 删除整个 `admin-server` 目录，包括服务端源码、测试、管理页面、激活数据库、WAL/SHM 文件和日志。
+- 删除桌面端激活状态管理、心跳上报、72 小时离线容忍和到期校验逻辑。
+- 删除激活相关 IPC handler、preload API、renderer store、激活弹窗、激活管理页面和设备管理页面。
+- 删除侧边栏、设置页面及其他界面中的激活入口。
+- 删除启动阶段和功能入口中依赖激活状态的限制，应用启动后直接进入正常工作界面。
+- 删除仅供激活系统使用的类型、测试、导入、文档和构建引用。
+- 不保留功能开关或兼容模式。旧版本在用户电脑上留下的激活状态文件将不再被程序读取。
 
-- Treat `office.action.inspect` and `office.action.validate` as strictly read-only tools.
-- Define explicit operation compatibility rules instead of trusting the caller-provided `action`.
-- Reject mutation operations at the executor boundary before the Office bridge is called.
-- Repeat the same compatibility validation inside the Office action adapter so direct internal calls cannot bypass the executor check.
-- Keep `office.action.apply` as the approved entry point for mutation operations.
+### 二、阻止 Office 工具绕过审批
 
-The regression contract is that operations such as `writeRange`, `setDataValidation`, `setHeaderFooter`, `createPresentation`, and `addSlides` cannot execute through either safe tool.
+- 将 `office.action.inspect` 和 `office.action.validate` 限定为严格只读工具。
+- 建立明确的 action 与 operation 兼容规则，不再信任调用方传入的 `action` 字段。
+- 在工具 executor 入口检查 operation。发现写操作时立即拒绝，不能调用 Office bridge。
+- 在 Office action adapter 中再次执行相同检查，防止其他内部代码绕过 executor 直接调用写操作。
+- 所有修改文件的 operation 必须通过需要用户审批的 `office.action.apply` 执行。
 
-### Preserve existing Excel styles
+以下操作不能通过 `inspect` 或 `validate` 执行：
 
-- When `xl/styles.xml` already exists, preserve all existing style nodes and their ordering.
-- Append the new table-header font, fill, and cell format to the existing `fonts`, `fills`, and `cellXfs` collections.
-- Update each collection's `count` attribute and use the appended `cellXfs` index for styled header cells.
-- Preserve number formats, borders, named styles, differential formats, and all existing style indices.
-- Create the current minimal style sheet only when the workbook has no `xl/styles.xml`.
-- Keep workbook content-type and relationship handling for newly created style parts.
+- `writeRange`
+- `setDataValidation`
+- `setHeaderFooter`
+- `createPresentation`
+- `addSlides`
+- 其他创建、编辑、插入和样式修改操作
 
-Repeated styling may append another style definition, but it must never invalidate or renumber existing styles. Deduplication is outside this P0 repair.
+### 三、保留 Excel 原有样式
 
-## Architecture
+- 如果工作簿已有 `xl/styles.xml`，必须完整保留现有样式节点及其顺序。
+- 将表头所需的 font、fill 和 cell xf 追加到现有 `fonts`、`fills` 和 `cellXfs` 集合末尾。
+- 正确更新各集合的 `count` 属性。
+- 根据原有 `cellXfs` 数量计算新样式索引，表头单元格使用这个新索引。
+- 保留原有数字格式、边框、命名样式、条件格式样式以及全部现有样式索引。
+- 只有工作簿完全没有 `xl/styles.xml` 时，才创建当前使用的最小样式表。
+- 新建样式部件时，继续维护工作簿的 content type 和 relationship。
 
-The activation removal is a deletion-oriented change: callers and UI gates are removed first, followed by the now-unreachable activation modules and server. No replacement authorization abstraction is introduced.
+重复执行美化操作可以追加新的样式定义，但绝不能修改、重新编号或破坏已有样式。样式去重不属于本次 P0 修复范围。
 
-Office operation authorization is enforced at two existing boundaries. A shared pure helper classifies whether an action kind may execute an operation. The executor uses it for user-facing rejection, while the adapter uses it as a defensive invariant.
+## 架构方案
 
-Excel style preservation remains inside the existing OpenXML table styling module. The implementation calculates appended indices from the current style collections and returns the new cell style index to the worksheet styling functions.
+### 激活系统
 
-## Error Handling
+采用删除式改造，不引入替代授权层：
 
-- Safe Office tools return a failed tool result with a clear message when given a mutation operation, and must not invoke any file bridge.
-- If an existing Excel style sheet lacks a required collection or has an invalid count, the implementation derives the count from child elements and inserts the missing collection without replacing unrelated XML.
-- If the style sheet cannot be modified safely, the operation fails without writing the output file.
+1. 先移除界面入口和使用门槛。
+2. 再移除 IPC、preload 和主进程调用。
+3. 最后删除已经不可达的激活模块及整个服务端。
 
-## Testing
+### Office 操作权限
 
-### Activation removal
+在现有两个边界执行防御性校验：
 
-- Type checking and production build prove that activation imports, IPC contracts, and UI references have been removed.
-- A repository search must find no runtime references to activation APIs, activation stores, license keys, heartbeat handling, or `admin-server`.
-- Existing non-activation desktop workflows remain covered by the full test suite.
+1. executor 负责向工具调用方返回清晰的拒绝信息。
+2. adapter 负责保护内部执行边界，避免直接调用绕过权限检查。
 
-### Office authorization
+兼容规则使用共享的纯函数实现，避免两处规则逐渐不一致。
 
-- Executor tests call both safe tools with representative Excel, Word, and presentation mutation operations and assert rejection.
-- Adapter tests call mutation operations with `action: "inspect"` and `action: "validate"` and assert a failed result without invoking the implementation bridge.
-- Existing legitimate inspect and validate operations continue to pass.
+### Excel 样式
 
-### Excel styles
+样式合并继续放在现有 OpenXML 表格美化模块中：
 
-- A workbook fixture contains existing date and currency number formats, custom fonts and fills, borders, named styles, and cells using multiple style indices.
-- After table styling, the fixture's original XML fragments and indices remain present.
-- The new header cells use the newly appended style index rather than `s="1"`.
-- The existing no-style workbook test continues to verify creation of a valid minimal style sheet.
+1. 读取已有样式集合和数量。
+2. 追加新的 font、fill 和 cell xf。
+3. 计算新增 cell xf 的索引。
+4. 将该索引传给工作表表头样式函数。
 
-## Verification
+不引入新的 XML 依赖，也不重构无关的 OpenXML 模块。
 
-Run:
+## 错误处理
 
-1. Targeted red-green tests for Office authorization.
-2. Targeted red-green tests for Excel style preservation.
-3. Desktop lint and TypeScript checks.
-4. The full desktop Vitest suite.
-5. The desktop production build.
-6. A final repository search for activation and `admin-server` references.
+- 安全 Office 工具收到写 operation 时返回失败结果，并明确提示应使用 `office.action.apply`。
+- 权限校验失败时不得打开、修改或写出目标文件。
+- 如果已有 Excel 样式集合缺少 `count`，从实际子节点数量计算。
+- 如果缺少 `fonts`、`fills` 或 `cellXfs` 集合，只补充缺失集合，不替换其他 XML。
+- 如果无法安全修改样式表，操作直接失败，不写出目标文件。
 
-The work is complete when the desktop starts without activation code, the server and its data are absent, safe tools cannot route mutations, existing Excel styles survive table styling, and all verification commands pass apart from any explicitly documented pre-existing warnings.
+## 测试方案
+
+### 激活系统移除
+
+- TypeScript 类型检查和生产构建必须通过，证明激活 IPC、类型和界面引用已清理。
+- 全项目搜索不得出现运行时激活 API、激活 store、卡密校验、心跳逻辑或 `admin-server` 引用。
+- 完整桌面端测试必须通过，确认非激活功能没有受到影响。
+
+### Office 审批
+
+- executor 测试分别通过两个安全工具提交 Excel、Word 和 PowerPoint 写操作，并断言请求被拒绝。
+- adapter 测试使用 `action: "inspect"` 和 `action: "validate"` 直接提交写 operation，并断言返回失败。
+- 测试必须确认被拒绝时没有调用实际文件修改实现。
+- 合法的检查和验证操作继续正常通过。
+
+### Excel 样式
+
+- 测试工作簿包含日期和货币格式、自定义字体和填充、边框、命名样式以及多个样式索引。
+- 表格美化后，原有 XML 片段和样式索引必须保持不变。
+- 新表头必须使用追加生成的样式索引，不能固定使用 `s="1"`。
+- 原有无样式工作簿测试继续验证最小样式表可以正常创建。
+
+## 验证步骤
+
+1. 为 Office 审批绕过编写失败测试，确认测试能够复现问题，再实现修复。
+2. 为 Excel 样式保留编写失败测试，确认测试能够复现问题，再实现修复。
+3. 运行桌面端 lint。
+4. 运行 TypeScript 类型检查。
+5. 运行桌面端完整 Vitest 测试。
+6. 运行桌面端生产构建。
+7. 最后搜索整个项目，确认不存在激活系统和 `admin-server` 的残余引用。
+
+满足以下条件后，本次工作才算完成：
+
+- 桌面端不包含任何激活限制并可直接使用。
+- 激活服务及其全部数据已经删除。
+- 安全 Office 工具无法执行写操作。
+- Excel 表格美化不会破坏已有样式。
+- 除明确记录的原有警告外，全部验证命令通过。
