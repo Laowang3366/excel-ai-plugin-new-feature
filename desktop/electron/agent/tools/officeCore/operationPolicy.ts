@@ -4,7 +4,6 @@ const SAFE_ACTION_OPERATIONS = new Set([
   "inspectFile",
   "layout",
   "tables",
-  "snapshot",
 ]);
 
 export function officeActionOperationError(

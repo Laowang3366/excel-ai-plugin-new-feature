@@ -113,6 +113,7 @@ describe("createOfficeActionBridge", () => {
     ["inspect", "excel", "writeRange"],
     ["validate", "word", "setHeaderFooter"],
     ["inspect", "presentation", "addSlides"],
+    ["inspect", "presentation", "snapshot"],
   ] as const)("rejects %s action routing mutation %s/%s", async (action, app, operation) => {
     const officeComActionBridge = {
       executeAction: vi.fn(async (input) => ({

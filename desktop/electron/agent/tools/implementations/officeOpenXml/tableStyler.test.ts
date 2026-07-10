@@ -156,4 +156,93 @@ describe("tableStyler", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("preserves attributes when expanding self-closing Excel style collections", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-style-self-closing-"));
+    try {
+      const sourcePath = path.join(tempDir, "self-closing.xlsx");
+      const outputPath = path.join(tempDir, "self-closing-output.xlsx");
+      await writeZip(sourcePath, {
+        "[Content_Types].xml": '<Types><Override PartName="/xl/styles.xml" /></Types>',
+        "xl/workbook.xml": "<workbook />",
+        "xl/_rels/workbook.xml.rels": '<Relationships><Relationship Type="/styles" Target="styles.xml" /></Relationships>',
+        "xl/styles.xml": [
+          '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+          '<fonts count="0" customAttr="fonts" />',
+          '<fills count="0" customAttr="fills" />',
+          '<borders count="1"><border /></borders>',
+          '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" /></cellStyleXfs>',
+          '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" /></cellXfs>',
+          '<cellStyles count="1"><cellStyle name="Normal" xfId="0" /></cellStyles>',
+          "</styleSheet>",
+        ].join(""),
+        "xl/worksheets/sheet1.xml": [
+          '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>',
+          '<row r="1"><c r="A1" t="inlineStr"><is><t>标题</t></is></c></row>',
+          "</sheetData></worksheet>",
+        ].join(""),
+      });
+
+      await applyOfficeOpenXmlTableStyle({
+        filePath: sourcePath,
+        outputPath,
+        style: "professional",
+      });
+
+      const stylesXml = await readZipText(outputPath, "xl/styles.xml");
+      expect(stylesXml).toContain('customAttr="fonts"');
+      expect(stylesXml).toContain('customAttr="fills"');
+      expect(stylesXml).toContain('<fonts count="1"');
+      expect(stylesXml).toContain('<fills count="1"');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("inserts a missing cellXfs collection after a self-closing cellStyleXfs", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-style-sparse-"));
+    try {
+      const sourcePath = path.join(tempDir, "sparse.xlsx");
+      const outputPath = path.join(tempDir, "sparse-output.xlsx");
+      await writeZip(sourcePath, {
+        "[Content_Types].xml": '<Types><Override PartName="/xl/styles.xml" /></Types>',
+        "xl/workbook.xml": "<workbook />",
+        "xl/_rels/workbook.xml.rels": '<Relationships><Relationship Type="/styles" Target="styles.xml" /></Relationships>',
+        "xl/styles.xml": [
+          '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+          '<fonts count="1"><font /></fonts>',
+          '<fills count="2"><fill /><fill /></fills>',
+          '<borders count="1"><border /></borders>',
+          '<cellStyleXfs count="0" customAttr="cellStyleXfs" />',
+          '<cellStyles count="1"><cellStyle name="Normal" xfId="0" /></cellStyles>',
+          "</styleSheet>",
+        ].join(""),
+        "xl/worksheets/sheet1.xml": [
+          '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>',
+          '<row r="1"><c r="A1" t="inlineStr"><is><t>标题</t></is></c></row>',
+          "</sheetData></worksheet>",
+        ].join(""),
+      });
+
+      await applyOfficeOpenXmlTableStyle({
+        filePath: sourcePath,
+        outputPath,
+        style: "professional",
+      });
+
+      const outputSheetXml = await readZipText(outputPath, "xl/worksheets/sheet1.xml");
+      const stylesXml = await readZipText(outputPath, "xl/styles.xml");
+      const cellStyleXfsIndex = stylesXml.indexOf("<cellStyleXfs");
+      const cellXfsIndex = stylesXml.indexOf("<cellXfs");
+      const cellStylesIndex = stylesXml.indexOf("<cellStyles");
+
+      expect(cellStyleXfsIndex).toBeGreaterThanOrEqual(0);
+      expect(cellStyleXfsIndex).toBeLessThan(cellXfsIndex);
+      expect(cellXfsIndex).toBeLessThan(cellStylesIndex);
+      expect(stylesXml).toContain('customAttr="cellStyleXfs"');
+      expect(outputSheetXml).toContain('r="A1" s="0"');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });

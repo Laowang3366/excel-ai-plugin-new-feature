@@ -129,6 +129,20 @@ function spreadsheetStylesXml(color: string): string {
 type StyleCollectionName = "fonts" | "fills" | "cellXfs";
 type StyleItemName = "font" | "fill" | "xf";
 
+const STYLE_COLLECTION_ORDER = [
+  "numFmts",
+  "fonts",
+  "fills",
+  "borders",
+  "cellStyleXfs",
+  "cellXfs",
+  "cellStyles",
+  "dxfs",
+  "tableStyles",
+  "colors",
+  "extLst",
+] as const;
+
 interface AppendedStyleCollection {
   xml: string;
   index: number;
@@ -141,14 +155,43 @@ function updateCollectionCount(openingTag: string, count: number): string {
   return openingTag.replace(/>$/, ` count="${count}">`);
 }
 
-function insertAfterStyleAnchor(
+function findStyleElementBounds(
   xml: string,
-  anchors: string[],
+  elementName: string
+): { start: number; end: number } | undefined {
+  const selfClosingMatch = new RegExp(`<${elementName}\\b[^>]*/>`).exec(xml);
+  const expandedMatch = new RegExp(
+    `<${elementName}\\b[^>]*>[\\s\\S]*?<\\/${elementName}>`
+  ).exec(xml);
+  const matches = [selfClosingMatch, expandedMatch].filter(
+    (match): match is RegExpExecArray => Boolean(match)
+  );
+  if (matches.length === 0) return undefined;
+  const match = matches.reduce((earliest, current) =>
+    current.index < earliest.index ? current : earliest
+  );
+  return {
+    start: match.index,
+    end: match.index + match[0].length,
+  };
+}
+
+function insertStyleCollection(
+  xml: string,
+  collectionName: StyleCollectionName,
   collectionXml: string
 ): string {
-  for (const anchor of anchors) {
-    if (xml.includes(anchor)) {
-      return xml.replace(anchor, `${anchor}${collectionXml}`);
+  const collectionIndex = STYLE_COLLECTION_ORDER.indexOf(collectionName);
+  for (let index = collectionIndex + 1; index < STYLE_COLLECTION_ORDER.length; index += 1) {
+    const next = findStyleElementBounds(xml, STYLE_COLLECTION_ORDER[index]);
+    if (next) {
+      return `${xml.slice(0, next.start)}${collectionXml}${xml.slice(next.start)}`;
+    }
+  }
+  for (let index = collectionIndex - 1; index >= 0; index -= 1) {
+    const previous = findStyleElementBounds(xml, STYLE_COLLECTION_ORDER[index]);
+    if (previous) {
+      return `${xml.slice(0, previous.end)}${collectionXml}${xml.slice(previous.end)}`;
     }
   }
   if (/<styleSheet\b[^>]*>/.test(xml)) {
@@ -184,24 +227,24 @@ function appendStyleCollectionItem(
   }
 
   const selfClosingRe = new RegExp(`<${collectionName}\\b[^>]*/>`);
-  if (selfClosingRe.test(xml)) {
+  const selfClosingMatch = selfClosingRe.exec(xml);
+  if (selfClosingMatch) {
+    const openingTag = updateCollectionCount(
+      selfClosingMatch[0].replace(/\s*\/>$/, ">"),
+      1
+    );
     return {
       xml: xml.replace(
-        selfClosingRe,
-        `<${collectionName} count="1">${itemXml}</${collectionName}>`
+        selfClosingMatch[0],
+        `${openingTag}${itemXml}</${collectionName}>`
       ),
       index: 0,
     };
   }
 
   const collectionXml = `<${collectionName} count="1">${itemXml}</${collectionName}>`;
-  const anchors = collectionName === "fonts"
-    ? ["</numFmts>"]
-    : collectionName === "fills"
-      ? ["</fonts>", "</numFmts>"]
-      : ["</cellStyleXfs>", "</borders>", "</fills>"];
   return {
-    xml: insertAfterStyleAnchor(xml, anchors, collectionXml),
+    xml: insertStyleCollection(xml, collectionName, collectionXml),
     index: 0,
   };
 }

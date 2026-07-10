@@ -110,6 +110,7 @@ describe("addOfficeExecutors", () => {
     ["office.action.inspect", "excel", "writeRange"],
     ["office.action.validate", "word", "setHeaderFooter"],
     ["office.action.inspect", "presentation", "addSlides"],
+    ["office.action.inspect", "presentation", "snapshot"],
   ])("%s rejects mutation operation %s/%s", async (toolName, app, operation) => {
     const officeActionBridge: OfficeActionBridge = {
       executeAction: vi.fn(async (input) => ({
