@@ -22,18 +22,20 @@ describe("FeatureSidebarPanel", () => {
     for (const label of ["公式助手", "代码生成", "OCR 识别", "数据清洗", "报告生成", "图表制作"]) {
       expect(html).toContain(label);
     }
-    expect(html.match(/<button class="feature-sidebar-shortcut(?: active)?\s*"/g)).toHaveLength(6);
+    const shortcutButtons =
+      html.match(/<button class="feature-sidebar-shortcut(?: active)?"[\s\S]*?<\/button>/g) ?? [];
+    expect(shortcutButtons).toHaveLength(6);
     expect.soft(html).toContain('role="group"');
     expect.soft(html).not.toContain('role="listbox"');
     expect.soft(html).not.toContain('role="option"');
     expect.soft(html).toContain('aria-labelledby="feature-sidebar-title"');
     expect.soft(html).toContain('id="feature-sidebar-title"');
-    expect.soft(html.match(/aria-pressed="true"/g) ?? []).toHaveLength(1);
-    expect
-      .soft(html)
-      .toMatch(
-        /<button class="feature-sidebar-shortcut active"[^>]*aria-pressed="true"[^>]*>[\s\S]*?<span>OCR 识别<\/span><\/button>/,
-      );
+    const activeButtons = shortcutButtons.filter((button) =>
+      button.includes('aria-pressed="true"'),
+    );
+    expect(activeButtons).toHaveLength(1);
+    expect(activeButtons[0]).toContain('class="feature-sidebar-shortcut active"');
+    expect(activeButtons[0]).toContain("<span>OCR 识别</span>");
     expect(html).toContain("OCR form");
   });
 
