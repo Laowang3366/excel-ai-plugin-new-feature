@@ -4,6 +4,12 @@ import { getAppText } from "../../i18n";
 import { INTENT_SHORTCUTS, type IntentKind } from "../../utils/sidebarHelpers";
 import { Sparkles, X } from "./IconMap";
 
+const FEATURE_SIDEBAR_TITLE_ID = "feature-sidebar-title";
+
+interface InertAttributes {
+  inert?: "";
+}
+
 interface FeatureSidebarPanelProps {
   isOpen: boolean;
   activeIntent: IntentKind;
@@ -22,17 +28,20 @@ export function FeatureSidebarPanel({
   children,
 }: FeatureSidebarPanelProps) {
   const text = getAppText(language);
+  const inertAttributes: InertAttributes = isOpen ? {} : { inert: "" };
 
   return (
     <aside
+      {...inertAttributes}
       className={`feature-sidebar-panel ${isOpen ? "open" : "collapsed"}`}
       aria-hidden={!isOpen}
+      aria-labelledby={FEATURE_SIDEBAR_TITLE_ID}
     >
       <div className="feature-sidebar-content">
         <div className="feature-sidebar-header">
           <div className="feature-sidebar-title">
             <Sparkles size={18} />
-            <span>{text.chat.featureSidebar.title}</span>
+            <span id={FEATURE_SIDEBAR_TITLE_ID}>{text.chat.featureSidebar.title}</span>
           </div>
           <button
             className="feature-sidebar-close"
@@ -47,16 +56,15 @@ export function FeatureSidebarPanel({
 
         <div
           className="feature-sidebar-shortcuts"
-          role="listbox"
+          role="group"
           aria-label={text.chat.featureSidebar.title}
         >
           {INTENT_SHORTCUTS.map((shortcut) => (
             <button
               key={shortcut.key}
-              className={`feature-sidebar-shortcut ${activeIntent === shortcut.key ? "active" : ""}`}
+              className={`feature-sidebar-shortcut${activeIntent === shortcut.key ? " active" : ""}`}
               type="button"
-              role="option"
-              aria-selected={activeIntent === shortcut.key}
+              aria-pressed={activeIntent === shortcut.key}
               onClick={() => onIntentClick(shortcut.key)}
             >
               <shortcut.icon size={16} />
