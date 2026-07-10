@@ -25,12 +25,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useSettingsStore } from "./store/settingsStore";
-import { useActivationStore } from "./store/activationStore";
 import { Sidebar, type IntentKind } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
 import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { ActivationDialog } from "./components/ActivationDialog";
 import { ChevronLeft, Maximize2, Menu, Pin } from "./components/common/IconMap";
 import { logWarn } from "./utils/rendererLogger";
 import { getAppText } from "./i18n";
@@ -58,11 +56,6 @@ export const App: React.FC = () => {
     theme,
     officeAutoCompactEnabled,
   } = useSettingsStore();
-  const {
-    showActivationDialog,
-    loadStatus: loadActivationStatus,
-    isLoading: activationLoading,
-  } = useActivationStore();
   const [currentPage, setCurrentPage] = useState<AppPage>("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState(false);
@@ -79,8 +72,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     loadSettings();
-    loadActivationStatus();
-  }, [loadSettings, loadActivationStatus]);
+  }, [loadSettings]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -241,11 +233,6 @@ export const App: React.FC = () => {
         </div>
       </div>
     );
-  }
-
-  // 激活状态：加载完成但未激活时显示激活弹窗
-  if (!activationLoading && showActivationDialog && !isLoading) {
-    return <ActivationDialog onActivated={() => { window.location.reload(); }} />;
   }
 
   // 设置页：独立全页，不显示主侧边栏

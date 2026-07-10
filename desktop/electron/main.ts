@@ -51,7 +51,6 @@ import {
 } from "./main-modules/ipcHandlers";
 import { requestToolApproval } from "./agent/interaction/eventForwarder";
 import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
-import { initActivation, stopHeartbeat } from "./main-modules/activationManager";
 
 const mainLogger = createLogger("main");
 
@@ -107,8 +106,7 @@ function recreateMainWindow(): BrowserWindow {
 // 2. Agent Runtime 初始化（含 Office bridge + RAG），这是核心业务引擎
 // 3. 注册 IPC 处理器，使渲染进程可调用主进程能力
 // 4. 将用户配置的沙箱规则热更新到沙箱单例
-// 5. 初始化激活系统（读取本地状态，启动心跳）
-// 6. 创建窗口并保存引用，此时 UI 就绪
+// 5. 创建窗口并保存引用，此时 UI 就绪
 app.whenReady().then(async () => {
   getSessionStoreInstance(); // 提前初始化 SessionStore
   await getOrCreateAgentRuntime({
@@ -121,7 +119,6 @@ app.whenReady().then(async () => {
   }); // 提前初始化 Agent（含 Office bridge + RAG）
   registerIpcHandlers();
   applySandboxConfig();    // 把 electron-store 中的用户规则热更新到沙箱单例
-  initActivation();        // 初始化激活系统（检查本地激活状态，启动心跳）
   recreateMainWindow();     // 创建窗口并保存引用
 
   app.on("activate", () => {
@@ -164,13 +161,11 @@ app.on("window-all-closed", () => {
 
 // ---- 应用关闭前清理（顺序敏感）----
 // 1. 标记正在退出，阻止窗口管理器的误操作（如最小化到托盘）
-// 2. 停止心跳上报，避免关闭后仍有网络请求
-// 3. 刷写 SessionStore 中积压的滚动写入
-// 4. 关闭状态运行时存储
-// 5. 断开 Office bridge 连接（Excel/WPS 等 COM 对象）
+// 2. 刷写 SessionStore 中积压的滚动写入
+// 3. 关闭状态运行时存储
+// 4. 断开 Office bridge 连接（Excel/WPS 等 COM 对象）
 app.on("before-quit", async () => {
   setIsQuitting(true);
-  stopHeartbeat();
   await getSessionStoreInstance().flushRolloutWrites();
   await closeStateRuntimeStore();
   await disconnectOfficeBridges();

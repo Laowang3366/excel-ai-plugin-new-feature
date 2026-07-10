@@ -494,26 +494,4 @@ export interface ElectronAPI {
     /** 重建全部索引 */
     reindexAll: () => Promise<{ success: boolean; error?: string; results?: any[] }>;
   };
-  /** 激活管理 */
-  activation: {
-    getStatus: () => Promise<{ activated: boolean; info?: ActivationInfo }>;
-    activate: (key: string, serverUrl: string) => Promise<{ success: boolean; error?: string; data?: any }>;
-    clear: () => Promise<{ success: boolean }>;
-    getServerUrl: () => Promise<string>;
-    setServerUrl: (url: string) => Promise<{ success: boolean }>;
-    checkValid: () => Promise<boolean>;
-    getMachineInfo: () => Promise<{ machineId: string; machineName: string }>;
-    listDevices: () => Promise<{ success: boolean; error?: string; data?: any }>;
-    unbindDevice: (targetMachineId: string) => Promise<{ success: boolean; error?: string; currentDeviceUnbound?: boolean }>;
-  };
-}
-
-/** 激活信息 */
-export interface ActivationInfo {
-  key: string;
-  machineId: string;
-  activatedAt: string;
-  lastVerifiedAt: string;
-  expiresAt: string | null;
-  serverUrl: string;
 }

@@ -47,9 +47,6 @@ import {
   SettingsSetInput,
   SetAlwaysOnTopInput,
   WindowDisplayModeInput,
-  ActivationActivateInput,
-  ActivationSetServerUrlInput,
-  ActivationUnbindDeviceInput,
 } from "../shared/ipcSchemas";
 import { createLogger } from "../shared/logger";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
@@ -62,19 +59,6 @@ import {
   setWindowDisplayMode,
   type WindowDisplayMode,
 } from "./windowManager";
-import {
-  activate,
-  getLocalActivationState,
-  clearActivationState,
-  checkActivationValid,
-  getMachineId,
-  getMachineName,
-  getServerUrl,
-  listBoundDevices,
-  setServerUrl,
-  startHeartbeat,
-  unbindDevice,
-} from "./activationManager";
 
 const logger = createLogger("IPC");
 const rendererLogger = createLogger("renderer");
@@ -364,64 +348,6 @@ export function registerIpcHandlers(): void {
     } catch (err: any) {
       return { success: false, error: err.message };
     }
-  });
-
-  // ---- 激活管理 ----
-  // 处理渲染进程通过 activation:* 通道发起的激活相关请求
-  // 所有处理器委托给 activationManager 中的纯逻辑函数
-
-  /** 查询本地持久化的激活状态（同步读取，不发起网络请求） */
-  ipcMain.handle("activation:getStatus", () => {
-    return getLocalActivationState();
-  });
-
-  /** 执行激活：校验参数后调用 activationManager.activate 发起网络请求 */
-  ipcMain.handle("activation:activate", async (_event, key: unknown, serverUrl: unknown) => {
-    const { key: validatedKey, serverUrl: validatedUrl } = validateInput(ActivationActivateInput, { key, serverUrl });
-    const result = await activate(validatedKey, validatedUrl);
-    return result;
-  });
-
-  /** 清除本地激活状态并停止心跳 */
-  ipcMain.handle("activation:clear", () => {
-    clearActivationState();
-    return { success: true };
-  });
-
-  /** 获取当前使用的激活服务器地址 */
-  ipcMain.handle("activation:getServerUrl", () => {
-    return getServerUrl();
-  });
-
-  /** 设置激活服务器地址并持久化 */
-  ipcMain.handle("activation:setServerUrl", (_event, url: unknown) => {
-    const validatedUrl = validateInput(ActivationSetServerUrlInput, url);
-    setServerUrl(validatedUrl);
-    return { success: true };
-  });
-
-  /** 基于本地离线容忍时间快速判断激活是否仍有效 */
-  ipcMain.handle("activation:checkValid", () => {
-    return checkActivationValid();
-  });
-
-  /** 获取本机设备标识和设备名称 */
-  ipcMain.handle("activation:getMachineInfo", () => {
-    return {
-      machineId: getMachineId(),
-      machineName: getMachineName(),
-    };
-  });
-
-  /** 查询当前卡密已绑定的所有设备列表 */
-  ipcMain.handle("activation:listDevices", async () => {
-    return listBoundDevices();
-  });
-
-  /** 从当前卡密的绑定列表中移除指定设备 */
-  ipcMain.handle("activation:unbindDevice", async (_event, targetMachineId: unknown) => {
-    const validatedId = validateInput(ActivationUnbindDeviceInput, targetMachineId);
-    return unbindDevice(validatedId);
   });
 
 }
