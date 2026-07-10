@@ -90,18 +90,19 @@ function stylePresentationTables(xml: string, color: string): { xml: string; cha
   return { xml: nextXml, changed };
 }
 
-function styleSpreadsheetHeaderRow(rowXml: string): string {
-  return rowXml.replace(/<c\b([^>]*\br="[^"]+")([^>]*)>/g, (_match, beforeRef: string, afterRef: string) => {
-    const withoutStyle = afterRef.replace(/\s+s="[^"]*"/, "");
-    return `<c${beforeRef} s="1"${withoutStyle}>`;
+function styleSpreadsheetHeaderRow(rowXml: string, styleIndex: number): string {
+  return rowXml.replace(/<c\b([^>]*)>/g, (tag, attributes: string) => {
+    if (!/\br="[^"]+"/.test(attributes)) return tag;
+    const withoutStyle = attributes.replace(/\s+s="[^"]*"/g, "");
+    return `<c${withoutStyle.replace(/\br="[^"]+"/, (cellRef) => `${cellRef} s="${styleIndex}"`)}>`;
   });
 }
 
-function styleSpreadsheetRows(xml: string): { xml: string; changed: boolean } {
+function styleSpreadsheetRows(xml: string, styleIndex: number): { xml: string; changed: boolean } {
   let changed = false;
   const nextXml = xml.replace(/<row\b[\s\S]*?<\/row>/, (rowXml) => {
     changed = true;
-    return styleSpreadsheetHeaderRow(rowXml);
+    return styleSpreadsheetHeaderRow(rowXml, styleIndex);
   });
   return { xml: nextXml, changed };
 }
@@ -125,8 +126,125 @@ function spreadsheetStylesXml(color: string): string {
 </styleSheet>`;
 }
 
-async function ensureSpreadsheetStyleParts(zip: JSZip, color: string, changedParts: string[]): Promise<void> {
-  zip.file("xl/styles.xml", spreadsheetStylesXml(color));
+type StyleCollectionName = "fonts" | "fills" | "cellXfs";
+type StyleItemName = "font" | "fill" | "xf";
+
+interface AppendedStyleCollection {
+  xml: string;
+  index: number;
+}
+
+function updateCollectionCount(openingTag: string, count: number): string {
+  if (/\bcount="[^"]*"/.test(openingTag)) {
+    return openingTag.replace(/\bcount="[^"]*"/, `count="${count}"`);
+  }
+  return openingTag.replace(/>$/, ` count="${count}">`);
+}
+
+function insertAfterStyleAnchor(
+  xml: string,
+  anchors: string[],
+  collectionXml: string
+): string {
+  for (const anchor of anchors) {
+    if (xml.includes(anchor)) {
+      return xml.replace(anchor, `${anchor}${collectionXml}`);
+    }
+  }
+  if (/<styleSheet\b[^>]*>/.test(xml)) {
+    return xml.replace(/<styleSheet\b[^>]*>/, (tag) => `${tag}${collectionXml}`);
+  }
+  throw new Error("Excel 样式表缺少 styleSheet 根节点");
+}
+
+function appendStyleCollectionItem(
+  xml: string,
+  collectionName: StyleCollectionName,
+  itemName: StyleItemName,
+  itemXml: string
+): AppendedStyleCollection {
+  const collectionRe = new RegExp(
+    `<${collectionName}\\b[^>]*>([\\s\\S]*?)<\\/${collectionName}>`
+  );
+  const collectionMatch = collectionRe.exec(xml);
+  if (collectionMatch) {
+    const collectionXml = collectionMatch[0];
+    const openingTag = new RegExp(`^<${collectionName}\\b[^>]*>`).exec(collectionXml)?.[0];
+    if (!openingTag) {
+      throw new Error(`无法读取 Excel 样式集合: ${collectionName}`);
+    }
+    const itemCount = (collectionMatch[1].match(new RegExp(`<${itemName}\\b`, "g")) || []).length;
+    const nextCollection = collectionXml
+      .replace(openingTag, updateCollectionCount(openingTag, itemCount + 1))
+      .replace(`</${collectionName}>`, `${itemXml}</${collectionName}>`);
+    return {
+      xml: xml.replace(collectionXml, nextCollection),
+      index: itemCount,
+    };
+  }
+
+  const selfClosingRe = new RegExp(`<${collectionName}\\b[^>]*/>`);
+  if (selfClosingRe.test(xml)) {
+    return {
+      xml: xml.replace(
+        selfClosingRe,
+        `<${collectionName} count="1">${itemXml}</${collectionName}>`
+      ),
+      index: 0,
+    };
+  }
+
+  const collectionXml = `<${collectionName} count="1">${itemXml}</${collectionName}>`;
+  const anchors = collectionName === "fonts"
+    ? ["</numFmts>"]
+    : collectionName === "fills"
+      ? ["</fonts>", "</numFmts>"]
+      : ["</cellStyleXfs>", "</borders>", "</fills>"];
+  return {
+    xml: insertAfterStyleAnchor(xml, anchors, collectionXml),
+    index: 0,
+  };
+}
+
+function appendSpreadsheetHeaderStyle(xml: string, color: string): { xml: string; styleIndex: number } {
+  const font = appendStyleCollectionItem(
+    xml,
+    "fonts",
+    "font",
+    "<font><b /></font>"
+  );
+  const fill = appendStyleCollectionItem(
+    font.xml,
+    "fills",
+    "fill",
+    `<fill><patternFill patternType="solid"><fgColor rgb="FF${color}" /><bgColor indexed="64" /></patternFill></fill>`
+  );
+  const cellXf = appendStyleCollectionItem(
+    fill.xml,
+    "cellXfs",
+    "xf",
+    `<xf numFmtId="0" fontId="${font.index}" fillId="${fill.index}" borderId="0" xfId="0" applyFont="1" applyFill="1" />`
+  );
+  return {
+    xml: cellXf.xml,
+    styleIndex: cellXf.index,
+  };
+}
+
+async function ensureSpreadsheetStyleParts(
+  zip: JSZip,
+  color: string,
+  changedParts: string[]
+): Promise<number> {
+  const existingStyles = zip.file("xl/styles.xml");
+  let styleIndex = 1;
+  if (existingStyles) {
+    const appended = appendSpreadsheetHeaderStyle(await existingStyles.async("text"), color);
+    zip.file("xl/styles.xml", appended.xml);
+    styleIndex = appended.styleIndex;
+  } else {
+    zip.file("xl/styles.xml", spreadsheetStylesXml(color));
+  }
   changedParts.push("xl/styles.xml");
 
   const contentTypes = zip.file("[Content_Types].xml");
@@ -158,6 +276,7 @@ async function ensureSpreadsheetStyleParts(zip: JSZip, color: string, changedPar
       changedParts.push("xl/_rels/workbook.xml.rels");
     }
   }
+  return styleIndex;
 }
 
 export async function applyOfficeOpenXmlTableStyle(
@@ -194,17 +313,17 @@ export async function applyOfficeOpenXmlTableStyle(
 
   if (documentType === "spreadsheet") {
     const partNames = Object.keys(zip.files).filter((name) => SPREADSHEET_SHEET_RE.test(name)).sort();
+    const styleIndex = partNames.length > 0
+      ? await ensureSpreadsheetStyleParts(zip, color, changedParts)
+      : 1;
     for (const partName of partNames) {
       const part = zip.file(partName);
       if (!part) continue;
-      const styled = styleSpreadsheetRows(await part.async("text"));
+      const styled = styleSpreadsheetRows(await part.async("text"), styleIndex);
       if (styled.changed) {
         zip.file(partName, styled.xml);
         changedParts.push(partName);
       }
-    }
-    if (partNames.length > 0) {
-      await ensureSpreadsheetStyleParts(zip, color, changedParts);
     }
   }
 

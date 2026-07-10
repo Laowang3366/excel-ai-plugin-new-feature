@@ -94,4 +94,66 @@ describe("tableStyler", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("preserves existing Excel styles and appends the header style", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-style-preserve-"));
+    try {
+      const sourcePath = path.join(tempDir, "styled.xlsx");
+      const outputPath = path.join(tempDir, "styled-output.xlsx");
+      await writeZip(sourcePath, {
+        "[Content_Types].xml": [
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+          '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml" />',
+          "</Types>",
+        ].join(""),
+        "xl/workbook.xml": "<workbook />",
+        "xl/_rels/workbook.xml.rels": [
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+          '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml" />',
+          "</Relationships>",
+        ].join(""),
+        "xl/styles.xml": [
+          '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+          '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd" /></numFmts>',
+          '<fonts count="2"><font><name val="OriginalFont" /></font><font><b /></font></fonts>',
+          '<fills count="2"><fill><patternFill patternType="none" /></fill><fill><patternFill patternType="gray125" /></fill></fills>',
+          '<borders count="2"><border><left /><right /><top /><bottom /><diagonal /></border><border><left style="thin"><color rgb="FF000000" /></left><right /><top /><bottom /><diagonal /></border></borders>',
+          '<cellStyleXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" /><xf numFmtId="0" fontId="1" fillId="0" borderId="1" /></cellStyleXfs>',
+          '<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" /><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="1" /><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" /></cellXfs>',
+          '<cellStyles count="2"><cellStyle name="Normal" xfId="0" builtinId="0" /><cellStyle name="Custom" xfId="1" /></cellStyles>',
+          '<dxfs count="1"><dxf><font><i /></font></dxf></dxfs>',
+          "</styleSheet>",
+        ].join(""),
+        "xl/worksheets/sheet1.xml": [
+          '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>',
+          '<row r="1"><c r="A1" s="1" t="inlineStr"><is><t>日期</t></is></c><c r="B1" s="1" t="inlineStr"><is><t>金额</t></is></c></row>',
+          '<row r="2"><c r="A2" s="2"><v>45800</v></c><c r="B2" s="2"><v>120</v></c></row>',
+          "</sheetData></worksheet>",
+        ].join(""),
+      });
+
+      await applyOfficeOpenXmlTableStyle({
+        filePath: sourcePath,
+        outputPath,
+        style: "professional",
+      });
+
+      const outputSheetXml = await readZipText(outputPath, "xl/worksheets/sheet1.xml");
+      const stylesXml = await readZipText(outputPath, "xl/styles.xml");
+
+      expect(stylesXml).toContain('formatCode="yyyy-mm-dd"');
+      expect(stylesXml).toContain('<name val="OriginalFont" />');
+      expect(stylesXml).toContain('<left style="thin">');
+      expect(stylesXml).toContain('<cellStyle name="Custom" xfId="1" />');
+      expect(stylesXml).toContain("<dxfs count=\"1\">");
+      expect(stylesXml).toContain('<fonts count="3">');
+      expect(stylesXml).toContain('<fills count="3">');
+      expect(stylesXml).toContain('<cellXfs count="4">');
+      expect(stylesXml).toContain('fontId="2" fillId="2"');
+      expect(outputSheetXml).toContain('r="A1" s="3"');
+      expect(outputSheetXml).toContain('r="A2" s="2"');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });
