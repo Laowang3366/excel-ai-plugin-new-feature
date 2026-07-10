@@ -273,7 +273,7 @@ Excel/Word/PPT 高级操作优先使用统一 Office action：office.action.insp
 
 ### 视觉排版与表格美化
 视觉排版、PPT 设计、Word 版式、Excel 样式美化、截图验收和“界面/样式没达到要求”的任务，都必须先调用对应的 \`office.connection.status\`。如果应用已连接，优先检查并修改当前打开文件；只有确认当前文件不是目标或未连接时，才进入文件级 Open XML 创建/编辑流程。
-Open XML 优先：先用 office.action.inspect 获取结构、表格和截图信息，再用 office.action.apply 修改。
+Open XML 优先：先用 office.action.inspect 获取结构和表格信息，再用 office.action.apply 修改；需要文件截图时调用 office.action.apply({ app, action:"snapshot", operation:"snapshot", filePath }) 并接受审批。
 COM 自动兜底：office.action.apply 在 Open XML 不支持图表、目录、图片、PPT 对齐/快照等动态对象时会自动转 COM；也可传 preferEngine:"com" 明确要求 COM。
 只有统一入口覆盖不了当前打开窗口的临时交互需求时，才使用 word.* / presentation.* / office.script.execute。
 

@@ -155,25 +155,102 @@ function updateCollectionCount(openingTag: string, count: number): string {
   return openingTag.replace(/>$/, ` count="${count}">`);
 }
 
+function findXmlTagEnd(xml: string, tagStart: number): number {
+  let quote: '"' | "'" | undefined;
+  for (let index = tagStart + 1; index < xml.length; index += 1) {
+    const char = xml[index];
+    if (quote) {
+      if (char === quote) quote = undefined;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === ">") return index;
+  }
+  return -1;
+}
+
 function findStyleElementBounds(
   xml: string,
   elementName: string
 ): { start: number; end: number } | undefined {
-  const selfClosingMatch = new RegExp(`<${elementName}\\b[^>]*/>`).exec(xml);
-  const expandedMatch = new RegExp(
-    `<${elementName}\\b[^>]*>[\\s\\S]*?<\\/${elementName}>`
-  ).exec(xml);
-  const matches = [selfClosingMatch, expandedMatch].filter(
-    (match): match is RegExpExecArray => Boolean(match)
-  );
-  if (matches.length === 0) return undefined;
-  const match = matches.reduce((earliest, current) =>
-    current.index < earliest.index ? current : earliest
-  );
-  return {
-    start: match.index,
-    end: match.index + match[0].length,
-  };
+  const rootMatch = /<styleSheet\b[^>]*>/.exec(xml);
+  const rootEnd = xml.lastIndexOf("</styleSheet>");
+  if (!rootMatch || rootEnd < rootMatch.index + rootMatch[0].length) return undefined;
+
+  let cursor = rootMatch.index + rootMatch[0].length;
+  let depth = 0;
+  let directChildStart = -1;
+  let directChildName = "";
+
+  while (cursor < rootEnd) {
+    const tagStart = xml.indexOf("<", cursor);
+    if (tagStart < 0 || tagStart >= rootEnd) return undefined;
+    if (xml.startsWith("<!--", tagStart)) {
+      const commentEnd = xml.indexOf("-->", tagStart + 4);
+      if (commentEnd < 0) return undefined;
+      cursor = commentEnd + 3;
+      continue;
+    }
+    if (xml.startsWith("<![CDATA[", tagStart)) {
+      const cdataEnd = xml.indexOf("]]>", tagStart + 9);
+      if (cdataEnd < 0) return undefined;
+      cursor = cdataEnd + 3;
+      continue;
+    }
+    if (xml.startsWith("<?", tagStart)) {
+      const processingEnd = xml.indexOf("?>", tagStart + 2);
+      if (processingEnd < 0) return undefined;
+      cursor = processingEnd + 2;
+      continue;
+    }
+
+    const tagEnd = findXmlTagEnd(xml, tagStart);
+    if (tagEnd < 0 || tagEnd >= rootEnd) return undefined;
+    const tag = xml.slice(tagStart, tagEnd + 1);
+    if (/^<!/.test(tag)) {
+      cursor = tagEnd + 1;
+      continue;
+    }
+
+    const name = /^<\s*\/?\s*([A-Za-z_][\w:.-]*)/.exec(tag)?.[1];
+    if (!name) {
+      cursor = tagEnd + 1;
+      continue;
+    }
+    const isClosing = /^<\s*\//.test(tag);
+    const isSelfClosing = /\/\s*>$/.test(tag);
+
+    if (isClosing) {
+      if (depth > 0) {
+        depth -= 1;
+        if (depth === 0) {
+          if (directChildName === elementName) {
+            return { start: directChildStart, end: tagEnd + 1 };
+          }
+          directChildStart = -1;
+          directChildName = "";
+        }
+      }
+    } else if (depth === 0) {
+      if (isSelfClosing) {
+        if (name === elementName) {
+          return { start: tagStart, end: tagEnd + 1 };
+        }
+      } else {
+        directChildStart = tagStart;
+        directChildName = name;
+        depth = 1;
+      }
+    } else if (!isSelfClosing) {
+      depth += 1;
+    }
+
+    cursor = tagEnd + 1;
+  }
+  return undefined;
 }
 
 function insertStyleCollection(

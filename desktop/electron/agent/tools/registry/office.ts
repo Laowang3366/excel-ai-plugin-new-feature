@@ -276,7 +276,7 @@ const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
       action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"], description: "动作类型，默认 inspect" },
-      operation: { type: "string", description: "具体检查操作，如 inspectFile、layout、tables、snapshot" },
+      operation: { type: "string", description: "具体检查操作，如 inspectFile、layout、tables" },
       filePath: { type: "string", description: "Office 文件绝对路径" },
       outputPath: { type: "string", description: "输出文件路径" },
       target: { type: "string", description: "对象定位，如 range:Sheet1!A1:D10、table:1、slide:1" },
@@ -297,7 +297,7 @@ const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
       action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"], description: "动作类型，必填" },
-      operation: { type: "string", description: "具体操作，如 createWorkbook、writeRange、createDocument、createPresentation、deleteSlides、replaceText、styleTable、setDataValidation、applyHeadingStyles、applyTheme、insertChart" },
+      operation: { type: "string", description: "具体操作，如 createWorkbook、writeRange、createDocument、createPresentation、deleteSlides、replaceText、styleTable、snapshot、setDataValidation、applyHeadingStyles、applyTheme、insertChart" },
       filePath: { type: "string", description: "Office 文件绝对路径" },
       outputPath: { type: "string", description: "输出文件路径；未指定时由实现生成副本" },
       target: { type: "string", description: "对象定位，如 range:Sheet1!A1:D10、table:1、slide:1" },

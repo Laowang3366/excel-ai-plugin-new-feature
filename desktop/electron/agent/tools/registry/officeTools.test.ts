@@ -143,6 +143,16 @@ describe("Office Word/PPT tool definitions", () => {
     expect(parameters?.properties.action.description).toContain("必填");
   });
 
+  it("documents snapshot as an approved apply operation", () => {
+    const inspectTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "office.action.inspect");
+    const applyTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "office.action.apply");
+    const inspectParameters = inspectTool?.parameters as ObjectToolParameters | undefined;
+    const applyParameters = applyTool?.parameters as ObjectToolParameters | undefined;
+
+    expect(inspectParameters?.properties.operation.description).not.toContain("snapshot");
+    expect(applyParameters?.properties.operation.description).toContain("snapshot");
+  });
+
   it("exposes range.read spill expansion for dynamic array validation", () => {
     const readTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "range.read");
     const parameters = readTool?.parameters as ObjectToolParameters | undefined;

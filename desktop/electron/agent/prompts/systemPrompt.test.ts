@@ -129,6 +129,8 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("Word 文档、报告、方案");
     expect(prompt).toContain("判断写作难度");
     expect(prompt).toContain("简单改写或短文本补全不搜库");
+    expect(prompt).toContain('office.action.apply({ app, action:"snapshot", operation:"snapshot"');
+    expect(prompt).not.toContain("office.action.inspect 获取结构、表格和截图信息");
     expect(prompt).toContain('preferEngine:"com"');
     expect(prompt.length).toBeLessThan(2_500);
   });

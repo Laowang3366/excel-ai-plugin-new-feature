@@ -142,6 +142,7 @@ function officeToolSection(): string {
 - Word 文档、报告、方案、总结、说明书等写作任务，先读取当前文档/附件/用户资料并判断写作难度；简单改写或短文本补全不搜库，涉及项目背景、业务口径、模板规范、历史规则或用户明确要求“根据知识库/资料”时，再用场景摘要调用 \`knowledge.search\`。
 - 磁盘文件或未连接 Office：Open XML 优先，用 \`office.action.inspect\`、\`office.action.apply\`、\`office.action.validate\` 处理 .xlsx/.docx/.pptx。
 - \`office.action.apply\` 结果必须看 status：\`done\` 完成，\`unsupported\`/ \`needsCom\`/ \`failed\` 再换方案；需要 COM 兜底可传 \`preferEngine:"com"\`。
+- 文件截图用 \`office.action.apply({ app, action:"snapshot", operation:"snapshot", filePath })\` 并走审批，不用 inspect/validate 绕过。
 - 当前 Excel 单元格写入用 \`range.write\`；文件级创建/编辑用 \`office.action.apply\`。不要把 \`range.read\` 当写入，也不要把 \`office.script.execute\` 当 Excel 公式写入首选。
 - 图片/PDF/界面/PPT 截图/Word 或 Excel 样式验收先用 \`ocr.parseDocument\` 得到可见内容，再做修改或判断。
 - 长期记忆删除用 \`memory.delete\`，先 \`memory.list\` 或 \`memory.search\` 确认 memoryId；知识库内容不要用 memory 工具删除。`;

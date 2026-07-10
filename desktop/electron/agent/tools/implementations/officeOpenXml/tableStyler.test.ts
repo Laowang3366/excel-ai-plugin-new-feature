@@ -245,4 +245,50 @@ describe("tableStyler", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("does not use a nested extLst as the insertion anchor for cellXfs", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "openxml-style-nested-ext-"));
+    try {
+      const sourcePath = path.join(tempDir, "nested-ext.xlsx");
+      const outputPath = path.join(tempDir, "nested-ext-output.xlsx");
+      await writeZip(sourcePath, {
+        "[Content_Types].xml": '<Types><Override PartName="/xl/styles.xml" /></Types>',
+        "xl/workbook.xml": "<workbook />",
+        "xl/_rels/workbook.xml.rels": '<Relationships><Relationship Type="/styles" Target="styles.xml" /></Relationships>',
+        "xl/styles.xml": [
+          '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+          '<fonts count="1"><font /></fonts>',
+          '<fills count="2"><fill /><fill /></fills>',
+          '<borders count="1"><border /></borders>',
+          '<cellStyleXfs count="1">',
+          '<xf numFmtId="0" fontId="0" fillId="0" borderId="0">',
+          '<extLst><ext uri="nested-extension" /></extLst>',
+          "</xf>",
+          "</cellStyleXfs>",
+          "</styleSheet>",
+        ].join(""),
+        "xl/worksheets/sheet1.xml": [
+          '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>',
+          '<row r="1"><c r="A1" t="inlineStr"><is><t>标题</t></is></c></row>',
+          "</sheetData></worksheet>",
+        ].join(""),
+      });
+
+      await applyOfficeOpenXmlTableStyle({
+        filePath: sourcePath,
+        outputPath,
+        style: "professional",
+      });
+
+      const stylesXml = await readZipText(outputPath, "xl/styles.xml");
+      const cellStyleXfsEnd = stylesXml.indexOf("</cellStyleXfs>");
+      const cellXfsIndex = stylesXml.indexOf("<cellXfs");
+
+      expect(cellStyleXfsEnd).toBeGreaterThanOrEqual(0);
+      expect(cellXfsIndex).toBeGreaterThan(cellStyleXfsEnd);
+      expect(stylesXml).toContain('<extLst><ext uri="nested-extension" /></extLst>');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });
