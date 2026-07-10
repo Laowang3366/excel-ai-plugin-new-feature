@@ -12,6 +12,7 @@ import type {
   OfficeScriptBridge,
   OfficeActionBridge,
 } from "../contracts/office";
+import { officeActionOperationError } from "../officeCore/operationPolicy";
 import type { OfficeActionApp, OfficeActionEngine, OfficeActionInput, OfficeActionKind } from "../officeCore/types";
 import { validateArgs } from "./validation";
 
@@ -375,11 +376,16 @@ async function executeOfficeAction(
   if (!isOfficeActionKind(action)) {
     return { success: false, error: "参数 action 必须是 inspect、edit、style、insert、snapshot 或 validate" };
   }
+  const operation = args.operation as string;
+  const operationError = officeActionOperationError(action, operation);
+  if (operationError) {
+    return { success: false, error: operationError };
+  }
 
   const input: OfficeActionInput = {
     app: args.app,
     action,
-    operation: args.operation as string,
+    operation,
   };
   if (typeof args.filePath === "string") input.filePath = args.filePath;
   if (typeof args.outputPath === "string") input.outputPath = args.outputPath;

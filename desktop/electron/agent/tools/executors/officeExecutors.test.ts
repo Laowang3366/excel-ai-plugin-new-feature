@@ -93,7 +93,7 @@ describe("addOfficeExecutors", () => {
 
     const result = await target.get("office.action.inspect")!.execute({
       app: "word",
-      operation: "document",
+      operation: "inspectFile",
       filePath: "C:/tmp/a.docx",
     });
 
@@ -101,9 +101,38 @@ describe("addOfficeExecutors", () => {
     expect(officeActionBridge.executeAction).toHaveBeenCalledWith({
       app: "word",
       action: "inspect",
-      operation: "document",
+      operation: "inspectFile",
       filePath: "C:/tmp/a.docx",
     });
+  });
+
+  it.each([
+    ["office.action.inspect", "excel", "writeRange"],
+    ["office.action.validate", "word", "setHeaderFooter"],
+    ["office.action.inspect", "presentation", "addSlides"],
+  ])("%s rejects mutation operation %s/%s", async (toolName, app, operation) => {
+    const officeActionBridge: OfficeActionBridge = {
+      executeAction: vi.fn(async (input) => ({
+        status: "done" as const,
+        engine: "openxml" as const,
+        app: input.app,
+        action: input.action,
+        operation: input.operation,
+        summary: "不应执行",
+        changes: [],
+      })),
+    };
+    const target = createTarget({ officeActionBridge });
+
+    const result = await target.get(toolName)!.execute({
+      app,
+      operation,
+      filePath: "C:/tmp/input.office",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("office.action.apply");
+    expect(officeActionBridge.executeAction).not.toHaveBeenCalled();
   });
 
   it("reports non-done Office action statuses as unsuccessful so callers can fall back", async () => {

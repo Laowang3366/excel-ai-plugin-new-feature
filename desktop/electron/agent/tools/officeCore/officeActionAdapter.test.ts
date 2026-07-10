@@ -109,6 +109,37 @@ describe("createOfficeActionBridge", () => {
     });
   });
 
+  it.each([
+    ["inspect", "excel", "writeRange"],
+    ["validate", "word", "setHeaderFooter"],
+    ["inspect", "presentation", "addSlides"],
+  ] as const)("rejects %s action routing mutation %s/%s", async (action, app, operation) => {
+    const officeComActionBridge = {
+      executeAction: vi.fn(async (input) => ({
+        status: "done" as const,
+        engine: "com" as const,
+        app: input.app,
+        action: input.action,
+        operation: input.operation,
+        summary: "不应执行",
+        changes: [],
+      })),
+    };
+    const bridge = createOfficeActionBridge({ officeComActionBridge } as any);
+
+    const result = await bridge.executeAction({
+      app,
+      action,
+      operation,
+      preferEngine: "com",
+      filePath: "D:\\docs\\input.office",
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.error).toContain("office.action.apply");
+    expect(officeComActionBridge.executeAction).not.toHaveBeenCalled();
+  });
+
   it("returns needsCom when the Open XML snapshot bridge reports an unsupported placeholder", async () => {
     const officeFileBridge: OfficeFileBridge = {
       inspectFile: vi.fn(),

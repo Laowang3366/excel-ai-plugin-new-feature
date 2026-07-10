@@ -12,6 +12,7 @@ import { applyExcelAdvancedAction } from "../implementations/officeOpenXml/advan
 import { applyPresentationAdvancedAction } from "../implementations/officeOpenXml/advancedPresentation";
 import { applyWordAdvancedAction } from "../implementations/officeOpenXml/advancedWord";
 import { findOfficeCapability } from "./capabilities";
+import { officeActionOperationError } from "./operationPolicy";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "./results";
 import type { OfficeActionInput, OfficeActionResult } from "./types";
 
@@ -36,6 +37,11 @@ async function executeOfficeAction(
   deps: OfficeActionAdapterDeps
 ): Promise<OfficeActionResult> {
   try {
+    const operationError = officeActionOperationError(input.action, input.operation);
+    if (operationError) {
+      return failedResult(input, operationError);
+    }
+
     if (input.preferEngine === "com") {
       return await routeComAction(input, deps);
     }
