@@ -9,8 +9,8 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
+import { detectOfficeOpenXmlDocumentType } from "./documentParts";
 import type {
-  OfficeOpenXmlDocumentType,
   OfficeOpenXmlTableStyleInput,
   OfficeOpenXmlTableStylePreset,
   OfficeOpenXmlTableStyleResult,
@@ -19,14 +19,6 @@ import type {
 const WORD_DOCUMENT_PART = "word/document.xml";
 const PRESENTATION_SLIDE_RE = /^ppt\/slides\/slide\d+\.xml$/;
 const SPREADSHEET_SHEET_RE = /^xl\/worksheets\/sheet\d+\.xml$/;
-
-function detectDocumentType(filePath: string): OfficeOpenXmlDocumentType {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".docx") return "word";
-  if (ext === ".pptx") return "presentation";
-  if (ext === ".xlsx") return "spreadsheet";
-  throw new Error(`仅支持 .docx、.pptx 和 .xlsx 文件: ${filePath}`);
-}
 
 function defaultOutputPath(filePath: string): string {
   const dir = path.dirname(filePath);
@@ -402,7 +394,7 @@ async function ensureSpreadsheetStyleParts(
 export async function applyOfficeOpenXmlTableStyle(
   input: OfficeOpenXmlTableStyleInput
 ): Promise<OfficeOpenXmlTableStyleResult> {
-  const documentType = detectDocumentType(input.filePath);
+  const documentType = detectOfficeOpenXmlDocumentType(input.filePath);
   const zip = await JSZip.loadAsync(await readFile(input.filePath));
   const changedParts: string[] = [];
   const color = styleColor(input.style);

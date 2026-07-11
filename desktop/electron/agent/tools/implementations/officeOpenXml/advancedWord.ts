@@ -9,14 +9,19 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
-import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
+import { failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type {
   OfficeActionKind,
   OfficeActionResult,
   OfficeActionValidation,
 } from "../../officeCore/types";
-import { decodeXmlText as unescapeXml, escapeXmlText as escapeXml } from "../../../shared/xmlEntities";
+import {
+  decodeXmlText as unescapeXml,
+  escapeXmlText as escapeXml,
+  parseXmlAttributes,
+} from "../../../shared/xmlEntities";
 import { applyOfficeOpenXmlTableStyle } from "./tableStyler";
+import { createOpenXmlDoneResult } from "./actionResult";
 import type { OfficeOpenXmlTableStylePreset } from "./types";
 
 export interface WordAdvancedActionInput {
@@ -34,6 +39,7 @@ const CONTENT_TYPES_PART = "[Content_Types].xml";
 const WORDPROCESSINGML_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const OFFICE_RELATIONSHIPS_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const TABLE_STYLES = new Set<OfficeOpenXmlTableStylePreset>(["professional", "compact", "financial"]);
+const wordDone = createOpenXmlDoneResult("word");
 
 export async function applyWordAdvancedAction(input: WordAdvancedActionInput): Promise<OfficeActionResult> {
   try {
@@ -225,36 +231,6 @@ async function setHeaderFooter(input: WordAdvancedActionInput): Promise<OfficeAc
       .map((check) => check.message)
       .join("；"),
   };
-}
-
-function wordDone(
-  input: WordAdvancedActionInput,
-  outputPath: string,
-  changedParts: string[],
-  summary: string,
-  data?: unknown,
-  validation?: OfficeActionValidation
-): OfficeActionResult {
-  return doneResult({
-    engine: "openxml",
-    app: "word",
-    action: input.action || "edit",
-    operation: input.operation,
-    filePath: input.filePath,
-    outputPath,
-    target: input.target,
-    summary,
-    data,
-    validation: validation || {
-      ok: true,
-      checks: [{ name: "output-file", ok: true, message: "已生成输出文件" }],
-    },
-    changes: changedParts.map((partName) => ({
-      kind: "openxml-part",
-      target: partName,
-      detail: `已更新 ${partName}`,
-    })),
-  });
 }
 
 function paragraphText(paragraphXml: string): string {
@@ -468,16 +444,6 @@ function setXmlAttribute(tagXml: string, name: string, value: string): string {
     return tagXml.replace(attributeRe, `${name}="${value}"`);
   }
   return tagXml.replace(/\/?>$/, (end) => ` ${name}="${value}"${end}`);
-}
-
-function parseXmlAttributes(tagXml: string): Record<string, string> {
-  const attrs: Record<string, string> = {};
-  const attrRe = /([\w:-]+)\s*=\s*["']([^"']*)["']/g;
-  let match: RegExpExecArray | null;
-  while ((match = attrRe.exec(tagXml))) {
-    attrs[match[1]] = match[2];
-  }
-  return attrs;
 }
 
 async function validateHeaderFooterOutput(input: {

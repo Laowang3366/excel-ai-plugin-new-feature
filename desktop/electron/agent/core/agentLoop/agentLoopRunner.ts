@@ -28,7 +28,7 @@ import type {
 
 type AIClient = ReturnType<typeof createAIClient>;
 
-export async function runAgentLoopRounds(input: {
+export interface AgentLoopRunnerInput {
   turn: Turn;
   callbacks: AgentTurnCallbacks;
   turnInput: AgentTurnInput;
@@ -54,7 +54,9 @@ export async function runAgentLoopRounds(input: {
     requestContext: { systemPrompt: string; tools: ToolDefinition[] }
   ) => void;
   throwIfAborted: () => void;
-}): Promise<void> {
+}
+
+export async function runAgentLoopRounds(input: AgentLoopRunnerInput): Promise<void> {
   let round = 0;
 
   while (true) {

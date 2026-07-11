@@ -10,11 +10,12 @@ import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
 import { parseOfficeLocator } from "../../officeCore/locator";
-import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
+import { failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
 import {
   decodeXmlText as decodeXml,
   escapeXmlAttribute as escapeXml,
+  parseXmlAttributes,
 } from "../../../shared/xmlEntities";
 import { hasDynamicArrayFormulaValue } from "./excelFormulaXml";
 import {
@@ -24,6 +25,7 @@ import {
   worksheetXml,
 } from "./excelSheetXml";
 import { applyOfficeOpenXmlTableStyle } from "./tableStyler";
+import { createOpenXmlDoneResult } from "./actionResult";
 import type { OfficeOpenXmlTableStylePreset } from "./types";
 
 export interface ExcelAdvancedActionInput {
@@ -36,6 +38,7 @@ export interface ExcelAdvancedActionInput {
 }
 
 const TABLE_STYLES = new Set<OfficeOpenXmlTableStylePreset>(["professional", "compact", "financial"]);
+const excelDone = createOpenXmlDoneResult("excel");
 
 export async function applyExcelAdvancedAction(input: ExcelAdvancedActionInput): Promise<OfficeActionResult> {
   try {
@@ -206,35 +209,6 @@ async function styleTable(input: ExcelAdvancedActionInput): Promise<OfficeAction
   return excelDone(input, result.outputPath, result.changedParts, "已应用 Excel 表格样式", result);
 }
 
-function excelDone(
-  input: ExcelAdvancedActionInput,
-  outputPath: string,
-  changedParts: string[],
-  summary: string,
-  data?: unknown
-): OfficeActionResult {
-  return doneResult({
-    engine: "openxml",
-    app: "excel",
-    action: input.action || "edit",
-    operation: input.operation,
-    filePath: input.filePath,
-    outputPath,
-    target: input.target,
-    summary,
-    data,
-    validation: {
-      ok: true,
-      checks: [{ name: "output-file", ok: true, message: "已生成输出文件" }],
-    },
-    changes: changedParts.map((partName) => ({
-      kind: "openxml-part",
-      target: partName,
-      detail: `已更新 ${partName}`,
-    })),
-  });
-}
-
 async function resolveWorksheetPart(zip: JSZip, target?: string): Promise<string> {
   const locator = target ? parseOfficeLocator(target) : undefined;
   if (locator?.kind === "range" && locator.sheetName) {
@@ -274,16 +248,6 @@ function findRelationshipTarget(relsXml: string, relId: string): string | undefi
     if (attrs.Id === relId) return attrs.Target;
   }
   return undefined;
-}
-
-function parseXmlAttributes(tagXml: string): Record<string, string> {
-  const attrs: Record<string, string> = {};
-  const attrRe = /([\w:-]+)\s*=\s*["']([^"']*)["']/g;
-  let match: RegExpExecArray | null;
-  while ((match = attrRe.exec(tagXml))) {
-    attrs[match[1]] = match[2];
-  }
-  return attrs;
 }
 
 function normalizeWorkbookTarget(targetPath: string): string {

@@ -7,52 +7,31 @@
  */
 
 import { readFile } from "fs/promises";
-import path from "path";
 import JSZip from "jszip";
 import { extractOpenXmlTextValues } from "../../../shared/openXmlText";
+import {
+  detectOfficeOpenXmlDocumentType,
+  getOfficeOpenXmlTextTagName,
+  isOfficeOpenXmlTextPart,
+} from "./documentParts";
 import type {
-  OfficeOpenXmlDocumentType,
   OfficeOpenXmlLayoutInspectInput,
   OfficeOpenXmlLayoutInspectResult,
   OfficeOpenXmlLayoutObject,
 } from "./types";
 
-const WORD_TEXT_PART_RE = /^word\/(?:document|header\d+|footer\d+)\.xml$/;
-const PRESENTATION_TEXT_PART_RE = /^ppt\/slides\/slide\d+\.xml$/;
-const SPREADSHEET_TEXT_PART_RE = /^(?:xl\/sharedStrings\.xml|xl\/worksheets\/sheet\d+\.xml)$/;
-
-function detectDocumentType(filePath: string): OfficeOpenXmlDocumentType {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".docx") return "word";
-  if (ext === ".pptx") return "presentation";
-  if (ext === ".xlsx") return "spreadsheet";
-  throw new Error(`仅支持 .docx、.pptx 和 .xlsx 文件: ${filePath}`);
-}
-
-function isTextPart(documentType: OfficeOpenXmlDocumentType, partName: string): boolean {
-  if (documentType === "word") return WORD_TEXT_PART_RE.test(partName);
-  if (documentType === "presentation") return PRESENTATION_TEXT_PART_RE.test(partName);
-  return SPREADSHEET_TEXT_PART_RE.test(partName);
-}
-
-function textTagName(documentType: OfficeOpenXmlDocumentType): string {
-  if (documentType === "word") return "w:t";
-  if (documentType === "presentation") return "a:t";
-  return "t";
-}
-
 export async function inspectOfficeOpenXmlLayout(
   input: OfficeOpenXmlLayoutInspectInput
 ): Promise<OfficeOpenXmlLayoutInspectResult> {
-  const documentType = detectDocumentType(input.filePath);
+  const documentType = detectOfficeOpenXmlDocumentType(input.filePath);
   const zip = await JSZip.loadAsync(await readFile(input.filePath));
   const objects: OfficeOpenXmlLayoutObject[] = [];
 
-  for (const partName of Object.keys(zip.files).filter((name) => isTextPart(documentType, name)).sort()) {
+  for (const partName of Object.keys(zip.files).filter((name) => isOfficeOpenXmlTextPart(documentType, name)).sort()) {
     const file = zip.file(partName);
     if (!file) continue;
     const xml = await file.async("text");
-    for (const text of extractOpenXmlTextValues(xml, { tagName: textTagName(documentType) }).filter(Boolean)) {
+    for (const text of extractOpenXmlTextValues(xml, { tagName: getOfficeOpenXmlTextTagName(documentType) }).filter(Boolean)) {
       objects.push({ type: "text", partName, text, textLength: text.length });
     }
   }

@@ -7,9 +7,9 @@
  */
 
 import { readFile } from "fs/promises";
-import path from "path";
 import JSZip from "jszip";
 import { decodeXmlText as unescapeXmlText } from "../../../shared/xmlEntities";
+import { detectOfficeOpenXmlDocumentType } from "./documentParts";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlTableCell,
@@ -22,14 +22,6 @@ import type {
 const WORD_TABLE_PART_RE = /^word\/document\.xml$/;
 const PRESENTATION_TABLE_PART_RE = /^ppt\/slides\/slide\d+\.xml$/;
 const SPREADSHEET_TABLE_PART_RE = /^xl\/worksheets\/sheet\d+\.xml$/;
-
-function detectDocumentType(filePath: string): OfficeOpenXmlDocumentType {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".docx") return "word";
-  if (ext === ".pptx") return "presentation";
-  if (ext === ".xlsx") return "spreadsheet";
-  throw new Error(`仅支持 .docx、.pptx 和 .xlsx 文件: ${filePath}`);
-}
 
 function isTablePart(documentType: OfficeOpenXmlDocumentType, partName: string): boolean {
   if (documentType === "word") return WORD_TABLE_PART_RE.test(partName);
@@ -130,7 +122,7 @@ function toTableSummary(index: number, partName: string, rows: OfficeOpenXmlTabl
 export async function inspectOfficeOpenXmlTables(
   input: OfficeOpenXmlTableInspectInput
 ): Promise<OfficeOpenXmlTableInspectResult> {
-  const documentType = detectDocumentType(input.filePath);
+  const documentType = detectOfficeOpenXmlDocumentType(input.filePath);
   const zip = await JSZip.loadAsync(await readFile(input.filePath));
   const tables: OfficeOpenXmlTableSummary[] = [];
 

@@ -2,7 +2,7 @@ import * as path from "path";
 
 import JSZip from "jszip";
 import { extractOpenXmlTextValues } from "../shared/openXmlText";
-import { decodeXmlText } from "../shared/xmlEntities";
+import { decodeXmlText, parseXmlAttributes } from "../shared/xmlEntities";
 
 export interface WorkbookSheetInfo {
   name: string;
@@ -158,16 +158,6 @@ function extractFirstTag(xml: string, tagName: string): string | undefined {
   const re = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`);
   const match = re.exec(xml);
   return match ? decodeXmlText(match[1]) : undefined;
-}
-
-function parseXmlAttributes(tagXml: string): Record<string, string> {
-  const attrs: Record<string, string> = {};
-  const attrRe = /([\w:-]+)\s*=\s*["']([^"']*)["']/g;
-  let match: RegExpExecArray | null;
-  while ((match = attrRe.exec(tagXml))) {
-    attrs[match[1]] = match[2];
-  }
-  return attrs;
 }
 
 function normalizeWorkbookTarget(targetPath: string): string {

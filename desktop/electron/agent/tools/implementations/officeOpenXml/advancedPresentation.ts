@@ -9,7 +9,7 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
-import { doneResult, failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
+import { failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
 import {
   collectSlideEntries,
@@ -25,6 +25,7 @@ import {
 } from "./presentationPackageParts";
 import { createBasicPresentationPackage } from "./presentationTemplate";
 import { contentSlideXml, emptySlideRelsXml, normalizeSlidesParam } from "./presentationSlideContent";
+import { createOpenXmlDoneResult } from "./actionResult";
 
 export interface PresentationAdvancedActionInput {
   operation: string;
@@ -39,6 +40,7 @@ const PRESENTATION_SLIDE_RE = /^ppt\/slides\/slide\d+\.xml$/;
 const PRESENTATION_PART = "ppt/presentation.xml";
 const PRESENTATION_RELS_PART = "ppt/_rels/presentation.xml.rels";
 const ADD_SLIDE_OPERATIONS = new Set(["addSlide", "addSlides", "appendSlide", "appendSlides", "addSlideContent"]);
+const presentationDone = createOpenXmlDoneResult("presentation");
 
 export async function applyPresentationAdvancedAction(
   input: PresentationAdvancedActionInput
@@ -279,33 +281,6 @@ async function removeSlideContentTypeOverrides(zip: JSZip, deletedParts: string[
   return xml.replace(/<Override\b[^>]*(?:\/>|><\/Override>)/g, (overrideXml) => {
     const partName = getXmlAttr(overrideXml, "PartName");
     return partName && deletedNames.has(partName) ? "" : overrideXml;
-  });
-}
-
-function presentationDone(
-  input: PresentationAdvancedActionInput,
-  outputPath: string,
-  changedParts: string[],
-  summary: string
-): OfficeActionResult {
-  return doneResult({
-    engine: "openxml",
-    app: "presentation",
-    action: input.action || "edit",
-    operation: input.operation,
-    filePath: input.filePath,
-    outputPath,
-    target: input.target,
-    summary,
-    validation: {
-      ok: true,
-      checks: [{ name: "output-file", ok: true, message: "已生成输出文件" }],
-    },
-    changes: changedParts.map((partName) => ({
-      kind: "openxml-part",
-      target: partName,
-      detail: `已更新 ${partName}`,
-    })),
   });
 }
 

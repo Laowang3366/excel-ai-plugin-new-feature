@@ -13,6 +13,11 @@ import path from "path";
 import JSZip from "jszip";
 import { extractOpenXmlText } from "../../../shared/openXmlText";
 import { escapeXmlText } from "../../../shared/xmlEntities";
+import {
+  detectOfficeOpenXmlDocumentType,
+  getOfficeOpenXmlTextTagName,
+  isOfficeOpenXmlTextPart,
+} from "./documentParts";
 import type {
   OfficeOpenXmlDocumentType,
   OfficeOpenXmlInspectResult,
@@ -20,30 +25,6 @@ import type {
   OfficeOpenXmlReplaceResult,
   OfficeOpenXmlTextPart,
 } from "./types";
-
-const WORD_TEXT_PART_RE = /^word\/(?:document|header\d+|footer\d+)\.xml$/;
-const PRESENTATION_TEXT_PART_RE = /^ppt\/slides\/slide\d+\.xml$/;
-const SPREADSHEET_TEXT_PART_RE = /^(?:xl\/sharedStrings\.xml|xl\/worksheets\/sheet\d+\.xml)$/;
-
-function detectDocumentType(filePath: string): OfficeOpenXmlDocumentType {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".docx") return "word";
-  if (ext === ".pptx") return "presentation";
-  if (ext === ".xlsx") return "spreadsheet";
-  throw new Error(`仅支持 .docx、.pptx 和 .xlsx 文件: ${filePath}`);
-}
-
-function isTextPart(documentType: OfficeOpenXmlDocumentType, partName: string): boolean {
-  if (documentType === "word") return WORD_TEXT_PART_RE.test(partName);
-  if (documentType === "presentation") return PRESENTATION_TEXT_PART_RE.test(partName);
-  return SPREADSHEET_TEXT_PART_RE.test(partName);
-}
-
-function textTagName(documentType: OfficeOpenXmlDocumentType): string {
-  if (documentType === "word") return "w:t";
-  if (documentType === "presentation") return "a:t";
-  return "t";
-}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -60,7 +41,7 @@ function replaceEscapedTextInXml(
   if (!escapedFind) {
     throw new Error("findText 不能为空");
   }
-  const tagName = textTagName(documentType);
+  const tagName = getOfficeOpenXmlTextTagName(documentType);
   const textRe = new RegExp(`(<${tagName}[^>]*>)([\\s\\S]*?)(<\\/${tagName}>)`, "g");
   const findRe = new RegExp(escapeRegExp(escapedFind), matchCase ? "g" : "gi");
   let replacements = 0;
@@ -75,20 +56,20 @@ function replaceEscapedTextInXml(
 }
 
 async function loadPackage(filePath: string): Promise<{ zip: JSZip; documentType: OfficeOpenXmlDocumentType }> {
-  const documentType = detectDocumentType(filePath);
+  const documentType = detectOfficeOpenXmlDocumentType(filePath);
   const zip = await JSZip.loadAsync(await readFile(filePath));
   return { zip, documentType };
 }
 
 async function readTextParts(zip: JSZip, documentType: OfficeOpenXmlDocumentType): Promise<OfficeOpenXmlTextPart[]> {
   const parts: OfficeOpenXmlTextPart[] = [];
-  const names = Object.keys(zip.files).filter((partName) => isTextPart(documentType, partName)).sort();
+  const names = Object.keys(zip.files).filter((partName) => isOfficeOpenXmlTextPart(documentType, partName)).sort();
 
   for (const partName of names) {
     const file = zip.file(partName);
     if (!file) continue;
     const xml = await file.async("text");
-    const text = extractOpenXmlText(xml, { tagName: textTagName(documentType) });
+    const text = extractOpenXmlText(xml, { tagName: getOfficeOpenXmlTextTagName(documentType) });
     if (!text) continue;
     parts.push({ partName, text, textLength: text.length });
   }
@@ -123,7 +104,7 @@ export async function inspectOfficeOpenXmlFile(filePath: string): Promise<Office
 export async function replaceOfficeOpenXmlText(input: OfficeOpenXmlReplaceInput): Promise<OfficeOpenXmlReplaceResult> {
   const { zip, documentType } = await loadPackage(input.filePath);
   const changedParts: OfficeOpenXmlReplaceResult["changedParts"] = [];
-  const partNames = Object.keys(zip.files).filter((partName) => isTextPart(documentType, partName)).sort();
+  const partNames = Object.keys(zip.files).filter((partName) => isOfficeOpenXmlTextPart(documentType, partName)).sort();
   let replacements = 0;
 
   for (const partName of partNames) {

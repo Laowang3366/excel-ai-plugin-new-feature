@@ -34,3 +34,13 @@ export function decodeHtmlText(value: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ");
 }
+
+export function parseXmlAttributes(tagXml: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
+  const pattern = /([\w:-]+)\s*=\s*["']([^"']*)["']/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(tagXml))) {
+    attributes[match[1]] = match[2];
+  }
+  return attributes;
+}

@@ -9,7 +9,8 @@
 import { execFile } from "child_process";
 import path from "path";
 import { promisify } from "util";
-import type { OfficeOpenXmlDocumentType, OfficeVisualSnapshotInput, OfficeVisualSnapshotResult } from "./types";
+import { detectOfficeOpenXmlDocumentType } from "./documentParts";
+import type { OfficeVisualSnapshotInput, OfficeVisualSnapshotResult } from "./types";
 
 const execFileAsync = promisify(execFile);
 const HEADLESS_RENDERER_CANDIDATES = ["soffice", "libreoffice"];
@@ -37,14 +38,6 @@ export function selectSnapshotPlan(input: {
   throw new Error("没有可用的 Office 视觉快照渲染器");
 }
 
-function detectDocumentType(filePath: string): OfficeOpenXmlDocumentType {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".docx") return "word";
-  if (ext === ".pptx") return "presentation";
-  if (ext === ".xlsx") return "spreadsheet";
-  throw new Error(`仅支持 .docx、.pptx 和 .xlsx 文件: ${filePath}`);
-}
-
 function defaultOutputPath(filePath: string): string {
   const dir = path.dirname(filePath);
   const base = path.basename(filePath, path.extname(filePath));
@@ -64,7 +57,7 @@ async function findHeadlessRenderer(): Promise<string | undefined> {
 }
 
 export async function createOfficeVisualSnapshot(input: OfficeVisualSnapshotInput): Promise<OfficeVisualSnapshotResult> {
-  const documentType = detectDocumentType(input.filePath);
+  const documentType = detectOfficeOpenXmlDocumentType(input.filePath);
   const outputPath = input.outputPath || defaultOutputPath(input.filePath);
   const renderer = await findHeadlessRenderer();
 
