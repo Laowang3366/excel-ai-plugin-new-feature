@@ -50,6 +50,7 @@ import {
 import {
   getThreadRuntimeFromDb,
   getThreadSnapshotFromDb,
+  deleteThreadStateFromDb,
   listThreadSnapshotsFromDb,
   updateThreadRuntimeInDb,
   upsertThreadSnapshotInDb,
@@ -95,7 +96,6 @@ export class StateRuntimeStore {
   private readonly legacyStateDbPath?: string;
   private readonly recoveryReports: RuntimeRecoveryReport[] = [];
   private initialized = false;
-  private transactionDepth = 0;
 
   constructor(runtimeRoot = defaultStateRuntimeRoot()) {
     const resolved = resolveRuntimeDatabasePaths(runtimeRoot);
@@ -133,7 +133,6 @@ export class StateRuntimeStore {
     }
     this.dbs = null;
     this.initialized = false;
-    this.transactionDepth = 0;
   }
 
   getDatabasePaths(): RuntimeDatabasePaths {
@@ -171,6 +170,8 @@ export class StateRuntimeStore {
     upsertThreadSnapshotInDb(this.getDbs().state, metadata);
     if (metadata.name) {
       await this.appendThreadName(metadata.threadId, metadata.name, metadata.updatedAt);
+    } else {
+      this.getDbs().state.prepare("DELETE FROM thread_names WHERE thread_id = ?").run(metadata.threadId);
     }
   }
 
@@ -180,6 +181,15 @@ export class StateRuntimeStore {
 
   async listThreadSnapshots(): Promise<ThreadMetadata[]> {
     return listThreadSnapshotsFromDb(this.getDbs().state);
+  }
+
+  async deleteThreadData(threadId: ThreadId): Promise<void> {
+    deleteThreadStateFromDb(this.getDbs().state, threadId);
+    runSqliteTransaction(this.getDbs().logs, () => {
+      this.getDbs().logs.prepare("DELETE FROM rollout_events_fts WHERE thread_id = ?").run(threadId);
+      this.getDbs().logs.prepare("DELETE FROM rollout_events WHERE thread_id = ?").run(threadId);
+      this.getDbs().logs.prepare("DELETE FROM tool_execution_logs WHERE thread_id = ?").run(threadId);
+    });
   }
 
   async updateThreadRuntime(snapshot: ThreadRuntimeSnapshot & { threadId: ThreadId }): Promise<void> {
@@ -278,38 +288,6 @@ export class StateRuntimeStore {
     setMemoryPipelineCursorInDb(this.getDbs().memories, pipelineId, lastEventId);
   }
 
-  async transaction<T>(fn: (tx: StateRuntimeStore) => Promise<T>): Promise<T> {
-    if (this.transactionDepth > 0) {
-      return fn(this);
-    }
-
-    const dbs = this.getDbs();
-    const begun: RuntimeDbName[] = [];
-    for (const name of runtimeDbNames()) {
-      dbs[name].prepare("BEGIN").run();
-      begun.push(name);
-    }
-    this.transactionDepth = 1;
-    try {
-      const result = await fn(this);
-      for (const name of runtimeDbNames()) {
-        dbs[name].prepare("COMMIT").run();
-      }
-      return result;
-    } catch (error) {
-      for (const name of [...begun].reverse()) {
-        try {
-          dbs[name].prepare("ROLLBACK").run();
-        } catch {
-          // SQLite may already have closed the transaction after a failed COMMIT.
-        }
-      }
-      throw error;
-    } finally {
-      this.transactionDepth = 0;
-    }
-  }
-
   private getDbs(): RuntimeConnections {
     if (!this.initialized || !this.dbs) {
       throw new Error("StateRuntimeStore 尚未初始化");
@@ -318,7 +296,6 @@ export class StateRuntimeStore {
   }
 
   private runLogsWrite<T>(fn: () => T): T {
-    if (this.transactionDepth > 0) return fn();
     return runSqliteTransaction(this.getDbs().logs, fn);
   }
 

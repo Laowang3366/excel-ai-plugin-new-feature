@@ -48,38 +48,15 @@ export async function initializeKnowledgeRuntime(
 ): Promise<KnowledgeRuntimeState> {
   const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
   if (knowledgeStore && knowledgeRuntimeSignature !== signature) {
-    resetKnowledgeRuntime();
+    return reloadKnowledgeRuntime(aiConfig, dataRoot);
   }
 
   if (!knowledgeStore) {
     try {
-      const dbPath = await resolveKnowledgeDbPath(dataRoot);
-      knowledgeStore = new SqliteStore(dbPath);
-      await knowledgeStore.init();
-
-      knowledgeEmbedder = new EmbeddingService({
-        provider: aiConfig.provider,
-        baseUrl: aiConfig.baseUrl,
-        apiKey: aiConfig.apiKey,
-        customHeaders: aiConfig.customHeaders,
-      });
-
-      knowledgeIndexer = new KnowledgeIndexer(knowledgeStore, knowledgeEmbedder);
-      knowledgeWriter = new KnowledgeWriter(knowledgeStore, knowledgeEmbedder);
-      knowledgeRetriever = new Retriever(knowledgeStore, knowledgeEmbedder);
-
-      setKnowledgeStore(knowledgeStore);
-      setKnowledgeRetriever(knowledgeRetriever);
-      setKnowledgeIndexer(knowledgeIndexer);
-      setKnowledgeWriter(knowledgeWriter);
-
-      await indexBuiltinKnowledge(knowledgeIndexer);
-
-      knowledgeRuntimeSignature = signature;
-      knowledgeRuntimeError = null;
+      const candidate = await createKnowledgeRuntime(aiConfig, dataRoot);
+      activateKnowledgeRuntime(candidate, signature);
     } catch (e) {
       knowledgeRuntimeError = formatKnowledgeRuntimeError(e);
-      clearKnowledgeRuntimeInstances();
       knowledgeRuntimeLogger.warn("RAG 知识库初始化失败（可在设置中配置后重试）", e instanceof Error
         ? { message: e.message, stack: e.stack }
         : { error: String(e) });
@@ -120,8 +97,86 @@ export async function reloadKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot?: string,
 ): Promise<KnowledgeRuntimeState> {
-  resetKnowledgeRuntime();
-  return initializeKnowledgeRuntime(aiConfig, dataRoot);
+  const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
+  try {
+    const candidate = await createKnowledgeRuntime(aiConfig, dataRoot);
+    activateKnowledgeRuntime(candidate, signature);
+  } catch (error) {
+    knowledgeRuntimeError = formatKnowledgeRuntimeError(error);
+    knowledgeRuntimeLogger.warn("RAG 知识库刷新失败，继续使用上一运行时", error instanceof Error
+      ? { message: error.message, stack: error.stack }
+      : { error: String(error) });
+  }
+  return currentKnowledgeRuntimeState();
+}
+
+interface CompleteKnowledgeRuntime {
+  store: SqliteStore;
+  embedder: EmbeddingService;
+  indexer: KnowledgeIndexer;
+  writer: KnowledgeWriter;
+  retriever: Retriever;
+}
+
+async function createKnowledgeRuntime(
+  aiConfig: AIClientConfig,
+  dataRoot?: string,
+): Promise<CompleteKnowledgeRuntime> {
+  const dbPath = await resolveKnowledgeDbPath(dataRoot);
+  const store = new SqliteStore(dbPath);
+  try {
+    await store.init();
+    const embedder = new EmbeddingService({
+      provider: aiConfig.provider,
+      baseUrl: aiConfig.baseUrl,
+      apiKey: aiConfig.apiKey,
+      customHeaders: aiConfig.customHeaders,
+    });
+    const indexer = new KnowledgeIndexer(store, embedder);
+    const candidate = {
+      store,
+      embedder,
+      indexer,
+      writer: new KnowledgeWriter(store, embedder),
+      retriever: new Retriever(store, embedder),
+    };
+    await indexBuiltinKnowledge(indexer);
+    return candidate;
+  } catch (error) {
+    try { store.close(); } catch { /* preserve the initialization error */ }
+    throw error;
+  }
+}
+
+function activateKnowledgeRuntime(candidate: CompleteKnowledgeRuntime, signature: string): void {
+  const previousStore = knowledgeStore;
+  knowledgeStore = candidate.store;
+  knowledgeEmbedder = candidate.embedder;
+  knowledgeIndexer = candidate.indexer;
+  knowledgeWriter = candidate.writer;
+  knowledgeRetriever = candidate.retriever;
+  knowledgeRuntimeSignature = signature;
+  knowledgeRuntimeError = null;
+
+  setKnowledgeStore(candidate.store);
+  setKnowledgeRetriever(candidate.retriever);
+  setKnowledgeIndexer(candidate.indexer);
+  setKnowledgeWriter(candidate.writer);
+
+  if (previousStore && previousStore !== candidate.store) {
+    try { previousStore.close(); } catch { /* the replacement runtime is already active */ }
+  }
+}
+
+function currentKnowledgeRuntimeState(): KnowledgeRuntimeState {
+  return {
+    store: knowledgeStore,
+    embedder: knowledgeEmbedder,
+    indexer: knowledgeIndexer,
+    writer: knowledgeWriter,
+    retriever: knowledgeRetriever,
+    error: knowledgeRuntimeError,
+  };
 }
 
 async function resolveKnowledgeDbPath(dataRoot?: string): Promise<string> {

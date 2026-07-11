@@ -334,9 +334,11 @@ async function inspectFileWithOpenXml(
   if (inspection.status !== "done") return undefined;
 
   return {
-    success: true,
+    success: false,
+    error: openError || `${app === "word" ? "Word" : "PowerPoint"} 未能打开文件`,
     data: {
-      success: true,
+      success: false,
+      fileReadable: true,
       openedInApp: false,
       fallback: "openxml",
       openError,

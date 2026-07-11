@@ -14,7 +14,7 @@ import { SessionStore } from "../agent/memory/sessionStore";
 import { StateRuntimeStore } from "../agent/memory/stateRuntimeStore";
 import type { AIClientConfig } from "../agent/providers/aiClient";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
-import { reloadKnowledgeRuntime } from "../agent/runtime/knowledgeRuntime";
+import { reloadKnowledgeRuntime, resetKnowledgeRuntime } from "../agent/runtime/knowledgeRuntime";
 import { configureLogDirectory } from "../shared/logger";
 import {
   copyDirectoryContents,
@@ -26,6 +26,7 @@ import {
   setConfiguredDataPath,
   SETTINGS_STORE_NAME,
 } from "./settingsDataPath";
+import { AsyncResource } from "./asyncResource";
 
 export { getActiveDataPath };
 
@@ -81,7 +82,15 @@ function getSettingsStoreOptions(dataPath?: string) {
 
 let sessionStore: SessionStore | null = null;
 let agentGraphStore: AgentGraphStore | null = null;
-let stateRuntimeStore: StateRuntimeStore | null = null;
+const stateRuntimeResource = new AsyncResource(
+  async () => {
+    const sessionsRoot = path.join(getActiveDataPath(), "sessions");
+    const store = new StateRuntimeStore(path.join(sessionsRoot, "state-runtime"));
+    await store.init();
+    return store;
+  },
+  (store) => store.close(),
+);
 
 /** 获取 AgentLoop 实例的回调（由 main.ts 注册），用于迁移后刷新 SessionStore */
 let agentLoopGetter: (() => AgentLoop | null) | null = null;
@@ -112,41 +121,34 @@ export function getAgentGraphStoreInstance(): AgentGraphStore {
 }
 
 export async function getStateRuntimeStoreInstance(): Promise<StateRuntimeStore> {
-  if (!stateRuntimeStore) {
-    const sessionsRoot = path.join(getActiveDataPath(), "sessions");
-    stateRuntimeStore = new StateRuntimeStore(path.join(sessionsRoot, "state-runtime"));
-    await stateRuntimeStore.init();
+  if (migrationInProgress) {
+    throw new Error("数据存储正在迁移，请稍后重试");
   }
-  return stateRuntimeStore;
+  return openStateRuntimeStoreInstance();
 }
 
 export async function closeStateRuntimeStore(): Promise<void> {
-  if (!stateRuntimeStore) return;
-  await stateRuntimeStore.close();
-  stateRuntimeStore = null;
+  return stateRuntimeResource.close();
 }
 
-export function resetSessionStore(): void {
-  const previousStateRuntimeStore = stateRuntimeStore;
+async function openStateRuntimeStoreInstance(): Promise<StateRuntimeStore> {
+  return stateRuntimeResource.get();
+}
+
+async function resetSessionStore(): Promise<void> {
+  await closeStateRuntimeStore();
   sessionStore = null;
   agentGraphStore = null;
-  stateRuntimeStore = null;
-  void previousStateRuntimeStore?.close().catch(() => {});
-  // 数据迁移后，刷新 AgentLoop 的 SessionStore 引用，防止指向旧路径
+
   const fallbackAgent = agentLoopGetter?.();
   const agents = agentLoopsGetter?.() ?? (fallbackAgent ? [fallbackAgent] : []);
   if (agents.length > 0) {
     const nextSessionStore = getSessionStoreInstance();
+    const nextStateRuntimeStore = await openStateRuntimeStoreInstance();
     for (const agent of agents) {
       agent.updateSessionStore(nextSessionStore);
+      agent.updateStateRuntimeStore(nextStateRuntimeStore);
     }
-    void getStateRuntimeStoreInstance()
-      .then((store) => {
-        for (const agent of agents) {
-          agent.updateStateRuntimeStore(store);
-        }
-      })
-      .catch(() => {});
   }
 }
 
@@ -176,6 +178,18 @@ export async function migrateDataPath(
   const nextKnowledgeRoot = path.join(nextDataPath, "knowledge");
   const currentLogsRoot = path.join(currentDataPath, "logs");
   const nextLogsRoot = path.join(nextDataPath, "logs");
+  const fallbackAgent = agentLoopGetter?.();
+  const agents = agentLoopsGetter?.() ?? (fallbackAgent ? [fallbackAgent] : []);
+  if (agents.some((agent) => agent.getIsRunning())) {
+    migrationInProgress = false;
+    return { success: false, error: "请等待当前会话执行完成或停止后再迁移数据" };
+  }
+
+  const previousSettingsStore = settingsStore;
+  const previousSessionStore = getSessionStoreInstance();
+  const previousAgentGraphStore = agentGraphStore;
+  let switchedDataPath = false;
+  const targetDataPathExisted = await pathExists(nextDataPath);
   const targetSessionsExisted = await pathExists(nextSessionsRoot);
   const sourceSessionEntries = await fs.promises.readdir(currentSessionsRoot).catch(() => []);
 
@@ -190,6 +204,11 @@ export async function migrateDataPath(
   }
 
   try {
+    previousSessionStore.suspendWrites("数据存储正在迁移，请稍后重试");
+    await previousSessionStore.flushRolloutWrites();
+    await closeStateRuntimeStore();
+    resetKnowledgeRuntime();
+
     await fs.promises.mkdir(nextDataPath, { recursive: true });
     await copyDirectoryContents(currentSessionsRoot, nextSessionsRoot);
     await copyDirectoryContents(currentKnowledgeRoot, nextKnowledgeRoot);
@@ -212,17 +231,43 @@ export async function migrateDataPath(
     };
 
     setConfiguredDataPath(nextDataPath);
+    switchedDataPath = true;
     settingsStore = nextSettingsStore;
     configureLogDirectory(path.join(nextDataPath, "logs"));
-    // resetSessionStore 内部会自动刷新 AgentLoop 的 SessionStore 引用
-    resetSessionStore();
-    await reloadKnowledgeRuntime(getActiveAIConfig(), nextDataPath);
+    await resetSessionStore();
+    const nextKnowledgeRuntime = await reloadKnowledgeRuntime(getActiveAIConfig(), nextDataPath);
+    if (!nextKnowledgeRuntime.store) {
+      throw new Error(nextKnowledgeRuntime.error || "新数据目录的知识库初始化失败");
+    }
 
     return { success: true, dataPath: nextDataPath };
   } catch (error) {
-    // 回滚：清理不完整的目标目录（不删除 bootstrapStore 未切换，源数据安全）
+    if (switchedDataPath) {
+      await closeStateRuntimeStore().catch(() => {});
+      setConfiguredDataPath(currentDataPath);
+      settingsStore = previousSettingsStore;
+      configureLogDirectory(path.join(currentDataPath, "logs"));
+    }
+    sessionStore = previousSessionStore;
+    agentGraphStore = previousAgentGraphStore;
+    previousSessionStore.resumeWrites();
+    resetKnowledgeRuntime();
+
     try {
-      if (!targetSessionsExisted && await pathExists(nextSessionsRoot)) {
+      const restoredStateRuntime = await openStateRuntimeStoreInstance();
+      for (const agent of agents) {
+        agent.updateSessionStore(previousSessionStore);
+        agent.updateStateRuntimeStore(restoredStateRuntime);
+      }
+      await reloadKnowledgeRuntime(getActiveAIConfig(), currentDataPath);
+    } catch {
+      // 返回原始迁移错误；恢复失败会由后续存储访问继续暴露。
+    }
+
+    try {
+      if (!targetDataPathExisted && await pathExists(nextDataPath)) {
+        await fs.promises.rm(nextDataPath, { recursive: true, force: true });
+      } else if (!targetSessionsExisted && await pathExists(nextSessionsRoot)) {
         await fs.promises.rm(nextSessionsRoot, { recursive: true, force: true });
       }
     } catch { /* ignore cleanup errors */ }
@@ -232,8 +277,13 @@ export async function migrateDataPath(
       error: error instanceof Error ? error.message : "迁移数据失败",
     };
   } finally {
+    previousSessionStore.resumeWrites();
     migrationInProgress = false;
   }
+}
+
+export function isDataMigrationInProgress(): boolean {
+  return migrationInProgress;
 }
 
 export function getActiveAIConfig(): AIClientConfig {

@@ -19,7 +19,7 @@ import type {
   IndexResult,
 } from "./types";
 import { SqliteStore } from "./sqliteStore";
-import { EmbeddingService, type EmbeddingProfile } from "./embeddingService";
+import { EmbeddingService } from "./embeddingService";
 import { DocumentParser, type RawChunk } from "./documentParser";
 import { TextChunker, type TextChunk } from "./textChunker";
 
@@ -125,6 +125,7 @@ export class KnowledgeIndexer {
       const textChunks = this.chunker.chunk(rawChunks);
 
       if (textChunks.length === 0) {
+        this.store.replaceSource([], null, filePath);
         return {
           sourcePath: filePath,
           success: true,
@@ -133,11 +134,25 @@ export class KnowledgeIndexer {
         };
       }
 
-      // 3. 生成嵌入向量（批处理）。Embedding 不可用时仍保存文本索引，检索时走关键词兜底。
+      // 3. 生成嵌入向量（批处理）。只有显式 skipEmbedding 才进入关键词模式。
       const texts = textChunks.map((c) => c.content);
-      const embeddingResult = opts.skipEmbedding
-        ? { embeddings: texts.map(() => null), profile: undefined }
-        : await this.embedChunks(texts);
+      const existingSource = this.store.getSource(filePath);
+      let embeddingWarning: string | undefined;
+      let embeddingResult: { embeddings: Array<number[] | null>; profile?: ReturnType<EmbeddingService["getProfile"]> };
+      if (opts.skipEmbedding) {
+        embeddingResult = { embeddings: texts.map(() => null) };
+      } else {
+        try {
+          embeddingResult = {
+            embeddings: await this.embedder.embedBatch(texts),
+            profile: this.embedder.getProfile(),
+          };
+        } catch (error) {
+          if (existingSource && this.store.getEntriesBySource(filePath).length > 0) throw error;
+          embeddingWarning = `Embedding 不可用，已建立关键词索引：${error instanceof Error ? error.message : String(error)}`;
+          embeddingResult = { embeddings: texts.map(() => null) };
+        }
+      }
 
       // 4. 构建 KnowledgeEntry 并批量写入
       const now = Date.now();
@@ -147,10 +162,6 @@ export class KnowledgeIndexer {
       const currentFileHash = getFileHash();
       const embeddingProfile = embeddingResult.profile;
 
-      // 先删除旧索引
-      this.store.deleteSource(filePath);
-
-      // 批量插入
       const entries: KnowledgeEntry[] = [];
       for (let i = 0; i < textChunks.length; i++) {
         const chunk = textChunks[i];
@@ -171,24 +182,23 @@ export class KnowledgeIndexer {
           tokenCount: chunk.tokenCount,
         });
       }
-      this.store.bulkInsert(entries);
-
-      // 更新来源记录
-      this.store.upsertSource({
+      this.store.replaceSource(entries, {
         sourcePath: filePath,
         sourceName,
         sourceType: sourceFileType as any,
         entryCount: entries.length,
-        firstIndexed: now,
+        firstIndexed: existingSource?.firstIndexed ?? now,
         lastIndexed: now,
         fileHash: currentFileHash,
-      });
+      }, filePath);
 
       return {
         sourcePath: filePath,
         success: true,
         entryCount: entries.length,
         durationMs: Date.now() - startTime,
+        retrievalMode: embeddingResult.profile ? "vector" : "keyword",
+        warning: embeddingWarning,
       };
     } catch (err: any) {
       return {
@@ -335,23 +345,6 @@ export class KnowledgeIndexer {
 
   private getSourceFileType(filePath: string): string {
     return path.extname(filePath).toLowerCase().replace(/^\./, "") || "txt";
-  }
-
-  private async embedChunks(texts: string[]): Promise<{
-    embeddings: Array<number[] | null>;
-    profile?: EmbeddingProfile;
-  }> {
-    try {
-      const embeddings = await this.embedder.embedBatch(texts);
-      return {
-        embeddings,
-        profile: this.embedder.getProfile(),
-      };
-    } catch {
-      return {
-        embeddings: texts.map(() => null),
-      };
-    }
   }
 
   /** 计算文件哈希（SHA256 前 16 字符） */

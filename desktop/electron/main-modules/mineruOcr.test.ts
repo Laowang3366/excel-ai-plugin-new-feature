@@ -171,6 +171,35 @@ describe("mineruOcr", () => {
       ],
     }]);
   });
+
+  it("aborts a stalled polling request at the overall timeout", async () => {
+    const filePath = path.join(os.tmpdir(), `mineru-timeout-${Date.now()}.pdf`);
+    tempFiles.push(filePath);
+    fs.writeFileSync(filePath, "pdf");
+
+    vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/v1/agent/parse/file")) {
+        return Promise.resolve(jsonResponse({
+          code: 0,
+          data: { task_id: "task-timeout", file_url: "https://upload.example.com/timeout" },
+        }));
+      }
+      if (url === "https://upload.example.com/timeout") {
+        return Promise.resolve(new Response("", { status: 200 }));
+      }
+      if (url.endsWith("/api/v1/agent/parse/task-timeout")) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    }));
+
+    await expect(parseFilesWithMineruAgent([filePath], {
+      timeoutMs: 20,
+      pollIntervalMs: 1,
+    })).rejects.toThrow("MinerU 网络请求超时");
+  });
 });
 
 function jsonResponse(value: unknown): Response {

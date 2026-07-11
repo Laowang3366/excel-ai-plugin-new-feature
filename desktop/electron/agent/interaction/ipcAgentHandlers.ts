@@ -16,6 +16,8 @@ import type { KnowledgeRuntimeState } from "../runtime/knowledgeRuntime";
 import type { SessionStore } from "../memory/sessionStore";
 import type { AgentGraphStore } from "../memory/agentGraphStore";
 import type { StateRuntimeStore } from "../memory/stateRuntimeStore";
+import { ThreadRepository } from "../memory/threadRepository";
+import { createLogger } from "../../shared/logger";
 import type { AgentTurnCallbacks, AgentTurnInput, ThreadId } from "../shared/types";
 import { ALL_TOOL_DEFINITIONS } from "../tools/registry/toolDefinitions";
 import {
@@ -45,10 +47,12 @@ export interface AgentIpcHandlerDeps {
   getStateRuntimeStoreInstance?: () => Promise<StateRuntimeStore>;
   getAgentGraphStoreInstance: () => AgentGraphStore;
   ensureKnowledgeRuntime?: () => Promise<KnowledgeRuntimeState>;
+  isDataMigrationInProgress?: () => boolean;
 }
 
 const PARALLEL_TURN_ERROR = "当前已有会话正在执行，请等待完成或停止后再开始其他会话";
 const NEW_THREAD_RUNNING_ERROR = "当前已有会话正在执行，请等待完成或停止后再新建会话";
+const agentIpcLogger = createLogger("AgentIpcHandlers");
 
 async function resolveAgentLoop(
   deps: AgentIpcHandlerDeps,
@@ -66,12 +70,49 @@ export async function listThreadsForIpc(
 ) {
   if (deps.getStateRuntimeStoreInstance) {
     try {
-      return await (await deps.getStateRuntimeStoreInstance()).listThreadSnapshots();
-    } catch {
-      // SQLite 快照不可用时保留 JSONL 兼容路径。
+      const repository = new ThreadRepository(
+        deps.getSessionStoreInstance(),
+        await deps.getStateRuntimeStoreInstance(),
+      );
+      return await repository.list();
+    } catch (error) {
+      agentIpcLogger.warn("SQLite 会话快照不可用，回退读取 JSONL", error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { error: String(error) });
     }
   }
   return deps.getSessionStoreInstance().listThreads();
+}
+
+export async function deleteThreadForIpc(
+  deps: Pick<AgentIpcHandlerDeps, "getSessionStoreInstance" | "getStateRuntimeStoreInstance">,
+  threadId: ThreadId,
+): Promise<boolean> {
+  if (!deps.getStateRuntimeStoreInstance) {
+    return deps.getSessionStoreInstance().deleteThread(threadId);
+  }
+  const repository = new ThreadRepository(
+    deps.getSessionStoreInstance(),
+    await deps.getStateRuntimeStoreInstance(),
+  );
+  return repository.delete(threadId);
+}
+
+export async function updateThreadMetadataForIpc(
+  deps: Pick<AgentIpcHandlerDeps, "getSessionStoreInstance" | "getStateRuntimeStoreInstance" | "agentLoopManagerRef">,
+  threadId: ThreadId,
+  patch: Partial<import("../shared/types").ThreadMetadata>,
+) {
+  if (!deps.getStateRuntimeStoreInstance) {
+    await deps.getSessionStoreInstance().updateThreadMetadata(threadId, patch);
+    return;
+  }
+  const repository = new ThreadRepository(
+    deps.getSessionStoreInstance(),
+    await deps.getStateRuntimeStoreInstance(),
+  );
+  const updated = await repository.updateMetadata(threadId, patch);
+  deps.agentLoopManagerRef?.()?.updateLoadedThreadMetadata(threadId, updated);
 }
 
 export async function enqueueTurnForIpc(
@@ -90,7 +131,10 @@ export async function enqueueTurnForIpc(
     throw new Error(PARALLEL_TURN_ERROR);
   }
 
-  const turn = await agent.runTurn(input, callbacks);
+  const run = () => agent.runTurn(input, callbacks);
+  const turn = manager?.runWithTurnLock
+    ? await manager.runWithTurnLock(agent, run)
+    : await run();
   const threadId = agent.getThread()?.metadata.threadId;
   return { success: true, queued: false, turnId: turn.turnId, threadId };
 }
@@ -107,6 +151,23 @@ export async function prepareAgentForStartTurn(
     await agent.startThread();
   }
   manager?.rememberLoop(agent);
+}
+
+export async function startTurnForIpc(
+  agent: AgentLoop,
+  input: AgentTurnInput,
+  callbacks: AgentTurnCallbacks,
+  manager?: AgentLoopManager | null,
+) {
+  const run = async () => {
+    await prepareAgentForStartTurn(agent, manager);
+    const turn = await agent.runTurn(input, callbacks);
+    manager?.rememberLoop(agent);
+    return turn;
+  };
+  return manager?.runWithTurnLock
+    ? manager.runWithTurnLock(agent, run)
+    : run();
 }
 
 export async function prepareNewThreadForIpc(deps: Pick<AgentIpcHandlerDeps, "agentLoopManagerRef" | "agentLoopRef">, folderId?: string) {
@@ -130,6 +191,7 @@ export async function prepareNewThreadForIpc(deps: Pick<AgentIpcHandlerDeps, "ag
 }
 
 async function ensureKnowledgeRuntimeForIpc(deps: AgentIpcHandlerDeps): Promise<string | null> {
+  if (deps.isDataMigrationInProgress?.()) return "数据存储正在迁移，请稍后重试";
   try {
     const runtime = await deps.ensureKnowledgeRuntime?.();
     return runtime?.error || null;
@@ -153,9 +215,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
     const callbacks = createEventForwarder(deps.mainWindowRef);
 
     try {
-      await prepareAgentForStartTurn(agent, deps.agentLoopManagerRef?.());
-      const turn = await agent.runTurn(validated as AgentTurnInput, callbacks);
-      deps.agentLoopManagerRef?.()?.rememberLoop(agent);
+      const manager = deps.agentLoopManagerRef?.();
+      const turn = await startTurnForIpc(agent, validated as AgentTurnInput, callbacks, manager);
       const threadId = agent.getThread()?.metadata.threadId;
       return { success: true, turnId: turn.turnId, threadId };
     } catch (err: any) {
@@ -175,7 +236,10 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
       if (manager?.hasRunningLoopOtherThan?.(targetThreadId)) {
         throw new Error(PARALLEL_TURN_ERROR);
       }
-      const turn = await agent.resumeFromInterruption(validated.content, callbacks, validated.attachments);
+      const resume = () => agent.resumeFromInterruption(validated.content, callbacks, validated.attachments);
+      const turn = manager?.runWithTurnLock
+        ? await manager.runWithTurnLock(agent, resume)
+        : await resume();
       deps.agentLoopManagerRef?.()?.rememberLoop(agent);
       const threadId = agent.getThread()?.metadata.threadId;
       return { success: true, turnId: turn.turnId, threadId };
@@ -228,16 +292,23 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("thread:delete", async (_event, threadId: unknown) => {
     const validated = validateInput(ThreadIdInput, threadId);
-    return deps.getSessionStoreInstance().deleteThread(validated);
+    const manager = deps.agentLoopManagerRef?.();
+    if (manager && !await manager.releaseThread(validated)) {
+      throw new Error("会话正在运行，停止后才能删除");
+    }
+    return deleteThreadForIpc(deps, validated);
   });
 
   ipcMain.handle("thread:resume", async (_event, threadId: unknown) => {
     const validated = validateInput(ThreadIdInput, threadId);
+    const manager = deps.agentLoopManagerRef?.();
     const agent = await resolveAgentLoop(deps, validated);
     if (!agent) return { success: false };
-    const success = await agent.resumeThread(validated);
-    deps.agentLoopManagerRef?.()?.rememberLoop(agent);
-    return { success };
+    if (!manager) {
+      return { success: await agent.resumeThread(validated) };
+    }
+    manager.rememberLoop(agent);
+    return { success: true };
   });
 
   ipcMain.handle("thread:new", async (_event, folderId?: unknown) => {
@@ -247,7 +318,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("thread:updateMetadata", async (_event, threadId: unknown, patch: unknown) => {
     const validated = validateInput(ThreadUpdateMetadataInput, { threadId, patch });
-    return deps.getSessionStoreInstance().updateThreadMetadata(validated.threadId, validated.patch);
+    return updateThreadMetadataForIpc(deps, validated.threadId, validated.patch);
   });
 
   ipcMain.handle("thread:findLatest", async () => {
@@ -292,6 +363,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:listSources", async () => {
+    if (deps.isDataMigrationInProgress?.()) throw new Error("数据存储正在迁移，请稍后重试");
     let store = getKnowledgeStore();
     const initError = !store ? await ensureKnowledgeRuntimeForIpc(deps) : null;
     store = getKnowledgeStore();
@@ -300,6 +372,9 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:search", async (_event, query: unknown, topK: unknown) => {
+    if (deps.isDataMigrationInProgress?.()) {
+      return { success: false, error: "数据存储正在迁移，请稍后重试" };
+    }
     const validated = validateInput(KnowledgeSearchInput, { query, topK });
     let retriever = getKnowledgeRetriever();
     const initError = !retriever ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -319,6 +394,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:indexFile", async (_event, filePath: unknown) => {
+    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
     const validated = validateInput(KnowledgeIndexFileInput, { filePath });
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -335,6 +411,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:indexFolder", async (_event, folderPath: unknown) => {
+    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
     const validated = validateInput(KnowledgeIndexFolderInput, { folderPath });
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -351,6 +428,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:deleteFile", async (_event, sourcePath: unknown) => {
+    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
     const validated = validateInput(KnowledgeDeleteInput, { sourcePath });
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -367,6 +445,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:reindexAll", async () => {
+    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
     indexer = getKnowledgeIndexer();

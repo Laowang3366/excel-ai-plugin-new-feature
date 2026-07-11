@@ -881,6 +881,10 @@ describe("KnowledgeIndexer", () => {
       const result = await indexer.indexFile(tmpPath);
 
       expect(result.success).toBe(true);
+      expect(result).toMatchObject({
+        retrievalMode: "keyword",
+        warning: expect.stringContaining("Embedding 不可用"),
+      });
       expect(result.entryCount).toBeGreaterThan(0);
       const entries = store.getEntriesBySource(tmpPath);
       expect(entries[0].embedding).toBeNull();

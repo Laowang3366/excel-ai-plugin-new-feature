@@ -18,6 +18,7 @@
 import { ipcMain, dialog, shell, BrowserWindow } from "electron";
 import { AgentLoop } from "../agent/core/agentLoop";
 import { ensureKnowledgeRuntime, refreshKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
+import { inspectExcelWorkbookForIpc, readExcelRangeForIpc } from "./excelIpcOperations";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
@@ -30,6 +31,7 @@ import {
   getActiveAIConfig,
   getSessionStoreInstance,
   getStateRuntimeStoreInstance,
+  isDataMigrationInProgress,
   getAgentGraphStoreInstance,
   migrateDataPath,
   applyWindowOpacity,
@@ -144,6 +146,7 @@ export function registerIpcHandlers(): void {
     getStateRuntimeStoreInstance,
     getAgentGraphStoreInstance,
     ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath()),
+    isDataMigrationInProgress,
   });
 
   // ---- 应用信息 ----
@@ -325,17 +328,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("excel:readRange", async (_event, sheetName: unknown, range: unknown, expand?: unknown) => {
     const validated = validateInput(ExcelReadRangeInput, { sheetName, range, expand });
-    const bridge = excelBridgeRef();
-    if (!bridge) return { values: [[]] };
-    try { return await bridge.readRange(validated.sheetName, validated.range, validated.expand); }
-    catch { return { values: [[]] }; }
+    return readExcelRangeForIpc(excelBridgeRef(), validated.sheetName, validated.range, validated.expand);
   });
 
   ipcMain.handle("excel:inspectWorkbook", async () => {
-    const bridge = excelBridgeRef();
-    if (!bridge) return null;
-    try { return await bridge.inspectWorkbook(); }
-    catch { return null; }
+    return inspectExcelWorkbookForIpc(excelBridgeRef());
   });
 
   ipcMain.handle("excel:writeRange", async (_event, sheetName: unknown, range: unknown, values: unknown) => {

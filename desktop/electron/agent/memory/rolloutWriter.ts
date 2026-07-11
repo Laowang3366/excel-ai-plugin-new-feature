@@ -57,9 +57,7 @@ export class AsyncRolloutWriter {
 
   async flush(): Promise<void> {
     if (this.lastError) {
-      const error = this.lastError;
       this.lastError = null;
-      throw error;
     }
 
     await this.startDrain();
@@ -91,11 +89,30 @@ export class AsyncRolloutWriter {
       this.inFlightLineCount += batchLineCount;
 
       try {
-        await Promise.all(
-          [...batches.entries()].map(([filePath, lines]) =>
+        const entries = [...batches.entries()];
+        const results = await Promise.allSettled(
+          entries.map(([filePath, lines]) =>
             this.writeBatch(filePath, lines.join(""))
           )
         );
+        const failed: Array<[string, string[]]> = [];
+        let firstError: unknown;
+        for (let index = 0; index < results.length; index++) {
+          const result = results[index];
+          if (result.status === "rejected") {
+            failed.push(entries[index]);
+            firstError ??= result.reason;
+          }
+        }
+        for (const [filePath, lines] of failed.reverse()) {
+          const newerLines = this.pending.get(filePath) ?? [];
+          this.pending.set(filePath, [...lines, ...newerLines]);
+          this.pendingLineCount += lines.length;
+        }
+        if (firstError) {
+          this.lastError = normalizeError(firstError);
+          throw this.lastError;
+        }
       } finally {
         this.inFlightLineCount = Math.max(0, this.inFlightLineCount - batchLineCount);
         this.notifyCapacityWaiters();
@@ -129,7 +146,7 @@ export class AsyncRolloutWriter {
   }
 
   private scheduleDrainIfIdle(): void {
-    if (this.scheduled || this.currentDrain || this.pending.size === 0) return;
+    if (this.lastError || this.scheduled || this.currentDrain || this.pending.size === 0) return;
     this.scheduled = true;
     this.scheduleDrain(() => {
       this.scheduled = false;

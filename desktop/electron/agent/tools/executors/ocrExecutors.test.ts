@@ -239,6 +239,59 @@ describe("ocr executors", () => {
     });
   });
 
+  it("fills only failed files with the next provider in a mixed batch", async () => {
+    process.env.MINERU_API_TOKEN = "token";
+    const firstPath = tempFile("ocr-mixed-first", ".pdf", "first");
+    const secondPath = tempFile("ocr-mixed-second", ".pdf", "second");
+    const zipBuffer = await mineruZip("标准解析内容");
+
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/file-urls/batch")) {
+        return jsonResponse({
+          code: 0,
+          data: {
+            batch_id: "batch-mixed",
+            file_urls: ["https://upload.example.com/first", "https://upload.example.com/second"],
+          },
+        });
+      }
+      if (url.startsWith("https://upload.example.com/")) return new Response("", { status: 200 });
+      if (url.endsWith("/extract-results/batch/batch-mixed")) {
+        return jsonResponse({
+          code: 0,
+          data: {
+            extract_result: [
+              { file_name: path.basename(firstPath), state: "done", full_zip_url: "https://download.example.com/first.zip" },
+              { file_name: path.basename(secondPath), state: "failed", err_msg: "单文件失败" },
+            ],
+          },
+        });
+      }
+      if (url === "https://download.example.com/first.zip") return new Response(zipBuffer, { status: 200 });
+      if (url.endsWith("/api/v1/agent/parse/file")) {
+        expect(JSON.parse(String(init?.body)).file_name).toBe(path.basename(secondPath));
+        return jsonResponse({ code: 0, data: { task_id: "task-mixed", file_url: "https://upload.example.com/agent-second" } });
+      }
+      if (url.endsWith("/api/v1/agent/parse/task-mixed")) {
+        return jsonResponse({ code: 0, data: { state: "done", markdown_url: "https://download.example.com/second.md" } });
+      }
+      if (url === "https://download.example.com/second.md") return new Response("免费补齐内容", { status: 200 });
+      throw new Error(`unexpected url: ${url}`);
+    }));
+
+    const result = await executeOcr({ filePaths: [firstPath, secondPath] });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({
+      provider: "mixed",
+      status: "complete",
+      documents: [
+        { filename: path.basename(firstPath), provider: "mineru", text: "标准解析内容" },
+        { filename: path.basename(secondPath), provider: "mineru-agent", text: "免费补齐内容" },
+      ],
+    });
+  });
+
   function tempFile(prefix: string, ext: string, content: string): string {
     const filePath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
     tempFiles.push(filePath);

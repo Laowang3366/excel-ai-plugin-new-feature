@@ -362,6 +362,8 @@ export interface SessionMeta {
   timestamp: string;
   modelProvider: string;
   model?: string;
+  /** 用户自定义名称；null 表示显式清除。 */
+  name?: string | null;
   /** 所属文件夹路径（对应 pinnedFolders 的 path） */
   folderId?: string;
 }

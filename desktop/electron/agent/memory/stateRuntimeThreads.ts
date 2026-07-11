@@ -1,5 +1,6 @@
 import type { ThreadId, ThreadMetadata, ThreadRuntimeSnapshot } from "../shared/types";
 import type { SqliteDatabase } from "../storage/nodeSqlite";
+import { runSqliteTransaction } from "../storage/nodeSqlite";
 import { mapThreadSnapshot } from "./stateRuntimeMappers";
 
 export function upsertThreadSnapshotInDb(db: SqliteDatabase, metadata: ThreadMetadata): void {
@@ -55,6 +56,14 @@ export function listThreadSnapshotsFromDb(db: SqliteDatabase): ThreadMetadata[] 
     `SELECT * FROM thread_snapshots ORDER BY updated_at DESC`
   ).all() as Record<string, any>[];
   return rows.map(mapThreadSnapshot);
+}
+
+export function deleteThreadStateFromDb(db: SqliteDatabase, threadId: ThreadId): void {
+  runSqliteTransaction(db, () => {
+    db.prepare("DELETE FROM thread_runtime WHERE thread_id = ?").run(threadId);
+    db.prepare("DELETE FROM thread_names WHERE thread_id = ?").run(threadId);
+    db.prepare("DELETE FROM thread_snapshots WHERE thread_id = ?").run(threadId);
+  });
 }
 
 export function updateThreadRuntimeInDb(
