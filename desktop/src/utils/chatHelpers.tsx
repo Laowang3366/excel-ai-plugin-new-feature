@@ -2,7 +2,7 @@
  * 聊天工具函数 — 从 ChatPage.tsx 提取的纯函数与小组件
  *
  * 包含：消息分组、时长计算、标题摘要、Excel 选区获取、
- *       任务面板元数据、数值 clamp、文件大小格式化、权限图标
+ *       文件大小格式化、权限图标
  */
 
 import React from "react";
@@ -11,12 +11,6 @@ import type { TurnItem } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { getAppText } from "../i18n";
 import {
-  Hash,
-  Code,
-  FileScan,
-  Eraser,
-  FileBarChart,
-  LineChart,
   Shield,
   ShieldCheck,
   ShieldX,
@@ -197,34 +191,6 @@ export async function pickExcelRange(): Promise<string> {
 // ============================================================
 // 任务面板元数据
 // ============================================================
-
-export type ActiveIntentKind = "formula" | "code" | "ocr" | "clean" | "report" | "chart";
-
-export function getTaskPanelMeta(intent: ActiveIntentKind, language: AppLanguage) {
-  const labels = getAppText(language).sidebar.intents;
-  switch (intent) {
-    case "formula":
-      return { title: labels.formula, icon: <Hash size={16} /> };
-    case "code":
-      return { title: labels.code, icon: <Code size={16} /> };
-    case "ocr":
-      return { title: labels.ocr, icon: <FileScan size={16} /> };
-    case "clean":
-      return { title: labels.clean, icon: <Eraser size={16} /> };
-    case "report":
-      return { title: labels.report, icon: <FileBarChart size={16} /> };
-    case "chart":
-      return { title: labels.chart, icon: <LineChart size={16} /> };
-  }
-}
-
-// ============================================================
-// 通用工具
-// ============================================================
-
-export function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), Math.max(min, max));
-}
 
 /** 权限模式图标 */
 export function PermissionIcon({ mode }: { mode: PermissionMode }) {
