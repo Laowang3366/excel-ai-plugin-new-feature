@@ -118,6 +118,15 @@ describe("chatStore sendMessage", () => {
     await expect(send).resolves.toBe("thread-created");
     expect(useChatStore.getState().activeThreadId).toBe("thread-existing");
   });
+
+  it("returns null when resuming an existing thread throws", async () => {
+    ipcMocks.resumeThread.mockRejectedValue(new Error("resume unavailable"));
+
+    await expect(useChatStore.getState().sendMessage("继续处理")).resolves.toBeNull();
+
+    expect(ipcMocks.startTurn).not.toHaveBeenCalled();
+    expect(useChatStore.getState().error).toBe("resume unavailable");
+  });
 });
 
 describe("chatStore switchThread", () => {

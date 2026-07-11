@@ -80,7 +80,13 @@ export async function sendMessageAction(
     }
   }
 
-  const threadReady = await ensureAgentThread(state.activeThreadId);
+  let threadReady: boolean;
+  try {
+    threadReady = await ensureAgentThread(state.activeThreadId);
+  } catch (err: any) {
+    set({ error: err.message });
+    return null;
+  }
   if (!threadReady) {
     set({ error: "当前仍有会话在执行中，请等待完成或中断后再发送" });
     return null;
