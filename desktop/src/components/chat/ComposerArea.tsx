@@ -38,8 +38,12 @@ import {
   ChevronDown,
 } from "../common/IconMap";
 
-export function isComposerSubmitKey(key: string, shiftKey: boolean): boolean {
-  return key === "Enter" && !shiftKey;
+export function isComposerSubmitKey(
+  key: string,
+  shiftKey: boolean,
+  isComposing = false,
+): boolean {
+  return key === "Enter" && !shiftKey && !isComposing;
 }
 
 // ============================================================
@@ -92,7 +96,7 @@ export function ComposerArea({
   const { contextUsage } = useChatStore();
   const text = getAppText(language);
   const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!isComposerSubmitKey(event.key, event.shiftKey)) return;
+    if (!isComposerSubmitKey(event.key, event.shiftKey, event.nativeEvent.isComposing)) return;
     event.preventDefault();
     onSend();
   };

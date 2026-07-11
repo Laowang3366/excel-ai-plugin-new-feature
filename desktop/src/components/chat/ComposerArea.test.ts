@@ -11,6 +11,10 @@ describe("isComposerSubmitKey", () => {
     expect(isComposerSubmitKey("Enter", true)).toBe(false);
   });
 
+  it("does not submit Enter while an IME composition is active", () => {
+    expect(isComposerSubmitKey("Enter", false, true)).toBe(false);
+  });
+
   it("does not submit for other keys", () => {
     expect(isComposerSubmitKey("Space", false)).toBe(false);
   });
