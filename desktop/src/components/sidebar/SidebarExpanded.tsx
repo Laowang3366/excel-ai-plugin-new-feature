@@ -2,7 +2,11 @@ import React from "react";
 import type { AppPage } from "../../App";
 import type { ThreadMetadata } from "../../electronApi";
 import type { AppLanguage, PinnedFolder } from "../../store/settingsStore";
-import type { ExcelStatus, SidebarGroupedFolder, SidebarSortMode } from "../../utils/sidebarHelpers";
+import type {
+  ExcelStatus,
+  SidebarGroupedFolder,
+  SidebarSortMode,
+} from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";
 import type { getAppText } from "../../i18n";
 import type { SettingsSection } from "../SettingsPage";
@@ -15,12 +19,7 @@ import {
 } from "./FolderSection";
 import { ThreadContextMenu, type ContextMenuState } from "./ThreadContextMenu";
 import { SidebarFooter } from "./SidebarFooter";
-import {
-  PenLine,
-  Plus,
-  RefreshCw,
-  Search,
-} from "../common/IconMap";
+import { PenLine, Plus, RefreshCw, Search } from "../common/IconMap";
 import { SidebarSectionHeader } from "./SidebarSectionHeader";
 import { SidebarSortMenu, type SidebarSortSection } from "./SidebarSortMenu";
 
@@ -149,11 +148,18 @@ export function SidebarExpanded({
   onCloseSettingsMenu,
 }: SidebarExpandedProps) {
   return (
-    <aside className={`sidebar${isResizing ? " no-transition" : ""}`} ref={sidebarRef} style={{ width: isResizing || sidebarWidth !== 260 ? sidebarWidth : undefined }}>
-      <div className={`sidebar-resize-handle${isResizing ? " resizing" : ""}`} onMouseDown={onResizeStart} />
+    <aside
+      className={`sidebar${isResizing ? " no-transition" : ""}`}
+      ref={sidebarRef}
+      style={{ width: isResizing || sidebarWidth !== 288 ? sidebarWidth : undefined }}
+    >
+      <div
+        className={`sidebar-resize-handle${isResizing ? " resizing" : ""}`}
+        onMouseDown={onResizeStart}
+      />
       <div className="sidebar-primary-nav">
         <button
-          className={`sidebar-primary-action${creatingNewThread ? " creating" : ""}`}
+          className={`sidebar-primary-action sidebar-primary-new-thread${creatingNewThread ? " creating" : ""}`}
           onClick={onCreateNewThread}
           disabled={creatingNewThread}
           title={text.sidebar.newThread}
@@ -162,12 +168,13 @@ export function SidebarExpanded({
           <span>{text.sidebar.newThread}</span>
         </button>
         <button
-          className={`sidebar-primary-action${searchOpen ? " active" : ""}`}
+          className={`sidebar-primary-action sidebar-primary-search${searchOpen ? " active" : ""}`}
           onClick={onToggleSearch}
           title={text.sidebar.search}
         >
           <Search size={16} />
           <span>{text.sidebar.search}</span>
+          <kbd>Ctrl K</kbd>
         </button>
       </div>
 
@@ -216,7 +223,9 @@ export function SidebarExpanded({
             expanded={conversationsExpanded}
             sortTitle={text.sidebar.sort}
             actionTitle={text.sidebar.newThread}
-            actionIcon={creatingNewThread ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
+            actionIcon={
+              creatingNewThread ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />
+            }
             actionClassName={creatingNewThread ? " creating" : ""}
             actionDisabled={creatingNewThread}
             onToggle={onToggleConversationsExpanded}
@@ -241,9 +250,11 @@ export function SidebarExpanded({
 
         {showNoSearchResults ? (
           <div className="sidebar-empty">{text.sidebar.noSearchResults}</div>
-        ) : (!hasSearchQuery && !hasProjectItems && !hasConversationItems && (
-          <div className="sidebar-empty">{text.sidebar.noThreads}</div>
-        ))}
+        ) : (
+          !hasSearchQuery &&
+          !hasProjectItems &&
+          !hasConversationItems && <div className="sidebar-empty">{text.sidebar.noThreads}</div>
+        )}
       </div>
 
       {sortMenu && (
