@@ -1,7 +1,7 @@
 /**
  * 公式工具定义
  *
- * 包含公式上下文读取和函数搜索工具。
+ * 包含公式上下文读取工具。
  */
 
 import type { ToolDefinition } from "../../shared/types";
@@ -22,23 +22,4 @@ const FORMULA_CONTEXT_DEF: ToolDefinition = {
   requiresApproval: false,
 };
 
-/** 公式搜索 */
-const FORMULA_SEARCH_DEF: ToolDefinition = {
-  name: "formula.search",
-  description: "搜索 Excel 内置函数库，返回匹配函数的名称、语法和用法说明。用于查找合适的函数、了解函数参数和示例",
-  parameters: {
-    type: "object",
-    properties: {
-      query: { type: "string", description: "搜索关键词（函数名或功能描述）" },
-      category: { type: "string", description: "函数类别（math/statistics/lookup/text/logic/date/financial/array）" },
-    },
-    required: ["query"],
-  },
-  riskLevel: "safe",
-  requiresApproval: false,
-};
-
-export const FORMULA_TOOL_DEFINITIONS: ToolDefinition[] = [
-  FORMULA_CONTEXT_DEF,
-  FORMULA_SEARCH_DEF,
-];
+export const FORMULA_TOOL_DEFINITIONS: ToolDefinition[] = [FORMULA_CONTEXT_DEF];

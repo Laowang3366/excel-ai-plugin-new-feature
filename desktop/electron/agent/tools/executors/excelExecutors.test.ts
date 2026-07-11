@@ -78,6 +78,47 @@ describe("addExcelExecutors", () => {
     expect(workbookBridge.readRange).toHaveBeenCalledWith("Sheet1", "A1:A2", "none");
   });
 
+  it("automatically reads the full spill when a single-cell read omits expand", async () => {
+    const workbookBridge = {
+      readRange: vi.fn(async () => ({
+        values: [[6], [7], [8]],
+        address: "J20:J22",
+        expanded: true,
+        expandMode: "spill" as const,
+      })),
+    } as unknown as ExcelWorkbookBridge;
+    const target = createExcelExecutors({ workbookBridge });
+
+    const result = await target.get("range.read")!.execute({
+      sheetName: "Sheet1",
+      range: "J20",
+    });
+
+    expect(result).toEqual({ success: true, data: [[6], [7], [8]] });
+    expect(workbookBridge.readRange).toHaveBeenCalledWith("Sheet1", "J20", "spill");
+  });
+
+  it("respects an explicit none mode for single-cell reads", async () => {
+    const workbookBridge = {
+      readRange: vi.fn(async () => ({
+        values: [[6]],
+        address: "J20",
+        expanded: false,
+        expandMode: "none" as const,
+      })),
+    } as unknown as ExcelWorkbookBridge;
+    const target = createExcelExecutors({ workbookBridge });
+
+    const result = await target.get("range.read")!.execute({
+      sheetName: "Sheet1",
+      range: "$J$20",
+      expand: "none",
+    });
+
+    expect(result).toEqual({ success: true, data: [[6]] });
+    expect(workbookBridge.readRange).toHaveBeenCalledWith("Sheet1", "$J$20", "none");
+  });
+
   it("returns expanded range metadata when range.read uses spill mode", async () => {
     const expanded = {
       values: [["A"], ["B"]],
