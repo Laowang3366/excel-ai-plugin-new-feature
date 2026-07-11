@@ -31,6 +31,29 @@ function createExcelExecutors(overrides: Partial<{
 }
 
 describe("addExcelExecutors", () => {
+  it("omits host version from model-facing workbook inspection metadata", async () => {
+    const workbookBridge = {
+      inspectWorkbook: vi.fn(async () => ({
+        name: "WPS 表格",
+        host: "wps",
+        version: "12.0",
+        workbooks: [{ name: "demo.xlsx", sheets: [] }],
+      })),
+    } as unknown as ExcelWorkbookBridge;
+    const target = createExcelExecutors({ workbookBridge });
+
+    const result = await target.get("workbook.inspect")!.execute({});
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        name: "WPS 表格",
+        host: "wps",
+        workbooks: [{ name: "demo.xlsx", sheets: [] }],
+      },
+    });
+  });
+
   it("keeps range.read backward compatible by returning values by default", async () => {
     const workbookBridge = {
       readRange: vi.fn(async () => ({

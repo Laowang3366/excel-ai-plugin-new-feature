@@ -15,6 +15,7 @@ import type {
 import { officeActionOperationError } from "../officeCore/operationPolicy";
 import type { OfficeActionApp, OfficeActionEngine, OfficeActionInput, OfficeActionKind } from "../officeCore/types";
 import { validateArgs } from "./validation";
+import { omitVersionMetadata } from "./modelFacingMetadata";
 
 export interface OfficeExecutorDeps {
   excelBridge?: ExcelConnectionBridge;
@@ -42,21 +43,21 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
       if (app === "excel") {
         if (typeof excelBridge?.detectStatus === "function") {
           const status = await excelBridge.detectStatus();
-          return { success: true, data: status };
+          return { success: true, data: omitVersionMetadata(status) };
         }
         return { success: true, data: { connected: false, host: "unknown", error: "Excel bridge not available" } };
       }
       if (app === "word") {
         const detectStatus = (wordBridge as { detectStatus?: () => Promise<unknown> } | undefined)?.detectStatus;
         if (typeof detectStatus === "function") {
-          return { success: true, data: await detectStatus.call(wordBridge) };
+          return { success: true, data: omitVersionMetadata(await detectStatus.call(wordBridge)) };
         }
         return { success: true, data: { connected: false, host: "unknown", error: "Word bridge not available" } };
       }
       if (app === "presentation") {
         const detectStatus = (presentationBridge as { detectStatus?: () => Promise<unknown> } | undefined)?.detectStatus;
         if (typeof detectStatus === "function") {
-          return { success: true, data: await detectStatus.call(presentationBridge) };
+          return { success: true, data: omitVersionMetadata(await detectStatus.call(presentationBridge)) };
         }
         return { success: true, data: { connected: false, host: "unknown", error: "Presentation bridge not available" } };
       }

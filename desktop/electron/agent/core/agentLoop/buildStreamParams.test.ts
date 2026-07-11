@@ -29,7 +29,8 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(prompt.startsWith(buildSystemPrompt())).toBe(true);
     expect(prompt).toContain("Office 连接预检铁律");
     expect(prompt).toContain("动态数组函数环境支持：已开启");
-    expect(prompt).toContain("不要反复质疑当前环境是否适配动态数组函数");
+    expect(prompt).toContain("版本号或模型记忆中的发布时间都不是函数兼容性证据");
+    expect(prompt).toContain("#NAME? 只是名称解析失败的诊断信号");
     expect(prompt).toContain("## 运行时上下文");
     expect(prompt.indexOf("## 运行时上下文")).toBeGreaterThan(
       prompt.indexOf("权限、脚本与质量底线"),
@@ -50,6 +51,11 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(prompt).toContain("参考答案为空时");
     expect(prompt).toContain("选择最小充分公式");
     expect(prompt).toContain("核心方法论已包含在本提示词中");
+    expect(prompt).toContain("版本号或函数发布时间推断");
+    expect(prompt).toContain("不得声称完成“几步闭环”");
+    expect(prompt).toContain("`GROUPBY/PIVOTBY` 能直接完成");
+    expect(prompt).toContain("只调用一次或没有消除重复模式的封装才删除");
+    expect(prompt).toContain("参数命名服务于读公式");
     expect(prompt).toContain('expand:"spill"');
     expect(prompt).not.toContain("## Office 工具调用硬性边界");
     expect(prompt).not.toContain("场景化操作指南：通用 Office 任务");

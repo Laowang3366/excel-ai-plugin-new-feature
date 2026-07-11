@@ -82,7 +82,7 @@ export function buildRuntimePromptSection(context: RuntimePromptContext): string
     hour12: false,
   });
   const dynamicArraySupport = context.dynamicArrayFunctionsEnabled
-    ? "已开启。生成 Excel/WPS 公式时默认允许 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP 等动态数组函数；不要反复质疑当前环境是否适配动态数组函数，除非工具回读明确返回 #NAME? 或用户关闭此设置。"
+    ? "已开启，这是公式函数能力的权威先验。允许优先尝试 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP、MAP、LAMBDA、SCAN、REDUCE、HSTACK、VSTACK、GROUPBY、PIVOTBY、MAKEARRAY 及当前宿主的正则函数。Office/WPS 名称、host、版本号或模型记忆中的发布时间都不是函数兼容性证据，不得据此预先降级。#NAME? 只是名称解析失败的诊断信号，不等于函数不支持；先排除函数拼写、宿主函数名差异、智能标点、文本引号、LET 变量和工作表名称错误，只有语法正确的最小函数调用仍稳定返回 #NAME?，或工具明确报告函数不可用，才切换兼容路线。"
     : "已关闭。生成 Excel/WPS 公式时不要依赖动态数组 spill，优先使用逐格独立公式、传统函数或辅助区域。";
   return renderPromptTemplate(runtimeEnvironmentPrompt, {
     OFFICE_CONNECTION_CONTEXT: `- Office 应用连接状态：${context.officeConnectionStatus}`,

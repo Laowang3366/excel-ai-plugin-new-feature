@@ -18,7 +18,7 @@ function createTarget(deps: Parameters<typeof addOfficeExecutors>[1]): Map<strin
 describe("addOfficeExecutors", () => {
   it("accepts common Office tool-name aliases emitted by some models", async () => {
     const excelBridge = {
-      detectStatus: vi.fn(async () => ({ connected: false, host: "excel" })),
+      detectStatus: vi.fn(async () => ({ connected: false, host: "excel", version: "12.0" })),
     };
     const target = createTarget({ excelBridge: excelBridge as any });
 

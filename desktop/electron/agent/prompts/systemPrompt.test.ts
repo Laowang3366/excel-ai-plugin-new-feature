@@ -81,6 +81,9 @@ describe("buildRuntimePromptSection", () => {
     expect(prompt).toContain("<runtime_context>");
     expect(prompt).toContain("Office 应用连接状态：Word(未连接) | PPT(未连接)");
     expect(prompt).toContain("动态数组函数环境支持：已开启");
+    expect(prompt).toContain("版本号或模型记忆中的发布时间都不是函数兼容性证据");
+    expect(prompt).toContain("#NAME? 只是名称解析失败的诊断信号");
+    expect(prompt).toContain("语法正确的最小函数调用仍稳定返回 #NAME?");
     expect(prompt).toContain("当前日期：2026");
     expect(prompt).toContain("Asia/Shanghai");
     expect(prompt).toContain("近 N 日");
@@ -110,6 +113,15 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("ASCII");
     expect(prompt).toContain("动态数组只写目标锚点");
     expect(prompt).toContain("写入成功不等于结果正确");
+    expect(prompt).toContain("已成功读取的区域如果完整覆盖");
+    expect(prompt).toContain("不得提及“系统提示词、内部提示词、内部规范”");
+    expect(prompt).toContain("不得声称完成“几步闭环”");
+    expect(prompt).toContain("#NAME?` 时先排除函数拼写");
+    expect(prompt).toContain("高层函数直接完成");
+    expect(prompt).toContain("不要给只使用一次的表达式命名");
+    expect(prompt).toContain("辅助 `LAMBDA` 应用于封装至少重复两次的同类操作");
+    expect(prompt).toContain("`col,LAMBDA(n,INDEX(a,,n))`");
+    expect(prompt).toContain("避免 `lunch_rate/d_unique/filled_data/calc_result`");
     expect(prompt).not.toContain("## Office 工具调用硬性边界");
     expect(prompt).not.toContain("场景化操作指南：通用 Office 任务");
     expect(prompt.length).toBeLessThan(3_500);
