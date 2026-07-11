@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createEmptyFormulaDraft,
   getTaskDraftsForKey,
   moveTaskDraftStore,
   updateTaskDraftStore,
@@ -8,6 +9,26 @@ import {
 } from "./useTaskDrafts";
 
 describe("task draft store helpers", () => {
+  it("clears formula task data while preserving the detected host", () => {
+    expect(createEmptyFormulaDraft({
+      dataSourceRanges: ["Sheet1!A1:B10"],
+      dataSourceInput: "Sheet1!C1:C10",
+      referenceSampleRange: "Sheet1!D1:D3",
+      referenceSampleMode: "complete",
+      outputRange: "Sheet1!F1",
+      hostEnvironment: "wps",
+      task: "提取规格",
+    })).toEqual({
+      dataSourceRanges: [],
+      dataSourceInput: "",
+      referenceSampleRange: "",
+      referenceSampleMode: "partial",
+      outputRange: "",
+      hostEnvironment: "wps",
+      task: "",
+    });
+  });
+
   it("returns a complete formula draft without changing the store", () => {
     const formulaDraft = {
       dataSourceRanges: ["Sheet1!A1:B10"],

@@ -2,7 +2,7 @@ import type React from "react";
 import type { AppLanguage } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
 import { INTENT_SHORTCUTS, type IntentKind } from "../../utils/sidebarHelpers";
-import { PanelRight, Sparkles } from "./IconMap";
+import { Sparkles } from "./IconMap";
 
 const FEATURE_SIDEBAR_TITLE_ID = "feature-sidebar-title";
 
@@ -15,7 +15,6 @@ interface FeatureSidebarPanelProps {
   activeIntent: IntentKind;
   language: AppLanguage;
   onIntentClick: (intent: NonNullable<IntentKind>) => void;
-  onClose: () => void;
   children?: React.ReactNode;
 }
 
@@ -24,7 +23,6 @@ export function FeatureSidebarPanel({
   activeIntent,
   language,
   onIntentClick,
-  onClose,
   children,
 }: FeatureSidebarPanelProps) {
   const text = getAppText(language);
@@ -43,15 +41,6 @@ export function FeatureSidebarPanel({
             <Sparkles size={18} />
             <span id={FEATURE_SIDEBAR_TITLE_ID}>{text.chat.featureSidebar.title}</span>
           </div>
-          <button
-            className="feature-sidebar-close"
-            type="button"
-            onClick={onClose}
-            title={text.chat.featureSidebar.close}
-            aria-label={text.chat.featureSidebar.close}
-          >
-            <PanelRight size={18} />
-          </button>
         </div>
 
         <div

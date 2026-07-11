@@ -61,6 +61,18 @@ export function moveTaskDraftStore(
   return { ...rest, [toKey]: drafts };
 }
 
+export function createEmptyFormulaDraft(current?: FormulaTaskDraft): FormulaTaskDraft {
+  return {
+    dataSourceRanges: [],
+    dataSourceInput: "",
+    referenceSampleRange: "",
+    referenceSampleMode: "partial",
+    outputRange: "",
+    hostEnvironment: current?.hostEnvironment ?? "unknown",
+    task: "",
+  };
+}
+
 export function useTaskDrafts(draftKey = "default") {
   const [taskDraftStore, setTaskDraftStore] = useState<TaskDraftStore>({});
   const activeDraftKey = draftKey || "default";
@@ -75,6 +87,13 @@ export function useTaskDrafts(draftKey = "default") {
 
   const updateFormulaDraft = useCallback((draft: FormulaTaskDraft) => {
     setTaskDrafts((prev) => ({ ...prev, formula: draft }));
+  }, [setTaskDrafts]);
+
+  const resetFormulaDraft = useCallback(() => {
+    setTaskDrafts((prev) => ({
+      ...prev,
+      formula: createEmptyFormulaDraft(prev.formula),
+    }));
   }, [setTaskDrafts]);
 
   const updateCodeDraft = useCallback((draft: CodeTaskDraft) => {
@@ -111,6 +130,7 @@ export function useTaskDrafts(draftKey = "default") {
     taskDrafts,
     setTaskDrafts,
     updateFormulaDraft,
+    resetFormulaDraft,
     updateCodeDraft,
     updateOCRDraft,
     updateReportDraft,

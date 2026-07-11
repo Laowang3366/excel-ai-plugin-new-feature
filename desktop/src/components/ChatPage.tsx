@@ -135,7 +135,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
   // TaskDrafts hook
   const {
     taskDrafts, setTaskDrafts,
-    updateFormulaDraft, updateCodeDraft, updateOCRDraft, updateReportDraft,
+    updateFormulaDraft, resetFormulaDraft, updateCodeDraft, updateOCRDraft, updateReportDraft,
     handleSimplePickRange, moveTaskDrafts,
   } = useTaskDrafts(composerDraftKey);
 
@@ -163,6 +163,11 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
       });
     }
   }, [activeThreadId, composerDraftKey, sendMessage, setInputText, closeFeatureSidebarAfterSend, moveTaskDrafts]);
+
+  const handleFormulaTaskSubmit = useCallback((payload: string) => {
+    resetFormulaDraft();
+    handleTaskSubmit(payload);
+  }, [handleTaskSubmit, resetFormulaDraft]);
 
   const updateSimpleRange = useCallback((intent: SimpleTaskIntent, range: string) => {
     setTaskDrafts((prev) => ({
@@ -253,7 +258,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         activeIntent={activeIntent}
         language={language}
         onIntentClick={selectFeature}
-        onClose={closeFeatureSidebarManually}
       >
         {activeIntent === "formula" && (
           <FormulaTaskComposerPanel
@@ -261,7 +265,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
             embedded
             draft={taskDrafts.formula}
             onDraftChange={updateFormulaDraft}
-            onSubmit={handleTaskSubmit}
+            onSubmit={handleFormulaTaskSubmit}
             onClose={closeFeatureSidebarManually}
           />
         )}

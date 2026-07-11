@@ -1,5 +1,4 @@
-.feature-sidebar-toggle,
-.feature-sidebar-close {
+.feature-sidebar-toggle {
   width: 30px;
   height: 30px;
   flex: 0 0 auto;
@@ -14,8 +13,7 @@
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
-.feature-sidebar-toggle:hover,
-.feature-sidebar-close:hover {
+.feature-sidebar-toggle:hover {
   background: var(--bg-tint);
   color: var(--text-primary);
 }
@@ -78,9 +76,8 @@
   flex: 0 0 var(--chat-header-height);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px 0 14px;
+  justify-content: flex-start;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border-default);
 }
 
