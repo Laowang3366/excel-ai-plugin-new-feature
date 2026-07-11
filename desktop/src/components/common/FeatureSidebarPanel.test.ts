@@ -13,7 +13,6 @@ describe("FeatureSidebarPanel", () => {
           activeIntent: "ocr",
           language: "zh-CN",
           onIntentClick: () => undefined,
-          onClose: () => undefined,
         },
         React.createElement("div", null, "OCR form"),
       ),
@@ -37,6 +36,7 @@ describe("FeatureSidebarPanel", () => {
     expect(activeButtons[0]).toContain('class="feature-sidebar-shortcut active"');
     expect(activeButtons[0]).toContain("<span>OCR 识别</span>");
     expect(html).toContain("OCR form");
+    expect(html).not.toContain("feature-sidebar-close");
   });
 
   test("makes the collapsed panel inert without a pressed feature", () => {
@@ -46,7 +46,6 @@ describe("FeatureSidebarPanel", () => {
         activeIntent: null,
         language: "zh-CN",
         onIntentClick: () => undefined,
-        onClose: () => undefined,
       }),
     );
 
@@ -63,7 +62,6 @@ describe("FeatureSidebarPanel", () => {
         activeIntent: null,
         language: "zh-CN",
         onIntentClick: () => undefined,
-        onClose: () => undefined,
       }),
     );
 
