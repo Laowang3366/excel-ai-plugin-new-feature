@@ -5,19 +5,19 @@
  * - 各意图类型的草稿数据（formula/code/ocr/clean/report/chart）
  * - 草稿更新回调
  * - 简易功能面板选区获取
- * - 面板关闭时清理草稿
+ *
+ * 草稿按会话键保存，功能侧栏关闭不会清理草稿。
  */
 
 import { useState, useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
-import type { IntentKind } from "../components/Sidebar";
 import type { FormulaTaskDraft } from "../components/task/FormulaTaskComposerPanel";
 import type { CodeTaskDraft } from "../components/task/CodeTaskComposerPanel";
 import type { OCRTaskDraft } from "../components/task/OCRTaskComposerPanel";
 import type { ReportTaskDraft } from "../components/task/ReportTaskComposerPanel";
 import { pickExcelRange } from "../utils/chatHelpers";
+import type { IntentKind } from "../utils/sidebarHelpers";
 
-type ActiveIntentKind = NonNullable<IntentKind>;
-type SimpleTaskIntent = Extract<ActiveIntentKind, "clean" | "chart">;
+type SimpleTaskIntent = Extract<NonNullable<IntentKind>, "clean" | "chart">;
 
 interface SimpleTaskDraft {
   range: string;
@@ -51,11 +51,17 @@ export function updateTaskDraftStore(
   return { ...store, [draftKey]: nextDrafts };
 }
 
-export function useTaskDrafts(
-  activeIntent: IntentKind,
-  onIntentClick: (intent: IntentKind) => void,
-  draftKey = "default"
-) {
+export function moveTaskDraftStore(
+  store: TaskDraftStore,
+  fromKey: string,
+  toKey: string,
+): TaskDraftStore {
+  if (fromKey === toKey || !store[fromKey] || store[toKey]) return store;
+  const { [fromKey]: drafts, ...rest } = store;
+  return { ...rest, [toKey]: drafts };
+}
+
+export function useTaskDrafts(draftKey = "default") {
   const [taskDraftStore, setTaskDraftStore] = useState<TaskDraftStore>({});
   const activeDraftKey = draftKey || "default";
   const taskDrafts = useMemo(
@@ -66,13 +72,6 @@ export function useTaskDrafts(
   const setTaskDrafts: Dispatch<SetStateAction<TaskDrafts>> = useCallback((update) => {
     setTaskDraftStore((prev) => updateTaskDraftStore(prev, activeDraftKey, update));
   }, [activeDraftKey]);
-
-  const closeActiveTaskPanel = useCallback(() => {
-    if (activeIntent) {
-      setTaskDrafts((prev) => ({ ...prev, [activeIntent]: undefined }));
-    }
-    onIntentClick(null);
-  }, [activeIntent, onIntentClick, setTaskDrafts]);
 
   const updateFormulaDraft = useCallback((draft: FormulaTaskDraft) => {
     setTaskDrafts((prev) => ({ ...prev, formula: draft }));
@@ -104,14 +103,18 @@ export function useTaskDrafts(
     }
   }, [setTaskDrafts]);
 
+  const moveTaskDrafts = useCallback((fromKey: string, toKey: string) => {
+    setTaskDraftStore((prev) => moveTaskDraftStore(prev, fromKey, toKey));
+  }, []);
+
   return {
     taskDrafts,
     setTaskDrafts,
-    closeActiveTaskPanel,
     updateFormulaDraft,
     updateCodeDraft,
     updateOCRDraft,
     updateReportDraft,
     handleSimplePickRange,
+    moveTaskDrafts,
   };
 }

@@ -120,7 +120,7 @@ export interface ChatState {
 
 export interface ChatActions {
   /** 发送消息 */
-  sendMessage: (content: string, attachments?: FileAttachment[]) => Promise<void>;
+  sendMessage: (content: string, attachments?: FileAttachment[]) => Promise<string | null>;
   /** 从中断处继续 */
   resumeFromInterruption: (content: string, attachments?: FileAttachment[]) => Promise<void>;
   /** 中断当前 Turn */
