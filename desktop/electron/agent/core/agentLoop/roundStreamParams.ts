@@ -12,7 +12,6 @@ import {
   getToolDefinitions,
 } from "./toolExecutor";
 import type { StreamParams } from "./streamCollector";
-import { hasPendingFormulaWorkflowHistory } from "./formulaWorkflowContext";
 
 export async function buildRoundStreamParams(input: {
   turnItemGroups: TurnItem[][];
@@ -41,14 +40,11 @@ export async function buildRoundStreamParams(input: {
     });
   }
 
-  const promptContent = hasPendingFormulaWorkflowHistory(input.turnItemGroups)
-    ? `【功能模块：生成公式】\n${input.turnInput.content}`
-    : input.turnInput.content;
   let effectiveSystemPrompt = await buildEffectiveSystemPrompt(
     input.baseSystemPrompt,
     input.folderId,
     {
-      content: promptContent,
+      content: input.turnInput.content,
       attachments: input.turnInput.attachments,
     }
   );
