@@ -14,7 +14,7 @@ import type {
 } from "../contracts/excel";
 import { searchExcelFunctions } from "../data/excelFunctionCatalog";
 import { validateArgs } from "./validation";
-import { omitVersionMetadata } from "./modelFacingMetadata";
+import { toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 
 export interface ExcelExecutorDeps {
   workbookBridge: ExcelWorkbookBridge;
@@ -114,7 +114,7 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
     name: "workbook.inspect",
     execute: async (_args: Record<string, unknown>) => {
       const result = await workbookBridge.inspectWorkbook();
-      return { success: true, data: omitVersionMetadata(result) };
+      return { success: true, data: toModelFacingSpreadsheetMetadata(result) };
     },
   });
 

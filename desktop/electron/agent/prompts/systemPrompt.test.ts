@@ -122,6 +122,10 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("辅助 `LAMBDA` 应用于封装至少重复两次的同类操作");
     expect(prompt).toContain("`col,LAMBDA(n,INDEX(a,,n))`");
     expect(prompt).toContain("避免 `lunch_rate/d_unique/filled_data/calc_result`");
+    expect(prompt).toContain("`host=wps` 时正则提取使用 `REGEXP`");
+    expect(prompt).toContain("禁止套 `IFERROR/IFNA`");
+    expect(prompt).toContain("最终公式才可在“无匹配属于正常业务结果”时局部使用 `IFERROR`");
+    expect(prompt).toContain("读过 `A2:B14` 后不得拆分重读");
     expect(prompt).not.toContain("## Office 工具调用硬性边界");
     expect(prompt).not.toContain("场景化操作指南：通用 Office 任务");
     expect(prompt.length).toBeLessThan(3_500);

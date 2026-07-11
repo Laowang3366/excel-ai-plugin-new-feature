@@ -31,6 +31,27 @@ describe("addOfficeExecutors", () => {
     expect(excelBridge.detectStatus).toHaveBeenCalledTimes(1);
   });
 
+  it("reports the WPS regex dialect without exposing a host version", async () => {
+    const excelBridge = {
+      detectStatus: vi.fn(async () => ({ connected: true, host: "wps", version: "12.0" })),
+    };
+    const target = createTarget({ excelBridge: excelBridge as any });
+
+    const result = await target.get("office.connection.status")!.execute({ app: "excel" });
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        connected: true,
+        host: "wps",
+        formulaDialect: {
+          regexFunction: "REGEXP",
+          guidance: "WPS 正则提取使用 REGEXP；不要使用 Excel 方言的 REGEXEXTRACT/REGEXREPLACE/REGEXTEST 函数名",
+        },
+      },
+    });
+  });
+
   it("validates required Word arguments before calling the bridge", async () => {
     const wordBridge = {
       openDocument: vi.fn(),

@@ -56,6 +56,9 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(prompt).toContain("`GROUPBY/PIVOTBY` 能直接完成");
     expect(prompt).toContain("只调用一次或没有消除重复模式的封装才删除");
     expect(prompt).toContain("参数命名服务于读公式");
+    expect(prompt).toContain("工具返回的 `formulaDialect` 是当前宿主函数命名的权威映射");
+    expect(prompt).toContain("其他函数名失败时也先检查宿主同义函数");
+    expect(prompt).toContain("探测函数时先在临时单元格写入最小调用并回读");
     expect(prompt).toContain('expand:"spill"');
     expect(prompt).not.toContain("## Office 工具调用硬性边界");
     expect(prompt).not.toContain("场景化操作指南：通用 Office 任务");
