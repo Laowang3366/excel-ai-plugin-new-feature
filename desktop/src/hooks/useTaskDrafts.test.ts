@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getTaskDraftsForKey,
+  moveTaskDraftStore,
   updateTaskDraftStore,
   type TaskDraftStore,
 } from "./useTaskDrafts";
@@ -74,5 +75,27 @@ describe("task draft store helpers", () => {
       range: "C1:D2",
       task: "折线图",
     });
+  });
+
+  it("moves a new-thread draft to its created thread", () => {
+    const store: TaskDraftStore = {
+      "new:folder-1": {
+        clean: { range: "Sheet1!A1:B8", task: "去重" },
+        chart: { range: "Sheet1!A1:B8", task: "柱状图" },
+      },
+    };
+
+    expect(moveTaskDraftStore(store, "new:folder-1", "thread-1")).toEqual({
+      "thread-1": store["new:folder-1"],
+    });
+  });
+
+  it("does not overwrite an existing target-thread draft", () => {
+    const store: TaskDraftStore = {
+      new: { clean: { range: "A1:B2", task: "去重" } },
+      "thread-1": { clean: { range: "C1:D2", task: "排序" } },
+    };
+
+    expect(moveTaskDraftStore(store, "new", "thread-1")).toBe(store);
   });
 });

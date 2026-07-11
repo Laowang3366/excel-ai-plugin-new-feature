@@ -104,27 +104,41 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
   // Composer hook
   const composerDraftKey = activeThreadId ?? (pendingFolderId ? `new:${pendingFolderId}` : "new");
   const composer = useComposer(composerDraftKey);
-  const { inputText, setInputText, handleSend, showFolderFileList, setShowFolderFileList } = composer;
-
-  const composerHandleSend = useCallback(() => {
-    handleSend();
-    closeFeatureSidebar();
-  }, [handleSend, closeFeatureSidebar]);
+  const { setInputText, handleSend, hasInput, showFolderFileList, setShowFolderFileList } = composer;
+  const pendingTaskDraftMigrationRef = useRef<string | null>(null);
 
   // TaskDrafts hook
   const {
     taskDrafts, setTaskDrafts,
     updateFormulaDraft, updateCodeDraft, updateOCRDraft, updateReportDraft,
-    handleSimplePickRange,
+    handleSimplePickRange, moveTaskDrafts,
   } = useTaskDrafts(composerDraftKey);
+
+  useEffect(() => {
+    const pendingDraftKey = pendingTaskDraftMigrationRef.current;
+    if (!activeThreadId || !pendingDraftKey) return;
+    moveTaskDrafts(pendingDraftKey, activeThreadId);
+    pendingTaskDraftMigrationRef.current = null;
+  }, [activeThreadId, moveTaskDrafts]);
+
+  const composerHandleSend = useCallback(() => {
+    if (!activeThreadId && hasInput) {
+      pendingTaskDraftMigrationRef.current = composerDraftKey;
+    }
+    handleSend();
+    closeFeatureSidebar();
+  }, [activeThreadId, hasInput, composerDraftKey, handleSend, closeFeatureSidebar]);
 
   // 从 TaskComposerPanel 提交
   const handleTaskSubmit = useCallback((payload: string) => {
+    if (!activeThreadId) {
+      pendingTaskDraftMigrationRef.current = composerDraftKey;
+    }
     setInputText(payload);
     sendMessage(payload);
     window.setTimeout(() => setInputText(""), 0);
     closeFeatureSidebar();
-  }, [sendMessage, setInputText, closeFeatureSidebar]);
+  }, [activeThreadId, composerDraftKey, sendMessage, setInputText, closeFeatureSidebar]);
 
   const updateSimpleRange = useCallback((intent: SimpleTaskIntent, range: string) => {
     setTaskDrafts((prev) => ({
@@ -219,6 +233,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
       >
         {activeIntent === "formula" && (
           <FormulaTaskComposerPanel
+            key={`${composerDraftKey}:formula`}
             embedded
             draft={taskDrafts.formula}
             onDraftChange={updateFormulaDraft}
@@ -228,6 +243,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         )}
         {activeIntent === "code" && (
           <CodeTaskComposerPanel
+            key={`${composerDraftKey}:code`}
             embedded
             draft={taskDrafts.code}
             onDraftChange={updateCodeDraft}
@@ -237,6 +253,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         )}
         {activeIntent === "ocr" && (
           <OCRTaskComposerPanel
+            key={`${composerDraftKey}:ocr`}
             embedded
             draft={taskDrafts.ocr}
             onDraftChange={updateOCRDraft}
@@ -246,6 +263,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         )}
         {activeIntent === "report" && (
           <ReportTaskComposerPanel
+            key={`${composerDraftKey}:report`}
             embedded
             draft={taskDrafts.report}
             onDraftChange={updateReportDraft}
@@ -255,6 +273,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         )}
         {(activeIntent === "clean" || activeIntent === "chart") && (
           <SimpleTaskComposerPanel
+            key={`${composerDraftKey}:${activeIntent}`}
             intent={activeIntent}
             range={taskDrafts[activeIntent]?.range ?? ""}
             task={taskDrafts[activeIntent]?.task ?? ""}

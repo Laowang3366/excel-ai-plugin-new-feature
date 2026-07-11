@@ -15,8 +15,9 @@ import type { CodeTaskDraft } from "../components/task/CodeTaskComposerPanel";
 import type { OCRTaskDraft } from "../components/task/OCRTaskComposerPanel";
 import type { ReportTaskDraft } from "../components/task/ReportTaskComposerPanel";
 import { pickExcelRange } from "../utils/chatHelpers";
+import type { IntentKind } from "../utils/sidebarHelpers";
 
-type SimpleTaskIntent = "clean" | "chart";
+type SimpleTaskIntent = Extract<NonNullable<IntentKind>, "clean" | "chart">;
 
 interface SimpleTaskDraft {
   range: string;
@@ -48,6 +49,16 @@ export function updateTaskDraftStore(
     ? (update as (prev: TaskDrafts) => TaskDrafts)(currentDrafts)
     : update;
   return { ...store, [draftKey]: nextDrafts };
+}
+
+export function moveTaskDraftStore(
+  store: TaskDraftStore,
+  fromKey: string,
+  toKey: string,
+): TaskDraftStore {
+  if (fromKey === toKey || !store[fromKey] || store[toKey]) return store;
+  const { [fromKey]: drafts, ...rest } = store;
+  return { ...rest, [toKey]: drafts };
 }
 
 export function useTaskDrafts(draftKey = "default") {
@@ -92,6 +103,10 @@ export function useTaskDrafts(draftKey = "default") {
     }
   }, [setTaskDrafts]);
 
+  const moveTaskDrafts = useCallback((fromKey: string, toKey: string) => {
+    setTaskDraftStore((prev) => moveTaskDraftStore(prev, fromKey, toKey));
+  }, []);
+
   return {
     taskDrafts,
     setTaskDrafts,
@@ -100,5 +115,6 @@ export function useTaskDrafts(draftKey = "default") {
     updateOCRDraft,
     updateReportDraft,
     handleSimplePickRange,
+    moveTaskDrafts,
   };
 }
