@@ -50,6 +50,10 @@ describe("addExcelExecutors", () => {
         name: "WPS 表格",
         host: "wps",
         workbooks: [{ name: "demo.xlsx", sheets: [] }],
+        formulaDialect: {
+          regexFunction: "REGEXP",
+          guidance: "WPS 正则提取使用 REGEXP；不要使用 Excel 方言的 REGEXEXTRACT/REGEXREPLACE/REGEXTEST 函数名",
+        },
       },
     });
   });

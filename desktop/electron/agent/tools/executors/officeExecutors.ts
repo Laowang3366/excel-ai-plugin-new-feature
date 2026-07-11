@@ -15,7 +15,7 @@ import type {
 import { officeActionOperationError } from "../officeCore/operationPolicy";
 import type { OfficeActionApp, OfficeActionEngine, OfficeActionInput, OfficeActionKind } from "../officeCore/types";
 import { validateArgs } from "./validation";
-import { omitVersionMetadata } from "./modelFacingMetadata";
+import { omitVersionMetadata, toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 
 export interface OfficeExecutorDeps {
   excelBridge?: ExcelConnectionBridge;
@@ -43,7 +43,7 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
       if (app === "excel") {
         if (typeof excelBridge?.detectStatus === "function") {
           const status = await excelBridge.detectStatus();
-          return { success: true, data: omitVersionMetadata(status) };
+          return { success: true, data: toModelFacingSpreadsheetMetadata(status) };
         }
         return { success: true, data: { connected: false, host: "unknown", error: "Excel bridge not available" } };
       }
