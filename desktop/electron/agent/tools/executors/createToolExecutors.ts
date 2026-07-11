@@ -22,6 +22,7 @@ import type { Retriever } from "../../knowledge/retriever";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
 import { addExcelExecutors } from "./excelExecutors";
 import { addFileExecutors } from "./fileExecutors";
+import { addFormulaWorkflowExecutors } from "./formulaWorkflowExecutors";
 import { addKnowledgeExecutors } from "./knowledgeExecutors";
 import { addMemoryExecutors } from "./memoryExecutors";
 import { addOfficeExecutors } from "./officeExecutors";
@@ -59,6 +60,7 @@ export function createToolExecutors(
   const executors = new Map<string, ToolExecutor>();
 
   addExcelExecutors(executors, { workbookBridge, vbaBridge, scriptBridge, uiBridge });
+  addFormulaWorkflowExecutors(executors);
   addFileExecutors(executors, { sessionFolderPath });
   addShellExecutors(executors);
   addPythonExecutors(executors);

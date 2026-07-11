@@ -49,7 +49,7 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("禁止为了匹配样例结果硬编码输出路径");
     expect(prompt).toContain("只需调整数据源选区/表引用即可重算");
-    expect(prompt).toContain('expand:"spill"');
+    expect(prompt).toContain("formula.verify");
     expect(prompt.length).toBeLessThan(10_000);
   });
 
@@ -101,9 +101,9 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(search).not.toHaveBeenCalled();
     expect(prompt).not.toContain("SUMIFS");
     expect(prompt).toContain("场景化操作指南：公式助手");
-    expect(prompt).toContain("office.connection.status -> range.read -> knowledge.search");
-    expect(prompt).toContain("先读取真实结构");
-    expect(prompt).toContain("只采用与当前输入输出形状、业务键、约束和验收直接相关的步骤");
+    expect(prompt).toContain("office.connection.status -> range.read -> formula.prepare");
+    expect(prompt).toContain("先读取所有数据源");
+    expect(prompt).toContain("提交场景、输入输出形状、业务粒度、业务键、必要变换和验收检查");
     expect(prompt).toContain("简单任务不用复杂流水线");
   });
 

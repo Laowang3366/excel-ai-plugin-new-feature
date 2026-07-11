@@ -1376,3 +1376,43 @@ describe("alwaysAllowedTools", () => {
     expect(getAlwaysAllowedTools().size).toBe(0);
   });
 });
+
+describe("AgentLoop formula completion gate", () => {
+  beforeEach(() => {
+    aiClientMocks.streamChatParams.length = 0;
+    aiClientMocks.client.streamChat.mockReset();
+    aiClientMocks.client.chat.mockReset();
+  });
+
+  it("feeds an actionable workflow error back to the model and stops after bounded retries", async () => {
+    aiClientMocks.client.streamChat.mockImplementation((params: StreamChatParams) => {
+      aiClientMocks.streamChatParams.push(params);
+      return streamEvents([
+        { type: "text_delta", delta: "已经完成公式写入" },
+        { type: "done", finishReason: "stop" },
+      ]);
+    });
+    const loop = new AgentLoop(
+      {
+        aiConfig: {
+          provider: "openai",
+          apiKey: "test",
+          baseUrl: "https://example.test",
+          model: "test-model",
+          reasoningMode: "off",
+        },
+        permissionMode: "confirm_all",
+        toolExecutors: new Map<string, ToolExecutor>(),
+      },
+      createMemorySessionStore(),
+    );
+
+    await expect(loop.runTurn({
+      content: "【功能模块：生成公式】\n任务说明：汇总金额\n数据源选区：Sheet1!A1:B10\n答案填入锚点/选区：Sheet1!D1",
+    }, { onEvent: vi.fn() })).rejects.toThrow("REQUIRED_RANGE_NOT_READ");
+
+    expect(aiClientMocks.client.streamChat).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(aiClientMocks.streamChatParams[1].messages)).toContain("REQUIRED_RANGE_NOT_READ");
+    expect(JSON.stringify(aiClientMocks.streamChatParams[1].messages)).toContain("range.read");
+  });
+});

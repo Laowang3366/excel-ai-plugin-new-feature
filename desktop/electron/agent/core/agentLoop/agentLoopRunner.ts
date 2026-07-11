@@ -25,6 +25,12 @@ import type {
   ToolApprovalConfig,
   ToolExecutionLogRecord,
 } from "./toolExecutor";
+import {
+  formatFormulaDiagnostic,
+  getFormulaCompletionDiagnostic,
+} from "./formulaKnowledgePolicy";
+import { createToolResultItem } from "./toolResultItems";
+import { createFormulaWorkflowTurnView } from "./formulaWorkflowContext";
 
 type AIClient = ReturnType<typeof createAIClient>;
 
@@ -58,6 +64,7 @@ export interface AgentLoopRunnerInput {
 
 export async function runAgentLoopRounds(input: AgentLoopRunnerInput): Promise<void> {
   let round = 0;
+  let formulaCompletionRetryCount = 0;
 
   while (true) {
     input.throwIfAborted();
@@ -119,6 +126,24 @@ export async function runAgentLoopRounds(input: AgentLoopRunnerInput): Promise<v
       runMidTurnCompaction: input.runMidTurnCompaction,
       throwIfAborted: input.throwIfAborted,
     })) {
+      formulaCompletionRetryCount = 0;
+      continue;
+    }
+
+    const workflowTurn = createFormulaWorkflowTurnView(input.turn, input.getTurnItemGroups());
+    const formulaDiagnostic = getFormulaCompletionDiagnostic(workflowTurn);
+    if (formulaDiagnostic) {
+      if (!formulaDiagnostic.retryable || formulaCompletionRetryCount >= 2) {
+        throw new Error(formatFormulaDiagnostic(formulaDiagnostic));
+      }
+      formulaCompletionRetryCount += 1;
+      await appendFormulaCompletionFeedback({
+        turn: input.turn,
+        callbacks: input.callbacks,
+        appendTurnItem: input.appendTurnItem,
+        diagnostic: formatFormulaDiagnostic(formulaDiagnostic),
+        retryCount: formulaCompletionRetryCount,
+      });
       continue;
     }
 
@@ -133,4 +158,35 @@ export async function runAgentLoopRounds(input: AgentLoopRunnerInput): Promise<v
     });
     break;
   }
+}
+
+async function appendFormulaCompletionFeedback(input: {
+  turn: Turn;
+  callbacks: AgentTurnCallbacks;
+  appendTurnItem: (threadId: string, turnId: string, item: TurnItem) => Promise<void>;
+  diagnostic: string;
+  retryCount: number;
+}): Promise<void> {
+  const toolCallId = `formula-completion-gate-${input.turn.turnId}-${input.retryCount}`;
+  const callItem: TurnItem = {
+    type: "tool_call",
+    id: toolCallId,
+    toolName: "formula.verify",
+    arguments: { completionGate: true, retryCount: input.retryCount },
+    status: "failed",
+    timestamp: Date.now(),
+  };
+  const resultItem = createToolResultItem({
+    toolCallId,
+    toolName: "formula.verify",
+    result: input.diagnostic,
+    isError: true,
+  });
+  input.turn.items.push(callItem, resultItem);
+  await input.appendTurnItem(input.turn.threadId, input.turn.turnId, callItem);
+  await input.appendTurnItem(input.turn.threadId, input.turn.turnId, resultItem);
+  input.callbacks.onEvent({ type: "item_started", item: callItem });
+  input.callbacks.onEvent({ type: "item_completed", item: callItem });
+  input.callbacks.onEvent({ type: "item_started", item: resultItem });
+  input.callbacks.onEvent({ type: "item_completed", item: resultItem });
 }

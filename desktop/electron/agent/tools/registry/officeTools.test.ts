@@ -80,6 +80,8 @@ describe("Office Word/PPT tool definitions", () => {
       "range.clear",
       "selection.get",
       "formula.context",
+      "formula.prepare",
+      "formula.verify",
       "vba.runMacro",
       "vba.writeModule",
       "formula.search",
@@ -169,7 +171,7 @@ describe("Office Word/PPT tool definitions", () => {
     expect(parameters?.properties.query.description).toContain("输入形状");
     expect(parameters?.properties.query.description).toContain("输出形状");
     expect(parameters?.properties.query.description).toContain("关键变换");
-    expect(parameters?.properties.scope.enum).toEqual(["all", "formula_methodology"]);
+    expect(parameters?.properties.scope.enum).toEqual(["all", "formula_methodology", "formula_scene"]);
   });
 
   it("does not expose internal memory kinds in the memory.write schema", () => {
