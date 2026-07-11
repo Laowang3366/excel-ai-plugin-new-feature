@@ -150,6 +150,12 @@
 .task-field--half {
   flex: 1; min-width: 0;
 }
+.task-field-row--stacked {
+  flex-direction: column;
+}
+.task-field-row--stacked .task-field--half {
+  width: 100%;
+}
 .task-select-group {
   display: flex; gap: 4px;
   background: var(--bg-tint);
