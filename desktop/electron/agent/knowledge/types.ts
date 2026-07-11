@@ -126,6 +126,10 @@ export interface IndexResult {
   success: boolean;
   /** 错误信息（失败时） */
   error?: string;
+  /** 实际建立的检索模式；keyword 表示本次未生成向量。 */
+  retrievalMode?: "vector" | "keyword";
+  /** 成功但能力降级时的可见说明。 */
+  warning?: string;
   /** 生成的条目数 */
   entryCount: number;
   /** 耗时（ms） */

@@ -562,9 +562,11 @@ describe("Office Word/PPT tool executors", () => {
       filePath: "D:\\docs\\talk.pptx",
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("PowerPoint 不可用");
     expect(result.data).toMatchObject({
-      success: true,
+      success: false,
+      fileReadable: true,
       openedInApp: false,
       fallback: "openxml",
       openError: "PowerPoint 不可用",
@@ -621,9 +623,11 @@ describe("Office Word/PPT tool executors", () => {
       filePath: "D:\\docs\\report.docx",
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Word 不可用");
     expect(result.data).toMatchObject({
-      success: true,
+      success: false,
+      fileReadable: true,
       openedInApp: false,
       fallback: "openxml",
       openError: "Word 不可用",

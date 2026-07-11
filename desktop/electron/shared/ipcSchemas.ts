@@ -112,8 +112,13 @@ export type AgentInterruptInput = z.infer<typeof AgentInterruptInput>;
 export const ThreadIdInput = z.string().min(1);
 export const ThreadNewInput = z.string().optional();
 export const ThreadUpdateMetadataInput = z.object({
-  threadId: z.string(),
-  patch: z.record(z.string(), z.unknown()),
+  threadId: z.string().min(1),
+  patch: z.object({
+    name: z.string().max(200).optional(),
+    folderId: z.string().optional(),
+    modelProvider: z.string().min(1).optional(),
+    model: z.string().optional(),
+  }).strict(),
 });
 export const ThreadGraphEdgeInput = z.object({
   parentThreadId: z.string().min(1),

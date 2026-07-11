@@ -124,6 +124,35 @@ export class SqliteStore {
     batchInsert(entries);
   }
 
+  replaceSource(entries: KnowledgeEntry[], source: KnowledgeSource | null, sourcePath: string): void {
+    runSqliteTransaction(this.db, () => {
+      this.db.prepare("DELETE FROM knowledge_entries WHERE source_path = ?").run(sourcePath);
+      this.db.prepare("DELETE FROM knowledge_sources WHERE source_path = ?").run(sourcePath);
+      if (entries.length > 0) this.bulkInsertWithoutTransaction(entries);
+      if (source) this.upsertSource(source);
+    });
+  }
+
+  private bulkInsertWithoutTransaction(entries: KnowledgeEntry[]): void {
+    const insert = this.db.prepare(
+      `INSERT OR REPLACE INTO knowledge_entries
+        (id, source, source_path, source_name, source_type,
+         chunk_index, content, metadata, embedding,
+         embedding_provider, embedding_model, embedding_dimensions,
+         indexed_at, token_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const item of entries) {
+      const row = entryToRow(item);
+      insert.run(
+        row.id, row.source, row.source_path, row.source_name, row.source_type,
+        row.chunk_index, row.content, row.metadata, row.embedding,
+        row.embedding_provider, row.embedding_model, row.embedding_dimensions,
+        row.indexed_at, row.token_count,
+      );
+    }
+  }
+
   /** 删除单条知识条目 */
   deleteEntry(id: string): void {
     this.db.prepare("DELETE FROM knowledge_entries WHERE id = ?").run(id);

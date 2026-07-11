@@ -19,6 +19,7 @@ export function parseRolloutContent(content: string, threadId: ThreadId): Thread
   };
   const turnsMap = new Map<TurnId, Turn>();
   const turnOrder: TurnId[] = [];
+  let hasSessionMeta = false;
 
   for (const line of lines) {
     try {
@@ -27,14 +28,20 @@ export function parseRolloutContent(content: string, threadId: ThreadId): Thread
 
       switch (item.type) {
         case "session_meta": {
+          const metaTimestamp = new Date(item.meta.timestamp).getTime();
           metadata = {
             ...metadata,
             threadId: item.meta.id,
             modelProvider: item.meta.modelProvider,
             model: item.meta.model,
-            createdAt: new Date(item.meta.timestamp).getTime(),
+            createdAt: hasSessionMeta ? metadata.createdAt : metaTimestamp,
+            updatedAt: hasSessionMeta ? metaTimestamp : metadata.updatedAt,
+            ...(Object.prototype.hasOwnProperty.call(item.meta, "name")
+              ? { name: item.meta.name ?? undefined }
+              : {}),
             folderId: item.meta.folderId,
           };
+          hasSessionMeta = true;
           break;
         }
         case "turn_context": {

@@ -51,6 +51,7 @@ import {
 } from "./main-modules/ipcHandlers";
 import { requestToolApproval } from "./agent/interaction/eventForwarder";
 import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
+import { createAppShutdownController, runCleanupSteps } from "./main-modules/appShutdown";
 
 const mainLogger = createLogger("main");
 
@@ -164,9 +165,23 @@ app.on("window-all-closed", () => {
 // 2. 刷写 SessionStore 中积压的滚动写入
 // 3. 关闭状态运行时存储
 // 4. 断开 Office bridge 连接（Excel/WPS 等 COM 对象）
-app.on("before-quit", async () => {
+const handleBeforeQuit = createAppShutdownController({
+  cleanup: async () => {
+    await runCleanupSteps([
+      () => getSessionStoreInstance().flushRolloutWrites(),
+      () => closeStateRuntimeStore(),
+      () => disconnectOfficeBridges(),
+    ]);
+  },
+  quit: () => app.quit(),
+  onCleanupError: (error) => {
+    mainLogger.error("应用退出清理失败", error instanceof Error
+      ? { message: error.message, stack: error.stack }
+      : { error: String(error) });
+  },
+});
+
+app.on("before-quit", (event) => {
   setIsQuitting(true);
-  await getSessionStoreInstance().flushRolloutWrites();
-  await closeStateRuntimeStore();
-  await disconnectOfficeBridges();
+  handleBeforeQuit(event);
 });

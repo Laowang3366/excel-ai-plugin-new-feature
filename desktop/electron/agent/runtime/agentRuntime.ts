@@ -4,6 +4,7 @@ import { DEFAULT_CONTEXT_WINDOW } from "../providers/modelContextWindows";
 import { buildSystemPrompt } from "../prompts/systemPrompt";
 import { SessionStore } from "../memory/sessionStore";
 import type { StateRuntimeStore } from "../memory/stateRuntimeStore";
+import type { ThreadMetadata } from "../shared/types";
 import { LongTermMemoryStore } from "../memory/longTerm/memoryStore";
 import { createToolExecutors } from "../tools/executors/createToolExecutors";
 import { OfficeComActionBridge } from "../tools/implementations/office/officeComActionBridge";
@@ -33,6 +34,8 @@ let runtime: AgentRuntime | null = null;
 
 export class AgentLoopManager {
   private readonly loopsByThreadId = new Map<string, AgentLoop>();
+  private readonly loopLoadsByThreadId = new Map<string, Promise<AgentLoop>>();
+  private activeTurnLoop: AgentLoop | null = null;
   private pendingFolderId: string | undefined;
 
   constructor(
@@ -45,6 +48,11 @@ export class AgentLoopManager {
   }
 
   getAllLoops(): AgentLoop[] {
+    for (const [threadId, loop] of this.loopsByThreadId) {
+      if (!loop.getIsRunning() && loop.getThread()?.metadata.threadId !== threadId) {
+        this.loopsByThreadId.delete(threadId);
+      }
+    }
     return Array.from(new Set([this.primaryLoop, ...this.loopsByThreadId.values()]));
   }
 
@@ -64,6 +72,35 @@ export class AgentLoopManager {
     }
   }
 
+  async runWithTurnLock<T>(loop: AgentLoop, operation: () => Promise<T>): Promise<T> {
+    if (this.activeTurnLoop) {
+      throw new Error("当前已有会话正在执行，请等待完成或停止后再开始其他会话");
+    }
+    this.activeTurnLoop = loop;
+    try {
+      return await operation();
+    } finally {
+      if (this.activeTurnLoop === loop) this.activeTurnLoop = null;
+    }
+  }
+
+  async releaseThread(threadId: string): Promise<boolean> {
+    const loop = this.loopsByThreadId.get(threadId);
+    if (!loop) return true;
+    if (loop.getIsRunning() || this.activeTurnLoop === loop) return false;
+    await loop.resetThread();
+    this.loopsByThreadId.delete(threadId);
+    return true;
+  }
+
+  updateLoadedThreadMetadata(threadId: string, patch: Partial<ThreadMetadata>): void {
+    const loop = this.loopsByThreadId.get(threadId);
+    const thread = loop?.getThread();
+    if (thread?.metadata.threadId === threadId) {
+      Object.assign(thread.metadata, patch);
+    }
+  }
+
   prepareNewThread(folderId?: string): void {
     this.pendingFolderId = folderId || undefined;
   }
@@ -77,15 +114,29 @@ export class AgentLoopManager {
     }
 
     const existing = this.loopsByThreadId.get(threadId);
-    if (existing) return existing;
+    if (existing?.getThread()?.metadata.threadId === threadId) return existing;
+    if (existing) this.loopsByThreadId.delete(threadId);
 
-    const loop = this.createLoop();
-    const resumed = await loop.resumeThread(threadId);
-    if (!resumed) {
-      throw new Error("会话不存在或无法恢复");
+    const loading = this.loopLoadsByThreadId.get(threadId);
+    if (loading) return loading;
+
+    const load = (async () => {
+      const loop = this.createLoop();
+      const resumed = await loop.resumeThread(threadId);
+      if (!resumed) {
+        throw new Error("会话不存在或无法恢复");
+      }
+      this.rememberLoop(loop);
+      return loop;
+    })();
+    this.loopLoadsByThreadId.set(threadId, load);
+    try {
+      return await load;
+    } finally {
+      if (this.loopLoadsByThreadId.get(threadId) === load) {
+        this.loopLoadsByThreadId.delete(threadId);
+      }
     }
-    this.rememberLoop(loop);
-    return loop;
   }
 
   async interruptThread(threadId?: string | null, requestId?: string): Promise<boolean> {

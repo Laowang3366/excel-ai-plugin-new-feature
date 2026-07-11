@@ -25,6 +25,7 @@ export interface OcrExecutorDeps {
 
 type OcrMode = "ocr" | "invoice" | "layout" | "style";
 type OcrProvider = "mineru" | "mineru-agent" | "local";
+type OverallOcrProvider = OcrProvider | "mixed";
 
 interface FallbackAttempt {
   provider: OcrProvider;
@@ -94,8 +95,11 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
 
       const fallbacks: FallbackAttempt[] = [];
       const warnings: string[] = [];
-      let selectedProvider: OcrProvider | undefined;
-      let selectedDocuments: Array<MineruParsedDocument | LocalParsedDocument> = [];
+      const selected: Array<{
+        document: MineruParsedDocument | LocalParsedDocument;
+        provider: OcrProvider;
+      } | undefined> = new Array(filePaths.length);
+      let unresolved = filePaths.map((_, index) => index);
 
       if (!allowTokenMineru) {
         fallbacks.push({
@@ -114,15 +118,17 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
       } else {
         const standardAttempt = await tryParseWithProvider("mineru", () => parseFilesWithMineru(filePaths, token));
         fallbacks.push(standardAttempt.fallback);
-        if (standardAttempt.documents && hasAnyUsefulDocument(standardAttempt.documents)) {
-          selectedProvider = "mineru";
-          selectedDocuments = standardAttempt.documents;
-        } else if (standardAttempt.fallback.error) {
-          warnings.push(`MinerU 标准解析不可用，已进入免费 Agent 降级: ${standardAttempt.fallback.error}`);
+        if (standardAttempt.documents) {
+          unresolved = mergeUsefulOcrDocuments(selected, unresolved, standardAttempt.documents, "mineru");
+        }
+        if (unresolved.length > 0) {
+          warnings.push(standardAttempt.fallback.error
+            ? `MinerU 标准解析不可用，已进入免费 Agent 补齐: ${standardAttempt.fallback.error}`
+            : `MinerU 标准解析仍有 ${unresolved.length} 个文件未完成，已进入免费 Agent 补齐`);
         }
       }
 
-      if (!selectedProvider) {
+      if (unresolved.length > 0) {
         if (!allowFreeMineru) {
           fallbacks.push({
             provider: "mineru-agent",
@@ -131,52 +137,70 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
             reason: "调用参数 allowFreeMineru=false，已跳过 MinerU 免费 Agent 轻量解析",
           });
         } else {
-          const agentAttempt = await tryParseWithProvider("mineru-agent", () => parseFilesWithMineruAgent(filePaths));
+          const pendingIndices = unresolved;
+          const agentAttempt = await tryParseWithProvider(
+            "mineru-agent",
+            () => parseFilesWithMineruAgent(pendingIndices.map((index) => filePaths[index])),
+          );
           fallbacks.push(agentAttempt.fallback);
-          if (agentAttempt.documents && hasAnyUsefulDocument(agentAttempt.documents)) {
-            selectedProvider = "mineru-agent";
-            selectedDocuments = agentAttempt.documents;
-          } else if (agentAttempt.fallback.error) {
-            warnings.push(`MinerU 免费 Agent 解析不可用，已进入本地兜底: ${agentAttempt.fallback.error}`);
+          if (agentAttempt.documents) {
+            unresolved = mergeUsefulOcrDocuments(selected, pendingIndices, agentAttempt.documents, "mineru-agent");
+          }
+          if (unresolved.length > 0) {
+            warnings.push(agentAttempt.fallback.error
+              ? `MinerU 免费 Agent 解析不可用，已进入本地补齐: ${agentAttempt.fallback.error}`
+              : `MinerU 免费 Agent 仍有 ${unresolved.length} 个文件未完成，已进入本地补齐`);
           }
         }
       }
 
-      if (!selectedProvider) {
+      if (unresolved.length > 0) {
         if (!allowLocalFallback) {
           return {
             success: false,
-            error: "MinerU 标准解析和免费 Agent 解析均不可用，且 allowLocalFallback=false，无法继续本地兜底",
+            error: `仍有 ${unresolved.length} 个文件未解析，且 allowLocalFallback=false，无法继续本地补齐`,
             data: { fallbacks },
           };
         }
-        const localDocuments = await parseFilesLocally(filePaths);
+        const pendingIndices = unresolved;
+        const localDocuments = await parseFilesLocally(pendingIndices.map((index) => filePaths[index]));
         fallbacks.push({
           provider: "local",
           success: hasAnyUsefulDocument(localDocuments),
           parsedFiles: localDocuments.filter(hasUsefulDocument).length,
-          totalFiles: filePaths.length,
-          reason: "远程解析不可用或未返回可用内容，已使用本地免费解析兜底",
+          totalFiles: pendingIndices.length,
+          reason: "远程解析未完成的文件已使用本地解析补齐",
         });
-        selectedProvider = "local";
-        selectedDocuments = localDocuments;
+        for (let index = 0; index < pendingIndices.length; index++) {
+          const document = localDocuments[index];
+          if (document) selected[pendingIndices[index]] = { document, provider: "local" };
+        }
         warnings.push(...localDocuments.flatMap((document) => document.warnings));
       }
 
-      const outputDocuments = selectedDocuments.map((document, index) =>
-        formatOutputDocument(document, selectedProvider!, filePaths[index], maxTextChars, maxTableRows)
-      );
+      const outputDocuments = selected.flatMap((entry, index) => entry
+        ? [formatOutputDocument(entry.document, entry.provider, filePaths[index], maxTextChars, maxTableRows)]
+        : []);
+      const selectedProviders = new Set(outputDocuments.map((document) => document.provider));
+      const selectedProvider: OverallOcrProvider = selectedProviders.size === 1
+        ? Array.from(selectedProviders)[0]
+        : "mixed";
       const combinedText = buildCombinedText(outputDocuments, maxTextChars);
       const allRows = outputDocuments.flatMap((document) => document.rows);
       const rows = allRows.slice(0, maxTableRows);
       const errors = outputDocuments
         .filter((document) => document.error)
         .map((document) => `${document.filename}: ${document.error}`);
+      const complete = outputDocuments.length === filePaths.length && outputDocuments.every((document) =>
+        document.text.trim().length > 0 || document.rows.length > 0
+      );
 
       return {
-        success: true,
+        success: complete,
+        ...(complete ? {} : { error: `OCR 仅完成 ${outputDocuments.filter((document) => document.text.trim() || document.rows.length > 0).length}/${filePaths.length} 个文件` }),
         data: {
           provider: selectedProvider,
+          status: complete ? "complete" : "partial",
           mode,
           fileCount: filePaths.length,
           text: combinedText.text,
@@ -267,6 +291,24 @@ function hasAnyUsefulDocument(documents: Array<{ text: string; rows: string[][] 
   return documents.some(hasUsefulDocument);
 }
 
+function mergeUsefulOcrDocuments(
+  selected: Array<{ document: MineruParsedDocument | LocalParsedDocument; provider: OcrProvider } | undefined>,
+  targetIndices: number[],
+  documents: MineruParsedDocument[],
+  provider: OcrProvider,
+): number[] {
+  const unresolved: number[] = [];
+  for (let index = 0; index < targetIndices.length; index++) {
+    const document = documents[index];
+    if (document && hasUsefulDocument(document)) {
+      selected[targetIndices[index]] = { document, provider };
+    } else {
+      unresolved.push(targetIndices[index]);
+    }
+  }
+  return unresolved;
+}
+
 function formatOutputDocument(
   document: MineruParsedDocument | LocalParsedDocument,
   provider: OcrProvider,
@@ -305,7 +347,7 @@ function buildCombinedText(
 
 function normalizeWarnings(
   warnings: string[],
-  provider: OcrProvider,
+  provider: OverallOcrProvider,
   mode: OcrMode,
   filePaths: string[]
 ): string[] {
@@ -330,7 +372,7 @@ function normalizeWarnings(
 function buildSelfFallbackTools(
   filePaths: string[],
   mode: OcrMode,
-  provider: OcrProvider
+  provider: OverallOcrProvider
 ): Array<Record<string, string>> {
   const extensions = new Set(filePaths.map((filePath) => path.extname(filePath).toLowerCase()));
   const tools: Array<Record<string, string>> = [];
@@ -345,7 +387,7 @@ function buildSelfFallbackTools(
       useWhen: "完成文件级修改后验证数量、结构、样式或对象变化",
     });
   }
-  if (provider === "local" && [...extensions].some((ext) => [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".pdf"].includes(ext))) {
+  if ((provider === "local" || provider === "mixed") && [...extensions].some((ext) => [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".pdf"].includes(ext))) {
     tools.push({
       tool: "python.execute",
       useWhen: "本地环境已有可用 OCR/转换库时，可用脚本提取文本或把文件转换成模型可读的中间格式",

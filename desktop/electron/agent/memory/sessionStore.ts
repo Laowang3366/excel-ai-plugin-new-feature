@@ -68,6 +68,7 @@ export class SessionStore {
   private sessionsRoot: string;
   private rolloutWriter: AsyncRolloutWriter;
   private rolloutEventSink: RolloutEventSink | null = null;
+  private writesSuspendedReason: string | null = null;
 
   constructor(sessionsRoot?: string, rolloutWriter = new AsyncRolloutWriter()) {
     this.sessionsRoot = sessionsRoot || getDefaultSessionsRoot();
@@ -77,6 +78,14 @@ export class SessionStore {
   /** 设置数据库 rollout 投影写入器；JSONL 仍保留为兼容审计副本。 */
   setRolloutEventSink(sink: RolloutEventSink | null): void {
     this.rolloutEventSink = sink;
+  }
+
+  suspendWrites(reason = "会话存储正在维护"): void {
+    this.writesSuspendedReason = reason;
+  }
+
+  resumeWrites(): void {
+    this.writesSuspendedReason = null;
   }
 
   // ----------------------------------------------------------
@@ -125,6 +134,9 @@ export class SessionStore {
 
   async appendRolloutItems(threadId: ThreadId, items: RolloutItem[]): Promise<void> {
     if (items.length === 0) return;
+    if (this.writesSuspendedReason) {
+      throw new Error(this.writesSuspendedReason);
+    }
 
     if (this.rolloutEventSink) {
       await this.rolloutEventSink.appendRolloutItems(threadId, items);
@@ -288,26 +300,21 @@ export class SessionStore {
   // ----------------------------------------------------------
 
   async updateThreadMetadata(threadId: ThreadId, patch: Partial<ThreadMetadata>): Promise<void> {
-    // 简化实现：在 JSONL 末尾追加一条 session_meta
-    // 加载时会合并最后一条 session_meta
-    if (patch.modelProvider || patch.model || patch.name || patch.folderId !== undefined) {
-      // 读取当前元数据以保留未修改的字段
-      const current = await this.loadThread(threadId);
-      const currentMeta = current?.metadata;
+    const current = await this.loadThread(threadId);
+    if (!current) throw new Error("会话不存在");
 
-      await this.appendRolloutItems(threadId, [
-        {
-          type: "session_meta",
-          meta: {
-            id: threadId,
-            timestamp: new Date().toISOString(),
-            modelProvider: patch.modelProvider || currentMeta?.modelProvider || "unknown",
-            model: patch.model !== undefined ? patch.model : currentMeta?.model,
-            folderId: patch.folderId !== undefined ? patch.folderId : currentMeta?.folderId,
-          },
-        },
-      ]);
-    }
+    const merged = { ...current.metadata, ...patch, updatedAt: Date.now() };
+    await this.appendRolloutItems(threadId, [{
+      type: "session_meta",
+      meta: {
+        id: threadId,
+        timestamp: new Date(merged.updatedAt).toISOString(),
+        modelProvider: merged.modelProvider,
+        model: merged.model,
+        name: merged.name ?? null,
+        folderId: merged.folderId,
+      },
+    }]);
   }
 
   // ----------------------------------------------------------

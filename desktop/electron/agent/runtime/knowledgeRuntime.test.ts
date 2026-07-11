@@ -3,10 +3,11 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getKnowledgeRetriever, resetKnowledgeRegistry } from "../knowledge";
+import { getKnowledgeRetriever, getKnowledgeStore, resetKnowledgeRegistry } from "../knowledge";
 import type { AIClientConfig } from "../providers/aiClient";
 import {
   initializeKnowledgeRuntime,
+  reloadKnowledgeRuntime,
   resetKnowledgeRuntime,
 } from "./knowledgeRuntime";
 
@@ -109,6 +110,30 @@ describe("knowledgeRuntime", () => {
     await initializeKnowledgeRuntime(config, dataRoot);
 
     expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(fetchCallsAfterFirstStartup);
+  });
+
+  it("keeps the active runtime when a replacement cannot initialize", async () => {
+    const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-runtime-"));
+    tempDirs.push(dataRoot);
+    const invalidRoot = path.join(dataRoot, "not-a-directory");
+    fs.writeFileSync(invalidRoot, "file");
+    const config: AIClientConfig = {
+      provider: "openai",
+      apiKey: "sk-test",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o",
+    };
+
+    const initial = await initializeKnowledgeRuntime(config, path.join(dataRoot, "valid"));
+    const activeStore = initial.store;
+    expect(activeStore).not.toBeNull();
+
+    const reloaded = await reloadKnowledgeRuntime(config, invalidRoot);
+
+    expect(reloaded.store).toBe(activeStore);
+    expect(getKnowledgeStore()).toBe(activeStore);
+    expect(reloaded.error).toBeTruthy();
+    expect(activeStore?.isInitialized()).toBe(true);
   });
 });
 

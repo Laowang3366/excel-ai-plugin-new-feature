@@ -56,6 +56,24 @@ describe("AsyncRolloutWriter", () => {
     await expect(writer.flush()).rejects.toThrow("disk full");
   });
 
+  it("retries only failed file batches without losing or duplicating successful writes", async () => {
+    const attempts = new Map<string, number>();
+    const writeBatch = vi.fn(async (filePath: string) => {
+      const count = (attempts.get(filePath) ?? 0) + 1;
+      attempts.set(filePath, count);
+      if (filePath === "failed.jsonl" && count === 1) throw new Error("temporary failure");
+    });
+    const writer = new AsyncRolloutWriter({ writeBatch, scheduleDrain: () => {} });
+    await writer.enqueue("failed.jsonl", ["line-a\n"]);
+    await writer.enqueue("ok.jsonl", ["line-b\n"]);
+
+    await expect(writer.flush()).rejects.toThrow("temporary failure");
+    await expect(writer.flush()).resolves.toBeUndefined();
+
+    expect(writeBatch.mock.calls.filter(([file]) => file === "failed.jsonl")).toHaveLength(2);
+    expect(writeBatch.mock.calls.filter(([file]) => file === "ok.jsonl")).toHaveLength(1);
+  });
+
   it("applies backpressure when the queued line capacity is full", async () => {
     const scheduled: Array<() => void> = [];
     let releaseWrite!: () => void;

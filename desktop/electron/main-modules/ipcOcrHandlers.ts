@@ -71,38 +71,63 @@ async function recognizeWithOcrFallbacks(
 
 async function parseFilesWithOcrFallbacks(
   filePaths: string[],
-): Promise<{ documents: MineruParsedDocument[]; provider: "mineru" | "mineru-agent" | "local"; errors: string[] }> {
+): Promise<{ documents: MineruParsedDocument[]; errors: string[] }> {
   const errors: string[] = [];
   const mineruToken = getConfiguredMineruToken();
+  const selected: Array<MineruParsedDocument | undefined> = new Array(filePaths.length);
+  let unresolved = filePaths.map((_, index) => index);
 
   if (mineruToken) {
     try {
       const documents = await parseFilesWithMineru(filePaths, mineruToken);
-      if (hasAnyUsefulParsedDocument(documents)) {
-        return { documents, provider: "mineru", errors: [] };
-      }
-      errors.push(formatMineruDocumentErrors(documents) || "MinerU 标准解析未返回可用文本");
+      unresolved = mergeUsefulDocuments(selected, unresolved, documents);
+      if (unresolved.length > 0) errors.push(formatMineruDocumentErrors(documents) || "MinerU 标准解析存在未完成文件");
     } catch (error: any) {
       errors.push(`MinerU 标准解析失败：${error?.message || "未知错误"}`);
     }
   }
 
-  try {
-    const documents = await parseFilesWithMineruAgent(filePaths);
-    if (hasAnyUsefulParsedDocument(documents)) {
-      return { documents, provider: "mineru-agent", errors: [] };
+  if (unresolved.length > 0) {
+    const pendingIndices = unresolved;
+    try {
+      const documents = await parseFilesWithMineruAgent(pendingIndices.map((index) => filePaths[index]));
+      unresolved = mergeUsefulDocuments(selected, pendingIndices, documents);
+      if (unresolved.length > 0) errors.push(formatMineruDocumentErrors(documents) || "MinerU 免费解析存在未完成文件");
+    } catch (error: any) {
+      errors.push(`MinerU 免费解析失败：${error?.message || "未知错误"}`);
     }
-    errors.push(formatMineruDocumentErrors(documents) || "MinerU 免费解析未返回可用文本");
-  } catch (error: any) {
-    errors.push(`MinerU 免费解析失败：${error?.message || "未知错误"}`);
   }
 
-  const localDocuments = await parseFilesLocally(filePaths);
+  if (unresolved.length > 0) {
+    const pendingIndices = unresolved;
+    const localDocuments = await parseFilesLocally(pendingIndices.map((index) => filePaths[index]));
+    for (let index = 0; index < pendingIndices.length; index++) {
+      selected[pendingIndices[index]] = localDocuments[index];
+    }
+  }
+
+  const documents = selected.filter((document): document is MineruParsedDocument => Boolean(document));
   return {
-    documents: localDocuments,
-    provider: "local",
-    errors: hasAnyUsefulParsedDocument(localDocuments) ? [] : errors,
+    documents,
+    errors: hasAnyUsefulParsedDocument(documents) ? [] : errors,
   };
+}
+
+function mergeUsefulDocuments(
+  selected: Array<MineruParsedDocument | undefined>,
+  targetIndices: number[],
+  documents: MineruParsedDocument[],
+): number[] {
+  const unresolved: number[] = [];
+  for (let index = 0; index < targetIndices.length; index++) {
+    const document = documents[index];
+    if (document && hasAnyUsefulParsedDocument([document])) {
+      selected[targetIndices[index]] = document;
+    } else {
+      unresolved.push(targetIndices[index]);
+    }
+  }
+  return unresolved;
 }
 
 function hasAnyUsefulParsedDocument(documents: Array<{ text: string; rows: string[][] }>): boolean {

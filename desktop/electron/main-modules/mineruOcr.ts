@@ -31,6 +31,7 @@ const MINERU_API_BASE = "https://mineru.net/api/v4";
 const MINERU_AGENT_API_BASE = "https://mineru.net/api/v1/agent";
 const DEFAULT_POLL_TIMEOUT_MS = 180_000;
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 export async function parseFilesWithMineru(
   filePaths: string[],
@@ -154,7 +155,7 @@ async function parseFileWithMineruAgent(
 }
 
 async function requestAgentUploadUrl(filePath: string): Promise<{ taskId: string; fileUrl: string }> {
-  const response = await fetch(`${MINERU_AGENT_API_BASE}/parse/file`, {
+  const response = await fetchWithTimeout(`${MINERU_AGENT_API_BASE}/parse/file`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -184,10 +185,11 @@ async function waitForAgentResult(
 ): Promise<MineruAgentTaskResult> {
   const startedAt = Date.now();
   while (Date.now() - startedAt <= timeoutMs) {
-    const response = await fetch(`${MINERU_AGENT_API_BASE}/parse/${encodeURIComponent(taskId)}`, {
+    const remainingMs = Math.max(1, timeoutMs - (Date.now() - startedAt));
+    const response = await fetchWithTimeout(`${MINERU_AGENT_API_BASE}/parse/${encodeURIComponent(taskId)}`, {
       method: "GET",
       headers: { Accept: "*/*" },
-    });
+    }, Math.min(DEFAULT_REQUEST_TIMEOUT_MS, remainingMs));
     const json = await readMineruJson(response, "MinerU Agent");
     const data = json.data as MineruAgentTaskResult | undefined;
     if (!data || typeof data !== "object") {
@@ -203,7 +205,7 @@ async function requestBatchUploadUrls(
   filePaths: string[],
   token: string
 ): Promise<{ batchId: string; fileUrls: string[] }> {
-  const response = await fetch(`${MINERU_API_BASE}/file-urls/batch`, {
+  const response = await fetchWithTimeout(`${MINERU_API_BASE}/file-urls/batch`, {
     method: "POST",
     headers: mineruJsonHeaders(token),
     body: JSON.stringify({
@@ -234,7 +236,7 @@ async function uploadFilesToSignedUrls(filePaths: string[], fileUrls: string[]):
 
 async function uploadFileToSignedUrl(filePath: string, fileUrl: string): Promise<void> {
   const fileBuffer = await fs.promises.readFile(filePath);
-  const response = await fetch(fileUrl, {
+  const response = await fetchWithTimeout(fileUrl, {
     method: "PUT",
     body: fileBuffer,
   });
@@ -251,10 +253,11 @@ async function waitForBatchResults(
 ): Promise<MineruBatchResultItem[]> {
   const startedAt = Date.now();
   while (Date.now() - startedAt <= timeoutMs) {
-    const response = await fetch(`${MINERU_API_BASE}/extract-results/batch/${encodeURIComponent(batchId)}`, {
+    const remainingMs = Math.max(1, timeoutMs - (Date.now() - startedAt));
+    const response = await fetchWithTimeout(`${MINERU_API_BASE}/extract-results/batch/${encodeURIComponent(batchId)}`, {
       method: "GET",
       headers: mineruJsonHeaders(token),
-    });
+    }, Math.min(DEFAULT_REQUEST_TIMEOUT_MS, remainingMs));
     const json = await readMineruJson(response);
     const items = readBatchResultItems(json);
     if (!Array.isArray(items)) {
@@ -285,7 +288,7 @@ function readBatchResultItems(json: any): MineruBatchResultItem[] | null {
 }
 
 async function downloadFullMarkdown(zipUrl: string): Promise<string> {
-  const response = await fetch(zipUrl);
+  const response = await fetchWithTimeout(zipUrl);
   if (!response.ok) {
     throw new Error(`下载 MinerU 结果压缩包失败 (${response.status}): ${await safeResponseText(response)}`);
   }
@@ -298,7 +301,7 @@ async function downloadFullMarkdown(zipUrl: string): Promise<string> {
 }
 
 async function downloadMarkdownText(markdownUrl: string): Promise<string> {
-  const response = await fetch(markdownUrl);
+  const response = await fetchWithTimeout(markdownUrl);
   if (!response.ok) {
     throw new Error(`下载 MinerU Agent Markdown 失败 (${response.status}): ${await safeResponseText(response)}`);
   }
@@ -352,6 +355,25 @@ function buildDataId(filePath: string, index: number): string {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`MinerU 网络请求超时 (${timeoutMs}ms)`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function safeResponseText(response: Response): Promise<string> {
