@@ -46,6 +46,15 @@ export function isComposerSubmitKey(
   return key === "Enter" && !shiftKey && !isComposing;
 }
 
+export type ComposerPrimaryAction = "send" | "stop";
+
+export function getComposerPrimaryAction(
+  isStreaming: boolean,
+  hasInput: boolean,
+): ComposerPrimaryAction {
+  return isStreaming && !hasInput ? "stop" : "send";
+}
+
 // ============================================================
 // 类型
 // ============================================================
@@ -95,6 +104,7 @@ export function ComposerArea({
   const { permissionMode, setPermissionMode, language } = useSettingsStore();
   const { contextUsage } = useChatStore();
   const text = getAppText(language);
+  const primaryAction = getComposerPrimaryAction(isStreaming, hasInput);
   const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!isComposerSubmitKey(event.key, event.shiftKey, event.nativeEvent.isComposing)) return;
     event.preventDefault();
@@ -253,22 +263,7 @@ export function ComposerArea({
                 setShowPermissionPopover(false);
               }}
             />
-            {isStreaming ? (
-              <>
-                {hasInput && (
-                  <button
-                    className="btn-send-circle active"
-                    onClick={onSend}
-                    title={text.chat.send}
-                  >
-                    <ArrowUp size={18} strokeWidth={2.4} />
-                  </button>
-                )}
-                <button className="btn-stop-circle" onClick={onInterrupt} title={text.chat.stopGenerating}>
-                  <Square size={14} />
-                </button>
-              </>
-            ) : (
+            {primaryAction === "send" ? (
               <button
                 className={`btn-send-circle ${hasInput ? "active" : "inactive"}`}
                 onClick={onSend}
@@ -276,6 +271,14 @@ export function ComposerArea({
                 title={text.chat.send}
               >
                 <ArrowUp size={18} strokeWidth={2.4} />
+              </button>
+            ) : (
+              <button
+                className="btn-stop-circle"
+                onClick={onInterrupt}
+                title={text.chat.stopGenerating}
+              >
+                <Square size={14} />
               </button>
             )}
           </div>
