@@ -159,17 +159,14 @@ describe("Office Word/PPT tool definitions", () => {
     expect(readTool?.description).toContain('expand:"spill"');
   });
 
-  it("requires formula methodology after structure reads and requests a problem-structure query", () => {
+  it("keeps knowledge search focused on project and business context", () => {
     const knowledgeTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "knowledge.search");
     const parameters = knowledgeTool?.parameters as ObjectToolParameters | undefined;
 
-    expect(knowledgeTool?.description).toContain("读取工作簿结构后必须调用");
-    expect(knowledgeTool?.description).toContain("不区分难度");
-    expect(parameters?.properties.query.description).toContain("问题结构");
-    expect(parameters?.properties.query.description).toContain("输入形状");
-    expect(parameters?.properties.query.description).toContain("输出形状");
-    expect(parameters?.properties.query.description).toContain("关键变换");
-    expect(parameters?.properties.scope.enum).toEqual(["all", "formula_methodology"]);
+    expect(knowledgeTool?.description).toContain("项目资料、业务口径、模板规范和历史规则");
+    expect(knowledgeTool?.description).toContain("仅在任务依赖已沉淀知识");
+    expect(parameters?.properties.query.description).toContain("结构化搜索词");
+    expect(parameters?.properties.scope).toBeUndefined();
   });
 
   it("does not expose internal memory kinds in the memory.write schema", () => {

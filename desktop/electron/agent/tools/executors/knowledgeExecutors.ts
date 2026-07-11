@@ -8,7 +8,6 @@ import type { ToolExecutor } from "../../shared/types";
 import type { Retriever } from "../../knowledge/retriever";
 import type { KnowledgeWriter } from "../../knowledge/knowledgeWriter";
 import { getKnowledgeRetriever, getKnowledgeStore, getKnowledgeWriter } from "../../knowledge/knowledgeRegistry";
-import { BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME } from "../../knowledge/builtinKnowledge";
 import { validateArgs } from "./validation";
 
 export interface KnowledgeExecutorDeps {
@@ -31,20 +30,10 @@ export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: K
       if (err) return { success: false, error: err };
       const query = args.query as string;
       const topK = typeof args.topK === "number" ? args.topK : 5;
-      const scope = args.scope;
-      if (scope !== undefined && scope !== "all" && scope !== "formula_methodology") {
-        return { success: false, error: "参数 scope 必须是 all 或 formula_methodology" };
-      }
       try {
-        const pathFilter = scope === "formula_methodology"
-          ? getKnowledgeStore()?.listSources()
-            .filter((source) => source.sourceName === BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME)
-            .map((source) => source.sourcePath)
-          : undefined;
         const results = await retriever.search({
           text: query,
           topK,
-          ...(pathFilter?.length ? { pathFilter } : {}),
         });
         const formatted = retriever.formatForToolResult(results);
         return { success: true, data: formatted };

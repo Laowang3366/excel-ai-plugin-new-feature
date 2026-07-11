@@ -7,8 +7,9 @@ import { createLogger } from "../../shared/logger";
 const builtinKnowledgeLogger = createLogger("BuiltinKnowledge");
 
 const BUILTIN_KNOWLEDGE_MANIFEST = "builtin-knowledge.json";
-export const BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME =
-  "excel-wps-formula-problem-solving-methodology.md";
+const RETIRED_BUILTIN_SOURCE_NAMES = new Set([
+  "excel-wps-formula-problem-solving-methodology.md",
+]);
 interface BuiltinKnowledgeManifest {
   files?: Array<{
     path?: string;
@@ -24,8 +25,10 @@ export async function indexBuiltinKnowledge(indexer: KnowledgeIndexer): Promise<
   }
 
   const files = readBuiltinKnowledgeManifest(root);
+  if (!files) return [];
+
   const results: IndexResult[] = [];
-  let allCurrentFilesIndexed = files.length > 0;
+  let allCurrentFilesIndexed = true;
   for (const file of files) {
     const filePath = path.join(root, file.path);
     if (!fs.existsSync(filePath)) {
@@ -64,6 +67,7 @@ async function removeUnlistedBuiltinKnowledge(
   for (const source of sources) {
     if (!isBuiltinKnowledgePath(source.sourcePath)) continue;
     if (currentFileNames.has(source.sourceName)) continue;
+    if (!RETIRED_BUILTIN_SOURCE_NAMES.has(source.sourceName)) continue;
     try {
       await indexer.deleteSource(source.sourcePath);
     } catch (error) {
@@ -79,7 +83,7 @@ function isBuiltinKnowledgePath(sourcePath: string): boolean {
   return sourcePath.replace(/\\/g, "/").toLowerCase().includes("/public/knowledge/");
 }
 
-function readBuiltinKnowledgeManifest(root: string): Array<{ path: string; sha256?: string }> {
+function readBuiltinKnowledgeManifest(root: string): Array<{ path: string; sha256?: string }> | null {
   const manifestPath = path.join(root, BUILTIN_KNOWLEDGE_MANIFEST);
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as BuiltinKnowledgeManifest;
@@ -92,7 +96,7 @@ function readBuiltinKnowledgeManifest(root: string): Array<{ path: string; sha25
       manifestPath,
       error: error instanceof Error ? error.message : String(error),
     });
-    return [];
+    return null;
   }
 }
 
