@@ -17,8 +17,8 @@ const KNOWLEDGE_SEARCH_DEF: ToolDefinition = {
       topK: { type: "number", description: "返回结果数量，默认5", default: 5 },
       scope: {
         type: "string",
-        enum: ["all", "formula_methodology"],
-        description: "检索范围；公式方法论技能使用 formula_methodology，普通知识检索默认 all",
+        enum: ["all", "formula_methodology", "formula_scene"],
+        description: "检索范围；公式方法论使用 formula_methodology 并作为写入硬依赖，公式场景经验使用 formula_scene 且无匹配不阻断，普通知识检索默认 all",
         default: "all",
       },
     },

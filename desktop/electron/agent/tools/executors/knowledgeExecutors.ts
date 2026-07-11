@@ -20,35 +20,89 @@ export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: K
   target.set("knowledge.search", {
     name: "knowledge.search",
     execute: async (args: Record<string, unknown>) => {
-      const retriever = getKnowledgeRetriever() ?? deps.knowledgeRetriever;
-      if (!retriever) {
-        return {
-          success: false,
-          error: "知识库尚未初始化，请在设置中配置 AI 供应商并添加知识来源",
-        };
-      }
       const err = validateArgs(args, { query: "string" });
       if (err) return { success: false, error: err };
       const query = args.query as string;
       const topK = typeof args.topK === "number" ? args.topK : 5;
       const scope = args.scope;
-      if (scope !== undefined && scope !== "all" && scope !== "formula_methodology") {
-        return { success: false, error: "参数 scope 必须是 all 或 formula_methodology" };
+      if (scope !== undefined && scope !== "all" && scope !== "formula_methodology" && scope !== "formula_scene") {
+        return { success: false, error: "参数 scope 必须是 all、formula_methodology 或 formula_scene" };
+      }
+      const retriever = getKnowledgeRetriever() ?? deps.knowledgeRetriever;
+      if (!retriever) {
+        if (scope === "formula_scene") {
+          return {
+            success: true,
+            data: {
+              status: "unavailable",
+              message: "场景知识库尚未初始化，继续按内置公式方法论解题。",
+              matchCount: 0,
+              content: "",
+            },
+          };
+        }
+        return {
+          success: false,
+          error: "知识库尚未初始化，请在设置中配置 AI 供应商并添加知识来源",
+        };
       }
       try {
+        const sources = getKnowledgeStore()?.listSources();
         const pathFilter = scope === "formula_methodology"
-          ? getKnowledgeStore()?.listSources()
-            .filter((source) => source.sourceName === BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME)
+          ? sources
+            ?.filter((source) => source.sourceName === BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME)
             .map((source) => source.sourcePath)
-          : undefined;
+          : scope === "formula_scene"
+            ? sources
+              ?.filter((source) => source.sourceName !== BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME)
+              .map((source) => source.sourcePath)
+            : undefined;
+        if (scope === "formula_methodology" && (!pathFilter || pathFilter.length === 0)) {
+          return { success: false, error: "内置公式方法论尚未完成索引，不能继续写入公式" };
+        }
+        if (scope === "formula_scene" && (!pathFilter || pathFilter.length === 0)) {
+          return {
+            success: true,
+            data: {
+              status: "no_match",
+              message: "当前没有可用的场景知识来源，继续按内置公式方法论解题。",
+              matchCount: 0,
+              content: "",
+            },
+          };
+        }
         const results = await retriever.search({
           text: query,
           topK,
           ...(pathFilter?.length ? { pathFilter } : {}),
         });
         const formatted = retriever.formatForToolResult(results);
+        if (scope === "formula_scene") {
+          return {
+            success: true,
+            data: {
+              status: results.length > 0 ? "matched" : "no_match",
+              message: results.length > 0
+                ? `找到 ${results.length} 条可选场景知识。`
+                : "未找到适用场景知识，继续按内置公式方法论解题。",
+              matchCount: results.length,
+              content: formatted,
+            },
+          };
+        }
         return { success: true, data: formatted };
       } catch (e: any) {
+        if (scope === "formula_scene") {
+          return {
+            success: true,
+            data: {
+              status: "unavailable",
+              message: `场景知识检索不可用，继续按内置公式方法论解题：${e.message}`,
+              matchCount: 0,
+              content: "",
+            },
+          };
+        }
         return { success: false, error: `知识搜索失败: ${e.message}` };
       }
     },

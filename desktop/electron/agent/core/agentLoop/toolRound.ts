@@ -16,9 +16,16 @@ import {
 } from "./toolExecutor";
 import {
   buildFormulaKnowledgeQuery,
-  guardFormulaRangeWriteExecutors,
-  shouldAutoSearchFormulaKnowledge,
+  buildFormulaSceneQuery,
+  guardFormulaWorkflowExecutors,
+  shouldLoadFormulaMethodology,
+  shouldSearchFormulaScene,
 } from "./formulaKnowledgePolicy";
+import {
+  buildPendingFormulaValidationRead,
+  shouldRunFormulaVerification,
+} from "./formulaVerification";
+import { createFormulaWorkflowTurnView } from "./formulaWorkflowContext";
 
 type ProcessToolCalls = typeof processToolCalls;
 
@@ -41,7 +48,8 @@ export async function handleToolRound(input: {
   if (input.streamResult.toolCalls.length === 0) return false;
 
   const processCalls = input.processToolCallsImpl ?? processToolCalls;
-  const guardedExecutors = guardFormulaRangeWriteExecutors(input.toolExecutors, input.turn);
+  const workflowTurn = createFormulaWorkflowTurnView(input.turn, input.turnItemGroups);
+  const guardedExecutors = guardFormulaWorkflowExecutors(input.toolExecutors, workflowTurn);
   await processCalls(
     input.streamResult.toolCalls,
     input.streamResult.pendingToolCallItems,
@@ -55,21 +63,82 @@ export async function handleToolRound(input: {
   );
   input.throwIfAborted();
 
-  if (shouldAutoSearchFormulaKnowledge(input.turn, input.toolExecutors)) {
-    const toolCallId = `auto-formula-knowledge-${input.turn.turnId}`;
+  if (shouldLoadFormulaMethodology(workflowTurn, input.toolExecutors)) {
+    const toolCallId = `auto-formula-knowledge-${input.turn.turnId}-${Date.now()}`;
     await processCalls(
       [{
         id: toolCallId,
         name: "knowledge.search",
         arguments: JSON.stringify({
-          query: buildFormulaKnowledgeQuery(input.turn),
-          topK: 2,
+          query: buildFormulaKnowledgeQuery(workflowTurn),
+          topK: 3,
           scope: "formula_methodology",
         }),
       }],
       new Map(),
       input.turn,
       input.toolExecutors,
+      input.approvalConfig,
+      input.callbacks,
+      input.appendTurnItem,
+      input.appendToolExecutionLog,
+      input.throwIfAborted,
+    );
+    input.throwIfAborted();
+  }
+
+  if (shouldSearchFormulaScene(workflowTurn, input.toolExecutors)) {
+    const toolCallId = `auto-formula-scene-${input.turn.turnId}-${Date.now()}`;
+    await processCalls(
+      [{
+        id: toolCallId,
+        name: "knowledge.search",
+        arguments: JSON.stringify({
+          query: buildFormulaSceneQuery(workflowTurn),
+          topK: 3,
+          scope: "formula_scene",
+        }),
+      }],
+      new Map(),
+      input.turn,
+      guardedExecutors,
+      input.approvalConfig,
+      input.callbacks,
+      input.appendTurnItem,
+      input.appendToolExecutionLog,
+      input.throwIfAborted,
+    );
+    input.throwIfAborted();
+  }
+
+  const validationRead = buildPendingFormulaValidationRead(workflowTurn);
+  if (validationRead) {
+    const toolCallId = `auto-formula-read-${input.turn.turnId}-${Date.now()}`;
+    await processCalls(
+      [{
+        id: toolCallId,
+        name: "range.read",
+        arguments: JSON.stringify(validationRead),
+      }],
+      new Map(),
+      input.turn,
+      guardedExecutors,
+      input.approvalConfig,
+      input.callbacks,
+      input.appendTurnItem,
+      input.appendToolExecutionLog,
+      input.throwIfAborted,
+    );
+    input.throwIfAborted();
+  }
+
+  if (shouldRunFormulaVerification(workflowTurn)) {
+    const toolCallId = `auto-formula-verify-${input.turn.turnId}-${Date.now()}`;
+    await processCalls(
+      [{ id: toolCallId, name: "formula.verify", arguments: "{}" }],
+      new Map(),
+      input.turn,
+      guardedExecutors,
       input.approvalConfig,
       input.callbacks,
       input.appendTurnItem,
