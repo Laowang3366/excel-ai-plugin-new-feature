@@ -160,7 +160,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
       )}
 
       {/* 运行环境 + 首选语言（并排） */}
-      <div className="task-field-row">
+      <div className={`task-field-row${embedded ? " task-field-row--stacked" : ""}`}>
         <div className="task-field task-field--half">
           <label className="task-field-label">运行环境</label>
           <div className="task-select-group">
