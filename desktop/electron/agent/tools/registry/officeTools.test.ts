@@ -159,17 +159,17 @@ describe("Office Word/PPT tool definitions", () => {
     expect(readTool?.description).toContain('expand:"spill"');
   });
 
-  it("gates knowledge.search by difficulty and requests a problem-structure query", () => {
+  it("requires formula methodology after structure reads and requests a problem-structure query", () => {
     const knowledgeTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "knowledge.search");
     const parameters = knowledgeTool?.parameters as ObjectToolParameters | undefined;
 
-    expect(knowledgeTool?.description).toContain("判断场景难度");
-    expect(knowledgeTool?.description).toContain("简单问答");
-    expect(knowledgeTool?.description).toContain("中高复杂度");
+    expect(knowledgeTool?.description).toContain("读取工作簿结构后必须调用");
+    expect(knowledgeTool?.description).toContain("不区分难度");
     expect(parameters?.properties.query.description).toContain("问题结构");
     expect(parameters?.properties.query.description).toContain("输入形状");
     expect(parameters?.properties.query.description).toContain("输出形状");
     expect(parameters?.properties.query.description).toContain("关键变换");
+    expect(parameters?.properties.scope.enum).toEqual(["all", "formula_methodology"]);
   });
 
   it("does not expose internal memory kinds in the memory.write schema", () => {

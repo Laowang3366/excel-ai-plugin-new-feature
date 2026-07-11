@@ -48,7 +48,7 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(prompt).toContain("场景化操作指南：公式助手");
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("禁止为了匹配样例结果硬编码输出路径");
-    expect(prompt).toContain("只需更改数据源选区/表引用即可重算");
+    expect(prompt).toContain("只需调整数据源选区/表引用即可重算");
     expect(prompt).toContain('expand:"spill"');
     expect(prompt.length).toBeLessThan(10_000);
   });
@@ -101,12 +101,10 @@ describe("buildEffectiveSystemPrompt", () => {
     expect(search).not.toHaveBeenCalled();
     expect(prompt).not.toContain("SUMIFS");
     expect(prompt).toContain("场景化操作指南：公式助手");
-    expect(prompt).toContain("先用 `office.connection.status`");
-    expect(prompt).toContain("读取公式助手提供的数据源选区");
-    expect(prompt).toContain("用场景摘要调用 `knowledge.search`");
-    expect(prompt).toContain("输入形状 -> 规范化 -> 筛选/映射/分组/聚合 -> 重塑 -> 输出形状");
-    expect(prompt).toContain("不要只用样例值搜索相似案例");
-    expect(prompt).toContain("禁止复制最近似案例后替换区域地址");
+    expect(prompt).toContain("office.connection.status -> range.read -> knowledge.search");
+    expect(prompt).toContain("先读取真实结构");
+    expect(prompt).toContain("只采用与当前输入输出形状、业务键、约束和验收直接相关的步骤");
+    expect(prompt).toContain("简单任务不用复杂流水线");
   });
 
   it("does not pre-inject knowledge context for Word writing tasks before scene difficulty is known", async () => {

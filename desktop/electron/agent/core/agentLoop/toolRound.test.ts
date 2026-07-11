@@ -107,6 +107,76 @@ describe("toolRound", () => {
     expect(throwIfAborted).toHaveBeenCalledTimes(2);
   });
 
+  it("automatically searches formula methodology after workbook structure is read", async () => {
+    const rangeReadItem: ToolCallItem = {
+      type: "tool_call",
+      id: "read-1",
+      toolName: "range.read",
+      arguments: { address: "B3:E12" },
+      status: "pending",
+      timestamp: 1,
+    };
+    const processToolCallsImpl = vi.fn(async (
+      toolCalls: Array<{ id: string; name: string; arguments: string }>,
+      _pendingItems: unknown,
+      turn: Turn,
+    ) => {
+      const toolCall = toolCalls[0];
+      turn.items.push({
+        type: "tool_result",
+        id: `result-${toolCall.id}`,
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        result: toolCall.name === "range.read"
+          ? { address: "B3:E12", values: [["部门", "人数", "餐时", "用餐人数"]] }
+          : "已返回公式解题方法论",
+        isError: false,
+        timestamp: 2,
+      });
+    });
+    const turn = createTurn([
+      userItem("【功能模块：生成公式】\n任务说明：按部门统计剩余餐费"),
+      rangeReadItem,
+    ]);
+
+    const handled = await handleToolRound({
+      streamResult: {
+        assistantContent: "",
+        reasoningContent: [],
+        reasoningSummary: [],
+        toolCalls: [{ id: "read-1", name: "range.read", arguments: '{"address":"B3:E12"}' }],
+        finishReason: "tool_calls",
+        usage: undefined,
+        pendingToolCallItems: new Map([["read-1", rangeReadItem]]),
+      },
+      turn,
+      toolExecutors: new Map([
+        ["range.read", { name: "range.read", execute: vi.fn() }],
+        ["knowledge.search", { name: "knowledge.search", execute: vi.fn() }],
+      ]),
+      approvalConfig: { permissionMode: "normal" },
+      callbacks: { onEvent: vi.fn() },
+      appendTurnItem: vi.fn(),
+      turnItemGroups: [[userItem("【功能模块：生成公式】")]],
+      effectiveSystemPrompt: "system",
+      toolDefs: [],
+      compactionConfig: { ...compactionConfig, enabled: false },
+      runMidTurnCompaction: vi.fn(),
+      throwIfAborted: vi.fn(),
+      processToolCallsImpl: processToolCallsImpl as any,
+    });
+
+    expect(handled).toBe(true);
+    expect(processToolCallsImpl).toHaveBeenCalledTimes(2);
+    const automaticCall = processToolCallsImpl.mock.calls[1][0][0];
+    expect(automaticCall.name).toBe("knowledge.search");
+    expect(JSON.parse(automaticCall.arguments)).toMatchObject({
+      topK: 2,
+      scope: "formula_methodology",
+    });
+    expect(JSON.parse(automaticCall.arguments).query).toContain("按部门统计剩余餐费");
+  });
+
   it("calculates mid-turn compaction from prompt tokens", () => {
     const toolDef: ToolDefinition = {
       name: "test.tool",

@@ -29,6 +29,13 @@ describe("indexBuiltinKnowledge", () => {
     const content = fs
       .readFileSync(path.join(knowledgeRoot, manifest.files[0].path), "utf-8")
       .replace(/\r\n/g, "\n");
+    expect(content).toContain("先生成“索引、掩码或状态”，最后取值");
+    expect(content).toContain(
+      "LET 定义输入 -> 规范化 -> 构造索引/掩码/状态 -> 执行局部变换 -> 展平或累积 -> 重塑 -> HSTACK/VSTACK 输出",
+    );
+    expect(content).toContain("追求“最小充分公式”，不靠普通函数堆叠");
+    expect(content).toContain("正则不只是展示文本的清洗工具");
+    expect(content).toContain("结果正确、结构精简、无重复计算、动态可扩展和可维护，缺一不可");
     expect(createHash("sha256").update(content).digest("hex")).toBe(manifest.files[0].sha256);
     expect(fs.readdirSync(knowledgeRoot).sort()).toEqual([
       "builtin-knowledge.json",

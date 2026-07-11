@@ -14,6 +14,11 @@ import {
   type ToolApprovalConfig,
   type ToolExecutionLogRecord,
 } from "./toolExecutor";
+import {
+  buildFormulaKnowledgeQuery,
+  guardFormulaRangeWriteExecutors,
+  shouldAutoSearchFormulaKnowledge,
+} from "./formulaKnowledgePolicy";
 
 type ProcessToolCalls = typeof processToolCalls;
 
@@ -35,11 +40,13 @@ export async function handleToolRound(input: {
 }): Promise<boolean> {
   if (input.streamResult.toolCalls.length === 0) return false;
 
-  await (input.processToolCallsImpl ?? processToolCalls)(
+  const processCalls = input.processToolCallsImpl ?? processToolCalls;
+  const guardedExecutors = guardFormulaRangeWriteExecutors(input.toolExecutors, input.turn);
+  await processCalls(
     input.streamResult.toolCalls,
     input.streamResult.pendingToolCallItems,
     input.turn,
-    input.toolExecutors,
+    guardedExecutors,
     input.approvalConfig,
     input.callbacks,
     input.appendTurnItem,
@@ -47,6 +54,30 @@ export async function handleToolRound(input: {
     input.throwIfAborted
   );
   input.throwIfAborted();
+
+  if (shouldAutoSearchFormulaKnowledge(input.turn, input.toolExecutors)) {
+    const toolCallId = `auto-formula-knowledge-${input.turn.turnId}`;
+    await processCalls(
+      [{
+        id: toolCallId,
+        name: "knowledge.search",
+        arguments: JSON.stringify({
+          query: buildFormulaKnowledgeQuery(input.turn),
+          topK: 2,
+          scope: "formula_methodology",
+        }),
+      }],
+      new Map(),
+      input.turn,
+      input.toolExecutors,
+      input.approvalConfig,
+      input.callbacks,
+      input.appendTurnItem,
+      input.appendToolExecutionLog,
+      input.throwIfAborted,
+    );
+    input.throwIfAborted();
+  }
 
   if (shouldRunMidTurnCompaction({
     turnItemGroups: input.turnItemGroups,

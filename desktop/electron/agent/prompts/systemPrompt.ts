@@ -40,7 +40,7 @@ const baseSections = [
 ];
 
 const contextualSections: ContextualPromptDefinition[] = [
-  { key: "formula", content: formulaPrompt, shouldInclude: shouldInjectFormulaRules },
+  { key: "formula", content: formulaPrompt, shouldInclude: isFormulaPromptContext },
   { key: "ocr-invoice", content: ocrInvoicePrompt, shouldInclude: shouldInjectOcrRules },
   { key: "office-tools", content: officeToolsPrompt, shouldInclude: shouldInjectOfficeTools },
   {
@@ -88,7 +88,7 @@ export function buildRuntimePromptSection(context: RuntimePromptContext): string
   });
 }
 
-function shouldInjectFormulaRules(context: PromptBuildContext): boolean {
+export function isFormulaPromptContext(context: PromptBuildContext): boolean {
   const content = normalizeContent(context.content);
   return hasAny(content, [
     "【功能模块：公式助手】",
@@ -109,6 +109,21 @@ function shouldInjectFormulaRules(context: PromptBuildContext): boolean {
     "公式助手",
     "spill",
     "#spill",
+  ]);
+}
+
+export function hasFormulaFunctionReference(content: string | undefined): boolean {
+  return hasAny(normalizeContent(content), [
+    "sumif",
+    "sumifs",
+    "countif",
+    "countifs",
+    "averageif",
+    "averageifs",
+    "xlookup",
+    "vlookup",
+    "groupby",
+    "pivotby",
   ]);
 }
 

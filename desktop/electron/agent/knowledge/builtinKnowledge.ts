@@ -7,6 +7,8 @@ import { createLogger } from "../../shared/logger";
 const builtinKnowledgeLogger = createLogger("BuiltinKnowledge");
 
 const BUILTIN_KNOWLEDGE_MANIFEST = "builtin-knowledge.json";
+export const BUILTIN_FORMULA_METHODOLOGY_SOURCE_NAME =
+  "excel-wps-formula-problem-solving-methodology.md";
 interface BuiltinKnowledgeManifest {
   files?: Array<{
     path?: string;
