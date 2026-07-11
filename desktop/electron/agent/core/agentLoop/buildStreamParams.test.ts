@@ -45,11 +45,14 @@ describe("buildEffectiveSystemPrompt", () => {
       content: "【功能模块：公式助手】请写入动态数组公式",
     });
 
-    expect(prompt).toContain("场景化操作指南：公式助手");
+    expect(prompt).toContain("公式助手：内置解题方法");
     expect(prompt).toContain("range.write");
-    expect(prompt).toContain("禁止为了匹配样例结果硬编码输出路径");
-    expect(prompt).toContain("只需调整数据源选区/表引用即可重算");
+    expect(prompt).toContain("参考答案为空时");
+    expect(prompt).toContain("选择最小充分公式");
+    expect(prompt).toContain("核心方法论已包含在本提示词中");
     expect(prompt).toContain('expand:"spill"');
+    expect(prompt).not.toContain("## Office 工具调用硬性边界");
+    expect(prompt).not.toContain("场景化操作指南：通用 Office 任务");
     expect(prompt.length).toBeLessThan(10_000);
   });
 
@@ -100,11 +103,11 @@ describe("buildEffectiveSystemPrompt", () => {
 
     expect(search).not.toHaveBeenCalled();
     expect(prompt).not.toContain("SUMIFS");
-    expect(prompt).toContain("场景化操作指南：公式助手");
-    expect(prompt).toContain("office.connection.status -> range.read -> knowledge.search");
-    expect(prompt).toContain("先读取真实结构");
-    expect(prompt).toContain("只采用与当前输入输出形状、业务键、约束和验收直接相关的步骤");
-    expect(prompt).toContain("简单任务不用复杂流水线");
+    expect(prompt).toContain("公式助手：内置解题方法");
+    expect(prompt).toContain("office.connection.status -> range.read -> 结构归纳");
+    expect(prompt).toContain("必须先看完数据源、参考答案和目标区域");
+    expect(prompt).toContain("不要调用知识库来重复加载方法论");
+    expect(prompt).toContain("简单任务使用简单公式");
   });
 
   it("does not pre-inject knowledge context for Word writing tasks before scene difficulty is known", async () => {

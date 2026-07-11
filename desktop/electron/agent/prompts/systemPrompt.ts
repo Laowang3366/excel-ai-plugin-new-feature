@@ -42,11 +42,15 @@ const baseSections = [
 const contextualSections: ContextualPromptDefinition[] = [
   { key: "formula", content: formulaPrompt, shouldInclude: isFormulaPromptContext },
   { key: "ocr-invoice", content: ocrInvoicePrompt, shouldInclude: shouldInjectOcrRules },
-  { key: "office-tools", content: officeToolsPrompt, shouldInclude: shouldInjectOfficeTools },
+  {
+    key: "office-tools",
+    content: officeToolsPrompt,
+    shouldInclude: (context) => !isFormulaPromptContext(context) && shouldInjectOfficeTools(context),
+  },
   {
     key: "general-office",
     content: generalOfficePrompt,
-    shouldInclude: shouldInjectGeneralScenarios,
+    shouldInclude: (context) => !isFormulaPromptContext(context) && shouldInjectGeneralScenarios(context),
   },
 ];
 
@@ -109,21 +113,6 @@ export function isFormulaPromptContext(context: PromptBuildContext): boolean {
     "公式助手",
     "spill",
     "#spill",
-  ]);
-}
-
-export function hasFormulaFunctionReference(content: string | undefined): boolean {
-  return hasAny(normalizeContent(content), [
-    "sumif",
-    "sumifs",
-    "countif",
-    "countifs",
-    "averageif",
-    "averageifs",
-    "xlookup",
-    "vlookup",
-    "groupby",
-    "pivotby",
   ]);
 }
 

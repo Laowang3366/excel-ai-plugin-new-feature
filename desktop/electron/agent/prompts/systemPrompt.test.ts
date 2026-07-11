@@ -20,9 +20,8 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("memory.search/list/write/delete");
     expect(prompt).toContain("知识库检索时机");
     expect(prompt).toContain("不要在任务开始时只凭用户一句话直接检索知识库");
-    expect(prompt).toContain("简单任务通常无需检索");
-    expect(prompt).toContain("读取结构后必须调用公式方法论知识");
-    expect(prompt).toContain("中高复杂度或业务依赖任务再检索");
+    expect(prompt).toContain("仅在任务依赖项目资料");
+    expect(prompt).not.toContain("公式方法论知识");
     expect(prompt).toContain("shell.execute");
     expect(prompt).toContain("prompt");
     expect(prompt).toContain("forbidden");
@@ -95,23 +94,25 @@ describe("buildContextualPromptSections", () => {
       content: "【功能模块：公式助手】请生成动态数组公式并写入答案区域",
     });
 
-    expect(prompt).toContain("场景化操作指南：公式助手");
+    expect(prompt).toContain("公式助手：内置解题方法");
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("knowledge.search");
-    expect(prompt).toContain("禁止为了匹配样例结果硬编码输出路径");
-    expect(prompt).toContain("只需调整数据源选区/表引用即可重算");
-    expect(prompt).toContain("公式方法论按技能触发");
-    expect(prompt).toContain("不区分任务难度");
-    expect(prompt).toContain("读取成功后运行时自动检索");
-    expect(prompt).toContain("最小充分结构");
+    expect(prompt).toContain("核心方法论已包含在本提示词中");
+    expect(prompt).toContain("不要调用知识库来重复加载方法论");
+    expect(prompt).toContain("输入形状");
+    expect(prompt).toContain("输出形状");
+    expect(prompt).toContain("参考答案为空时");
+    expect(prompt).toContain("选择最小充分公式");
+    expect(prompt).toContain("索引/掩码/状态");
     expect(prompt).toContain("生成业务键、条件或索引");
     expect(prompt).toContain("环境支持且模式稳定");
     expect(prompt).toContain('expand:"spill"');
     expect(prompt).toContain("ASCII");
-    expect(prompt).toContain("WPS 报公式错误");
-    expect(prompt).toContain("动态数组只写锚点并回读 spill");
-    expect(prompt.match(/## Office 工具调用硬性边界/g)).toHaveLength(1);
-    expect(prompt.length).toBeLessThan(2_500);
+    expect(prompt).toContain("动态数组只写目标锚点");
+    expect(prompt).toContain("写入成功不等于结果正确");
+    expect(prompt).not.toContain("## Office 工具调用硬性边界");
+    expect(prompt).not.toContain("场景化操作指南：通用 Office 任务");
+    expect(prompt.length).toBeLessThan(3_500);
   });
 
   test("injects OCR and invoice rules for invoice-recognition turns", () => {

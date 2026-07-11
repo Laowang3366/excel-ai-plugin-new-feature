@@ -64,7 +64,7 @@ describe("knowledgeRuntime", () => {
     expect(getKnowledgeRetriever()).not.toBe(firstRetriever);
   });
 
-  it("indexes builtin knowledge on startup", async () => {
+  it("does not index the retired formula methodology", async () => {
     const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-runtime-"));
     tempDirs.push(dataRoot);
 
@@ -77,44 +77,10 @@ describe("knowledgeRuntime", () => {
 
     const runtime = await initializeKnowledgeRuntime(config, dataRoot);
     const sources = runtime.store?.listSources() ?? [];
-    const builtin = sources.find((source) =>
+    expect(sources.some((source) =>
       source.sourceName === "excel-wps-formula-problem-solving-methodology.md"
-    );
-
-    expect(builtin).toBeTruthy();
-    expect(builtin?.entryCount).toBeGreaterThan(0);
-    const entries = runtime.store?.getEntriesBySource(builtin!.sourcePath) ?? [];
-    expect(entries.length).toBeGreaterThan(0);
-    expect(entries.every((entry) => entry.embedding)).toBe(true);
-    expect(entries.every((entry) => entry.embeddingProvider === "openai")).toBe(true);
-    expect(entries.every((entry) => entry.embeddingModel === "text-embedding-3-small")).toBe(true);
-    expect(entries.some((entry) => entry.content.includes("最小充分公式"))).toBe(true);
-    expect(entries.some((entry) => entry.content.includes("先生成“索引、掩码或状态”"))).toBe(true);
-    expect(entries.some((entry) => entry.content.includes("正则不只是展示文本的清洗工具"))).toBe(true);
-    expect(entries.some((entry) => entry.content.includes("验收要求"))).toBe(true);
-    expect(entries.some((entry) => entry.content.includes("失败修正顺序"))).toBe(true);
-  });
-
-  it("reuses unchanged builtin knowledge embeddings across startups", async () => {
-    const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-runtime-"));
-    tempDirs.push(dataRoot);
-
-    const config: AIClientConfig = {
-      provider: "openai",
-      apiKey: "sk-test",
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-4o",
-    };
-
-    await initializeKnowledgeRuntime(config, dataRoot);
-    resetKnowledgeRuntime();
-
-    const fetchCallsAfterFirstStartup = vi.mocked(globalThis.fetch).mock.calls.length;
-    expect(fetchCallsAfterFirstStartup).toBeGreaterThan(0);
-
-    await initializeKnowledgeRuntime(config, dataRoot);
-
-    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(fetchCallsAfterFirstStartup);
+    )).toBe(false);
+    expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
   });
 
   it("keeps the active runtime when a replacement cannot initialize", async () => {

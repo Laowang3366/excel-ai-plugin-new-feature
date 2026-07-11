@@ -9,18 +9,12 @@ import type { ToolDefinition } from "../../shared/types";
 /** 知识库搜索 */
 const KNOWLEDGE_SEARCH_DEF: ToolDefinition = {
   name: "knowledge.search",
-  description: "搜索本地知识库，获取与当前任务相关的方法论、业务口径、公式规则、模板规范和历史资料。公式生成、写入或验证任务在读取工作簿结构后必须调用，不区分难度；其它任务先读取当前文件/数据并判断是否依赖知识。按输入/输出形状、业务键、约束和所需变换检索，返回片段用于归纳解题链和校验局部规则，不得把最相似案例直接当作答案",
+  description: "搜索本地知识库中的项目资料、业务口径、模板规范和历史规则。先读取当前文件或数据，仅在任务依赖已沉淀知识或用户明确要求时调用；返回片段用于补充当前文件事实，不得把最相似案例直接当作答案",
   parameters: {
     type: "object",
     properties: {
-      query: { type: "string", description: "问题结构式搜索词，包含任务类型、输入形状、输出形状、业务键、约束和关键变换；样例值只作补充。例如「公式 长表按区域月份分组 输出二维汇总 动态数组 多条件聚合」" },
+      query: { type: "string", description: "结构化搜索词，包含任务、业务对象、关键字段、约束和目标；样例值只作补充" },
       topK: { type: "number", description: "返回结果数量，默认5", default: 5 },
-      scope: {
-        type: "string",
-        enum: ["all", "formula_methodology"],
-        description: "检索范围；公式方法论技能使用 formula_methodology，普通知识检索默认 all",
-        default: "all",
-      },
     },
     required: ["query"],
   },

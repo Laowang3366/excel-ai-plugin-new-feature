@@ -33,39 +33,6 @@ describe("knowledge executors", () => {
     expect(staleRetriever.search).not.toHaveBeenCalled();
   });
 
-  it("limits formula methodology searches to the builtin methodology source", async () => {
-    const retriever = {
-      search: vi.fn(async () => []),
-      formatForToolResult: vi.fn(() => "methodology"),
-    };
-    const sources = [
-      {
-        sourcePath: "D:\\app\\public\\knowledge\\excel-wps-formula-problem-solving-methodology.md",
-        sourceName: "excel-wps-formula-problem-solving-methodology.md",
-      },
-      {
-        sourcePath: "D:\\user\\case.xlsx",
-        sourceName: "case.xlsx",
-      },
-    ];
-    const executors = new Map();
-    addKnowledgeExecutors(executors, { knowledgeRetriever: retriever as any });
-    setKnowledgeStore({ listSources: vi.fn(() => sources) } as any);
-
-    const result = await executors.get("knowledge.search").execute({
-      query: "按部门分组聚合",
-      topK: 6,
-      scope: "formula_methodology",
-    });
-
-    expect(result).toEqual({ success: true, data: "methodology" });
-    expect(retriever.search).toHaveBeenCalledWith({
-      text: "按部门分组聚合",
-      topK: 6,
-      pathFilter: [sources[0].sourcePath],
-    });
-  });
-
   it("writes notes through the current registered knowledge writer", async () => {
     const staleWriter = { writeNote: vi.fn() };
     const currentWriter = {
