@@ -3,7 +3,7 @@
  *
  * 关联模块：
  * - officeActionAdapter.ts: 根据能力决定 Open XML 路由或 needsCom。
- * - prompts/sections/officeToolsPrompt.ts: 提示词描述这些能力。
+ * - prompts/templates/scenarios/office-tools.zh-CN.md: 提示词描述这些能力。
  */
 
 import type { OfficeActionApp, OfficeActionEngine } from "./types";

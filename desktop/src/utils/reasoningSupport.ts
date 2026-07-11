@@ -123,20 +123,25 @@ export function normalizeProviderReasoningConfig(
   provider: AiProviderConfig,
   template?: ReasoningTemplateLike | null,
 ): AiProviderConfig {
-  const modelConfigs: ModelConfig[] | undefined = provider.modelConfigs?.map((modelConfig): ModelConfig => {
-    const options = resolveReasoningOptionValues(provider, template, modelConfig);
-    const reasoningMode = modelConfig.reasoningMode && options.includes(modelConfig.reasoningMode)
-      ? modelConfig.reasoningMode
-      : undefined;
-    const {
-      reasoningMode: _legacyReasoningMode,
-      reasoningOptions: _legacyReasoningOptions,
-      ...rest
-    } = modelConfig;
-    return reasoningMode ? { ...rest, reasoningMode } : rest;
-  });
+  const modelConfigs: ModelConfig[] | undefined = provider.modelConfigs?.map(
+    (modelConfig): ModelConfig => {
+      const options = resolveReasoningOptionValues(provider, template, modelConfig);
+      const reasoningMode =
+        modelConfig.reasoningMode && options.includes(modelConfig.reasoningMode)
+          ? modelConfig.reasoningMode
+          : undefined;
+      return {
+        name: modelConfig.name,
+        contextWindowSize: modelConfig.contextWindowSize,
+        compHash: modelConfig.compHash,
+        ...(reasoningMode ? { reasoningMode } : {}),
+      };
+    },
+  );
 
-  const activeModelConfig = modelConfigs?.find((modelConfig) => modelConfig.name === provider.model);
+  const activeModelConfig = modelConfigs?.find(
+    (modelConfig) => modelConfig.name === provider.model,
+  );
   const options = resolveReasoningOptionValues(provider, template, activeModelConfig);
   const reasoningMode = coerceReasoningMode(
     activeModelConfig?.reasoningMode || provider.reasoningMode,
@@ -147,7 +152,6 @@ export function normalizeProviderReasoningConfig(
   return {
     ...provider,
     reasoningMode,
-    enableReasoning: reasoningMode !== "off" ? true : undefined,
     modelConfigs,
   };
 }

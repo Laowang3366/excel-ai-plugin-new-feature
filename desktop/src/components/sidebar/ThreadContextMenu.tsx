@@ -8,8 +8,7 @@
  * - 删除确认流程
  */
 
-import React, { useState } from "react";
-import { useSettingsStore, type PinnedFolder, type AppLanguage } from "../../store/settingsStore";
+import type { PinnedFolder, AppLanguage } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
 import {
   Trash2,

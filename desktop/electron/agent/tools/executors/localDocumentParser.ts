@@ -25,7 +25,6 @@ export interface LocalParsedDocument {
 
 const TEXT_EXTENSIONS = new Set([".txt", ".md", ".csv"]);
 const KNOWLEDGE_PARSER_EXTENSIONS = new Set([".xlsx", ".xlsm", ".csv", ".md", ".txt"]);
-const OPENXML_EXTENSIONS = new Set([".docx", ".pptx"]);
 const LOCAL_UNSUPPORTED_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -39,11 +38,6 @@ const LOCAL_UNSUPPORTED_EXTENSIONS = new Set([
   ".ppt",
   ".xls",
 ]);
-
-export function canAttemptLocalParse(filePath: string): boolean {
-  const ext = path.extname(filePath).toLowerCase();
-  return KNOWLEDGE_PARSER_EXTENSIONS.has(ext) || OPENXML_EXTENSIONS.has(ext);
-}
 
 export function isLocallyUnsupportedForOcr(filePath: string): boolean {
   return LOCAL_UNSUPPORTED_EXTENSIONS.has(path.extname(filePath).toLowerCase());

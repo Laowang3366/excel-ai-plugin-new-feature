@@ -26,6 +26,6 @@
 
 维护要求：
 
-- 新增工具或 operation 时，必须同步更新 `prompts/sections/officeToolsPrompt.ts`，避免模型退回高失败率的临时脚本。
+- 新增工具或 operation 时，必须同步更新 `prompts/templates/scenarios/office-tools.zh-CN.md`，避免模型退回高失败率的临时脚本。
 - 统一 Office action 的 `operation` 描述要列出核心能力，例如 `createPresentation`、`deleteSlides`、`replaceText`、`styleTable`、`insertChart`。
 - 风险等级需要与真实写入行为一致：只读检查为 `safe`，文件写入和另存为为 `moderate`，任意脚本为 `dangerous`。

@@ -22,12 +22,10 @@ import {
   type TurnItem,
   type Thread,
   type ThreadMetadata,
-  type TurnStatus,
   type RolloutLine,
   type RolloutItem,
   type TokenUsage,
   generateThreadId,
-  generateTurnId,
 } from "../shared/types";
 import { clampNumber } from "../shared/numberLimits";
 import { AsyncRolloutWriter } from "./rolloutWriter";

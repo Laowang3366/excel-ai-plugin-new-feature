@@ -12,12 +12,11 @@ import { getAppText } from "../../i18n";
 
 interface ResumeHintProps {
   message: string;
-  onResume?: () => void;
   /** 快速恢复时填入输入框的回调 */
   onFillInput?: (text: string) => void;
 }
 
-export const ResumeHint: React.FC<ResumeHintProps> = ({ message, onResume, onFillInput }) => {
+export const ResumeHint: React.FC<ResumeHintProps> = ({ message, onFillInput }) => {
   const { language } = useSettingsStore();
   const text = getAppText(language);
 

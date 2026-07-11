@@ -14,20 +14,12 @@
 import * as path from "path";
 import * as fs from "fs";
 
-import type {
-  KnowledgeEntry,
-  KnowledgeSource,
-  KnowledgeResult,
-} from "./types";
+import type { KnowledgeEntry, KnowledgeSource, KnowledgeResult } from "./types";
 import type { EmbeddingProfile } from "./embeddingService";
 import { ensureSourceSummaries } from "./sqliteSourceSummaries";
 import { cosineSimilarity, entryToRow, rowToEntry, rowToSource } from "./sqliteStoreRows";
 import { initKnowledgeTables } from "./sqliteStoreSchema";
-import {
-  openSqliteDatabase,
-  runPragma,
-  runSqliteTransaction,
-} from "../storage/nodeSqlite";
+import { openSqliteDatabase, runPragma, runSqliteTransaction } from "../storage/nodeSqlite";
 import type { SqliteDatabase } from "../storage/nodeSqlite";
 
 // ============================================================
@@ -42,12 +34,8 @@ export class SqliteStore {
     this.dbPath = dbPath;
   }
 
-  /**
-   * 初始化（建表）
-   *
-   * 保持 async 签名以兼容旧调用方。
-   */
-  async init(): Promise<void> {
+  /** 初始化（建表） */
+  init(): void {
     // :memory: 模式 — 纯内存数据库，不创建文件
     if (this.dbPath !== ":memory:") {
       const dir = path.dirname(this.dbPath);
@@ -82,13 +70,23 @@ export class SqliteStore {
           (?, ?, ?, ?, ?,
            ?, ?, ?, ?,
            ?, ?, ?,
-           ?, ?)`
+           ?, ?)`,
       )
       .run(
-        row.id, row.source, row.source_path, row.source_name, row.source_type,
-        row.chunk_index, row.content, row.metadata, row.embedding,
-        row.embedding_provider, row.embedding_model, row.embedding_dimensions,
-        row.indexed_at, row.token_count
+        row.id,
+        row.source,
+        row.source_path,
+        row.source_name,
+        row.source_type,
+        row.chunk_index,
+        row.content,
+        row.metadata,
+        row.embedding,
+        row.embedding_provider,
+        row.embedding_model,
+        row.embedding_dimensions,
+        row.indexed_at,
+        row.token_count,
       );
   }
 
@@ -106,25 +104,40 @@ export class SqliteStore {
         (?, ?, ?, ?, ?,
          ?, ?, ?, ?,
          ?, ?, ?,
-         ?, ?)`
+         ?, ?)`,
     );
 
-    const batchInsert = (items: KnowledgeEntry[]) => runSqliteTransaction(this.db, () => {
-      for (const item of items) {
-        const row = entryToRow(item);
-        insert.run(
-          row.id, row.source, row.source_path, row.source_name, row.source_type,
-          row.chunk_index, row.content, row.metadata, row.embedding,
-          row.embedding_provider, row.embedding_model, row.embedding_dimensions,
-          row.indexed_at, row.token_count
-        );
-      }
-    });
+    const batchInsert = (items: KnowledgeEntry[]) =>
+      runSqliteTransaction(this.db, () => {
+        for (const item of items) {
+          const row = entryToRow(item);
+          insert.run(
+            row.id,
+            row.source,
+            row.source_path,
+            row.source_name,
+            row.source_type,
+            row.chunk_index,
+            row.content,
+            row.metadata,
+            row.embedding,
+            row.embedding_provider,
+            row.embedding_model,
+            row.embedding_dimensions,
+            row.indexed_at,
+            row.token_count,
+          );
+        }
+      });
 
     batchInsert(entries);
   }
 
-  replaceSource(entries: KnowledgeEntry[], source: KnowledgeSource | null, sourcePath: string): void {
+  replaceSource(
+    entries: KnowledgeEntry[],
+    source: KnowledgeSource | null,
+    sourcePath: string,
+  ): void {
     runSqliteTransaction(this.db, () => {
       this.db.prepare("DELETE FROM knowledge_entries WHERE source_path = ?").run(sourcePath);
       this.db.prepare("DELETE FROM knowledge_sources WHERE source_path = ?").run(sourcePath);
@@ -140,15 +153,25 @@ export class SqliteStore {
          chunk_index, content, metadata, embedding,
          embedding_provider, embedding_model, embedding_dimensions,
          indexed_at, token_count)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const item of entries) {
       const row = entryToRow(item);
       insert.run(
-        row.id, row.source, row.source_path, row.source_name, row.source_type,
-        row.chunk_index, row.content, row.metadata, row.embedding,
-        row.embedding_provider, row.embedding_model, row.embedding_dimensions,
-        row.indexed_at, row.token_count,
+        row.id,
+        row.source,
+        row.source_path,
+        row.source_name,
+        row.source_type,
+        row.chunk_index,
+        row.content,
+        row.metadata,
+        row.embedding,
+        row.embedding_provider,
+        row.embedding_model,
+        row.embedding_dimensions,
+        row.indexed_at,
+        row.token_count,
       );
     }
   }
@@ -163,10 +186,11 @@ export class SqliteStore {
     const delEntries = this.db.prepare("DELETE FROM knowledge_entries WHERE source_path = ?");
     const delSource = this.db.prepare("DELETE FROM knowledge_sources WHERE source_path = ?");
 
-    const cleanup = (path: string) => runSqliteTransaction(this.db, () => {
-      delEntries.run(path);
-      delSource.run(path);
-    });
+    const cleanup = (path: string) =>
+      runSqliteTransaction(this.db, () => {
+        delEntries.run(path);
+        delSource.run(path);
+      });
 
     cleanup(sourcePath);
   }
@@ -177,9 +201,8 @@ export class SqliteStore {
 
   /** 按 ID 获取单条条目 */
   getEntry(id: string): KnowledgeEntry | null {
-    const row = this.db
-      .prepare("SELECT * FROM knowledge_entries WHERE id = ?")
-      .get(id) as Record<string, any> | undefined;
+    const row = this.db.prepare("SELECT * FROM knowledge_entries WHERE id = ?").get(id) as
+      Record<string, any> | undefined;
 
     return row ? rowToEntry(row) : null;
   }
@@ -192,7 +215,11 @@ export class SqliteStore {
   searchByVector(
     queryVector: number[],
     topK: number,
-    filter?: { sourceFilter?: string[]; pathFilter?: string[]; embeddingProfile?: EmbeddingProfile }
+    filter?: {
+      sourceFilter?: string[];
+      pathFilter?: string[];
+      embeddingProfile?: EmbeddingProfile;
+    },
   ): KnowledgeResult[] {
     let sql = "SELECT * FROM knowledge_entries WHERE embedding IS NOT NULL";
     const params: any[] = [];
@@ -239,7 +266,7 @@ export class SqliteStore {
   searchByKeyword(
     keywords: string[],
     topK: number,
-    filter?: { sourceFilter?: string[]; pathFilter?: string[] }
+    filter?: { sourceFilter?: string[]; pathFilter?: string[] },
   ): KnowledgeEntry[] {
     if (keywords.length === 0) return [];
 
@@ -289,11 +316,16 @@ export class SqliteStore {
            first_indexed, last_indexed, file_hash)
         VALUES
           (?, ?, ?, ?,
-           ?, ?, ?)`
+           ?, ?, ?)`,
       )
       .run(
-        source.sourcePath, source.sourceName, source.sourceType, source.entryCount,
-        source.firstIndexed, source.lastIndexed, source.fileHash
+        source.sourcePath,
+        source.sourceName,
+        source.sourceType,
+        source.entryCount,
+        source.firstIndexed,
+        source.lastIndexed,
+        source.fileHash,
       );
   }
 
@@ -329,11 +361,10 @@ export class SqliteStore {
           AND ke.embedding_model = ?
           AND ke.embedding_dimensions = ?
          WHERE ks.source_path = ?
-         GROUP BY ks.entry_count`
+         GROUP BY ks.entry_count`,
       )
       .get(profile.provider, profile.model, profile.dimensions, sourcePath) as
-        | { entryCount: number; matchingCount: number }
-        | undefined;
+      { entryCount: number; matchingCount: number } | undefined;
 
     return (row?.entryCount ?? 0) > 0 && (row?.matchingCount ?? 0) >= (row?.entryCount ?? 0);
   }
@@ -353,9 +384,9 @@ export class SqliteStore {
 
   /** 统计总条目数 */
   countEntries(): number {
-    const row = this.db
-      .prepare("SELECT COUNT(*) as count FROM knowledge_entries")
-      .get() as { count: number };
+    const row = this.db.prepare("SELECT COUNT(*) as count FROM knowledge_entries").get() as {
+      count: number;
+    };
 
     return row?.count ?? 0;
   }
@@ -389,5 +420,4 @@ export class SqliteStore {
   isInitialized(): boolean {
     return !!this.db;
   }
-
 }

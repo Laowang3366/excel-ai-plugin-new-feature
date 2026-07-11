@@ -6,21 +6,6 @@ import type {
 } from "../stateRuntimeTypes";
 import type { ThreadId } from "../../shared/types";
 
-export const USER_VISIBLE_MEMORY_KINDS: RuntimeMemoryKind[] = [
-  "preference",
-  "constraint",
-  "correction",
-  "style_preference",
-  "operation_preference",
-  "file_impression",
-];
-
-export const INTERNAL_MEMORY_KINDS: RuntimeMemoryKind[] = [
-  "project_fact",
-  "workflow",
-  "tool_success_profile",
-];
-
 export const TOOL_WRITABLE_MEMORY_KINDS = [
   "preference",
   "constraint",
@@ -30,20 +15,15 @@ export const TOOL_WRITABLE_MEMORY_KINDS = [
   "file_impression",
 ] as const;
 
-export type ToolWritableMemoryKind = typeof TOOL_WRITABLE_MEMORY_KINDS[number];
+export type ToolWritableMemoryKind = (typeof TOOL_WRITABLE_MEMORY_KINDS)[number];
 
-export const MEMORY_VISIBILITY_BY_KIND: Record<
-  RuntimeMemoryKind,
-  RuntimeMemoryVisibility
-> = {
+export const MEMORY_VISIBILITY_BY_KIND: Record<RuntimeMemoryKind, RuntimeMemoryVisibility> = {
   preference: "user",
   constraint: "user",
   correction: "user",
   style_preference: "user",
   operation_preference: "user",
   file_impression: "user",
-  project_fact: "internal",
-  workflow: "internal",
   tool_success_profile: "internal",
 };
 
@@ -62,17 +42,11 @@ export interface MemoryWriteInput {
   citations?: RuntimeMemoryCitation[];
 }
 
-export function isUserVisibleMemoryKind(kind: RuntimeMemoryKind): boolean {
-  return USER_VISIBLE_MEMORY_KINDS.includes(kind);
-}
-
 export function isToolWritableMemoryKind(kind: string): kind is ToolWritableMemoryKind {
   return (TOOL_WRITABLE_MEMORY_KINDS as readonly string[]).includes(kind);
 }
 
-export function getMemoryVisibility(
-  kind: RuntimeMemoryKind,
-): RuntimeMemoryVisibility {
+export function getMemoryVisibility(kind: RuntimeMemoryKind): RuntimeMemoryVisibility {
   return MEMORY_VISIBILITY_BY_KIND[kind];
 }
 

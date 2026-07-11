@@ -5,7 +5,6 @@
  *       文件大小格式化、权限图标
  */
 
-import React from "react";
 import type { AppLanguage, PermissionMode } from "../store/settingsStore";
 import type { TurnItem } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";

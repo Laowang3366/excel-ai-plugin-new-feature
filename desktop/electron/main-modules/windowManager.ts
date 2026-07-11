@@ -25,7 +25,6 @@ const COMPACT_SIZE = { width: 420, minWidth: 360, minHeight: 500 };
 const WORK_AREA_GAP = 16;
 const APP_DISPLAY_NAME = "文格 AI 助手";
 
-export function getIsQuitting(): boolean { return isQuitting; }
 export function setIsQuitting(value: boolean): void { isQuitting = value; }
 export function getWindowDisplayMode(): WindowDisplayMode { return displayMode; }
 
@@ -274,15 +273,4 @@ function createTray(mainWindow: BrowserWindow, recreateWindow?: () => BrowserWin
     mainWindow.setSkipTaskbar(false);
     mainWindow.focus();
   });
-}
-
-export function destroyTray(): void {
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
-}
-
-export function getTray(): Tray | null {
-  return tray;
 }

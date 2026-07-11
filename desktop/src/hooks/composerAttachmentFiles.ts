@@ -1,6 +1,6 @@
 import { ipcApi } from "../services/ipcApi";
 import { readFileAsBase64 } from "../utils/fileBase64";
-import type { AttachedFile } from "../electronApi";
+import type { FileAttachment } from "../electronApi";
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/png": ".png",
@@ -18,7 +18,7 @@ function getFileExtension(file: File): string {
   return MIME_TO_EXT[file.type] || "";
 }
 
-export function getAttachmentFileType(file: File): AttachedFile["fileType"] {
+export function getAttachmentFileType(file: File): FileAttachment["fileType"] {
   const ext = getFileExtension(file);
   return IMAGE_EXTENSIONS.has(ext) || file.type.startsWith("image/") ? "image" : "document";
 }
@@ -33,7 +33,7 @@ function getLocalPathForFile(file: File): string {
   }
 }
 
-async function fileToTemporaryAttachment(file: File): Promise<AttachedFile | null> {
+async function fileToTemporaryAttachment(file: File): Promise<FileAttachment | null> {
   try {
     const suffix = getFileExtension(file) || (file.type === "application/pdf" ? ".pdf" : ".bin");
     const base64 = await readFileAsBase64(file);
@@ -54,8 +54,8 @@ async function fileToTemporaryAttachment(file: File): Promise<AttachedFile | nul
   }
 }
 
-export async function resolveDroppedFiles(files: File[]): Promise<AttachedFile[]> {
-  const resolved: AttachedFile[] = [];
+export async function resolveDroppedFiles(files: File[]): Promise<FileAttachment[]> {
+  const resolved: FileAttachment[] = [];
   for (const file of files) {
     const filePath = getLocalPathForFile(file);
     if (filePath) {

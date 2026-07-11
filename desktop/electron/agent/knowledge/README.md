@@ -12,7 +12,6 @@
 - `knowledgeWriter.ts`: 将模型明确沉淀的 note 写入知识库并生成可检索索引。
 - `retriever.ts`: 执行检索并格式化返回结果。
 - `knowledgeRegistry.ts`: 保存当前运行期知识库检索依赖。
-- `workbookNotesStore.ts`: 存储与工作簿相关的知识备注。
 - `types.ts`: 知识库内部类型定义。
 
 关联模块：

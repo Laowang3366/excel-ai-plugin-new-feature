@@ -8,7 +8,7 @@
 export { AgentLoop, type AgentLoopConfig } from "./agentLoop";
 
 // 流式收集（ToolCallInfo 不导出，与 aiClientTypes 中的 ToolCallInfo 命名冲突）
-export { collectStreamEvents, emitInterruptedProgress } from "./streamCollector";
+export { collectStreamEvents } from "./streamCollector";
 export type { StreamParams, StreamResult } from "./streamCollector";
 
 // 工具执行与审批

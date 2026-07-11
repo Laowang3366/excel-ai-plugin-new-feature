@@ -23,43 +23,45 @@ const baseProvider: AiProviderConfig = {
 
 describe("buildEditProviderPatch", () => {
   it("returns an empty patch when the editable draft matches the provider", () => {
-    expect(buildEditProviderPatch(baseProvider, {
-      name: "Test Provider",
-      apiFormat: "openai",
-      baseUrl: "https://api.example.com/v1",
-      apiKey: "key-1",
-      model: "model-a",
-      contextWindowSize: 128000,
-      effectiveReasoningMode: "off",
-      modelConfigs: [
-        {
-          name: "model-a",
-          contextWindowSize: 128000,
-          reasoningMode: "off",
-          reasoningOptions: ["off", "low"],
-        },
-      ],
-    })).toEqual({});
+    expect(
+      buildEditProviderPatch(baseProvider, {
+        name: "Test Provider",
+        apiFormat: "openai",
+        baseUrl: "https://api.example.com/v1",
+        apiKey: "key-1",
+        model: "model-a",
+        contextWindowSize: 128000,
+        effectiveReasoningMode: "off",
+        modelConfigs: [
+          {
+            name: "model-a",
+            contextWindowSize: 128000,
+            reasoningMode: "off",
+          },
+        ],
+      }),
+    ).toEqual({});
   });
 
-  it("includes changed fields and strips legacy model reasoning options", () => {
-    expect(buildEditProviderPatch(baseProvider, {
-      name: "Renamed Provider",
-      apiFormat: "responses",
-      baseUrl: "https://api.new.example/v1",
-      apiKey: "key-2",
-      model: "model-b",
-      contextWindowSize: 256000,
-      effectiveReasoningMode: "medium",
-      modelConfigs: [
-        {
-          name: "model-b",
-          contextWindowSize: 256000,
-          reasoningMode: "medium",
-          reasoningOptions: ["medium", "high"],
-        },
-      ],
-    })).toEqual({
+  it("includes changed fields", () => {
+    expect(
+      buildEditProviderPatch(baseProvider, {
+        name: "Renamed Provider",
+        apiFormat: "responses",
+        baseUrl: "https://api.new.example/v1",
+        apiKey: "key-2",
+        model: "model-b",
+        contextWindowSize: 256000,
+        effectiveReasoningMode: "medium",
+        modelConfigs: [
+          {
+            name: "model-b",
+            contextWindowSize: 256000,
+            reasoningMode: "medium",
+          },
+        ],
+      }),
+    ).toEqual({
       name: "Renamed Provider",
       apiFormat: "responses",
       baseUrl: "https://api.new.example/v1",

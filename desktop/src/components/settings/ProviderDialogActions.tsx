@@ -1,4 +1,3 @@
-import React from "react";
 import { ProviderTestButton } from "./ProviderDialogFields";
 
 interface AddProviderDialogActionsProps {

@@ -18,7 +18,6 @@ export interface WorkbookOperationDeps {
   ensureConnected: (retries?: number) => Promise<SpreadsheetHost | null>;
   getProgId: () => string;
   getComVersion: () => string | undefined;
-  setWorkbookName: (workbookName: string) => void;
 }
 
 export async function inspectWorkbookOperation(deps: WorkbookOperationDeps): Promise<unknown> {
@@ -133,7 +132,6 @@ export async function openWorkbookOperation(
       $wb.Name
     `);
     const workbookName = result.trim();
-    deps.setWorkbookName(workbookName);
     return { success: true, workbookName };
   } catch (err: any) {
     return { success: false, error: `打开工作簿失败: ${err.message}` };
@@ -183,7 +181,6 @@ export async function createWorkbookOperation(
 
     const result = await executePowerShell(script);
     const workbookName = result.trim();
-    deps.setWorkbookName(workbookName);
     return { success: true, workbookName };
   } catch (err: any) {
     return { success: false, error: `创建工作簿失败: ${err.message}` };
@@ -236,7 +233,6 @@ export async function switchWorkbookOperation(
       $wb.Name
     `);
     const activeName = result.trim();
-    deps.setWorkbookName(activeName);
     return { success: true, workbookName: activeName };
   } catch (err: any) {
     return { success: false, error: `切换工作簿失败（可能未打开）: ${err.message}` };

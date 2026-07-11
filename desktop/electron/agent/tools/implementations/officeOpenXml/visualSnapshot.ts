@@ -3,7 +3,7 @@
  *
  * 关联模块：
  * - officeOpenXmlFileBridge.ts: 将快照能力暴露给工具执行器。
- * - prompts/sections/officeToolsPrompt.ts: 引导模型先请求快照再优化排版。
+ * - prompts/templates/scenarios/office-tools.zh-CN.md: 引导模型先请求快照再优化排版。
  */
 
 import { execFile } from "child_process";

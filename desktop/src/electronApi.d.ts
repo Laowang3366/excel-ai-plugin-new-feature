@@ -62,10 +62,33 @@ export type AgentEvent =
   | ({ type: "item_completed"; item: TurnItem } & AgentEventThreadContext)
   | ({ type: "item_updated"; item: TurnItem } & AgentEventThreadContext)
   | ({ type: "thread_compact_started"; params: ThreadCompactStartParams } & AgentEventThreadContext)
-  | ({ type: "context_compacted"; summary: string; tokensBefore: number; tokensAfter: number } & AgentEventThreadContext)
-  | ({ type: "context_usage"; estimatedTokens: number; threshold: number; percentage: number; contextWindowSize: number } & AgentEventThreadContext)
-  | ({ type: "stream_delta"; delta: string; itemType: "assistant_message" | "reasoning"; roundId?: number } & AgentEventThreadContext)
-  | ({ type: "tool_approval_required"; toolCallId: string; toolName: string; arguments: Record<string, unknown>; riskLevel: "safe" | "moderate" | "dangerous"; description?: string } & AgentEventThreadContext)
+  | ({
+      type: "context_compacted";
+      summary: string;
+      tokensBefore: number;
+      tokensAfter: number;
+    } & AgentEventThreadContext)
+  | ({
+      type: "context_usage";
+      estimatedTokens: number;
+      threshold: number;
+      percentage: number;
+      contextWindowSize: number;
+    } & AgentEventThreadContext)
+  | ({
+      type: "stream_delta";
+      delta: string;
+      itemType: "assistant_message" | "reasoning";
+      roundId?: number;
+    } & AgentEventThreadContext)
+  | ({
+      type: "tool_approval_required";
+      toolCallId: string;
+      toolName: string;
+      arguments: Record<string, unknown>;
+      riskLevel: "safe" | "moderate" | "dangerous";
+      description?: string;
+    } & AgentEventThreadContext)
   | ({ type: "error"; message: string } & AgentEventThreadContext)
   | ({ type: "warning"; message: string } & AgentEventThreadContext);
 
@@ -255,8 +278,6 @@ export interface ModelConfig {
   compHash?: string;
   /** 该模型的思考等级，覆盖供应商级默认值 */
   reasoningMode?: ReasoningMode;
-  /** 旧配置兼容字段：新版本会按供应商/API/模型自动推断，不再暴露给用户手动配置。 */
-  reasoningOptions?: string[];
 }
 
 export interface AiProviderConfig {
@@ -266,16 +287,14 @@ export interface AiProviderConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
-  models?: string[];             // 可用模型列表（从 /v1/models 拉取，直连供应商使用）
-  modelConfigs?: ModelConfig[];  // 结构化模型列表（聚合平台使用，每个模型可独立配置）
+  models?: string[]; // 可用模型列表（从 /v1/models 拉取，直连供应商使用）
+  modelConfigs?: ModelConfig[]; // 结构化模型列表（聚合平台使用，每个模型可独立配置）
   defaultBaseUrl?: string;
   defaultModel?: string;
-  enableReasoning?: boolean;     // 保留向后兼容，新代码使用 reasoningMode
-  icon?: string;                 // lucide 图标名（保留兼容，UI 不再使用）
-  apiFormat?: string;            // API 协议格式: openai|anthropic|xunfei
+  apiFormat?: string; // API 协议格式: openai|anthropic|xunfei
   customHeaders?: Record<string, string>;
-  contextWindowSize?: number;    // 上下文窗口大小（tokens），供应商级默认/回退值
-  compHash?: string;             // 供应商级压缩兼容性标识，模型级配置可覆盖
+  contextWindowSize?: number; // 上下文窗口大小（tokens），供应商级默认/回退值
+  compHash?: string; // 供应商级压缩兼容性标识，模型级配置可覆盖
   reasoningMode?: ReasoningMode; // 思考等级，供应商级默认值
 }
 
@@ -289,12 +308,6 @@ export interface FileAttachment {
   fileType: "image" | "document";
   size?: number;
 }
-
-// ============================================================
-// 附件/文件类型（兼容旧 AttachedFile）
-// ============================================================
-
-export type AttachedFile = FileAttachment;
 
 // ============================================================
 // 文件夹文件信息
@@ -315,7 +328,9 @@ export interface ElectronAPI {
   app: {
     getDataPath: () => Promise<string>;
     selectDataPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
-    migrateDataPath: (targetPath: string) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
+    migrateDataPath: (
+      targetPath: string,
+    ) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
     log: (level: string, tag: string, message: string) => Promise<void>;
@@ -333,22 +348,54 @@ export interface ElectronAPI {
     getAll: () => Promise<Record<string, unknown>>;
   };
   excel: {
-    detectStatus: () => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string; availableHosts?: string[] }>;
-    connect: () => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
-    selectHost: (host: "excel" | "wps") => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
+    detectStatus: () => Promise<{
+      connected: boolean;
+      host: string;
+      version?: string;
+      workbookName?: string;
+      availableHosts?: string[];
+    }>;
+    connect: () => Promise<{
+      connected: boolean;
+      host: string;
+      version?: string;
+      workbookName?: string;
+    }>;
+    selectHost: (
+      host: "excel" | "wps",
+    ) => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
     getSelection: () => Promise<{ address: string; values: unknown[][]; sheetName: string }>;
     getSelectionAddress: () => Promise<{ address: string; sheetName: string }>;
     readRange: (
       sheetName: string,
       range: string,
-      expand?: ExcelRangeExpandMode
-    ) => Promise<{ values: unknown[][]; address?: string; expanded?: boolean; expandMode?: string }>;
+      expand?: ExcelRangeExpandMode,
+    ) => Promise<{
+      values: unknown[][];
+      address?: string;
+      expanded?: boolean;
+      expandMode?: string;
+    }>;
     inspectWorkbook: () => Promise<unknown>;
-    writeRange: (sheetName: string, range: string, values: unknown[][]) => Promise<{ success: boolean; error?: string }>;
+    writeRange: (
+      sheetName: string,
+      range: string,
+      values: unknown[][],
+    ) => Promise<{ success: boolean; error?: string }>;
   };
   office: {
-    detectWordStatus: () => Promise<{ connected: boolean; host: string; version?: string; documentName?: string }>;
-    detectPresentationStatus: () => Promise<{ connected: boolean; host: string; version?: string; presentationName?: string }>;
+    detectWordStatus: () => Promise<{
+      connected: boolean;
+      host: string;
+      version?: string;
+      documentName?: string;
+    }>;
+    detectPresentationStatus: () => Promise<{
+      connected: boolean;
+      host: string;
+      version?: string;
+      presentationName?: string;
+    }>;
   };
   agent: {
     startTurn: (input: {
@@ -371,10 +418,25 @@ export interface ElectronAPI {
       clientId?: string;
       threadId?: string | null;
       isResume?: boolean;
-    }) => Promise<{ success: boolean; queued?: boolean; queueSize?: number; turnId?: string; threadId?: string; error?: string }>;
+    }) => Promise<{
+      success: boolean;
+      queued?: boolean;
+      queueSize?: number;
+      turnId?: string;
+      threadId?: string;
+      error?: string;
+    }>;
     interrupt: (threadId?: string | null) => Promise<{ success: boolean; error?: string }>;
     onEvent: (callback: (event: AgentEvent) => void) => () => void;
-    onStreamDelta: (callback: (data: { delta: string; itemType: string; roundId?: number; threadId?: string; clientId?: string }) => void) => () => void;
+    onStreamDelta: (
+      callback: (data: {
+        delta: string;
+        itemType: string;
+        roundId?: number;
+        threadId?: string;
+        clientId?: string;
+      }) => void,
+    ) => () => void;
   };
   thread: {
     list: () => Promise<ThreadMetadata[]>;
@@ -387,9 +449,19 @@ export interface ElectronAPI {
     runtimeStatus: () => Promise<ThreadRuntimeSnapshot>;
   };
   threadGraph: {
-    upsertSpawnEdge: (parentThreadId: string, childThreadId: string, label?: string) => Promise<ThreadSpawnEdge>;
-    closeSpawnEdge: (parentThreadId: string, childThreadId: string) => Promise<ThreadSpawnEdge | null>;
-    listDescendants: (parentThreadId: string, status?: ThreadSpawnStatusFilter) => Promise<ThreadSpawnDescendant[]>;
+    upsertSpawnEdge: (
+      parentThreadId: string,
+      childThreadId: string,
+      label?: string,
+    ) => Promise<ThreadSpawnEdge>;
+    closeSpawnEdge: (
+      parentThreadId: string,
+      childThreadId: string,
+    ) => Promise<ThreadSpawnEdge | null>;
+    listDescendants: (
+      parentThreadId: string,
+      status?: ThreadSpawnStatusFilter,
+    ) => Promise<ThreadSpawnDescendant[]>;
   };
   dialog: {
     openFile: () => Promise<{ canceled: boolean; filePaths: string[] }>;
@@ -413,7 +485,11 @@ export interface ElectronAPI {
     /** 在系统文件管理器中显示文件 */
     revealInExplorer: (filePath: string) => Promise<{ success: boolean; error?: string }>;
     /** 将 base64 数据写入临时文件（截图粘贴等） */
-    writeTempFile: (data: { prefix?: string; suffix?: string; data: string }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+    writeTempFile: (data: {
+      prefix?: string;
+      suffix?: string;
+      data: string;
+    }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
     /** 获取拖拽/粘贴 File 对象对应的本地路径（Electron 新版替代 File.path） */
     getPathForFile?: (file: File) => string;
   };
@@ -444,19 +520,26 @@ export interface ElectronAPI {
     /** 获取可用模型列表 */
     listModels: (baseUrl: string, apiKey: string, apiFormat: string) => Promise<string[]>;
     /** 测试 API 连接 */
-    testConnection: (baseUrl: string, apiKey: string, apiFormat: string, model: string) => Promise<{ success: boolean; error?: string; latency?: number }>;
+    testConnection: (
+      baseUrl: string,
+      apiKey: string,
+      apiFormat: string,
+      model: string,
+    ) => Promise<{ success: boolean; error?: string; latency?: number }>;
   };
   stats: {
     /** 获取聚合的使用统计 */
-    getSummary: () => Promise<Array<{
-      turnId: string;
-      threadId: string;
-      model: string;
-      timestamp: number;
-      messages: number;
-      tokens: number;
-      estimated: boolean;
-    }>>;
+    getSummary: () => Promise<
+      Array<{
+        turnId: string;
+        threadId: string;
+        model: string;
+        timestamp: number;
+        messages: number;
+        tokens: number;
+        estimated: boolean;
+      }>
+    >;
   };
   ocr: {
     recognize: (mode: string, filePaths: string[]) => Promise<unknown | null>;
@@ -464,17 +547,22 @@ export interface ElectronAPI {
   /** 知识库 (RAG) */
   knowledge: {
     /** 列出所有已索引的知识来源 */
-    listSources: () => Promise<Array<{
-      sourcePath: string;
-      sourceName: string;
-      sourceType: string;
-      entryCount: number;
-      firstIndexed: number;
-      lastIndexed: number;
-      fileHash: string;
-    }>>;
+    listSources: () => Promise<
+      Array<{
+        sourcePath: string;
+        sourceName: string;
+        sourceType: string;
+        entryCount: number;
+        firstIndexed: number;
+        lastIndexed: number;
+        fileHash: string;
+      }>
+    >;
     /** 搜索知识库 */
-    search: (query: string, topK?: number) => Promise<{
+    search: (
+      query: string,
+      topK?: number,
+    ) => Promise<{
       success: boolean;
       data?: any[];
       error?: string;

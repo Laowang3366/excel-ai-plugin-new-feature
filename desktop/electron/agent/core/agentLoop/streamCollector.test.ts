@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AIStreamEvent } from "../../providers/aiClient";
 import type { AgentTurnCallbacks, TurnItem } from "../../shared/types";
-import { collectStreamEvents, emitInterruptedProgress, type StreamResult } from "./streamCollector";
+import { collectStreamEvents, type StreamResult } from "./streamCollector";
 
 async function* streamEvents(events: AIStreamEvent[]): AsyncIterable<AIStreamEvent> {
   for (const event of events) {
@@ -114,41 +114,5 @@ describe("collectStreamEvents", () => {
       type: "error",
       message: "模型流中断",
     });
-  });
-});
-
-describe("emitInterruptedProgress", () => {
-  it("emits collected assistant and reasoning items when a turn is interrupted", async () => {
-    const callbacks = createCallbacks();
-    const turnItems: TurnItem[] = [];
-
-    await emitInterruptedProgress(
-      {
-        assistantContent: "已经完成一半",
-        reasoningContent: ["读取文件", "准备写入"],
-        reasoningSummary: ["已读取"],
-        toolCalls: [],
-        finishReason: "",
-        usage: undefined,
-        pendingToolCallItems: new Map(),
-      },
-      turnItems,
-      "thread-1",
-      "turn-1",
-      callbacks
-    );
-
-    expect(turnItems).toHaveLength(2);
-    expect(turnItems[0]).toMatchObject({
-      type: "assistant_message",
-      content: "已经完成一半",
-      phase: "commentary",
-    });
-    expect(turnItems[1]).toMatchObject({
-      type: "reasoning",
-      summaryText: ["已读取"],
-      rawContent: ["读取文件", "准备写入"],
-    });
-    expect(callbacks.onEvent).toHaveBeenCalledTimes(4);
   });
 });

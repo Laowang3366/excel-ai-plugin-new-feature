@@ -20,7 +20,6 @@ import {
   copyDirectoryContents,
   getActiveDataPath,
   isPathInside,
-  migrateLegacyDefaultDataPathIfNeeded,
   normalizePathForCompare,
   pathExists,
   setConfiguredDataPath,
@@ -66,8 +65,6 @@ export function normalizeWindowOpacity(value: unknown): number {
   return Math.round(clamped * 100) / 100;
 }
 
-migrateLegacyDefaultDataPathIfNeeded();
-
 let settingsStore = new Store(getSettingsStoreOptions(getActiveDataPath()));
 
 export function getSettingsStore(): Store<typeof DEFAULT_SETTINGS> {
@@ -76,7 +73,11 @@ export function getSettingsStore(): Store<typeof DEFAULT_SETTINGS> {
 
 function getSettingsStoreOptions(dataPath?: string) {
   return dataPath
-    ? { name: SETTINGS_STORE_NAME, cwd: path.join(dataPath, "settings"), defaults: DEFAULT_SETTINGS }
+    ? {
+        name: SETTINGS_STORE_NAME,
+        cwd: path.join(dataPath, "settings"),
+        defaults: DEFAULT_SETTINGS,
+      }
     : { name: SETTINGS_STORE_NAME, defaults: DEFAULT_SETTINGS };
 }
 
@@ -93,12 +94,7 @@ const stateRuntimeResource = new AsyncResource(
 );
 
 /** 获取 AgentLoop 实例的回调（由 main.ts 注册），用于迁移后刷新 SessionStore */
-let agentLoopGetter: (() => AgentLoop | null) | null = null;
 let agentLoopsGetter: (() => AgentLoop[]) | null = null;
-
-export function setAgentLoopGetter(fn: () => AgentLoop | null): void {
-  agentLoopGetter = fn;
-}
 
 export function setAgentLoopsGetter(fn: () => AgentLoop[]): void {
   agentLoopsGetter = fn;
@@ -140,8 +136,7 @@ async function resetSessionStore(): Promise<void> {
   sessionStore = null;
   agentGraphStore = null;
 
-  const fallbackAgent = agentLoopGetter?.();
-  const agents = agentLoopsGetter?.() ?? (fallbackAgent ? [fallbackAgent] : []);
+  const agents = agentLoopsGetter?.() ?? [];
   if (agents.length > 0) {
     const nextSessionStore = getSessionStoreInstance();
     const nextStateRuntimeStore = await openStateRuntimeStoreInstance();
@@ -156,7 +151,7 @@ async function resetSessionStore(): Promise<void> {
 let migrationInProgress = false;
 
 export async function migrateDataPath(
-  targetDataPath: string
+  targetDataPath: string,
 ): Promise<{ success: boolean; dataPath?: string; error?: string }> {
   // 互斥锁
   if (migrationInProgress) {
@@ -178,8 +173,7 @@ export async function migrateDataPath(
   const nextKnowledgeRoot = path.join(nextDataPath, "knowledge");
   const currentLogsRoot = path.join(currentDataPath, "logs");
   const nextLogsRoot = path.join(nextDataPath, "logs");
-  const fallbackAgent = agentLoopGetter?.();
-  const agents = agentLoopsGetter?.() ?? (fallbackAgent ? [fallbackAgent] : []);
+  const agents = agentLoopsGetter?.() ?? [];
   if (agents.some((agent) => agent.getIsRunning())) {
     migrationInProgress = false;
     return { success: false, error: "请等待当前会话执行完成或停止后再迁移数据" };
@@ -265,12 +259,14 @@ export async function migrateDataPath(
     }
 
     try {
-      if (!targetDataPathExisted && await pathExists(nextDataPath)) {
+      if (!targetDataPathExisted && (await pathExists(nextDataPath))) {
         await fs.promises.rm(nextDataPath, { recursive: true, force: true });
-      } else if (!targetSessionsExisted && await pathExists(nextSessionsRoot)) {
+      } else if (!targetSessionsExisted && (await pathExists(nextSessionsRoot))) {
         await fs.promises.rm(nextSessionsRoot, { recursive: true, force: true });
       }
-    } catch { /* ignore cleanup errors */ }
+    } catch {
+      /* ignore cleanup errors */
+    }
 
     return {
       success: false,
@@ -288,7 +284,7 @@ export function isDataMigrationInProgress(): boolean {
 
 export function getActiveAIConfig(): AIClientConfig {
   const activeProviderId = settingsStore.get("activeProvider") as string;
-  const providers = settingsStore.get("aiProviders") as Record<string, any> || {};
+  const providers = (settingsStore.get("aiProviders") as Record<string, any>) || {};
 
   if (!activeProviderId || !providers[activeProviderId]) {
     return {
@@ -308,10 +304,10 @@ export function getActiveAIConfig(): AIClientConfig {
     model: p.model || p.defaultModel || "",
     apiFormat: p.apiFormat,
     customHeaders: p.customHeaders,
-    enableReasoning: p.enableReasoning || false,
-    contextWindowSize: activeModelConfig?.contextWindowSize || p.contextWindowSize || DEFAULT_CONTEXT_WINDOW,
+    contextWindowSize:
+      activeModelConfig?.contextWindowSize || p.contextWindowSize || DEFAULT_CONTEXT_WINDOW,
     compHash: activeModelConfig?.compHash || p.compHash,
-    reasoningMode: activeModelConfig?.reasoningMode || p.reasoningMode || (p.enableReasoning ? "high" : undefined),
+    reasoningMode: activeModelConfig?.reasoningMode || p.reasoningMode,
   };
 }
 

@@ -1,5 +1,11 @@
 import type { AiProviderConfig } from "../electronApi";
-import type { AppLanguage, AppTheme, PermissionMode, PinnedFolder, SettingsState } from "./settingsStore";
+import type {
+  AppLanguage,
+  AppTheme,
+  PermissionMode,
+  PinnedFolder,
+  SettingsState,
+} from "./settingsStore";
 import { normalizeProviderConfig } from "./settingsProviderState";
 import { normalizeWindowOpacity } from "./settingsValues";
 
@@ -16,12 +22,7 @@ export function buildLoadedSettingsState(allSettings: Record<string, any>): Load
     const providers = { ...(allSettings.aiProviders as Record<string, AiProviderConfig>) };
     let needsMigration = false;
     for (const id of Object.keys(providers)) {
-      let provider = providers[id];
-      if (!provider.reasoningMode) {
-        needsMigration = true;
-        provider = { ...provider, reasoningMode: provider.enableReasoning ? "high" : "off" };
-      }
-      const normalized = normalizeProviderConfig(provider);
+      const normalized = normalizeProviderConfig(providers[id]);
       if (JSON.stringify(normalized) !== JSON.stringify(providers[id])) {
         needsMigration = true;
         providers[id] = normalized;

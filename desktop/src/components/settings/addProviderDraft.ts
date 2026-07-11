@@ -67,7 +67,6 @@ export function buildProviderConfigFromDraft({
     model: finalModel,
     defaultBaseUrl: selectedTemplate?.baseUrl || draft.baseUrl,
     defaultModel: selectedTemplate?.defaultModel || "",
-    enableReasoning: effectiveReasoningMode !== "off" ? true : undefined,
     reasoningMode: effectiveReasoningMode,
     apiFormat: draft.apiFormat,
     models: selectedTemplate?.presetModels || undefined,

@@ -3,7 +3,7 @@
  *
  * 关联模块：
  * - excelComBridge.ts: 对外保留 getFormulaContext 门面。
- * - prompts/sections/formulaAssistantPrompt.ts: 公式助手会依赖该工具理解已有公式。
+ * - prompts/templates/scenarios/formula.zh-CN.md: 公式助手会依赖该工具理解已有公式。
  */
 
 import { safeJsonParse } from "../../../automation/json";

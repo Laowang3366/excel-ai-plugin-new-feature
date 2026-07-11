@@ -80,30 +80,6 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
       },
     });
 
-    target.set("word.create", {
-      name: "word.create",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { filePath: "string" });
-        if (err) return { success: false, error: err };
-        if (officeActionBridge) {
-          const openXmlResult = await officeActionBridge.executeAction({
-            app: "word",
-            action: "insert",
-            operation: "createDocument",
-            filePath: args.filePath as string,
-            params: args.params && typeof args.params === "object" && !Array.isArray(args.params)
-              ? args.params as Record<string, unknown>
-              : undefined,
-          });
-          if (openXmlResult.status === "done") {
-            return { success: true, data: openXmlResult };
-          }
-        }
-        const result = await wordBridge.createDocument(args.filePath as string);
-        return { success: result.success, data: result, error: result.error };
-      },
-    });
-
     target.set("word.inspect", {
       name: "word.inspect",
       execute: async (_args: Record<string, unknown>) => {
@@ -185,27 +161,6 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
           );
           if (fallback) return fallback;
         }
-        return { success: result.success, data: result, error: result.error };
-      },
-    });
-
-    target.set("presentation.create", {
-      name: "presentation.create",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { filePath: "string" });
-        if (err) return { success: false, error: err };
-        if (officeActionBridge) {
-          const openXmlResult = await officeActionBridge.executeAction({
-            app: "presentation",
-            action: "insert",
-            operation: "createPresentation",
-            filePath: args.filePath as string,
-          });
-          if (openXmlResult.status === "done") {
-            return { success: true, data: openXmlResult };
-          }
-        }
-        const result = await presentationBridge.createPresentation(args.filePath as string);
         return { success: result.success, data: result, error: result.error };
       },
     });

@@ -1,5 +1,4 @@
 import * as path from "path";
-import * as fs from "fs";
 import type { AIClientConfig } from "../providers/aiClient";
 import {
   EmbeddingService,
@@ -44,7 +43,7 @@ let knowledgeRuntimeError: string | null = null;
  */
 export async function initializeKnowledgeRuntime(
   aiConfig: AIClientConfig,
-  dataRoot?: string,
+  dataRoot: string,
 ): Promise<KnowledgeRuntimeState> {
   const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
   if (knowledgeStore && knowledgeRuntimeSignature !== signature) {
@@ -57,9 +56,10 @@ export async function initializeKnowledgeRuntime(
       activateKnowledgeRuntime(candidate, signature);
     } catch (e) {
       knowledgeRuntimeError = formatKnowledgeRuntimeError(e);
-      knowledgeRuntimeLogger.warn("RAG 知识库初始化失败（可在设置中配置后重试）", e instanceof Error
-        ? { message: e.message, stack: e.stack }
-        : { error: String(e) });
+      knowledgeRuntimeLogger.warn(
+        "RAG 知识库初始化失败（可在设置中配置后重试）",
+        e instanceof Error ? { message: e.message, stack: e.stack } : { error: String(e) },
+      );
     }
   }
 
@@ -95,7 +95,7 @@ function clearKnowledgeRuntimeInstances(): void {
 
 export async function reloadKnowledgeRuntime(
   aiConfig: AIClientConfig,
-  dataRoot?: string,
+  dataRoot: string,
 ): Promise<KnowledgeRuntimeState> {
   const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
   try {
@@ -103,9 +103,12 @@ export async function reloadKnowledgeRuntime(
     activateKnowledgeRuntime(candidate, signature);
   } catch (error) {
     knowledgeRuntimeError = formatKnowledgeRuntimeError(error);
-    knowledgeRuntimeLogger.warn("RAG 知识库刷新失败，继续使用上一运行时", error instanceof Error
-      ? { message: error.message, stack: error.stack }
-      : { error: String(error) });
+    knowledgeRuntimeLogger.warn(
+      "RAG 知识库刷新失败，继续使用上一运行时",
+      error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { error: String(error) },
+    );
   }
   return currentKnowledgeRuntimeState();
 }
@@ -120,7 +123,7 @@ interface CompleteKnowledgeRuntime {
 
 async function createKnowledgeRuntime(
   aiConfig: AIClientConfig,
-  dataRoot?: string,
+  dataRoot: string,
 ): Promise<CompleteKnowledgeRuntime> {
   const dbPath = await resolveKnowledgeDbPath(dataRoot);
   const store = new SqliteStore(dbPath);
@@ -143,7 +146,11 @@ async function createKnowledgeRuntime(
     await indexBuiltinKnowledge(indexer);
     return candidate;
   } catch (error) {
-    try { store.close(); } catch { /* preserve the initialization error */ }
+    try {
+      store.close();
+    } catch {
+      /* preserve the initialization error */
+    }
     throw error;
   }
 }
@@ -164,7 +171,11 @@ function activateKnowledgeRuntime(candidate: CompleteKnowledgeRuntime, signature
   setKnowledgeWriter(candidate.writer);
 
   if (previousStore && previousStore !== candidate.store) {
-    try { previousStore.close(); } catch { /* the replacement runtime is already active */ }
+    try {
+      previousStore.close();
+    } catch {
+      /* the replacement runtime is already active */
+    }
   }
 }
 
@@ -179,24 +190,11 @@ function currentKnowledgeRuntimeState(): KnowledgeRuntimeState {
   };
 }
 
-async function resolveKnowledgeDbPath(dataRoot?: string): Promise<string> {
-  const legacyPath = getLegacyKnowledgeDbPath();
-  if (!dataRoot) return legacyPath;
-
-  const nextPath = path.join(dataRoot, "knowledge", "knowledge.db");
-  if (!fs.existsSync(nextPath) && fs.existsSync(legacyPath)) {
-    await fs.promises.mkdir(path.dirname(nextPath), { recursive: true });
-    await fs.promises.copyFile(legacyPath, nextPath);
-  }
-  return nextPath;
+async function resolveKnowledgeDbPath(dataRoot: string): Promise<string> {
+  return path.join(dataRoot, "knowledge", "knowledge.db");
 }
 
-function getLegacyKnowledgeDbPath(): string {
-  const appData = process.env.APPDATA || path.join(process.env.USERPROFILE || "C:\\", "AppData", "Roaming");
-  return path.join(appData, "excel-ai-assistant", "knowledge", "knowledge.db");
-}
-
-function buildKnowledgeRuntimeSignature(aiConfig: AIClientConfig, dataRoot?: string): string {
+function buildKnowledgeRuntimeSignature(aiConfig: AIClientConfig, dataRoot: string): string {
   return JSON.stringify({
     dataRoot: dataRoot || "",
     provider: aiConfig.provider,

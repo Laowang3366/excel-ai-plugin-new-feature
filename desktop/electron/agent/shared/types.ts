@@ -372,13 +372,6 @@ export interface SessionMeta {
 // Agent 相关类型
 // ============================================================
 
-/** Agent 操作请求（参考 Codex Op） */
-export type AgentOp =
-  | { type: "user_input"; content: string; clientId?: string }
-  | { type: "continue"; }  // 中断后继续
-  | { type: "interrupt"; } // 中断当前 Turn
-  | { type: "compact"; };  // 手动触发压缩
-
 /** Agent 事件（参考 Codex EventMsg） */
 type AgentEventThreadContext = { threadId?: ThreadId; clientId?: string };
 

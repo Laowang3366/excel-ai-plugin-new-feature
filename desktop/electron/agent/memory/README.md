@@ -8,7 +8,7 @@
 - `agentGraphStore.ts`: 线程拓扑图存储，记录父线程/子线程关系和边状态。
 - `stateRuntimeStore.ts`: StateRuntime 四库门面，使用 Node/Electron 内置 `node:sqlite` 管理 `state.db`、`logs.db`、`goals.db`、`memories.db`。
 - `stateRuntimeSchema.ts`: 四库 schema、迁移记录和 WAL 配置。
-- `stateRuntimePaths.ts`: 四库路径解析，以及旧 `state-runtime.db` 到 `state-runtime/state.db` 的兼容迁移。
+- `stateRuntimePaths.ts`: 当前四库目录和数据库路径解析。
 - `stateRuntimeTypes.ts`: StateRuntime 共享类型。
 - `stateRuntimeMappers.ts`: SQLite 行到领域对象的映射。
 - `rolloutWriter.ts`: rollout 写入队列，按文件批量追加，并在读取/退出前 flush。

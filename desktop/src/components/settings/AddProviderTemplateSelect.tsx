@@ -1,5 +1,3 @@
-import React from "react";
-
 interface ProviderTemplateOption {
   id: string;
   name: string;

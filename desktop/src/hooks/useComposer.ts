@@ -15,7 +15,7 @@ import { useSettingsStore } from "../store/settingsStore";
 import { ipcApi } from "../services/ipcApi";
 import { resolveDroppedFiles } from "./composerAttachmentFiles";
 import { useDocumentDismiss } from "./useDocumentDismiss";
-import type { AttachedFile } from "../electronApi";
+import type { FileAttachment } from "../electronApi";
 
 export { resolveDroppedFiles } from "./composerAttachmentFiles";
 
@@ -28,7 +28,7 @@ const COMPOSER_FOLDER_IGNORE_SELECTORS = [
 
 interface ComposerDraft {
   inputText: string;
-  attachedFiles: AttachedFile[];
+  attachedFiles: FileAttachment[];
 }
 
 const EMPTY_COMPOSER_DRAFT: ComposerDraft = {
@@ -52,7 +52,7 @@ export function useComposer(draftKey = "new") {
   const [showAttachPopover, setShowAttachPopover] = useState(false);
   const [showPermissionPopover, setShowPermissionPopover] = useState(false);
   const [showThinkingPopover, setShowThinkingPopover] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<FileAttachment[]>([]);
   const [composerDragOver, setComposerDragOver] = useState(false);
   const [showFolderFileList, setShowFolderFileList] = useState(false);
   const [showComposerFolderList, setShowComposerFolderList] = useState(false);
@@ -113,16 +113,26 @@ export function useComposer(draftKey = "new") {
     const content = trimmedInput;
     const attachments = attachedFiles.length > 0 ? attachedFiles : undefined;
 
-    const sendPromise = turnStatus === "interrupted" && lastInterruptContext
-      ? resumeFromInterruption(content, attachments).then(() => activeThreadId)
-      : sendMessage(content, attachments);
+    const sendPromise =
+      turnStatus === "interrupted" && lastInterruptContext
+        ? resumeFromInterruption(content, attachments).then(() => activeThreadId)
+        : sendMessage(content, attachments);
     if (isStreaming && !activeThreadId) {
       return sendPromise;
     }
     setInputText("");
     setAttachedFiles([]);
     return sendPromise;
-  }, [inputText, attachedFiles, isStreaming, activeThreadId, turnStatus, lastInterruptContext, sendMessage, resumeFromInterruption]);
+  }, [
+    inputText,
+    attachedFiles,
+    isStreaming,
+    activeThreadId,
+    turnStatus,
+    lastInterruptContext,
+    sendMessage,
+    resumeFromInterruption,
+  ]);
 
   // 文件选择
   const handleOpenFile = useCallback(async () => {
@@ -130,14 +140,16 @@ export function useComposer(draftKey = "new") {
     try {
       const result = await ipcApi.dialog.openFile();
       if (!result.canceled && result.filePaths.length > 0) {
-        const newFiles: AttachedFile[] = result.filePaths.map((fp) => ({
+        const newFiles: FileAttachment[] = result.filePaths.map((fp) => ({
           filePath: fp,
           fileName: fp.split(/[\\/]/).pop() || fp,
           fileType: "document" as const,
         }));
         setAttachedFiles((prev) => [...prev, ...newFiles]);
       }
-    } catch { /* 静默失败 */ }
+    } catch {
+      /* 静默失败 */
+    }
   }, []);
 
   const handleOpenImage = useCallback(async () => {
@@ -145,14 +157,16 @@ export function useComposer(draftKey = "new") {
     try {
       const result = await ipcApi.dialog.openImage();
       if (!result.canceled && result.filePaths.length > 0) {
-        const newFiles: AttachedFile[] = result.filePaths.map((fp) => ({
+        const newFiles: FileAttachment[] = result.filePaths.map((fp) => ({
           filePath: fp,
           fileName: fp.split(/[\\/]/).pop() || fp,
           fileType: "image" as const,
         }));
         setAttachedFiles((prev) => [...prev, ...newFiles]);
       }
-    } catch { /* 静默失败 */ }
+    } catch {
+      /* 静默失败 */
+    }
   }, []);
 
   // 添加文件夹：选择文件夹后，将可操作的 Office 文件加入附件 + 固定到侧边栏
@@ -164,7 +178,7 @@ export function useComposer(draftKey = "new") {
         const folderPath = result.filePaths[0];
         const files = await ipcApi.folder.listFiles(folderPath);
         if (files.length > 0) {
-          const newFiles: AttachedFile[] = files.map((f) => ({
+          const newFiles: FileAttachment[] = files.map((f) => ({
             filePath: f.filePath,
             fileName: f.fileName,
             fileType: "document" as const,
@@ -181,7 +195,9 @@ export function useComposer(draftKey = "new") {
         const folderName = folderPath.split(/[\\/]/).pop() || folderPath;
         addPinnedFolder({ path: folderPath, name: folderName, addedAt: Date.now() });
       }
-    } catch { /* 静默失败 */ }
+    } catch {
+      /* 静默失败 */
+    }
   }, []);
 
   const removeAttachedFile = useCallback((index: number) => {
@@ -216,8 +232,10 @@ export function useComposer(draftKey = "new") {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     if (
-      e.clientX <= rect.left || e.clientX >= rect.right ||
-      e.clientY <= rect.top || e.clientY >= rect.bottom
+      e.clientX <= rect.left ||
+      e.clientX >= rect.right ||
+      e.clientY <= rect.top ||
+      e.clientY >= rect.bottom
     ) {
       setComposerDragOver(false);
     }
@@ -253,8 +271,8 @@ export function useComposer(draftKey = "new") {
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
     const files = items
-      .filter(item => item.kind === "file")
-      .map(item => item.getAsFile())
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
       .filter(Boolean) as File[];
     if (files.length === 0) return;
 

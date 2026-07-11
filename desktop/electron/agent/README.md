@@ -97,5 +97,5 @@ attachments -> providers 消息类型
 - Office 三件套文件级编辑统一走 `office.action.*`，Open XML 优先，COM 只作为动态对象、快照、当前窗口交互或 Open XML 不适用时的兜底。
 - Agent IPC 和事件转发归入 `interaction`，运行期装配归入 `runtime`。
 - `core/agentLoop` 已拆出 turn、stream、tool-call、压缩配置和上下文窗口相关辅助模块。
-- 系统提示词由 `prompts/systemPrompt.ts` 装配，具体片段存放在 `prompts/sections`。
+- 系统提示词由 `prompts/systemPrompt.ts` 装配，静态和场景片段存放在 `prompts/templates`，运行时文件夹上下文由 `prompts/sections/folderContextPrompt.ts` 渲染。
 - 运行态主存储已迁移到 `memory/stateRuntimeStore.ts` 四个 SQLite 库；JSONL 仅作为兼容审计副本保留。

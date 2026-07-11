@@ -18,8 +18,6 @@
  * 破坏性子命令不论它出现在管道前/中/后都会被命中。
  */
 
-import * as os from "os";
-
 /** 一段切分出的子命令（一个管道段或一行） */
 export interface ParsedCommand {
   /** 子命令的原始文本（不含边界符；用于审计回放） */
@@ -44,7 +42,6 @@ export function parseCommand(command: string): ParsedCommand[] {
   let inSingle = false;
   let inDouble = false;
   let escape = false;
-  let startedToken = false;
   let failed = false;
   let currentTokens: string[] = [];
   let currentRaw = "";
@@ -54,7 +51,6 @@ export function parseCommand(command: string): ParsedCommand[] {
       currentTokens.push(token);
     }
     token = "";
-    startedToken = false;
   };
 
   const closeCommand = () => {
@@ -83,7 +79,6 @@ export function parseCommand(command: string): ParsedCommand[] {
     if (escape) {
       token += c;
       escape = false;
-      startedToken = true;
       continue;
     }
 
@@ -100,12 +95,10 @@ export function parseCommand(command: string): ParsedCommand[] {
 
     if (c === "'" && !inDouble) {
       inSingle = !inSingle;
-      startedToken = true;
       continue;
     }
     if (c === '"' && !inSingle) {
       inDouble = !inDouble;
-      startedToken = true;
       continue;
     }
 
@@ -129,7 +122,6 @@ export function parseCommand(command: string): ParsedCommand[] {
     }
 
     token += c;
-    startedToken = true;
   }
 
   // 收尾
@@ -139,22 +131,4 @@ export function parseCommand(command: string): ParsedCommand[] {
   closeCommand();
 
   return results;
-}
-
-/**
- * 获取命令的"主命令名"——所有子命令首 token 的去重集合
- *
- * execpolicy 按首 token 索引规则，调用方可用此判危险面
- */
-export function primaryCommands(parsed: ParsedCommand[]): string[] {
-  const set = new Set<string>();
-  for (const p of parsed) {
-    if (p.tokens.length > 0) set.add(p.tokens[0]);
-  }
-  return Array.from(set);
-}
-
-/**平台判断（便于调用方分支，避免重复 process.platform 检查） */
-export function isWindows(): boolean {
-  return process.platform === "win32" || os.platform() === "win32";
 }

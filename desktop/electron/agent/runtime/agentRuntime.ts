@@ -11,7 +11,11 @@ import { OfficeComActionBridge } from "../tools/implementations/office/officeCom
 import { createOfficeActionBridge } from "../tools/officeCore/officeActionAdapter";
 import { getOrCreateOfficeBridges, type OfficeBridgeRegistry } from "./bridgeRegistry";
 import { buildCompactionConfig, type SavedCompactionConfig } from "./compactionRuntime";
-import { initializeKnowledgeRuntime, reloadKnowledgeRuntime, type KnowledgeRuntimeState } from "./knowledgeRuntime";
+import {
+  initializeKnowledgeRuntime,
+  reloadKnowledgeRuntime,
+  type KnowledgeRuntimeState,
+} from "./knowledgeRuntime";
 
 export interface AgentRuntime {
   agentLoop: AgentLoop;
@@ -23,7 +27,7 @@ export interface AgentRuntime {
 
 export interface AgentRuntimeDependencies {
   getActiveAIConfig: () => AIClientConfig;
-  getActiveDataPath?: () => string;
+  getActiveDataPath: () => string;
   getSettingsValue: (key: string) => unknown;
   getSessionStoreInstance: () => SessionStore;
   getStateRuntimeStoreInstance: () => Promise<StateRuntimeStore>;
@@ -40,7 +44,7 @@ export class AgentLoopManager {
 
   constructor(
     private readonly createLoop: () => AgentLoop,
-    private readonly primaryLoop: AgentLoop
+    private readonly primaryLoop: AgentLoop,
   ) {}
 
   getPrimaryLoop(): AgentLoop {
@@ -162,13 +166,15 @@ export class AgentLoopManager {
  * - tools/executors/createToolExecutors: 根据桥接和知识检索器组装工具执行器。
  * - core/agentLoop: 消费最终配置并驱动模型自主调用工具。
  */
-export async function getOrCreateAgentRuntime(deps: AgentRuntimeDependencies): Promise<AgentRuntime> {
+export async function getOrCreateAgentRuntime(
+  deps: AgentRuntimeDependencies,
+): Promise<AgentRuntime> {
   if (runtime) return runtime;
 
   const bridges = getOrCreateOfficeBridges();
   const aiConfig = deps.getActiveAIConfig();
   const stateRuntime = await deps.getStateRuntimeStoreInstance();
-  const knowledge = await initializeKnowledgeRuntime(aiConfig, deps.getActiveDataPath?.());
+  const knowledge = await initializeKnowledgeRuntime(aiConfig, deps.getActiveDataPath());
   const memoryStore = new LongTermMemoryStore(stateRuntime);
   const officeActionBridge = createOfficeActionBridge({
     officeFileBridge: bridges.officeFileBridge,
@@ -188,10 +194,11 @@ export async function getOrCreateAgentRuntime(deps: AgentRuntimeDependencies): P
     memoryStore,
     {
       getMineruApiToken: () => {
-        const configured = deps.getSettingsValue("mineruApiToken") || deps.getSettingsValue("ocrMineruApiToken");
+        const configured =
+          deps.getSettingsValue("mineruApiToken") || deps.getSettingsValue("ocrMineruApiToken");
         return typeof configured === "string" ? configured : "";
       },
-    }
+    },
   );
 
   const createAgentLoop = () => {
@@ -199,27 +206,30 @@ export async function getOrCreateAgentRuntime(deps: AgentRuntimeDependencies): P
     const activeContextWindowSize = activeAiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW;
     const activeCompactionConfig = buildCompactionConfig({
       contextWindowSize: activeContextWindowSize,
-      savedCompaction: deps.getSettingsValue("compactionConfig") as SavedCompactionConfig | undefined,
+      savedCompaction: deps.getSettingsValue("compactionConfig") as
+        SavedCompactionConfig | undefined,
     });
-    return new AgentLoop({
-      aiConfig: activeAiConfig,
-      systemPrompt: buildSystemPrompt(),
-      compactionConfig: activeCompactionConfig,
-      toolExecutors,
-      memoryStore,
-      permissionMode: deps.getSettingsValue("permissionMode") as "normal" | "auto_approve_safe" | "confirm_all" || "normal",
-      requestToolApproval: deps.requestToolApproval,
-    }, deps.getSessionStoreInstance(), stateRuntime);
+    return new AgentLoop(
+      {
+        aiConfig: activeAiConfig,
+        systemPrompt: buildSystemPrompt(),
+        compactionConfig: activeCompactionConfig,
+        toolExecutors,
+        memoryStore,
+        permissionMode:
+          (deps.getSettingsValue("permissionMode") as
+            "normal" | "auto_approve_safe" | "confirm_all") || "normal",
+        requestToolApproval: deps.requestToolApproval,
+      },
+      deps.getSessionStoreInstance(),
+      stateRuntime,
+    );
   };
   const agentLoop = createAgentLoop();
   const agentLoopManager = new AgentLoopManager(createAgentLoop, agentLoop);
 
   runtime = { agentLoop, agentLoopManager, bridges, knowledge, stateRuntime };
   return runtime;
-}
-
-export function getAgentLoop(): AgentLoop | null {
-  return runtime?.agentLoop ?? null;
 }
 
 export function getAgentLoops(): AgentLoop[] {
@@ -232,7 +242,7 @@ export function getAgentLoopManager(): AgentLoopManager | null {
 
 export async function refreshKnowledgeRuntime(
   aiConfig: AIClientConfig,
-  dataRoot?: string
+  dataRoot: string,
 ): Promise<KnowledgeRuntimeState> {
   const knowledge = await reloadKnowledgeRuntime(aiConfig, dataRoot);
   if (runtime) {
@@ -243,7 +253,7 @@ export async function refreshKnowledgeRuntime(
 
 export async function ensureKnowledgeRuntime(
   aiConfig: AIClientConfig,
-  dataRoot?: string
+  dataRoot: string,
 ): Promise<KnowledgeRuntimeState> {
   const knowledge = await initializeKnowledgeRuntime(aiConfig, dataRoot);
   if (runtime) {

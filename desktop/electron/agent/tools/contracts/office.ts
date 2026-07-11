@@ -12,8 +12,6 @@ import type { OfficeActionInput, OfficeActionResult } from "../officeCore/types"
 export interface WordDocumentBridge {
   /** 打开已有 Word 文档 */
   openDocument(filePath: string): Promise<{ success: boolean; documentName?: string; error?: string }>;
-  /** 创建新 Word 文档 */
-  createDocument(filePath: string): Promise<{ success: boolean; documentName?: string; error?: string }>;
   /** 检查当前活动文档结构 */
   inspectDocument(): Promise<unknown>;
   /** 读取当前活动文档文本 */
@@ -34,8 +32,6 @@ export interface WordDocumentBridge {
 export interface PresentationBridge {
   /** 打开已有演示文稿 */
   openPresentation(filePath: string): Promise<{ success: boolean; presentationName?: string; error?: string }>;
-  /** 创建新演示文稿 */
-  createPresentation(filePath: string): Promise<{ success: boolean; presentationName?: string; error?: string }>;
   /** 检查当前活动演示文稿结构 */
   inspectPresentation(): Promise<unknown>;
   /** 读取指定幻灯片文本 */

@@ -111,7 +111,6 @@ describe("Office Word/PPT tool definitions", () => {
       "memory.delete",
       "office.connection.status",
       "word.open",
-      "word.create",
       "word.inspect",
       "word.readText",
       "word.insertText",
@@ -119,7 +118,6 @@ describe("Office Word/PPT tool definitions", () => {
       "word.replaceText",
       "word.save",
       "presentation.open",
-      "presentation.create",
       "presentation.inspect",
       "presentation.readSlide",
       "presentation.addSlide",
@@ -161,15 +159,17 @@ describe("Office Word/PPT tool definitions", () => {
     expect(readTool?.description).toContain('expand:"spill"');
   });
 
-  it("describes knowledge.search as a scene-and-difficulty gated tool", () => {
+  it("gates knowledge.search by difficulty and requests a problem-structure query", () => {
     const knowledgeTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "knowledge.search");
     const parameters = knowledgeTool?.parameters as ObjectToolParameters | undefined;
 
     expect(knowledgeTool?.description).toContain("判断场景难度");
     expect(knowledgeTool?.description).toContain("简单问答");
     expect(knowledgeTool?.description).toContain("中高复杂度");
-    expect(parameters?.properties.query.description).toContain("场景摘要");
-    expect(parameters?.properties.query.description).toContain("目标输出");
+    expect(parameters?.properties.query.description).toContain("问题结构");
+    expect(parameters?.properties.query.description).toContain("输入形状");
+    expect(parameters?.properties.query.description).toContain("输出形状");
+    expect(parameters?.properties.query.description).toContain("关键变换");
   });
 
   it("does not expose internal memory kinds in the memory.write schema", () => {
@@ -202,7 +202,6 @@ describe("Office Word/PPT tool definitions", () => {
 
     expect(names).toEqual(expect.arrayContaining([
       "word.open",
-      "word.create",
       "word.inspect",
       "word.readText",
       "word.insertText",
@@ -210,7 +209,6 @@ describe("Office Word/PPT tool definitions", () => {
       "word.replaceText",
       "word.save",
       "presentation.open",
-      "presentation.create",
       "presentation.inspect",
       "presentation.readSlide",
       "presentation.addSlide",
@@ -234,7 +232,6 @@ describe("Office Word/PPT tool executors", () => {
     } as unknown as Retriever;
     const wordBridge: WordDocumentBridge = {
       openDocument: vi.fn(),
-      createDocument: vi.fn(),
       inspectDocument: vi.fn(),
       readText: vi.fn(),
       insertText: vi.fn(),
@@ -244,7 +241,6 @@ describe("Office Word/PPT tool executors", () => {
     };
     const presentationBridge: PresentationBridge = {
       openPresentation: vi.fn(),
-      createPresentation: vi.fn(),
       inspectPresentation: vi.fn(),
       readSlide: vi.fn(),
       addSlide: vi.fn(),
@@ -340,7 +336,6 @@ describe("Office Word/PPT tool executors", () => {
   it("forwards Word tool calls to the Word bridge", async () => {
     const wordBridge: WordDocumentBridge = {
       openDocument: vi.fn(async () => ({ success: true, documentName: "demo.docx" })),
-      createDocument: vi.fn(),
       inspectDocument: vi.fn(),
       readText: vi.fn(),
       insertText: vi.fn(),
@@ -379,7 +374,6 @@ describe("Office Word/PPT tool executors", () => {
   it("forwards PowerPoint tool calls to the presentation bridge", async () => {
     const presentationBridge: PresentationBridge = {
       openPresentation: vi.fn(),
-      createPresentation: vi.fn(),
       inspectPresentation: vi.fn(),
       readSlide: vi.fn(),
       addSlide: vi.fn(async () => ({ slideIndex: 3 })),
@@ -416,116 +410,12 @@ describe("Office Word/PPT tool executors", () => {
     expect(presentationBridge.replaceText).toHaveBeenCalledWith("旧产品名", "新产品名", true);
   });
 
-  it("creates PowerPoint files through unified Office action before COM fallback", async () => {
-    const presentationBridge: PresentationBridge = {
-      openPresentation: vi.fn(),
-      createPresentation: vi.fn(),
-      inspectPresentation: vi.fn(),
-      readSlide: vi.fn(),
-      addSlide: vi.fn(),
-      setShapeText: vi.fn(),
-      replaceText: vi.fn(),
-      savePresentation: vi.fn(),
-    };
-    const officeActionBridge: OfficeActionBridge = {
-      executeAction: vi.fn(async () => ({
-        status: "done" as const,
-        engine: "openxml" as const,
-        app: "presentation" as const,
-        action: "insert" as const,
-        operation: "createPresentation",
-        filePath: "D:\\docs\\talk.pptx",
-        summary: "已创建 PPTX",
-        changes: [],
-      })),
-    };
-    const executors = createToolExecutors(
-      fakeExcelBridge(),
-      fakeVbaBridge(),
-      fakeScriptBridge(),
-      fakeUiBridge(),
-      undefined,
-      undefined,
-      undefined,
-      presentationBridge,
-      undefined,
-      officeActionBridge
-    );
-
-    const result = await executors.get("presentation.create")!.execute({
-      filePath: "D:\\docs\\talk.pptx",
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.data).toMatchObject({ engine: "openxml", operation: "createPresentation" });
-    expect(officeActionBridge.executeAction).toHaveBeenCalledWith({
-      app: "presentation",
-      action: "insert",
-      operation: "createPresentation",
-      filePath: "D:\\docs\\talk.pptx",
-    });
-    expect(presentationBridge.createPresentation).not.toHaveBeenCalled();
-  });
-
-  it("creates Word files through unified Office action before COM fallback", async () => {
-    const wordBridge: WordDocumentBridge = {
-      openDocument: vi.fn(),
-      createDocument: vi.fn(),
-      inspectDocument: vi.fn(),
-      readText: vi.fn(),
-      insertText: vi.fn(),
-      insertHeading: vi.fn(),
-      replaceText: vi.fn(),
-      saveDocument: vi.fn(),
-    };
-    const officeActionBridge: OfficeActionBridge = {
-      executeAction: vi.fn(async () => ({
-        status: "done" as const,
-        engine: "openxml" as const,
-        app: "word" as const,
-        action: "insert" as const,
-        operation: "createDocument",
-        filePath: "D:\\docs\\report.docx",
-        summary: "已创建 DOCX",
-        changes: [],
-      })),
-    };
-    const executors = createToolExecutors(
-      fakeExcelBridge(),
-      fakeVbaBridge(),
-      fakeScriptBridge(),
-      fakeUiBridge(),
-      undefined,
-      undefined,
-      wordBridge,
-      undefined,
-      undefined,
-      officeActionBridge
-    );
-
-    const result = await executors.get("word.create")!.execute({
-      filePath: "D:\\docs\\report.docx",
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.data).toMatchObject({ engine: "openxml", operation: "createDocument" });
-    expect(officeActionBridge.executeAction).toHaveBeenCalledWith({
-      app: "word",
-      action: "insert",
-      operation: "createDocument",
-      filePath: "D:\\docs\\report.docx",
-      params: undefined,
-    });
-    expect(wordBridge.createDocument).not.toHaveBeenCalled();
-  });
-
   it("falls back to Open XML inspection when PowerPoint app open fails", async () => {
     const presentationBridge: PresentationBridge = {
       openPresentation: vi.fn(async () => ({
         success: false,
         error: "PowerPoint 不可用",
       })),
-      createPresentation: vi.fn(),
       inspectPresentation: vi.fn(),
       readSlide: vi.fn(),
       addSlide: vi.fn(),
@@ -586,7 +476,6 @@ describe("Office Word/PPT tool executors", () => {
         success: false,
         error: "Word 不可用",
       })),
-      createDocument: vi.fn(),
       inspectDocument: vi.fn(),
       readText: vi.fn(),
       insertText: vi.fn(),

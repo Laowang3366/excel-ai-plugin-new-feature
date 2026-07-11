@@ -8,12 +8,10 @@
 
 import type {
   ChatMessage,
-  ContentPart,
   StreamChatParams,
   AIClientConfig,
   AIStreamEvent,
   ReasoningMode,
-  ToolCallInfo,
 } from "./aiClientTypes";
 import type { TokenUsage } from "../shared/types";
 import { formatProviderHttpError } from "./providerErrors";
@@ -77,14 +75,8 @@ export class OpenAICompatibleClient {
       }));
     }
 
-    // 特定厂商的推理模式配置
-    // 优先使用 reasoningMode，向后兼容 enableReasoning + reasoningEffort
     const effectiveMode: ReasoningMode | undefined =
-      params.reasoningMode ||
-      this.config.reasoningMode ||
-      (params.enableReasoning || this.config.enableReasoning
-        ? (params.reasoningEffort || "high")
-        : undefined);
+      params.reasoningMode || this.config.reasoningMode;
     if (effectiveMode && effectiveMode !== "off") {
       this.applyReasoningConfig(requestBody, effectiveMode);
     }
@@ -100,9 +92,7 @@ export class OpenAICompatibleClient {
     // 组合用户取消信号与 HTTP 超时信号（5 分钟）
     // 流式请求可能持续较长（推理模式 + 大上下文），5 分钟是合理上限
     const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000);
-    const combinedSignal = signal
-      ? AbortSignal.any([signal, timeoutSignal])
-      : timeoutSignal;
+    const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
     const response = await fetch(url, {
       method: "POST",
@@ -113,7 +103,10 @@ export class OpenAICompatibleClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      yield { type: "error", error: formatProviderHttpError("API 请求失败", response.status, errorText) };
+      yield {
+        type: "error",
+        error: formatProviderHttpError("API 请求失败", response.status, errorText),
+      };
       return;
     }
 
@@ -124,7 +117,7 @@ export class OpenAICompatibleClient {
   /** 构建请求消息数组 */
   protected buildRequestMessages(
     messages: ChatMessage[],
-    systemPrompt?: string
+    systemPrompt?: string,
   ): Record<string, unknown>[] {
     const result: Record<string, unknown>[] = [];
 
@@ -137,7 +130,7 @@ export class OpenAICompatibleClient {
         // 助手消息 + 工具调用（名称清洗为 API 安全格式）
         result.push({
           role: "assistant",
-          content: typeof msg.content === "string" ? (msg.content || null) : msg.content,
+          content: typeof msg.content === "string" ? msg.content || null : msg.content,
           tool_calls: msg.toolCalls.map((tc) => ({
             id: tc.id,
             type: "function",
@@ -165,10 +158,7 @@ export class OpenAICompatibleClient {
   }
 
   /** 应用推理模式配置（子类可覆盖） */
-  protected applyReasoningConfig(
-    _body: Record<string, unknown>,
-    _mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(_body: Record<string, unknown>, _mode?: ReasoningMode): void {
     // 默认不添加推理配置，子类按需覆盖
   }
 
@@ -217,7 +207,7 @@ export class OpenAICompatibleClient {
   /** 处理单个 SSE chunk */
   protected *processStreamChunk(
     data: any,
-    state: ChatCompletionsParserState
+    state: ChatCompletionsParserState,
   ): Generator<AIStreamEvent> {
     const choice = data.choices?.[0];
     if (!choice) return;
@@ -351,24 +341,25 @@ function extractChatCompletionsText(content: unknown): string {
     .join("");
 }
 
-function *emitChatCompletionsDelta(
+function* emitChatCompletionsDelta(
   text: string,
-  state: ChatCompletionsParserState
+  state: ChatCompletionsParserState,
 ): Generator<AIStreamEvent> {
   if (!text) return;
 
-  const delta = state.emittedText && text.startsWith(state.emittedText)
-    ? text.slice(state.emittedText.length)
-    : text;
+  const delta =
+    state.emittedText && text.startsWith(state.emittedText)
+      ? text.slice(state.emittedText.length)
+      : text;
   if (!delta) return;
 
   state.emittedText += delta;
   yield { type: "text_delta", delta };
 }
 
-function *emitMissingChatCompletionsText(
+function* emitMissingChatCompletionsText(
   fullText: string,
-  state: ChatCompletionsParserState
+  state: ChatCompletionsParserState,
 ): Generator<AIStreamEvent> {
   if (!fullText) return;
 

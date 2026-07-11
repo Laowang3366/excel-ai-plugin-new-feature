@@ -4,7 +4,6 @@ import type {
   Thread,
   ThreadId,
   Turn,
-  TurnItem,
 } from "../../shared/types";
 import type { SessionStore } from "../../memory/sessionStore";
 import type { ThreadStateManager } from "./threadStateManager";

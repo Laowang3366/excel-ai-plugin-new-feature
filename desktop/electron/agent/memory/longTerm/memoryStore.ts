@@ -1,13 +1,6 @@
-import type {
-  RuntimeLongTermMemoryRecord,
-  RuntimeMemoryKind,
-} from "../stateRuntimeTypes";
+import type { RuntimeLongTermMemoryRecord, RuntimeMemoryKind } from "../stateRuntimeTypes";
 import { StateRuntimeStore } from "../stateRuntimeStore";
-import {
-  isToolWritableMemoryKind,
-  normalizeMemoryWriteInput,
-  type MemoryWriteInput,
-} from "./memoryTypes";
+import { normalizeMemoryWriteInput, type MemoryWriteInput } from "./memoryTypes";
 import { clampNumber } from "../../shared/numberLimits";
 
 export interface MemorySearchOptions {
@@ -38,9 +31,7 @@ export class LongTermMemoryStore {
     return record;
   }
 
-  async search(
-    options: MemorySearchOptions = {},
-  ): Promise<RuntimeLongTermMemoryRecord[]> {
+  async search(options: MemorySearchOptions = {}): Promise<RuntimeLongTermMemoryRecord[]> {
     const query = options.query?.trim().toLowerCase();
     const publicLimit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
     const baseOptions = {
@@ -49,13 +40,6 @@ export class LongTermMemoryStore {
       visibility: options.includeInternal ? undefined : "user",
       status: "active",
     } as const;
-
-    if (!query && options.includeInternal) {
-      return this.runtime.listLongTermMemories({
-        ...baseOptions,
-        limit: publicLimit,
-      });
-    }
 
     const pageSize = 100;
     const matches: RuntimeLongTermMemoryRecord[] = [];
@@ -66,9 +50,6 @@ export class LongTermMemoryStore {
         offset,
       });
       for (const memory of rows) {
-        if (!options.includeInternal && !isToolWritableMemoryKind(memory.kind)) {
-          continue;
-        }
         if (!query || matchesQuery(memory, query)) {
           matches.push(memory);
           if (matches.length >= publicLimit) return matches;
@@ -91,7 +72,7 @@ export class LongTermMemoryStore {
 
     const existing = await this.runtime.getLongTermMemory(normalizedId);
     if (!existing || existing.status !== "active") return null;
-    if (existing.visibility !== "user" || !isToolWritableMemoryKind(existing.kind)) {
+    if (existing.visibility !== "user") {
       throw new Error("只能删除用户可见的长期记忆");
     }
 
@@ -103,10 +84,7 @@ function createMemoryId(kind: RuntimeMemoryKind): string {
   return `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function matchesQuery(
-  memory: RuntimeLongTermMemoryRecord,
-  query: string,
-): boolean {
+function matchesQuery(memory: RuntimeLongTermMemoryRecord, query: string): boolean {
   const haystack = `${memory.content}\n${memory.summary ?? ""}`.toLowerCase();
   return haystack.includes(query);
 }

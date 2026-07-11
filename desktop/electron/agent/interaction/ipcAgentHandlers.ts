@@ -11,7 +11,11 @@
 import { BrowserWindow, ipcMain } from "electron";
 import type { AgentLoop } from "../core/agentLoop";
 import type { AgentLoopManager } from "../runtime/agentRuntime";
-import { getKnowledgeIndexer, getKnowledgeRetriever, getKnowledgeStore } from "../knowledge/knowledgeRegistry";
+import {
+  getKnowledgeIndexer,
+  getKnowledgeRetriever,
+  getKnowledgeStore,
+} from "../knowledge/knowledgeRegistry";
 import type { KnowledgeRuntimeState } from "../runtime/knowledgeRuntime";
 import type { SessionStore } from "../memory/sessionStore";
 import type { AgentGraphStore } from "../memory/agentGraphStore";
@@ -41,8 +45,7 @@ import { createEventForwarder, registerToolApprovalHandlers } from "./eventForwa
 
 export interface AgentIpcHandlerDeps {
   mainWindowRef: () => BrowserWindow | null;
-  agentLoopRef: () => AgentLoop | null;
-  agentLoopManagerRef?: () => AgentLoopManager | null;
+  agentLoopManagerRef: () => AgentLoopManager | null;
   getSessionStoreInstance: () => SessionStore;
   getStateRuntimeStoreInstance?: () => Promise<StateRuntimeStore>;
   getAgentGraphStoreInstance: () => AgentGraphStore;
@@ -56,17 +59,14 @@ const agentIpcLogger = createLogger("AgentIpcHandlers");
 
 async function resolveAgentLoop(
   deps: AgentIpcHandlerDeps,
-  threadId?: string | null
+  threadId?: string | null,
 ): Promise<AgentLoop | null> {
-  const manager = deps.agentLoopManagerRef?.();
-  if (manager) {
-    return await manager.getLoopForThread(threadId);
-  }
-  return deps.agentLoopRef();
+  const manager = deps.agentLoopManagerRef();
+  return manager ? await manager.getLoopForThread(threadId) : null;
 }
 
 export async function listThreadsForIpc(
-  deps: Pick<AgentIpcHandlerDeps, "getSessionStoreInstance" | "getStateRuntimeStoreInstance">
+  deps: Pick<AgentIpcHandlerDeps, "getSessionStoreInstance" | "getStateRuntimeStoreInstance">,
 ) {
   if (deps.getStateRuntimeStoreInstance) {
     try {
@@ -76,9 +76,12 @@ export async function listThreadsForIpc(
       );
       return await repository.list();
     } catch (error) {
-      agentIpcLogger.warn("SQLite 会话快照不可用，回退读取 JSONL", error instanceof Error
-        ? { message: error.message, stack: error.stack }
-        : { error: String(error) });
+      agentIpcLogger.warn(
+        "SQLite 会话快照不可用，回退读取 JSONL",
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : { error: String(error) },
+      );
     }
   }
   return deps.getSessionStoreInstance().listThreads();
@@ -99,7 +102,10 @@ export async function deleteThreadForIpc(
 }
 
 export async function updateThreadMetadataForIpc(
-  deps: Pick<AgentIpcHandlerDeps, "getSessionStoreInstance" | "getStateRuntimeStoreInstance" | "agentLoopManagerRef">,
+  deps: Pick<
+    AgentIpcHandlerDeps,
+    "getSessionStoreInstance" | "getStateRuntimeStoreInstance" | "agentLoopManagerRef"
+  >,
   threadId: ThreadId,
   patch: Partial<import("../shared/types").ThreadMetadata>,
 ) {
@@ -119,7 +125,7 @@ export async function enqueueTurnForIpc(
   agent: AgentLoop,
   input: AgentTurnInput,
   callbacks: AgentTurnCallbacks,
-  manager?: AgentLoopManager | null
+  manager?: AgentLoopManager | null,
 ) {
   if (agent.getIsRunning()) {
     const queued = agent.enqueueTurn(input, callbacks);
@@ -132,16 +138,14 @@ export async function enqueueTurnForIpc(
   }
 
   const run = () => agent.runTurn(input, callbacks);
-  const turn = manager?.runWithTurnLock
-    ? await manager.runWithTurnLock(agent, run)
-    : await run();
+  const turn = manager?.runWithTurnLock ? await manager.runWithTurnLock(agent, run) : await run();
   const threadId = agent.getThread()?.metadata.threadId;
   return { success: true, queued: false, turnId: turn.turnId, threadId };
 }
 
 export async function prepareAgentForStartTurn(
   agent: AgentLoop,
-  manager?: AgentLoopManager | null
+  manager?: AgentLoopManager | null,
 ): Promise<void> {
   const existingThreadId = agent.getThread()?.metadata.threadId ?? null;
   if (manager?.hasRunningLoopOtherThan?.(existingThreadId)) {
@@ -165,28 +169,21 @@ export async function startTurnForIpc(
     manager?.rememberLoop(agent);
     return turn;
   };
-  return manager?.runWithTurnLock
-    ? manager.runWithTurnLock(agent, run)
-    : run();
+  return manager?.runWithTurnLock ? manager.runWithTurnLock(agent, run) : run();
 }
 
-export async function prepareNewThreadForIpc(deps: Pick<AgentIpcHandlerDeps, "agentLoopManagerRef" | "agentLoopRef">, folderId?: string) {
-  const manager = deps.agentLoopManagerRef?.();
-  if (manager) {
-    if (manager.hasRunningLoopOtherThan(null)) {
-      return { success: false, error: NEW_THREAD_RUNNING_ERROR };
-    }
-    manager.prepareNewThread(folderId);
-    return { success: true };
+export async function prepareNewThreadForIpc(
+  deps: Pick<AgentIpcHandlerDeps, "agentLoopManagerRef">,
+  folderId?: string,
+) {
+  const manager = deps.agentLoopManagerRef();
+  if (!manager) {
+    return { success: false, error: "Agent 未初始化" };
   }
-
-  const agent = deps.agentLoopRef();
-  if (agent?.getIsRunning()) {
+  if (manager.hasRunningLoopOtherThan(null)) {
     return { success: false, error: NEW_THREAD_RUNNING_ERROR };
   }
-  if (agent) {
-    await agent.resetThread(folderId);
-  }
+  manager.prepareNewThread(folderId);
   return { success: true };
 }
 
@@ -215,7 +212,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
     const callbacks = createEventForwarder(deps.mainWindowRef);
 
     try {
-      const manager = deps.agentLoopManagerRef?.();
+      const manager = deps.agentLoopManagerRef();
       const turn = await startTurnForIpc(agent, validated as AgentTurnInput, callbacks, manager);
       const threadId = agent.getThread()?.metadata.threadId;
       return { success: true, turnId: turn.turnId, threadId };
@@ -231,16 +228,17 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
     const callbacks = createEventForwarder(deps.mainWindowRef);
 
     try {
-      const manager = deps.agentLoopManagerRef?.();
+      const manager = deps.agentLoopManagerRef();
       const targetThreadId = agent.getThread()?.metadata.threadId ?? validated.threadId ?? null;
       if (manager?.hasRunningLoopOtherThan?.(targetThreadId)) {
         throw new Error(PARALLEL_TURN_ERROR);
       }
-      const resume = () => agent.resumeFromInterruption(validated.content, callbacks, validated.attachments);
+      const resume = () =>
+        agent.resumeFromInterruption(validated.content, callbacks, validated.attachments);
       const turn = manager?.runWithTurnLock
         ? await manager.runWithTurnLock(agent, resume)
         : await resume();
-      deps.agentLoopManagerRef?.()?.rememberLoop(agent);
+      manager?.rememberLoop(agent);
       const threadId = agent.getThread()?.metadata.threadId;
       return { success: true, turnId: turn.turnId, threadId };
     } catch (err: any) {
@@ -255,8 +253,14 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
     const callbacks = createEventForwarder(deps.mainWindowRef);
 
     try {
-      const result = await enqueueTurnForIpc(agent, validated as AgentTurnInput, callbacks, deps.agentLoopManagerRef?.());
-      deps.agentLoopManagerRef?.()?.rememberLoop(agent);
+      const manager = deps.agentLoopManagerRef();
+      const result = await enqueueTurnForIpc(
+        agent,
+        validated as AgentTurnInput,
+        callbacks,
+        manager,
+      );
+      manager?.rememberLoop(agent);
       return result;
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -266,17 +270,10 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   ipcMain.handle("agent:interrupt", async (event, request?: { threadId?: string | null }) => {
     const validated = validateInput(AgentInterruptInput, request);
     const requestId = `ipc-${event.processId}-${event.frameId}-${Date.now()}`;
-    const manager = deps.agentLoopManagerRef?.();
+    const manager = deps.agentLoopManagerRef();
     if (manager) {
       const interrupted = await manager.interruptThread(validated?.threadId, requestId);
-      return interrupted
-        ? { success: true }
-        : { success: false, error: "没有正在运行的 Agent" };
-    }
-    const agent = deps.agentLoopRef();
-    if (agent) {
-      await agent.interrupt(requestId);
-      return { success: true };
+      return interrupted ? { success: true } : { success: false, error: "没有正在运行的 Agent" };
     }
     return { success: false, error: "没有正在运行的 Agent" };
   });
@@ -292,8 +289,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("thread:delete", async (_event, threadId: unknown) => {
     const validated = validateInput(ThreadIdInput, threadId);
-    const manager = deps.agentLoopManagerRef?.();
-    if (manager && !await manager.releaseThread(validated)) {
+    const manager = deps.agentLoopManagerRef();
+    if (manager && !(await manager.releaseThread(validated))) {
       throw new Error("会话正在运行，停止后才能删除");
     }
     return deleteThreadForIpc(deps, validated);
@@ -301,7 +298,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
 
   ipcMain.handle("thread:resume", async (_event, threadId: unknown) => {
     const validated = validateInput(ThreadIdInput, threadId);
-    const manager = deps.agentLoopManagerRef?.();
+    const manager = deps.agentLoopManagerRef();
     const agent = await resolveAgentLoop(deps, validated);
     if (!agent) return { success: false };
     if (!manager) {
@@ -326,33 +323,31 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("thread:runtimeStatus", async () => {
-    const agent = deps.agentLoopRef();
+    const agent = deps.agentLoopManagerRef()?.getPrimaryLoop();
     return agent?.getThreadRuntimeStatus() ?? { status: "not_loaded", idleUnloadMs: 0 };
   });
 
   ipcMain.handle("threadGraph:upsertSpawnEdge", async (_event, request: unknown) => {
     const validated = validateInput(ThreadGraphEdgeInput, request);
-    return deps.getAgentGraphStoreInstance().upsertThreadSpawnEdge(
-      validated.parentThreadId,
-      validated.childThreadId,
-      { label: validated.label }
-    );
+    return deps
+      .getAgentGraphStoreInstance()
+      .upsertThreadSpawnEdge(validated.parentThreadId, validated.childThreadId, {
+        label: validated.label,
+      });
   });
 
   ipcMain.handle("threadGraph:closeSpawnEdge", async (_event, request: unknown) => {
     const validated = validateInput(ThreadGraphCloseEdgeInput, request);
-    return deps.getAgentGraphStoreInstance().closeThreadSpawnEdge(
-      validated.parentThreadId,
-      validated.childThreadId
-    );
+    return deps
+      .getAgentGraphStoreInstance()
+      .closeThreadSpawnEdge(validated.parentThreadId, validated.childThreadId);
   });
 
   ipcMain.handle("threadGraph:listDescendants", async (_event, request: unknown) => {
     const validated = validateInput(ThreadGraphListDescendantsInput, request);
-    return deps.getAgentGraphStoreInstance().listThreadSpawnDescendants(
-      validated.parentThreadId,
-      { status: validated.status }
-    );
+    return deps
+      .getAgentGraphStoreInstance()
+      .listThreadSpawnDescendants(validated.parentThreadId, { status: validated.status });
   });
 
   ipcMain.handle("tools:list", () => ALL_TOOL_DEFINITIONS);
@@ -394,7 +389,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:indexFile", async (_event, filePath: unknown) => {
-    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
+    if (deps.isDataMigrationInProgress?.())
+      return { success: false, error: "数据存储正在迁移，请稍后重试" };
     const validated = validateInput(KnowledgeIndexFileInput, { filePath });
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -406,12 +402,19 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
       const result = await indexer.indexFile(validated.filePath);
       return result;
     } catch (err: any) {
-      return { success: false, error: err.message, sourcePath: validated.filePath, entryCount: 0, durationMs: 0 };
+      return {
+        success: false,
+        error: err.message,
+        sourcePath: validated.filePath,
+        entryCount: 0,
+        durationMs: 0,
+      };
     }
   });
 
   ipcMain.handle("knowledge:indexFolder", async (_event, folderPath: unknown) => {
-    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
+    if (deps.isDataMigrationInProgress?.())
+      return { success: false, error: "数据存储正在迁移，请稍后重试" };
     const validated = validateInput(KnowledgeIndexFolderInput, { folderPath });
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -428,7 +431,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:deleteFile", async (_event, sourcePath: unknown) => {
-    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
+    if (deps.isDataMigrationInProgress?.())
+      return { success: false, error: "数据存储正在迁移，请稍后重试" };
     const validated = validateInput(KnowledgeDeleteInput, { sourcePath });
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
@@ -445,7 +449,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   });
 
   ipcMain.handle("knowledge:reindexAll", async () => {
-    if (deps.isDataMigrationInProgress?.()) return { success: false, error: "数据存储正在迁移，请稍后重试" };
+    if (deps.isDataMigrationInProgress?.())
+      return { success: false, error: "数据存储正在迁移，请稍后重试" };
     let indexer = getKnowledgeIndexer();
     const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
     indexer = getKnowledgeIndexer();

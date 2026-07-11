@@ -35,21 +35,6 @@ const WORD_OPEN_DEF: ToolDefinition = {
   requiresOfficeApp: "word",
 };
 
-const WORD_CREATE_DEF: ToolDefinition = {
-  name: "word.create",
-  description: "兼容入口：创建新的 Word 文档并保存到指定路径。文件级创建优先使用 office.action.apply app=word operation=createDocument；本工具执行时也会先尝试统一 Open XML action，失败后才 COM 兜底。",
-  parameters: {
-    type: "object",
-    properties: {
-      filePath: { type: "string", description: "新 Word 文档保存路径（绝对路径）" },
-    },
-    required: ["filePath"],
-  },
-  riskLevel: "moderate",
-  requiresApproval: true,
-  requiresOfficeApp: "word",
-};
-
 const WORD_INSPECT_DEF: ToolDefinition = {
   name: "word.inspect",
   description: "检查当前活动 Word 文档结构，返回文档名、路径、段落数、表格数、字数等摘要信息",
@@ -150,21 +135,6 @@ const PRESENTATION_OPEN_DEF: ToolDefinition = {
     type: "object",
     properties: {
       filePath: { type: "string", description: "演示文稿的绝对路径，如 C:\\Users\\用户\\Desktop\\汇报.pptx" },
-    },
-    required: ["filePath"],
-  },
-  riskLevel: "moderate",
-  requiresApproval: true,
-  requiresOfficeApp: "presentation",
-};
-
-const PRESENTATION_CREATE_DEF: ToolDefinition = {
-  name: "presentation.create",
-  description: "兼容入口：创建新的 PowerPoint 演示文稿并保存到指定路径。文件级创建优先使用 office.action.apply app=presentation operation=createPresentation；本工具执行时也会先尝试统一 Open XML action，失败后才 COM 兜底。",
-  parameters: {
-    type: "object",
-    properties: {
-      filePath: { type: "string", description: "新演示文稿保存路径（绝对路径）" },
     },
     required: ["filePath"],
   },
@@ -350,7 +320,6 @@ const OFFICE_SCRIPT_EXECUTE_DEF: ToolDefinition = {
 export const OFFICE_TOOL_DEFINITIONS: ToolDefinition[] = [
   OFFICE_CONNECTION_STATUS_DEF,
   WORD_OPEN_DEF,
-  WORD_CREATE_DEF,
   WORD_INSPECT_DEF,
   WORD_READ_TEXT_DEF,
   WORD_INSERT_TEXT_DEF,
@@ -358,7 +327,6 @@ export const OFFICE_TOOL_DEFINITIONS: ToolDefinition[] = [
   WORD_REPLACE_TEXT_DEF,
   WORD_SAVE_DEF,
   PRESENTATION_OPEN_DEF,
-  PRESENTATION_CREATE_DEF,
   PRESENTATION_INSPECT_DEF,
   PRESENTATION_READ_SLIDE_DEF,
   PRESENTATION_ADD_SLIDE_DEF,

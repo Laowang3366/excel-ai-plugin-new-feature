@@ -66,8 +66,3 @@ export function resetKnowledgeRegistry(): void {
   _indexer = null;
   _writer = null;
 }
-
-/** 检查知识库是否可用 */
-export function isKnowledgeAvailable(): boolean {
-  return _retriever !== null && _store !== null;
-}

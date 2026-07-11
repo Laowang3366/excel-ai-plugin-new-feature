@@ -12,16 +12,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import { createHash, randomUUID } from "crypto";
-import type {
-  KnowledgeEntry,
-  KnowledgeSource,
-  KnowledgeSourceType,
-  IndexResult,
-} from "./types";
+import type { KnowledgeEntry, KnowledgeSource, KnowledgeSourceType, IndexResult } from "./types";
 import { SqliteStore } from "./sqliteStore";
 import { EmbeddingService } from "./embeddingService";
-import { DocumentParser, type RawChunk } from "./documentParser";
-import { TextChunker, type TextChunk } from "./textChunker";
+import { DocumentParser } from "./documentParser";
+import { TextChunker } from "./textChunker";
 
 // ============================================================
 // 索引选项
@@ -56,7 +51,7 @@ export class KnowledgeIndexer {
     store: SqliteStore,
     embedder: EmbeddingService,
     parser?: DocumentParser,
-    chunker?: TextChunker
+    chunker?: TextChunker,
   ) {
     this.store = store;
     this.embedder = embedder;
@@ -71,10 +66,7 @@ export class KnowledgeIndexer {
    * @param options - 索引选项
    * @returns 索引结果
    */
-  async indexFile(
-    filePath: string,
-    options?: IndexOptions
-  ): Promise<IndexResult> {
+  async indexFile(filePath: string, options?: IndexOptions): Promise<IndexResult> {
     const startTime = Date.now();
     const opts: IndexOptions = {
       maxTokens: 512,
@@ -105,9 +97,10 @@ export class KnowledgeIndexer {
         const currentFileHash = getFileHash();
         const existing = this.store.getSource(filePath);
         if (
-          existing
-          && existing.fileHash === currentFileHash
-          && (opts.skipEmbedding || this.store.hasSourceEmbeddingProfile(filePath, this.embedder.getProfile()))
+          existing &&
+          existing.fileHash === currentFileHash &&
+          (opts.skipEmbedding ||
+            this.store.hasSourceEmbeddingProfile(filePath, this.embedder.getProfile()))
         ) {
           return {
             sourcePath: filePath,
@@ -138,7 +131,10 @@ export class KnowledgeIndexer {
       const texts = textChunks.map((c) => c.content);
       const existingSource = this.store.getSource(filePath);
       let embeddingWarning: string | undefined;
-      let embeddingResult: { embeddings: Array<number[] | null>; profile?: ReturnType<EmbeddingService["getProfile"]> };
+      let embeddingResult: {
+        embeddings: Array<number[] | null>;
+        profile?: ReturnType<EmbeddingService["getProfile"]>;
+      };
       if (opts.skipEmbedding) {
         embeddingResult = { embeddings: texts.map(() => null) };
       } else {
@@ -177,20 +173,25 @@ export class KnowledgeIndexer {
           embedding: embeddingResult.embeddings[i],
           embeddingProvider: embeddingResult.embeddings[i] ? embeddingProfile?.provider : undefined,
           embeddingModel: embeddingResult.embeddings[i] ? embeddingProfile?.model : undefined,
-          embeddingDimensions: embeddingResult.embeddings[i]?.length ?? embeddingProfile?.dimensions,
+          embeddingDimensions:
+            embeddingResult.embeddings[i]?.length ?? embeddingProfile?.dimensions,
           indexedAt: now,
           tokenCount: chunk.tokenCount,
         });
       }
-      this.store.replaceSource(entries, {
-        sourcePath: filePath,
-        sourceName,
-        sourceType: sourceFileType as any,
-        entryCount: entries.length,
-        firstIndexed: existingSource?.firstIndexed ?? now,
-        lastIndexed: now,
-        fileHash: currentFileHash,
-      }, filePath);
+      this.store.replaceSource(
+        entries,
+        {
+          sourcePath: filePath,
+          sourceName,
+          sourceType: sourceFileType as any,
+          entryCount: entries.length,
+          firstIndexed: existingSource?.firstIndexed ?? now,
+          lastIndexed: now,
+          fileHash: currentFileHash,
+        },
+        filePath,
+      );
 
       return {
         sourcePath: filePath,
@@ -218,10 +219,7 @@ export class KnowledgeIndexer {
    * @param options - 索引选项
    * @returns 索引结果数组
    */
-  async indexFolder(
-    folderPath: string,
-    options?: IndexOptions
-  ): Promise<IndexResult[]> {
+  async indexFolder(folderPath: string, options?: IndexOptions): Promise<IndexResult[]> {
     const files = this.collectFiles(folderPath);
     const results: IndexResult[] = [];
 
@@ -260,6 +258,10 @@ export class KnowledgeIndexer {
     this.store.deleteSource(sourcePath);
   }
 
+  listSources(): KnowledgeSource[] {
+    return this.store.listSources();
+  }
+
   /**
    * 重建全部索引
    *
@@ -281,28 +283,6 @@ export class KnowledgeIndexer {
       const source = sources[i];
       opts.onProgress?.(i + 1, total, source.sourceName);
       const result = await this.indexFile(source.sourcePath, opts);
-      results.push(result);
-    }
-
-    return results;
-  }
-
-  /**
-   * 增量索引（只处理新增/变更文件）
-   *
-   * 对比 file_hash，只索引有变更的文件。
-   */
-  async incrementalIndex(
-    filePaths: string[],
-    options?: IndexOptions
-  ): Promise<IndexResult[]> {
-    const results: IndexResult[] = [];
-
-    for (const fp of filePaths) {
-      const result = await this.indexFile(fp, {
-        skipUnchanged: true,
-        ...options,
-      });
       results.push(result);
     }
 

@@ -11,7 +11,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useChatStore } from "../../store/chatStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import type { AppLanguage, PermissionMode } from "../../store/settingsStore";
+import type { AppLanguage } from "../../store/settingsStore";
 import type { TurnItem } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import {

@@ -44,24 +44,17 @@ export const SHELL_STDERR_MAX_CHARS = 10000;
 // 单例策略引擎：默认规则 + 用户自定义规则（来自 settingsManager）
 // ============================================================
 
-let userCustomRules: PrefixRule[] = [];
 let extraWritableRoots: string[] = [];
 const engine = new ExecPolicy(DEFAULT_RULES);
 
 /** 暴露给设置模块：热更新用户规则 */
 export function setUserRules(rules: PrefixRule[]): void {
-  userCustomRules = rules;
   engine.setRules([...rules, ...DEFAULT_RULES]);
 }
 
 /** 暴露给设置模块：热更新额外可写根（cwd 白名单展开项） */
 export function setExtraWritableRoots(roots: string[]): void {
   extraWritableRoots = roots;
-}
-
-/** 当前生效的规则只读副本 */
-export function getEffectiveRules(): readonly PrefixRule[] {
-  return engine.getRules();
 }
 
 // ============================================================
@@ -202,9 +195,6 @@ export function runShellSpawn(
   const isWin = process.platform === "win32";
   const shell = isWin ? "powershell.exe" : "/bin/bash";
   let shellArgs: string[];
-  let scriptForEnv = command; // 仅用于 Audit
-  void scriptForEnv;
-
   if (isWin) {
     // 在脚本首行强制 UTF-8 输出编码，避免中文乱码（与 automation/powershell 保持一致）
     const full = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n$OutputEncoding = [System.Text.Encoding]::UTF8\n${command}`;

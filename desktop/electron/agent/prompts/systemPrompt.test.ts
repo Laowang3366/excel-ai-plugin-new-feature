@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   appendFolderContext,
   buildContextualPromptSections,
+  buildRuntimePromptSection,
   buildSystemPrompt,
 } from "./systemPrompt";
 
@@ -11,7 +12,7 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("Office 连接预检铁律");
     expect(prompt).toContain("office.connection.status");
-    expect(prompt).toContain("{{OFFICE_CONNECTION_STATUS}}");
+    expect(prompt).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
     expect(prompt).toContain("range.read");
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("ocr.parseDocument");
@@ -69,6 +70,24 @@ describe("buildSystemPrompt", () => {
   });
 });
 
+describe("buildRuntimePromptSection", () => {
+  test("renders runtime facts after the stable prompt without unresolved variables", () => {
+    const prompt = buildRuntimePromptSection({
+      officeConnectionStatus: "Word(未连接) | PPT(未连接)",
+      dynamicArrayFunctionsEnabled: true,
+      now: new Date("2026-07-03T04:30:00.000Z"),
+    });
+
+    expect(prompt).toContain("<runtime_context>");
+    expect(prompt).toContain("Office 应用连接状态：Word(未连接) | PPT(未连接)");
+    expect(prompt).toContain("动态数组函数环境支持：已开启");
+    expect(prompt).toContain("当前日期：2026");
+    expect(prompt).toContain("Asia/Shanghai");
+    expect(prompt).toContain("近 N 日");
+    expect(prompt).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+  });
+});
+
 describe("buildContextualPromptSections", () => {
   test("injects formula assistant rules only for formula-writing turns", () => {
     const prompt = buildContextualPromptSections({
@@ -88,6 +107,7 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("WPS 原生");
     expect(prompt).toContain("动态数组公式必须用");
     expect(prompt).toContain("允许输出测试报告");
+    expect(prompt.match(/## Office 工具调用硬性边界/g)).toHaveLength(1);
     expect(prompt.length).toBeLessThan(4_000);
   });
 

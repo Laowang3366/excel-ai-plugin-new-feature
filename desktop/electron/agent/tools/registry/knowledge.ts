@@ -9,11 +9,11 @@ import type { ToolDefinition } from "../../shared/types";
 /** 知识库搜索 */
 const KNOWLEDGE_SEARCH_DEF: ToolDefinition = {
   name: "knowledge.search",
-  description: "搜索本地知识库，获取与当前任务相关的历史项目知识、字段口径、公式规则、模板规范和操作记录。先读取当前文件/数据并判断场景难度；简单问答、单步操作、直观格式调整无需调用，只有中高复杂度或明确依赖业务资料/历史规则时再用场景摘要检索",
+  description: "搜索本地知识库，获取与当前任务相关的方法论、业务口径、公式规则、模板规范和历史资料。先读取当前文件/数据并判断场景难度；简单问答、单步操作无需调用，中高复杂度任务才按输入/输出形状、业务键、约束和所需变换检索。返回片段用于归纳解题链和校验局部规则，不得把最相似案例直接当作答案",
   parameters: {
     type: "object",
     properties: {
-      query: { type: "string", description: "场景摘要式搜索词，建议包含任务类型、文件/表/页/章节、字段名、样例值、业务口径和目标输出，如「销售汇总公式 订单表 区域 金额 月份 多条件汇总」" },
+      query: { type: "string", description: "问题结构式搜索词，包含任务类型、输入形状、输出形状、业务键、约束和关键变换；样例值只作补充。例如「公式 长表按区域月份分组 输出二维汇总 动态数组 多条件聚合」" },
       topK: { type: "number", description: "返回结果数量，默认5", default: 5 },
     },
     required: ["query"],

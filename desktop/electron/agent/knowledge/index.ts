@@ -10,7 +10,6 @@ export { TextChunker } from "./textChunker";
 export { KnowledgeIndexer } from "./knowledgeIndexer";
 export { KnowledgeWriter } from "./knowledgeWriter";
 export { Retriever } from "./retriever";
-export { WorkbookNotesStore } from "./workbookNotesStore";
 export {
   setKnowledgeRetriever,
   getKnowledgeRetriever,
@@ -21,5 +20,4 @@ export {
   setKnowledgeWriter,
   getKnowledgeWriter,
   resetKnowledgeRegistry,
-  isKnowledgeAvailable,
 } from "./knowledgeRegistry";

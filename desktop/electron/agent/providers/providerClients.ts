@@ -97,7 +97,7 @@ export class KimiClient extends OpenAICompatibleClient {
 /** 小米 MiMo — thinking.type 开关 */
 export class XiaomiClient extends OpenAICompatibleClient {
   protected applyReasoningConfig(
-    body: Record<string, unknown>,
+    _body: Record<string, unknown>,
     _mode?: ReasoningMode
   ): void {
     // MiMo: 不传 thinking 参数，使用模型默认（开启思考）

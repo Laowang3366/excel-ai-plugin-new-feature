@@ -262,10 +262,3 @@ export function checkWorkdir(
   if (ok) return { allowed: true, effectiveWorkdir: workdir, redirected: false };
   return { allowed: false, effectiveWorkdir: fallback, redirected: true };
 }
-
-/** 在规则中合并用户自定义规则（用户优先级在前，命中先取严）—— 简单 concatenation 由调用方排序 */
-export function mergeRules(base: PrefixRule[], custom: PrefixRule[]): PrefixRule[] {
-  // 用户规则与默认规则合并；多规则命中取最严，顺序不影响最终结果，
-  // 但用户规则放前面可让"同严度"时展示用户自定义的 justification。
-  return [...custom, ...base];
-}

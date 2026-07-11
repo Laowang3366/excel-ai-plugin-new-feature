@@ -16,13 +16,20 @@
  */
 
 import { ipcMain, dialog, shell, BrowserWindow } from "electron";
-import { AgentLoop } from "../agent/core/agentLoop";
-import { ensureKnowledgeRuntime, refreshKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
+import type { AgentLoop } from "../agent/core/agentLoop";
+import {
+  ensureKnowledgeRuntime,
+  refreshKnowledgeRuntime,
+  type AgentLoopManager,
+} from "../agent/runtime/agentRuntime";
 import { inspectExcelWorkbookForIpc, readExcelRangeForIpc } from "./excelIpcOperations";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
-import { buildCompactionConfig, type SavedCompactionConfig } from "../agent/runtime/compactionRuntime";
+import {
+  buildCompactionConfig,
+  type SavedCompactionConfig,
+} from "../agent/runtime/compactionRuntime";
 import { setDynamicArrayFunctionsEnabled } from "../agent/runtime/agentGlobalSettings";
 import { registerAgentIpcHandlers } from "../agent/interaction/ipcAgentHandlers";
 import {
@@ -70,22 +77,14 @@ const rendererLogger = createLogger("renderer");
 // ============================================================
 
 let mainWindowRef: () => BrowserWindow | null = () => null;
-let agentLoopRef: () => AgentLoop | null;
 let agentLoopsRef: () => AgentLoop[] = () => [];
 let agentLoopManagerRef: () => AgentLoopManager | null = () => null;
 let excelBridgeRef: () => ExcelConnectionBridge | null;
-let vbaBridgeRef: () => any;
-let scriptBridgeRef: () => any;
-let uiBridgeRef: () => any;
 let wordBridgeRef: () => any = () => null;
 let presentationBridgeRef: () => any = () => null;
 
 export function setMainWindowRef(fn: () => BrowserWindow | null): void {
   mainWindowRef = fn;
-}
-
-export function setAgentLoopRef(fn: () => AgentLoop | null): void {
-  agentLoopRef = fn;
 }
 
 export function setAgentLoopsRef(fn: () => AgentLoop[]): void {
@@ -96,22 +95,11 @@ export function setAgentLoopManagerRef(fn: () => AgentLoopManager | null): void 
   agentLoopManagerRef = fn;
 }
 
-export function setBridgesRefs(
-  excel: () => ExcelConnectionBridge | null,
-  vba: () => any,
-  script: () => any,
-  ui: () => any
-): void {
+export function setExcelBridgeRef(excel: () => ExcelConnectionBridge | null): void {
   excelBridgeRef = excel;
-  vbaBridgeRef = vba;
-  scriptBridgeRef = script;
-  uiBridgeRef = ui;
 }
 
-export function setOfficeBridgesRefs(
-  word: () => any,
-  presentation: () => any
-): void {
+export function setOfficeBridgesRefs(word: () => any, presentation: () => any): void {
   wordBridgeRef = word;
   presentationBridgeRef = presentation;
 }
@@ -125,9 +113,12 @@ export function registerIpcHandlers(): void {
   const pathAuthorizer = createPathAuthorizer({
     getDataPath: getActiveDataPath,
     getPinnedFolders: () => {
-      const folders = getSettingsStore().get("pinnedFolders") as Array<{ path?: unknown }> | undefined;
+      const folders = getSettingsStore().get("pinnedFolders") as
+        Array<{ path?: unknown }> | undefined;
       return Array.isArray(folders)
-        ? folders.map((folder) => typeof folder.path === "string" ? folder.path : "").filter(Boolean)
+        ? folders
+            .map((folder) => (typeof folder.path === "string" ? folder.path : ""))
+            .filter(Boolean)
         : [];
     },
     getExtraRoots: () => {
@@ -140,7 +131,6 @@ export function registerIpcHandlers(): void {
 
   registerAgentIpcHandlers({
     mainWindowRef,
-    agentLoopRef,
     agentLoopManagerRef,
     getSessionStoreInstance,
     getStateRuntimeStoreInstance,
@@ -237,10 +227,12 @@ export function registerIpcHandlers(): void {
         agent.updateAIConfig(getActiveAIConfig());
         const aiConfig = getActiveAIConfig();
         const contextWindowSize = aiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW;
-        agent.updateCompactionConfig(buildCompactionConfig({
-          contextWindowSize,
-          savedCompaction: store.get("compactionConfig") as SavedCompactionConfig | undefined,
-        }));
+        agent.updateCompactionConfig(
+          buildCompactionConfig({
+            contextWindowSize,
+            savedCompaction: store.get("compactionConfig") as SavedCompactionConfig | undefined,
+          }),
+        );
       }
       try {
         await refreshKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath());
@@ -263,10 +255,12 @@ export function registerIpcHandlers(): void {
       for (const agent of agentLoopsRef()) {
         const aiConfig = getActiveAIConfig();
         const contextWindowSize = aiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW;
-        agent.updateCompactionConfig(buildCompactionConfig({
-          contextWindowSize,
-          savedCompaction: value as SavedCompactionConfig | undefined,
-        }));
+        agent.updateCompactionConfig(
+          buildCompactionConfig({
+            contextWindowSize,
+            savedCompaction: value as SavedCompactionConfig | undefined,
+          }),
+        );
       }
     }
     if (key === "theme") {
@@ -326,27 +320,37 @@ export function registerIpcHandlers(): void {
     return await bridge.getSelectionAddress();
   });
 
-  ipcMain.handle("excel:readRange", async (_event, sheetName: unknown, range: unknown, expand?: unknown) => {
-    const validated = validateInput(ExcelReadRangeInput, { sheetName, range, expand });
-    return readExcelRangeForIpc(excelBridgeRef(), validated.sheetName, validated.range, validated.expand);
-  });
+  ipcMain.handle(
+    "excel:readRange",
+    async (_event, sheetName: unknown, range: unknown, expand?: unknown) => {
+      const validated = validateInput(ExcelReadRangeInput, { sheetName, range, expand });
+      return readExcelRangeForIpc(
+        excelBridgeRef(),
+        validated.sheetName,
+        validated.range,
+        validated.expand,
+      );
+    },
+  );
 
   ipcMain.handle("excel:inspectWorkbook", async () => {
     return inspectExcelWorkbookForIpc(excelBridgeRef());
   });
 
-  ipcMain.handle("excel:writeRange", async (_event, sheetName: unknown, range: unknown, values: unknown) => {
-    const validated = validateInput(ExcelWriteRangeInput, { sheetName, range, values });
-    const bridge = excelBridgeRef();
-    if (!bridge) return { success: false, error: "Excel 未连接" };
-    try {
-      await bridge.writeRange(validated.sheetName, validated.range, validated.values);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
+  ipcMain.handle(
+    "excel:writeRange",
+    async (_event, sheetName: unknown, range: unknown, values: unknown) => {
+      const validated = validateInput(ExcelWriteRangeInput, { sheetName, range, values });
+      const bridge = excelBridgeRef();
+      if (!bridge) return { success: false, error: "Excel 未连接" };
+      try {
+        await bridge.writeRange(validated.sheetName, validated.range, validated.values);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
 }
 
 function getExcelBridgeForIpc(): ExcelConnectionBridge {

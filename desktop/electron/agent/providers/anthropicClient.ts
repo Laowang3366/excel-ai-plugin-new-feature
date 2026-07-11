@@ -13,7 +13,11 @@
  * - aiClient.ts — 工厂函数 createAIClient 根据 apiFormat 路由到本类
  */
 
-import { OpenAICompatibleClient, sanitizeToolName, desanitizeToolName } from "./openaiCompatibleClient";
+import {
+  OpenAICompatibleClient,
+  sanitizeToolName,
+  desanitizeToolName,
+} from "./openaiCompatibleClient";
 import {
   type AIClientConfig,
   type AIStreamEvent,
@@ -40,7 +44,7 @@ export class AnthropicClient extends OpenAICompatibleClient {
 
   protected buildRequestMessages(
     messages: ChatMessage[],
-    systemPrompt?: string
+    _systemPrompt?: string,
   ): Record<string, unknown>[] {
     // Anthropic 格式不同：system prompt 单独传，messages 中不能有 system role
     const result: Record<string, unknown>[] = [];
@@ -51,7 +55,9 @@ export class AnthropicClient extends OpenAICompatibleClient {
         result.push({
           role: "assistant",
           content: [
-            ...(typeof msg.content === "string" && msg.content ? [{ type: "text", text: msg.content }] : []),
+            ...(typeof msg.content === "string" && msg.content
+              ? [{ type: "text", text: msg.content }]
+              : []),
             ...msg.toolCalls.map((tc) => ({
               type: "tool_use",
               id: tc.id,
@@ -155,9 +161,7 @@ export class AnthropicClient extends OpenAICompatibleClient {
 
     // Anthropic adaptive thinking + effort level
     const effectiveMode: ReasoningMode | undefined =
-      params.reasoningMode ||
-      this.config.reasoningMode ||
-      (params.enableReasoning || this.config.enableReasoning ? "high" : undefined);
+      params.reasoningMode || this.config.reasoningMode;
     if (effectiveMode && effectiveMode !== "off") {
       requestBody.thinking = { type: "adaptive" };
       requestBody.output_config = {
@@ -178,9 +182,7 @@ export class AnthropicClient extends OpenAICompatibleClient {
     // 组合用户取消信号与 HTTP 超时信号（5 分钟）
     // 流式请求可能持续较长（推理模式 + 大上下文），5 分钟是合理上限
     const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000);
-    const combinedSignal = signal
-      ? AbortSignal.any([signal, timeoutSignal])
-      : timeoutSignal;
+    const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
     const response = await fetch(url, {
       method: "POST",
@@ -191,7 +193,10 @@ export class AnthropicClient extends OpenAICompatibleClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      yield { type: "error", error: formatProviderHttpError("Anthropic API 错误", response.status, errorText) };
+      yield {
+        type: "error",
+        error: formatProviderHttpError("Anthropic API 错误", response.status, errorText),
+      };
       return;
     }
 

@@ -17,7 +17,6 @@ import { StateRuntimeStore } from "./stateRuntimeStore";
 import type {
   ThreadId,
   TurnItem,
-  CompactionConfig,
 } from "../shared/types";
 
 /**

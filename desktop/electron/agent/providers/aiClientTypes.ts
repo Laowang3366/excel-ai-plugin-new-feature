@@ -29,7 +29,7 @@ export interface TextContentPart {
 export interface ImageUrlContentPart {
   type: "image_url";
   image_url: {
-    url: string;  // data:image/png;base64,... 或 https://...
+    url: string; // data:image/png;base64,... 或 https://...
     detail?: "low" | "high" | "auto";
   };
 }
@@ -104,11 +104,7 @@ export interface StreamChatParams {
   systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
-  /** 是否启用思考/推理模式（保留向后兼容，新代码使用 reasoningMode） */
-  enableReasoning?: boolean;
-  /** 推理力度（保留向后兼容，新代码使用 reasoningMode） */
-  reasoningEffort?: "low" | "medium" | "high";
-  /** 思考等级，替代 enableReasoning + reasoningEffort */
+  /** 思考等级 */
   reasoningMode?: ReasoningMode;
   /** 信号，用于取消请求 */
   signal?: AbortSignal;
@@ -125,13 +121,11 @@ export interface AIClientConfig {
   apiFormat?: string;
   /** 自定义请求头 */
   customHeaders?: Record<string, string>;
-  /** 是否启用推理模式（保留向后兼容，新代码使用 reasoningMode） */
-  enableReasoning?: boolean;
   /** 上下文窗口大小（tokens），用户自定义，未设置时使用默认值 128k */
   contextWindowSize?: number;
   /** 压缩兼容性标识；不同值的模型切换前会先压缩上下文 */
   compHash?: string;
-  /** 思考等级，替代 enableReasoning */
+  /** 思考等级 */
   reasoningMode?: ReasoningMode;
   /**
    * 最大输出 tokens。

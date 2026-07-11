@@ -13,7 +13,6 @@ export interface RuntimeDatabasePaths {
 
 export interface ResolvedRuntimePaths {
   dbPaths: RuntimeDatabasePaths;
-  legacyStateDbPath?: string;
 }
 
 export interface RuntimeConnections {
@@ -56,9 +55,7 @@ export type RuntimeMemoryKind =
   | "style_preference"
   | "operation_preference"
   | "file_impression"
-  | "tool_success_profile"
-  | "project_fact"
-  | "workflow";
+  | "tool_success_profile";
 
 export type RuntimeMemoryVisibility = "user" | "internal";
 export type RuntimeMemoryStatus = "active" | "stale" | "archived";

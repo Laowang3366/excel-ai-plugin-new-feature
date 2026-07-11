@@ -4,7 +4,6 @@ import {
   getKnowledgeRetriever,
   getKnowledgeStore,
   getKnowledgeWriter,
-  isKnowledgeAvailable,
   resetKnowledgeRegistry,
   setKnowledgeIndexer,
   setKnowledgeRetriever,
@@ -23,14 +22,11 @@ describe("knowledgeRegistry lifecycle", () => {
     setKnowledgeIndexer({} as any);
     setKnowledgeWriter({} as any);
 
-    expect(isKnowledgeAvailable()).toBe(true);
-
     resetKnowledgeRegistry();
 
     expect(getKnowledgeRetriever()).toBeNull();
     expect(getKnowledgeStore()).toBeNull();
     expect(getKnowledgeIndexer()).toBeNull();
     expect(getKnowledgeWriter()).toBeNull();
-    expect(isKnowledgeAvailable()).toBe(false);
   });
 });

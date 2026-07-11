@@ -22,9 +22,7 @@ import {
   type TurnItem,
   type UserMessageItem,
   type AssistantMessageItem,
-  type ReasoningItem,
   type CompactedItem,
-  type TokenUsage,
   type ToolDefinition,
   type CompactionReason,
   type CompactionConfig,
@@ -162,11 +160,6 @@ export function collectUserMessages(items: TurnItem[]): UserMessageItem[] {
     (item): item is UserMessageItem =>
       item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX)
   );
-}
-
-/** 判断是否为摘要消息 */
-export function isSummaryMessage(content: string): boolean {
-  return content.startsWith(SUMMARY_PREFIX);
 }
 
 /** 判断是否需要压缩 */

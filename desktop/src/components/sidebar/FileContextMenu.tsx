@@ -10,13 +10,11 @@
  * - 在文件管理器中显示
  */
 
-import React from "react";
 import type { FolderFileInfo } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import type { AppLanguage } from "../../store/settingsStore";
 import {
   Pin,
-  Pencil,
   Trash2,
   Zap,
   Copy,

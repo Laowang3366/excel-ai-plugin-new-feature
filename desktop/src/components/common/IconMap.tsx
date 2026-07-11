@@ -5,8 +5,6 @@
  * 激活状态通过 className 控制，图标本身不包含颜色。
  */
 
-import React from "react";
-import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   MessageSquare,
@@ -81,38 +79,6 @@ import {
   FileSpreadsheet,
   ListPlus,
 } from "lucide-react";
-
-/** Provider 图标名称映射 */
-export const PROVIDER_ICON_MAP: Record<string, LucideIcon> = {
-  Globe,
-  Search,
-  Flame,
-  Star,
-  Circle,
-  Mountain,
-  Bug,
-  Package,
-  ExternalLink,
-  Cloud,
-  Wrench,
-};
-
-/** 根据 provider icon 字符串名获取图标组件 */
-export const getProviderIcon = (
-  iconName: string,
-  size: number = 16,
-  className?: string
-): React.ReactNode => {
-  const IconComponent = PROVIDER_ICON_MAP[iconName];
-  if (IconComponent) {
-    return <IconComponent size={size} className={className} />;
-  }
-  // fallback: 如果 icon 字段仍是 emoji（旧数据），直接显示
-  if (iconName && /[\u{1F000}-\u{1FFFF}]/u.test(iconName)) {
-    return <span style={{ fontSize: size }}>{iconName}</span>;
-  }
-  return <Wrench size={size} className={className} />;
-};
 
 // Re-export all icons for direct import
 export {
@@ -189,6 +155,3 @@ export {
   FileSpreadsheet,
   ListPlus,
 };
-
-// Re-export LucideIcon type
-export type { LucideIcon };

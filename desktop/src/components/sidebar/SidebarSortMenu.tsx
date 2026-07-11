@@ -1,4 +1,3 @@
-import React from "react";
 import type { SidebarSortMode } from "../../utils/sidebarHelpers";
 import {
   Check,

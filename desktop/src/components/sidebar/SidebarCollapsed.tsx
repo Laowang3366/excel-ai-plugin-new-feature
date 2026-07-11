@@ -1,4 +1,3 @@
-import React from "react";
 import type { AppPage } from "../../App";
 import type { ExcelStatus } from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";

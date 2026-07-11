@@ -21,6 +21,7 @@ dist/
 dist-electron/
 release/
 *.tsbuildinfo
+*.log
 
 # IDE
 .vscode/
@@ -34,6 +35,9 @@ release/
 .worktrees/
 worktrees/
 .superpowers/
+.codex/
+.workbuddy/
+desktop/data/
 
 # Local one-off probes
 .certs/

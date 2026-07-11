@@ -38,8 +38,6 @@ export const MODEL_TEXT = {
     model: "模型",
     refreshModels: "刷新模型列表",
     availableModels: (count: number) => `可用模型: ${count} 个`,
-    enableReasoning: "启用推理/思考模式",
-    reasoningHint: "开启后 AI 会展示思考过程，帮助你判断理解是否正确",
     reasoningMode: "思考等级",
     reasoningModeHint: "控制模型的推理深度，等级越高思考越深入但响应越慢",
     enableThinking: "启用思考模式",
@@ -59,7 +57,11 @@ export const MODEL_TEXT = {
     testing: "测试中...",
     addAndTest: "添加并测试",
     deleteTitle: "确认删除",
-    deleteMessage: (name: string) => <>确定要删除供应商 <strong>{name}</strong> 吗？此操作不可撤销。</>,
+    deleteMessage: (name: string) => (
+      <>
+        确定要删除供应商 <strong>{name}</strong> 吗？此操作不可撤销。
+      </>
+    ),
     delete: "删除",
     // 新增文本
     contextWindowSize: "上下文窗口大小 (tokens)",
@@ -93,8 +95,6 @@ export const MODEL_TEXT = {
     model: "Model",
     refreshModels: "Refresh model list",
     availableModels: (count: number) => `${count} models available`,
-    enableReasoning: "Enable reasoning/thinking mode",
-    reasoningHint: "When enabled, the AI will show its thinking process to help you verify understanding.",
     reasoningMode: "Thinking level",
     reasoningModeHint: "Controls reasoning depth. Higher levels think deeper but respond slower.",
     enableThinking: "Enable thinking mode",
@@ -114,7 +114,11 @@ export const MODEL_TEXT = {
     testing: "Testing...",
     addAndTest: "Add and test",
     deleteTitle: "Confirm delete",
-    deleteMessage: (name: string) => <>Delete provider <strong>{name}</strong>? This cannot be undone.</>,
+    deleteMessage: (name: string) => (
+      <>
+        Delete provider <strong>{name}</strong>? This cannot be undone.
+      </>
+    ),
     delete: "Delete",
     // New text
     contextWindowSize: "Context window size (tokens)",
@@ -126,7 +130,8 @@ export const MODEL_TEXT = {
     modelInputPlaceholder: "Enter model name, e.g. deepseek-v4-pro",
     contextWindowPlaceholder: "Not set, default 128k",
     modelList: "Model list",
-    modelListHint: "Each model can have its own context window size. Press Enter or click + to add.",
+    modelListHint:
+      "Each model can have its own context window size. Press Enter or click + to add.",
     addModel: "Add model",
     removeModel: "Remove model",
   },

@@ -1,50 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  RuntimeMemoryKind,
-  RuntimeMemoryVisibility,
-} from "../stateRuntimeTypes";
-import {
-  getMemoryVisibility,
-  isUserVisibleMemoryKind,
-  normalizeMemoryWriteInput,
-} from "./memoryTypes";
+import type { RuntimeMemoryKind, RuntimeMemoryVisibility } from "../stateRuntimeTypes";
+import { getMemoryVisibility, normalizeMemoryWriteInput } from "./memoryTypes";
 
 describe("long term memory types", () => {
   it("pins visibility for every memory kind", () => {
-    const visibilityByKind: Record<RuntimeMemoryKind, RuntimeMemoryVisibility> =
-      {
-        preference: "user",
-        constraint: "user",
-        correction: "user",
-        style_preference: "user",
-        operation_preference: "user",
-        file_impression: "user",
-        project_fact: "internal",
-        workflow: "internal",
-        tool_success_profile: "internal",
-      };
+    const visibilityByKind: Record<RuntimeMemoryKind, RuntimeMemoryVisibility> = {
+      preference: "user",
+      constraint: "user",
+      correction: "user",
+      style_preference: "user",
+      operation_preference: "user",
+      file_impression: "user",
+      tool_success_profile: "internal",
+    };
 
     for (const [kind, visibility] of Object.entries(visibilityByKind) as [
       RuntimeMemoryKind,
       RuntimeMemoryVisibility,
     ][]) {
       expect(getMemoryVisibility(kind)).toBe(visibility);
-      expect(isUserVisibleMemoryKind(kind)).toBe(visibility === "user");
     }
   });
 
   it("keeps tool success profiles internal", () => {
     expect(getMemoryVisibility("tool_success_profile")).toBe("internal");
-    expect(isUserVisibleMemoryKind("tool_success_profile")).toBe(false);
   });
 
   it("keeps user preference kinds visible", () => {
     expect(getMemoryVisibility("preference")).toBe("user");
     expect(getMemoryVisibility("operation_preference")).toBe("user");
-    expect(isUserVisibleMemoryKind("file_impression")).toBe(true);
-    expect(isUserVisibleMemoryKind("project_fact")).toBe(false);
-    expect(isUserVisibleMemoryKind("workflow")).toBe(false);
   });
 
   it("rejects internal tool profiles from ordinary tool writes", () => {

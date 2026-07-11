@@ -18,6 +18,8 @@ import type {
 import { SqliteStore } from "./sqliteStore";
 import { EmbeddingService, type EmbeddingProfile } from "./embeddingService";
 
+const TOOL_RESULT_EXCERPT_CHARS = 1200;
+
 // ============================================================
 // 检索选项
 // ============================================================
@@ -126,7 +128,10 @@ export class Retriever {
   formatForPrompt(results: KnowledgeResult[]): string {
     if (results.length === 0) return "";
 
-    const lines: string[] = ["## 相关知识"];
+    const lines: string[] = [
+      "## 相关知识（用于归纳与校验，不是现成答案）",
+      "先从当前任务提炼输入/输出形状、业务键、约束和变换链，再组合下面的知识；不要按相似案例直接替换区域地址。",
+    ];
     const seen = new Set<string>();
 
     for (const result of results) {
@@ -141,9 +146,8 @@ export class Retriever {
         lines.push(`\n📄 ${entry.sourceName}${sheetInfo}`);
       }
 
-      // 提取关键内容（取前 200 字符）
-      const excerpt = entry.content.slice(0, 200).replace(/\n/g, " ");
-      lines.push(`  - ${excerpt}${entry.content.length > 200 ? "…" : ""}`);
+      const excerpt = entry.content.slice(0, 600).replace(/\n/g, " ");
+      lines.push(`  - ${excerpt}${entry.content.length > 600 ? "…" : ""}`);
     }
 
     return lines.join("\n");
@@ -159,7 +163,10 @@ export class Retriever {
       return "知识库中未找到相关信息。";
     }
 
-    const lines: string[] = [`找到 ${results.length} 条相关知识：`];
+    const lines: string[] = [
+      `找到 ${results.length} 条相关知识片段。`,
+      "使用要求：先归纳当前任务的问题结构和完整变换链，再综合这些片段形成方案；案例内容只用于验证局部技巧或兼容性，禁止直接套用最相似案例。",
+    ];
 
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -171,9 +178,13 @@ export class Retriever {
         ? `相关度: ${(r.score * 100).toFixed(1)}%`
         : "关键词匹配";
 
-      lines.push(`\n${i + 1}. [${entry.sourceName}]${sheetInfo} (${scoreLabel})`);
+      lines.push(`\n### 知识片段 ${i + 1}`);
+      lines.push(`来源: [${entry.sourceName}]${sheetInfo} (${scoreLabel})`);
       lines.push(`   路径: ${entry.sourcePath}`);
-      lines.push(`   内容: ${entry.content.slice(0, 300)}${entry.content.length > 300 ? "…" : ""}`);
+      lines.push(
+        `内容:\n${entry.content.slice(0, TOOL_RESULT_EXCERPT_CHARS)}`
+        + `${entry.content.length > TOOL_RESULT_EXCERPT_CHARS ? "…" : ""}`,
+      );
     }
 
     return lines.join("\n");

@@ -30,7 +30,7 @@ export function shouldFollowStreamingReasoning(distanceToBottom: number): boolea
 
 export function getStreamingReasoningVisibleText(
   reasoning: string,
-  limit = STREAMING_REASONING_LIVE_RENDER_LIMIT
+  limit = STREAMING_REASONING_LIVE_RENDER_LIMIT,
 ): string {
   if (reasoning.length <= limit) return reasoning;
   const hiddenChars = reasoning.length - limit;
@@ -101,14 +101,11 @@ export const StreamingReasoning: React.FC<{ reasoning: string; autoCollapse?: bo
 
   return (
     <div className="streaming-reasoning">
-      <div
-        className="reasoning-header"
-        onClick={toggleReasoningExpanded}
-      >
-        <span className="reasoning-icon"><Brain size={14} /></span>
-        <span className="reasoning-label">
-          {text.assistant.thinking}
+      <div className="reasoning-header" onClick={toggleReasoningExpanded}>
+        <span className="reasoning-icon">
+          <Brain size={14} />
         </span>
+        <span className="reasoning-label">{text.assistant.thinking}</span>
         <span className="streaming-cursor">▊</span>
         <span className="reasoning-toggle">
           {reasoningExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -146,24 +143,6 @@ export const StreamingContent: React.FC<{ content: string }> = ({ content }) => 
           <span className="streaming-cursor">▊</span>
         </div>
       </div>
-    </div>
-  );
-};
-
-/** 完整流式输出（兼容旧用法） */
-interface StreamingOutputProps {
-  content: string;
-  reasoning: string;
-}
-
-export const StreamingOutput: React.FC<StreamingOutputProps> = ({
-  content,
-  reasoning,
-}) => {
-  return (
-    <div className="streaming-output">
-      <StreamingReasoning reasoning={reasoning} autoCollapse={Boolean(content)} />
-      <StreamingContent content={content} />
     </div>
   );
 };

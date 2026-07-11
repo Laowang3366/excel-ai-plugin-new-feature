@@ -48,7 +48,6 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
   /** 当 Office + WPS 同时存在时，用户手动选择的宿主 */
   private _selectedHost: SpreadsheetHost | null = null;
   private _comVersion?: string;
-  private _comWorkbookName?: string;
 
   async isConnected(): Promise<boolean> {
     return this._connected;
@@ -104,7 +103,6 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
             this._connected = true;
             this._host = this._selectedHost;
             this._comVersion = comResult.version;
-            this._comWorkbookName = comResult.workbookName;
             return {
               connected: true,
               host: this._selectedHost,
@@ -137,7 +135,6 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
         this._host = singleHost;
         this._selectedHost = singleHost;
         this._comVersion = comResult.version;
-        this._comWorkbookName = comResult.workbookName;
         return {
           connected: true,
           host: singleHost,
@@ -188,7 +185,6 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
       this._connected = true;
       this._host = host;
       this._comVersion = comResult.version;
-      this._comWorkbookName = comResult.workbookName;
       return {
         connected: true,
         host: host,
@@ -305,7 +301,6 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
       ensureConnected: (retries?: number) => this.getActiveHostOrDetect(retries),
       getProgId: () => this.getProgId(),
       getComVersion: () => this._comVersion,
-      setWorkbookName: (workbookName: string) => { this._comWorkbookName = workbookName; },
     };
   }
 
@@ -380,7 +375,6 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
         if (comResult.available) {
           this._connected = true;
           this._comVersion = comResult.version;
-          this._comWorkbookName = comResult.workbookName;
           return {
             connected: true,
             host: targetHost,

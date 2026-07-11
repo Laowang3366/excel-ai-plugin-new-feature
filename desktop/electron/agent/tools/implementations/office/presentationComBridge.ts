@@ -113,29 +113,8 @@ catch { if ($createdApp -and $null -ne $app) { try { $app.Quit() } catch {} }; t
     }
   }
 
-  async createPresentation(filePath: string): Promise<{ success: boolean; presentationName?: string; error?: string }> {
-    try {
-      const result = await executePowerShell(`
-${psVar("_filePath", filePath)}
-${acquirePresentationAppScript(true, this.cachedProgId)}
-$pres = $null
-try { $pres = $app.Presentations.Add(); $pres.SaveAs($_filePath); [pscustomobject]@{ presentationName = $pres.Name; fullName = $pres.FullName; createdApp = $createdApp; progId = $progId; version = $app.Version } | ConvertTo-Json -Compress }
-catch { if ($createdApp -and $null -ne $app) { try { $app.Quit() } catch {} }; throw }`);
-      const data = safeJsonParse<PresentationOpenResult>(result, "powershell", "创建 PowerPoint 演示文稿");
-      this.ownsPresentationApp = this.ownsPresentationApp || data.createdApp;
-      if (data.progId) this.cachedProgId = data.progId;
-      this.activePresentationPath = data.fullName || filePath;
-      this._connected = true;
-      this._host = isWpsPresentationProgId(data.progId || "") ? "wpp" : "powerpoint";
-      this._version = data.version || this._version;
-      return { success: true, presentationName: data.presentationName };
-    } catch (err: any) {
-      return { success: false, error: `创建 PowerPoint 演示文稿失败: ${err.message}` };
-    }
-  }
-
   async inspectPresentation(): Promise<unknown> {
-    return this.executePresOp("检查 PPT 演示文稿", (app, _progId, pres) => `
+    return this.executePresOp("检查 PPT 演示文稿", (_app, _progId, _pres) => `
 ${slideTextShapesScript()}
 $slides = @()
 foreach ($slide in $pres.Slides) {
@@ -149,7 +128,7 @@ foreach ($slide in $pres.Slides) {
 
   async readSlide(slideIndex: number): Promise<unknown> {
     const idx = Math.max(1, Math.floor(slideIndex));
-    return this.executePresOp("读取幻灯片", (_app, _progId, pres) => `
+    return this.executePresOp("读取幻灯片", (_app, _progId, _pres) => `
 ${slideTextShapesScript()}
 $slideIndex = ${idx}
 if ($slideIndex -gt $pres.Slides.Count) { throw "幻灯片序号超出范围: $slideIndex" }
@@ -161,7 +140,7 @@ foreach ($shape in $slide.Shapes) { $texts += Get-ShapeTextInfo $shape }
   }
 
   async addSlide(title?: string, body?: string, layout = "title_body"): Promise<unknown> {
-    return this.executePresOp("添加幻灯片", (_app, _progId, pres) => `
+    return this.executePresOp("添加幻灯片", (_app, _progId, _pres) => `
 ${psVar("_title", title || "")}
 ${psVar("_body", body || "")}
 ${psVar("_layout", layout)}
@@ -190,7 +169,7 @@ if ($_body) {
   async setShapeText(slideIndex: number, text: string, shapeName?: string, shapeIndex?: number): Promise<unknown> {
     const idx = Math.max(1, Math.floor(slideIndex));
     const sidx = shapeIndex ? Math.max(1, Math.floor(shapeIndex)) : 0;
-    return this.executePresOp("设置形状文本", (_app, _progId, pres) => `
+    return this.executePresOp("设置形状文本", (_app, _progId, _pres) => `
 ${psVar("_text", text)}
 ${psVar("_shapeName", shapeName || "")}
 $slideIndex = ${idx}; $shapeIndex = ${sidx}
@@ -207,7 +186,7 @@ $target.TextFrame.TextRange.Text = $_text
   }
 
   async replaceText(findText: string, replaceText: string, matchCase = false): Promise<unknown> {
-    return this.executePresOp("替换 PPT 文本", (_app, _progId, pres) => `
+    return this.executePresOp("替换 PPT 文本", (_app, _progId, _pres) => `
 ${psVar("_findText", findText)}
 ${psVar("_replaceText", replaceText)}
 $matchCase = ${matchCase ? "$true" : "$false"}

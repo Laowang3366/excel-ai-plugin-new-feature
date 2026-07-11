@@ -259,7 +259,7 @@ Agent 核心文件：
 | `core/agentLoop/toolExecutor.ts` | 权限、沙箱策略、工具执行日志、结果封装 | `toolRound.ts` | `tools/executors/*`、`security/sandbox/*` |
 | `core/agentLoop/compaction*.ts` | 上下文压缩、token 估算、历史裁剪 | `turnRunner.ts` | `memory/compaction.ts`、Provider |
 | `providers/aiClientFactory.ts` | 按配置创建模型客户端 | `buildStreamParams.ts` / runtime | Responses/OpenAI Compatible/Anthropic/厂商子类 |
-| `prompts/systemPrompt.ts` | 基础系统提示词 + 动态场景片段入口 | `buildStreamParams.ts` | `prompts/sections/*` |
+| `prompts/systemPrompt.ts` | 基础系统提示词 + 动态场景片段入口 | `buildStreamParams.ts` | `prompts/templates/*`、`promptComposer.ts` |
 
 ## 6. 工具注册、路由与执行链路
 
@@ -340,7 +340,7 @@ Office 连接详情：
 | 场景 | 入口文件 | 调用链 | 输出 |
 | --- | --- | --- | --- |
 | 读取/写入当前 Excel/WPS | `preload.ts` 的 `excel.*`、`ipcOfficeApi.ts`、`ipcHandlers.ts` | `excelBridgeRef()` -> `excelComBridge.ts` -> `rangeOperations.ts`/`workbookOperations.ts` | 单元格值、选区、工作簿结构、写入结果 |
-| 公式生成/验证 | `tools/registry/formula.ts`、`formulaAssistantPrompt.ts` | `excelExecutors.ts` -> `formulaOperations.ts` / `rangeOperations.ts` | 公式写入、回读、动态数组 spill 校验 |
+| 公式生成/验证 | `tools/registry/formula.ts`、`prompts/templates/scenarios/formula.zh-CN.md` | `excelExecutors.ts` -> `formulaOperations.ts` / `rangeOperations.ts` | 公式写入、回读、动态数组 spill 校验 |
 | Excel 脚本 | `tools/registry/script.ts` | `excelExecutors.ts` -> `excelScriptBridgeCom.ts` / `automation/scriptEngine.ts` | Python/JScript/PowerShell 执行结果 |
 | Word/PPT 当前窗口状态 | `preload.ts` 的 `office.*` | `ipcHandlers.ts` -> `wordComBridge.ts` / `presentationComBridge.ts` | 当前宿主连接状态 |
 | 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionAdapter.ts` -> `officeOpenXml/*`，必要时 COM fallback | 修改后的 Office 文件、视觉快照、变更摘要 |

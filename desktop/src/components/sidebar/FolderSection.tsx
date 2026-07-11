@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { useSettingsStore, type AppLanguage, type PinnedFolder } from "../../store/settingsStore";
+import type { AppLanguage, PinnedFolder } from "../../store/settingsStore";
 import type { FolderFileInfo } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import {

@@ -156,11 +156,27 @@ describe("Retriever", () => {
     expect(formatted.match(/sales\.xlsx/g)).toHaveLength(1);
     expect(formatted).toContain("SUMIFS");
     expect(formatted).toContain("FILTER");
+    expect(formatted).toContain("用于归纳与校验，不是现成答案");
+    expect(formatted).toContain("不要按相似案例直接替换区域地址");
   });
 
   it("formats tool output with an explicit empty-state message", () => {
     const { retriever } = createHarness();
 
     expect(retriever.formatForToolResult([])).toContain("未找到");
+  });
+
+  it("frames tool results as reasoning material instead of case answers", () => {
+    const { retriever } = createHarness();
+    const longContent = `Methodology: ${"shape-transform-validate ".repeat(40)}`;
+
+    const formatted = retriever.formatForToolResult([
+      { entry: entry({ content: longContent }), score: 0.9 },
+    ]);
+
+    expect(formatted).toContain("问题结构和完整变换链");
+    expect(formatted).toContain("禁止直接套用最相似案例");
+    expect(formatted).toContain("### 知识片段 1");
+    expect(formatted).toContain(longContent);
   });
 });

@@ -11,12 +11,24 @@ describe("listThreadsForIpc", () => {
   it("uses sqlite thread snapshots before falling back to JSONL session scanning", async () => {
     const sessionStore = {
       listThreads: vi.fn(async () => [
-        { threadId: "thread-jsonl", preview: "jsonl", modelProvider: "test", createdAt: 1, updatedAt: 1 },
+        {
+          threadId: "thread-jsonl",
+          preview: "jsonl",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 1,
+        },
       ]),
     };
     const stateRuntimeStore = {
       listThreadSnapshots: vi.fn(async () => [
-        { threadId: "thread-sqlite", preview: "sqlite", modelProvider: "test", createdAt: 2, updatedAt: 2 },
+        {
+          threadId: "thread-sqlite",
+          preview: "sqlite",
+          modelProvider: "test",
+          createdAt: 2,
+          updatedAt: 2,
+        },
       ]),
     };
 
@@ -26,7 +38,13 @@ describe("listThreadsForIpc", () => {
         getStateRuntimeStoreInstance: async () => stateRuntimeStore as any,
       }),
     ).resolves.toEqual([
-      { threadId: "thread-sqlite", preview: "sqlite", modelProvider: "test", createdAt: 2, updatedAt: 2 },
+      {
+        threadId: "thread-sqlite",
+        preview: "sqlite",
+        modelProvider: "test",
+        createdAt: 2,
+        updatedAt: 2,
+      },
     ]);
     expect(stateRuntimeStore.listThreadSnapshots).toHaveBeenCalledTimes(1);
     expect(sessionStore.listThreads).not.toHaveBeenCalled();
@@ -35,7 +53,13 @@ describe("listThreadsForIpc", () => {
   it("falls back to JSONL session scanning when sqlite listing fails", async () => {
     const sessionStore = {
       listThreads: vi.fn(async () => [
-        { threadId: "thread-jsonl", preview: "jsonl", modelProvider: "test", createdAt: 1, updatedAt: 1 },
+        {
+          threadId: "thread-jsonl",
+          preview: "jsonl",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 1,
+        },
       ]),
     };
 
@@ -47,7 +71,13 @@ describe("listThreadsForIpc", () => {
         },
       }),
     ).resolves.toEqual([
-      { threadId: "thread-jsonl", preview: "jsonl", modelProvider: "test", createdAt: 1, updatedAt: 1 },
+      {
+        threadId: "thread-jsonl",
+        preview: "jsonl",
+        modelProvider: "test",
+        createdAt: 1,
+        updatedAt: 1,
+      },
     ]);
     expect(sessionStore.listThreads).toHaveBeenCalledTimes(1);
   });
@@ -64,7 +94,7 @@ describe("enqueueTurnForIpc", () => {
     const callbacks = { onEvent: vi.fn() };
 
     await expect(
-      enqueueTurnForIpc(agent as any, { content: "等一下，用 Sheet2" }, callbacks)
+      enqueueTurnForIpc(agent as any, { content: "等一下，用 Sheet2" }, callbacks),
     ).resolves.toEqual({ success: true, queued: true, queueSize: 1 });
 
     expect(agent.enqueueTurn).toHaveBeenCalledWith({ content: "等一下，用 Sheet2" }, callbacks);
@@ -81,7 +111,7 @@ describe("enqueueTurnForIpc", () => {
     const callbacks = { onEvent: vi.fn() };
 
     await expect(
-      enqueueTurnForIpc(agent as any, { content: "现在发送" }, callbacks)
+      enqueueTurnForIpc(agent as any, { content: "现在发送" }, callbacks),
     ).resolves.toEqual({
       success: true,
       queued: false,
@@ -105,7 +135,7 @@ describe("enqueueTurnForIpc", () => {
     const callbacks = { onEvent: vi.fn() };
 
     await expect(
-      enqueueTurnForIpc(agent as any, { content: "start" }, callbacks, manager as any)
+      enqueueTurnForIpc(agent as any, { content: "start" }, callbacks, manager as any),
     ).rejects.toThrow("当前已有会话正在执行");
 
     expect(manager.hasRunningLoopOtherThan).toHaveBeenCalledWith("thread-idle");
@@ -161,7 +191,9 @@ describe("prepareAgentForStartTurn", () => {
       rememberLoop: vi.fn(),
     };
 
-    await expect(prepareAgentForStartTurn(agent as any, manager as any)).rejects.toThrow("当前已有会话正在执行");
+    await expect(prepareAgentForStartTurn(agent as any, manager as any)).rejects.toThrow(
+      "当前已有会话正在执行",
+    );
 
     expect(agent.startThread).not.toHaveBeenCalled();
     expect(manager.rememberLoop).not.toHaveBeenCalled();
@@ -175,10 +207,14 @@ describe("prepareNewThreadForIpc", () => {
       prepareNewThread: vi.fn(),
     };
 
-    await expect(prepareNewThreadForIpc({
-      agentLoopManagerRef: () => manager as any,
-      agentLoopRef: () => null,
-    }, "D:\\work")).resolves.toEqual({
+    await expect(
+      prepareNewThreadForIpc(
+        {
+          agentLoopManagerRef: () => manager as any,
+        },
+        "D:\\work",
+      ),
+    ).resolves.toEqual({
       success: false,
       error: "当前已有会话正在执行，请等待完成或停止后再新建会话",
     });
@@ -193,42 +229,15 @@ describe("prepareNewThreadForIpc", () => {
       prepareNewThread: vi.fn(),
     };
 
-    await expect(prepareNewThreadForIpc({
-      agentLoopManagerRef: () => manager as any,
-      agentLoopRef: () => null,
-    }, "D:\\work")).resolves.toEqual({ success: true });
+    await expect(
+      prepareNewThreadForIpc(
+        {
+          agentLoopManagerRef: () => manager as any,
+        },
+        "D:\\work",
+      ),
+    ).resolves.toEqual({ success: true });
 
     expect(manager.prepareNewThread).toHaveBeenCalledWith("D:\\work");
-  });
-
-  it("rejects legacy single-loop new thread while the loop is running", async () => {
-    const agent = {
-      getIsRunning: vi.fn(() => true),
-      resetThread: vi.fn(),
-    };
-
-    await expect(prepareNewThreadForIpc({
-      agentLoopManagerRef: () => null,
-      agentLoopRef: () => agent as any,
-    })).resolves.toMatchObject({
-      success: false,
-      error: "当前已有会话正在执行，请等待完成或停止后再新建会话",
-    });
-
-    expect(agent.resetThread).not.toHaveBeenCalled();
-  });
-
-  it("resets the legacy single loop when idle", async () => {
-    const agent = {
-      getIsRunning: vi.fn(() => false),
-      resetThread: vi.fn(async () => undefined),
-    };
-
-    await expect(prepareNewThreadForIpc({
-      agentLoopManagerRef: () => null,
-      agentLoopRef: () => agent as any,
-    }, "D:\\work")).resolves.toEqual({ success: true });
-
-    expect(agent.resetThread).toHaveBeenCalledWith("D:\\work");
   });
 });

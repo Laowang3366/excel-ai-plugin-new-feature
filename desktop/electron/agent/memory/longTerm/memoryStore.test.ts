@@ -20,7 +20,9 @@ describe("LongTermMemoryStore", () => {
     });
 
     expect(await oldRuntime.listLongTermMemories({ limit: 10 })).toHaveLength(0);
-    expect((await newRuntime.listLongTermMemories({ limit: 10 }))[0].content).toBe("write to migrated runtime");
+    expect((await newRuntime.listLongTermMemories({ limit: 10 }))[0].content).toBe(
+      "write to migrated runtime",
+    );
 
     await oldRuntime.close();
     await newRuntime.close();
@@ -61,93 +63,8 @@ describe("LongTermMemoryStore", () => {
       "tool_success_profile",
     );
     expect(
-      (await store.search({ query: "PPT", includeInternal: true })).map(
-        (m) => m.kind,
-      ),
+      (await store.search({ query: "PPT", includeInternal: true })).map((m) => m.kind),
     ).toContain("tool_success_profile");
-    await runtime.close();
-  });
-
-  it("hides legacy user-visible non-office memories from public list and search", async () => {
-    const runtime = new StateRuntimeStore(":memory:");
-    await runtime.init();
-    const store = new LongTermMemoryStore(runtime);
-    const now = Date.now();
-
-    await runtime.upsertLongTermMemory({
-      memoryId: "legacy-project",
-      kind: "project_fact",
-      namespace: "global",
-      visibility: "user",
-      status: "active",
-      content: "legacy leak marker project",
-      createdAt: now + 2,
-      updatedAt: now + 2,
-    });
-    await runtime.upsertLongTermMemory({
-      memoryId: "legacy-workflow",
-      kind: "workflow",
-      namespace: "global",
-      visibility: "user",
-      status: "active",
-      content: "legacy leak marker workflow",
-      createdAt: now + 1,
-      updatedAt: now + 1,
-    });
-    await runtime.upsertLongTermMemory({
-      memoryId: "visible-preference",
-      kind: "preference",
-      namespace: "global",
-      visibility: "user",
-      status: "active",
-      content: "legacy leak marker preference",
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    const listed = await store.list("global");
-    expect(listed.map((memory) => memory.memoryId)).toEqual([
-      "visible-preference",
-    ]);
-
-    const searched = await store.search({ query: "legacy leak marker" });
-    expect(searched.map((memory) => memory.memoryId)).toEqual([
-      "visible-preference",
-    ]);
-    await runtime.close();
-  });
-
-  it("applies public search limits after filtering legacy non-office kinds", async () => {
-    const runtime = new StateRuntimeStore(":memory:");
-    await runtime.init();
-    const store = new LongTermMemoryStore(runtime);
-    const now = Date.now();
-
-    await runtime.upsertLongTermMemory({
-      memoryId: "visible-needle",
-      kind: "preference",
-      namespace: "global",
-      visibility: "user",
-      status: "active",
-      content: "needle visible",
-      createdAt: now,
-      updatedAt: now,
-    });
-    await runtime.upsertLongTermMemory({
-      memoryId: "legacy-needle",
-      kind: "project_fact",
-      namespace: "global",
-      visibility: "user",
-      status: "active",
-      content: "needle legacy",
-      createdAt: now + 1,
-      updatedAt: now + 1,
-    });
-
-    const results = await store.search({ query: "needle", limit: 1 });
-
-    expect(results).toHaveLength(1);
-    expect(results[0].memoryId).toBe("visible-needle");
     await runtime.close();
   });
 
@@ -268,7 +185,9 @@ describe("LongTermMemoryStore", () => {
     const internal = (await store.search({ includeInternal: true, query: "内部工具统计" }))[0];
 
     await expect(store.delete(internal.memoryId)).rejects.toThrow("只能删除用户可见的长期记忆");
-    expect((await store.search({ includeInternal: true, query: "内部工具统计" }))[0].status).toBe("active");
+    expect((await store.search({ includeInternal: true, query: "内部工具统计" }))[0].status).toBe(
+      "active",
+    );
     await runtime.close();
   });
 });

@@ -202,6 +202,13 @@ export const STATE_RUNTIME_MIGRATIONS: Record<RuntimeDbName, RuntimeMigration[]>
           ON long_term_memories(source_thread_id);
       `,
     },
+    {
+      id: "003_remove_unsupported_memory_kinds",
+      sql: `
+        DELETE FROM long_term_memories
+        WHERE kind IN ('project_fact', 'workflow');
+      `,
+    },
   ],
 };
 
@@ -211,10 +218,7 @@ export function configureRuntimeDatabase(db: SqliteDatabase): void {
   runPragma(db, "busy_timeout = 5000");
 }
 
-export function applyRuntimeMigrations(
-  db: SqliteDatabase,
-  migrations: RuntimeMigration[]
-): void {
+export function applyRuntimeMigrations(db: SqliteDatabase, migrations: RuntimeMigration[]): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id TEXT PRIMARY KEY,
@@ -223,9 +227,7 @@ export function applyRuntimeMigrations(
   `);
 
   const applied = new Set(listAppliedRuntimeMigrations(db));
-  const insert = db.prepare(
-    `INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)`
-  );
+  const insert = db.prepare(`INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)`);
 
   runSqliteTransaction(db, () => {
     for (const migration of migrations) {
@@ -237,9 +239,9 @@ export function applyRuntimeMigrations(
 }
 
 export function listAppliedRuntimeMigrations(db: SqliteDatabase): string[] {
-  const rows = db.prepare(
-    `SELECT id FROM schema_migrations ORDER BY id ASC`
-  ).all() as Array<{ id: string }>;
+  const rows = db.prepare(`SELECT id FROM schema_migrations ORDER BY id ASC`).all() as Array<{
+    id: string;
+  }>;
   return rows.map((row) => row.id);
 }
 

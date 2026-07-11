@@ -3,7 +3,6 @@ import {
   type Turn,
   type Thread,
   type ThreadId,
-  type TokenUsage,
   type AgentTurnInput,
   type AgentTurnCallbacks,
   type ToolDefinition,

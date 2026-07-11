@@ -1,17 +1,9 @@
 {
-  "version": 1,
+  "version": 2,
   "files": [
     {
-      "path": "wps-office-excel-formula-differences.md",
-      "sha256": "a5606448f99a38ad2eb48ee1465e2e1c203e2eeb84ce32f85828373313633708"
-    },
-    {
-      "path": "excel-dynamic-array-scenarios.md",
-      "sha256": "979e927f0e739d0b182f8fc8b00e766b372cee5dc6acf5bb345c743095b1a3a0"
-    },
-    {
-      "path": "wps-map-lambda-reference-semantics.md",
-      "sha256": "4e28af1519bc08b5b7d43a8c2568608e711d0fa5c5550a9704e7e02d7cfdbe7a"
+      "path": "excel-wps-formula-problem-solving-methodology.md",
+      "sha256": "b19a359c9f6e6bd00a193fbd32bc9268145dd798b18aedcb8d1236e397f829b1"
     }
   ]
 }

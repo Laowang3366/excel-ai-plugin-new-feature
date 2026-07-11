@@ -225,7 +225,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         </div>
 
       {/* 消息列表 */}
-      <ChatMessageList onSend={composerHandleSend} onFillInput={(t) => setInputText(t)} />
+      <ChatMessageList onFillInput={(t) => setInputText(t)} />
 
       {/* Pill Composer 输入框 */}
       <ComposerArea
@@ -281,7 +281,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
             embedded
             draft={taskDrafts.ocr}
             onDraftChange={updateOCRDraft}
-            onSubmit={handleTaskSubmit}
             onClose={closeFeatureSidebarManually}
           />
         )}

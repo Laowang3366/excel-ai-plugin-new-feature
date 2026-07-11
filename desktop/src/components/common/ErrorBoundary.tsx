@@ -1,4 +1,4 @@
-import { type FC, type ReactNode, Component } from "react";
+import { type ReactNode, Component } from "react";
 import { AlertTriangle } from "./IconMap";
 import { useSettingsStore } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";

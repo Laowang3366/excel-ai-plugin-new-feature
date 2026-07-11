@@ -14,7 +14,7 @@ export function resolveMaxTokens(aiConfig: AIClientConfig): number {
 
   const ctxSize = aiConfig.contextWindowSize || 128_000;
   const baseFromCtx = Math.min(Math.max(Math.floor(ctxSize * 0.06), 4_096), 16_384);
-  const mode = aiConfig.reasoningMode || (aiConfig.enableReasoning ? "high" : "off");
+  const mode = aiConfig.reasoningMode || "off";
 
   switch (mode) {
     case "max":

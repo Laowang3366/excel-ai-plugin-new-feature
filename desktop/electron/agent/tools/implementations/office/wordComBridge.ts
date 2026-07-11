@@ -123,33 +123,8 @@ try {
     }
   }
 
-  async createDocument(filePath: string): Promise<{ success: boolean; documentName?: string; error?: string }> {
-    try {
-      const result = await executePowerShell(`
-${psVar("_filePath", filePath)}
-${acquireWordAppScript(true, this.cachedProgId)}
-$doc = $null
-try {
-  $doc = $app.Documents.Add(); $doc.SaveAs2($_filePath); $doc.Activate()
-  [pscustomobject]@{ documentName = $doc.Name; fullName = $doc.FullName; createdApp = $createdApp; progId = $progId; version = $app.Version } | ConvertTo-Json -Compress
-} catch {
-  if ($createdApp -and $null -ne $app) { try { $app.Quit() } catch {} }; throw
-}`);
-      const data = safeJsonParse<WordDocumentOpenResult>(result, "powershell", "创建 Word 文档");
-      this.ownsWordApp = this.ownsWordApp || data.createdApp;
-      if (data.progId) this.cachedProgId = data.progId;
-      this.activeDocumentPath = data.fullName || filePath;
-      this._connected = true;
-      this._host = isWpsWordProgId(data.progId || "") ? "wps" : "word";
-      this._version = data.version || this._version;
-      return { success: true, documentName: data.documentName };
-    } catch (err: any) {
-      return { success: false, error: `创建 Word 文档失败: ${err.message}` };
-    }
-  }
-
   async inspectDocument(): Promise<unknown> {
-    return this.executeDocOp("检查 Word 文档", (app, _progId, doc) => `
+    return this.executeDocOp("检查 Word 文档", (_app, _progId, _doc) => `
 $paragraphPreview = @()
 $maxPreview = [Math]::Min(8, $doc.Paragraphs.Count)
 for ($i = 1; $i -le $maxPreview; $i++) {
@@ -164,7 +139,7 @@ for ($i = 1; $i -le $maxPreview; $i++) {
   }
 
   async readText(maxChars = 12000): Promise<unknown> {
-    return this.executeDocOp("读取 Word 文本", (_app, _progId, doc) => `
+    return this.executeDocOp("读取 Word 文本", (_app, _progId, _doc) => `
 $maxChars = ${Math.max(1, Math.floor(maxChars))}
 $text = [string]$doc.Content.Text; $charCount = $text.Length; $truncated = $false
 if ($text.Length -gt $maxChars) { $text = $text.Substring(0, $maxChars); $truncated = $true }
@@ -173,7 +148,7 @@ if ($text.Length -gt $maxChars) { $text = $text.Substring(0, $maxChars); $trunca
   }
 
   async insertText(text: string, position = "end"): Promise<unknown> {
-    return this.executeDocOp("插入 Word 文本", (_app, _progId, doc) => `
+    return this.executeDocOp("插入 Word 文本", (_app, _progId, _doc) => `
 ${psVar("_text", text)}
 ${psVar("_position", position)}
 switch ($_position) {
@@ -187,7 +162,7 @@ switch ($_position) {
 
   async insertHeading(text: string, level = 1, position = "end"): Promise<unknown> {
     const headingLevel = String(Math.min(9, Math.max(1, Math.floor(level))));
-    return this.executeDocOp("插入 Word 标题", (_app, _progId, doc) => `
+    return this.executeDocOp("插入 Word 标题", (_app, _progId, _doc) => `
 ${psVar("_text", text)}
 ${psVar("_position", position)}
 ${psVar("_headingLevel", headingLevel)}
@@ -206,7 +181,7 @@ $hr.Style = $doc.Styles.Item(-1 - $headingLevel)
   }
 
   async replaceText(findText: string, replaceText: string, matchCase = false): Promise<unknown> {
-    return this.executeDocOp("替换 Word 文本", (_app, _progId, doc) => `
+    return this.executeDocOp("替换 Word 文本", (_app, _progId, _doc) => `
 ${psVar("_findText", findText)}
 ${psVar("_replaceText", replaceText)}
 $matchCase = ${matchCase ? "$true" : "$false"}

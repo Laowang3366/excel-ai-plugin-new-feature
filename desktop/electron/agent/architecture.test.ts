@@ -8,10 +8,6 @@ function expectAgentPath(relativePath: string): void {
   expect(existsSync(path.join(agentRoot, relativePath)), relativePath).toBe(true);
 }
 
-function expectAgentPathMissing(relativePath: string): void {
-  expect(existsSync(path.join(agentRoot, relativePath)), relativePath).toBe(false);
-}
-
 describe("agent folder architecture", () => {
   it("classifies agent files into explicit architecture layers", () => {
     [
@@ -89,44 +85,21 @@ describe("agent folder architecture", () => {
       "tools/implementations/officeOpenXml/officeOpenXmlEngine.ts",
       "tools/implementations/officeOpenXml/officeOpenXmlFileBridge.ts",
       "providers/openaiCompatibleClient.ts",
+      "prompts/promptComposer.ts",
       "prompts/systemPrompt.ts",
-      "prompts/sections/modelPrompt.ts",
-      "prompts/sections/formulaAssistantPrompt.ts",
-      "prompts/sections/officeToolsPrompt.ts",
-      "prompts/sections/permissionPrompt.ts",
-      "prompts/sections/scriptPrompt.ts",
-      "prompts/sections/qualityPrompt.ts",
-      "prompts/sections/scenarioPrompt.ts",
       "prompts/sections/folderContextPrompt.ts",
+      "prompts/templates/system/base.zh-CN.md",
+      "prompts/templates/system/security.zh-CN.md",
+      "prompts/templates/scenarios/formula.zh-CN.md",
+      "prompts/templates/scenarios/office-tools.zh-CN.md",
+      "prompts/templates/scenarios/ocr-invoice.zh-CN.md",
+      "prompts/templates/scenarios/general-office.zh-CN.md",
+      "prompts/templates/runtime/environment.zh-CN.md",
+      "prompts/templates/runtime/folder.zh-CN.md",
       "attachments/imageAttachmentResolver.ts",
       "shared/types.ts",
       "shared/messageBuilder.ts",
     ].forEach(expectAgentPath);
-  });
-
-  it("does not keep legacy compatibility exports for split modules", () => {
-    [
-      "index.ts",
-      "automation/index.ts",
-      "interaction/index.ts",
-      "runtime/index.ts",
-      "prompts/sections/index.ts",
-      "tools/contracts/index.ts",
-      "tools/executors/index.ts",
-      "tools/registry/index.ts",
-      "tools/registry/interfaces.ts",
-      "tools/registry/executors.ts",
-      "tools/registry/definitions.ts",
-      "tools/registry/definitions/index.ts",
-      "tools/implementations/excel/index.ts",
-      "tools/implementations/office/index.ts",
-      "tools/registry/excelFunctions.ts",
-      "tools/implementations/excel/connectionOperations.ts",
-      "tools/implementations/excel/excelBridgeHelpers.ts",
-      "tools/sandbox/index.ts",
-      "core/agentLoop/compactionManager.ts",
-      "../main-modules/eventForwarder.ts",
-    ].forEach(expectAgentPathMissing);
   });
 
   it("documents architecture layer responsibilities with README files", () => {
@@ -164,7 +137,10 @@ describe("agent folder architecture", () => {
   });
 
   it("keeps core agent loop independent from the tools layer", () => {
-    const toolExecutor = readFileSync(path.join(agentRoot, "core/agentLoop/toolExecutor.ts"), "utf8");
+    const toolExecutor = readFileSync(
+      path.join(agentRoot, "core/agentLoop/toolExecutor.ts"),
+      "utf8",
+    );
 
     expect(toolExecutor).not.toContain("tools/sandbox");
   });
@@ -175,8 +151,20 @@ describe("agent folder architecture", () => {
     expect(agentLoop).not.toContain("await import(");
   });
 
+  it("keeps system prompt prose in external templates", () => {
+    const systemPrompt = readFileSync(path.join(agentRoot, "prompts/systemPrompt.ts"), "utf8");
+
+    expect(systemPrompt).not.toContain("Office 连接预检铁律");
+    expect(systemPrompt).not.toContain("场景化操作指南：公式助手");
+    expect(systemPrompt).toContain("templates/system/base.zh-CN.md?raw");
+    expect(systemPrompt).toContain("templates/scenarios/formula.zh-CN.md?raw");
+  });
+
   it("keeps IPC outside concrete Excel bridge implementations", () => {
-    const ipcHandlers = readFileSync(path.join(agentRoot, "../main-modules/ipcHandlers.ts"), "utf8");
+    const ipcHandlers = readFileSync(
+      path.join(agentRoot, "../main-modules/ipcHandlers.ts"),
+      "utf8",
+    );
 
     expect(ipcHandlers).not.toContain("tools/implementations/excel");
     expect(ipcHandlers).not.toContain("new ExcelComBridge");

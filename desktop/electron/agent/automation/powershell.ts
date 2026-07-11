@@ -46,13 +46,6 @@ export function wrapPowerShellScript(script: string): string {
 }
 
 /**
- * 转义 PowerShell 双引号字符串中的特殊字符。
- */
-export function psEscape(str: string): string {
-  return str.replace(/"/g, '""');
-}
-
-/**
  * 将字符串值以 PowerShell 变量赋值的方式注入脚本。
  */
 export function psVar(name: string, value: string): string {

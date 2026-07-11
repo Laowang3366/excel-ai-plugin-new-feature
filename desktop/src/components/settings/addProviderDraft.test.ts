@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ProviderTemplate } from "../../store/settingsProviderTemplates";
-import { buildProviderConfigFromDraft, createEmptyProviderDraft, providerDraftFromTemplate } from "./addProviderDraft";
+import {
+  buildProviderConfigFromDraft,
+  createEmptyProviderDraft,
+  providerDraftFromTemplate,
+} from "./addProviderDraft";
 
 const template: ProviderTemplate = {
   id: "openai",
@@ -12,7 +16,10 @@ const template: ProviderTemplate = {
   presetModels: ["gpt-5.4"],
   defaultContextWindowSize: 256000,
   category: "direct",
-  reasoningOptions: [{ value: "off", label: "Off" }, { value: "medium", label: "Medium" }],
+  reasoningOptions: [
+    { value: "off", label: "Off" },
+    { value: "medium", label: "Medium" },
+  ],
   defaultReasoningMode: "medium",
 };
 
@@ -64,7 +71,6 @@ describe("addProviderDraft", () => {
       model: "gpt-5.4",
       defaultBaseUrl: "https://api.openai.com/v1",
       defaultModel: "gpt-5.4",
-      enableReasoning: true,
       reasoningMode: "medium",
       apiFormat: "openai",
       models: ["gpt-5.4"],
@@ -95,7 +101,6 @@ describe("addProviderDraft", () => {
       model: "",
       defaultBaseUrl: "https://example.com/v1",
       defaultModel: "",
-      enableReasoning: undefined,
       reasoningMode: "off",
       apiFormat: "openai",
       models: undefined,

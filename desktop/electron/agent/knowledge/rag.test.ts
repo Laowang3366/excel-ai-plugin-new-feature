@@ -19,7 +19,7 @@ import JSZip from "jszip";
 // 类型和模块导入
 // ============================================================
 
-import type { KnowledgeEntry, KnowledgeSource, KnowledgeQuery, KnowledgeResult } from "./types";
+import type { KnowledgeEntry, KnowledgeSource, KnowledgeResult } from "./types";
 import { openSqliteDatabase } from "../storage/nodeSqlite";
 
 // ============================================================
@@ -68,7 +68,7 @@ describe("EmbeddingService", () => {
     // Mock fetch to count calls
     let fetchCount = 0;
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url: any, init?: any) => {
+    globalThis.fetch = async () => {
       fetchCount++;
       return new Response(JSON.stringify({
         data: [{ embedding: [0.1, 0.2, 0.3] }],
@@ -86,7 +86,7 @@ describe("EmbeddingService", () => {
 
       const r1 = await svc.embed("测试文本");
       const r2 = await svc.embed("测试文本"); // 应命中缓存
-      const r3 = await svc.embed("不同的文本"); // 应再次调用 API
+      await svc.embed("不同的文本"); // 应再次调用 API
 
       expect(r1).toEqual(r2); // 缓存命中，结果相同
       expect(fetchCount).toBe(2); // 只调用了 2 次 API
@@ -307,7 +307,7 @@ describe("SqliteStore", () => {
       }
 
       legacyStore = new SqliteStore(dbPath);
-      await expect(legacyStore.init()).resolves.toBeUndefined();
+      expect(legacyStore.init()).toBeUndefined();
       expect(legacyStore.countEntries()).toBe(1);
       expect(legacyStore.listSources()).toHaveLength(1);
       expect(legacyStore.getEntry("legacy-entry")?.embedding).toEqual([1, 0, 0]);
@@ -844,7 +844,7 @@ describe("KnowledgeIndexer", () => {
     embedder.embedBatch = async (texts: string[]) =>
       texts.map(() => [0.1, 0.2, 0.3]);
 
-    embedder.embed = async (text: string) => [0.1, 0.2, 0.3];
+    embedder.embed = async () => [0.1, 0.2, 0.3];
 
     indexer = new KnowledgeIndexer(store, embedder);
   });
@@ -982,7 +982,6 @@ describe("KnowledgeIndexer", () => {
 describe("Retriever", () => {
   let SqliteStore: typeof import("./sqliteStore").SqliteStore;
   let EmbeddingService: typeof import("./embeddingService").EmbeddingService;
-  let Retriever: typeof import("./retriever").Retriever;
   let store: any;
   let embedder: any;
   let retriever: any;
@@ -994,7 +993,6 @@ describe("Retriever", () => {
 
     SqliteStore = mod0.SqliteStore;
     EmbeddingService = mod1.EmbeddingService;
-    Retriever = mod2.Retriever;
 
     store = new SqliteStore(":memory:");
     await store.init();

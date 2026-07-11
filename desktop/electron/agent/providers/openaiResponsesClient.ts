@@ -38,7 +38,10 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      yield { type: "error", error: formatProviderHttpError("Responses API 请求失败", response.status, errorText) };
+      yield {
+        type: "error",
+        error: formatProviderHttpError("Responses API 请求失败", response.status, errorText),
+      };
       return;
     }
 
@@ -51,7 +54,9 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(formatProviderHttpError("Responses API 请求失败", response.status, errorText));
+      throw new Error(
+        formatProviderHttpError("Responses API 请求失败", response.status, errorText),
+      );
     }
 
     const data: any = await response.json();
@@ -84,11 +89,7 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
     }
 
     const effectiveMode: ReasoningMode | undefined =
-      params.reasoningMode ||
-      this.config.reasoningMode ||
-      (params.enableReasoning || this.config.enableReasoning
-        ? (params.reasoningEffort || "high")
-        : undefined);
+      params.reasoningMode || this.config.reasoningMode;
     if (effectiveMode) {
       const effort = toOpenAIResponsesReasoningEffort(effectiveMode);
       requestBody.reasoning = {
@@ -138,11 +139,12 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
     return input;
   }
 
-  private async postResponses(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
+  private async postResponses(
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<Response> {
     const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000);
-    const combinedSignal = signal
-      ? AbortSignal.any([signal, timeoutSignal])
-      : timeoutSignal;
+    const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
     return fetch(`${this.config.baseUrl.replace(/\/+$/, "")}/responses`, {
       method: "POST",
@@ -190,7 +192,7 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
 
   private *processResponsesSSEChunk(
     chunk: string,
-    state: ResponseParserState
+    state: ResponseParserState,
   ): Generator<AIStreamEvent> {
     const dataLine = chunk
       .split("\n")
@@ -206,10 +208,7 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
     }
   }
 
-  private *processResponsesEvent(
-    data: any,
-    state: ResponseParserState
-  ): Generator<AIStreamEvent> {
+  private *processResponsesEvent(data: any, state: ResponseParserState): Generator<AIStreamEvent> {
     switch (data.type) {
       case "response.output_text.delta":
         if (data.delta) {
@@ -287,7 +286,10 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
       }
 
       case "response.incomplete":
-        yield { type: "done", finishReason: data.response?.incomplete_details?.reason || "incomplete" };
+        yield {
+          type: "done",
+          finishReason: data.response?.incomplete_details?.reason || "incomplete",
+        };
         return;
 
       case "response.failed":
@@ -298,7 +300,10 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
         return;
 
       case "error":
-        yield { type: "error", error: data.error?.message || data.message || "Responses API 请求失败" };
+        yield {
+          type: "error",
+          error: data.error?.message || data.message || "Responses API 请求失败",
+        };
         return;
 
       default:

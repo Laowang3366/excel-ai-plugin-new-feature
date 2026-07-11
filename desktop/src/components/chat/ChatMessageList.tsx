@@ -14,10 +14,9 @@
  * - 分组结果使用稳定的依赖键缓存
  */
 
-import React, { useRef, useEffect, useMemo, useCallback, useState } from "react";
+import { useRef, useEffect, useMemo, useCallback, useState } from "react";
 import { useChatStore } from "../../store/chatStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import type { TurnItem } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import { groupAssistantItems } from "../../utils/chatHelpers";
 import { MessageBubble } from "../chat/MessageBubble";
@@ -28,7 +27,6 @@ import { AssistantGroupBlock, StreamingAssistantGroupBlock } from "../chat/Assis
 import { AlertTriangle, ArrowDown, XCircle } from "../common/IconMap";
 
 interface ChatMessageListProps {
-  onSend: () => void;
   onFillInput: (text: string) => void;
 }
 
@@ -100,7 +98,7 @@ function StreamingFallbackOutput() {
   );
 }
 
-export function ChatMessageList({ onSend, onFillInput }: ChatMessageListProps) {
+export function ChatMessageList({ onFillInput }: ChatMessageListProps) {
   // 使用原子化选择器，只订阅组件实际依赖的状态片段
   const messages = useChatStore((s) => s.messages);
   const isStreaming = useChatStore((s) => s.isStreaming);
@@ -189,7 +187,6 @@ export function ChatMessageList({ onSend, onFillInput }: ChatMessageListProps) {
     updateScrollState();
   }, [messages.length, turnStatus, updateScrollState]);
 
-  const isEmpty = messages.length === 0 && !isStreaming;
   const { visibleMessages, hiddenCount } = useMemo(
     () => getVisibleMessageItems(messages),
     [messages]
@@ -268,7 +265,6 @@ export function ChatMessageList({ onSend, onFillInput }: ChatMessageListProps) {
       {lastInterruptContext && turnStatus === "interrupted" && (
         <ResumeHint
           message={lastInterruptContext}
-          onResume={onSend}
           onFillInput={onFillInput}
         />
       )}

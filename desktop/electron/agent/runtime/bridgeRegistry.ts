@@ -102,14 +102,6 @@ export function getVbaBridge(): ExcelVbaComBridge | null {
   return vbaBridge;
 }
 
-export function getExcelScriptBridge(): ExcelScriptBridgeCom | null {
-  return scriptBridge;
-}
-
-export function getExcelUiBridge(): ExcelUiComBridge | null {
-  return uiBridge;
-}
-
 export function setExcelBridgeInstance(bridge: ExcelComBridge | null): void {
   excelBridge = bridge;
   vbaBridge = null;
@@ -126,12 +118,6 @@ export function resetOfficeBridgeRegistry(): void {
   presentationBridge = null;
   officeScriptBridge = null;
   officeFileBridge = null;
-}
-
-export async function disconnectExcelBridge(): Promise<void> {
-  if (excelBridge) {
-    await excelBridge.disconnect();
-  }
 }
 
 export async function disconnectOfficeBridges(): Promise<void> {

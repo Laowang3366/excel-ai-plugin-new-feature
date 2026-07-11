@@ -41,7 +41,6 @@ export interface OCRTaskDraft {
 }
 
 interface OCRTaskComposerPanelProps {
-  onSubmit: (payload: string) => void;
   onClose: () => void;
   embedded?: boolean;
   draft?: OCRTaskDraft;
@@ -49,7 +48,6 @@ interface OCRTaskComposerPanelProps {
 }
 
 export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
-  onSubmit,
   onClose,
   embedded = false,
   draft,

@@ -13,19 +13,12 @@ const bootstrapStore = new Store({
 });
 
 export function getInstallDataPath(): string {
-  const installRoot = app.isPackaged
-    ? path.dirname(process.execPath)
-    : process.cwd();
+  const installRoot = app.isPackaged ? path.dirname(process.execPath) : process.cwd();
   return path.join(installRoot, DATA_DIR_NAME);
 }
 
 export function getUserWritableDataPath(): string {
   return path.join(app.getPath("userData"), DATA_DIR_NAME);
-}
-
-function getLegacyRoamingDataPath(): string {
-  const appData = process.env.APPDATA || path.join(process.env.USERPROFILE || "C:\\", "AppData", "Roaming");
-  return path.join(appData, "excel-ai-assistant");
 }
 
 export function getConfiguredDataPath(): string {
@@ -38,7 +31,10 @@ export function setConfiguredDataPath(dataPath: string): void {
 }
 
 export function normalizePathForCompare(targetPath: string): string {
-  return path.resolve(targetPath).replace(/[\\/]+$/, "").toLowerCase();
+  return path
+    .resolve(targetPath)
+    .replace(/[\\/]+$/, "")
+    .toLowerCase();
 }
 
 export function isPathInside(parentPath: string, childPath: string): boolean {
@@ -73,70 +69,6 @@ export function getActiveDataPath(): string {
   const userWritableDataPath = getUserWritableDataPath();
   ensureWritableDataPathSync(userWritableDataPath);
   return userWritableDataPath;
-}
-
-export function migrateLegacyDefaultDataPathIfNeeded(): void {
-  if (getConfiguredDataPath()) return;
-
-  const legacyDataPath = getLegacyRoamingDataPath();
-  const installDataPath = getInstallDataPath();
-  const nextDataPath = ensureWritableDataPathSync(installDataPath)
-    ? installDataPath
-    : getUserWritableDataPath();
-  if (normalizePathForCompare(legacyDataPath) === normalizePathForCompare(nextDataPath)) return;
-  if (!fs.existsSync(legacyDataPath)) return;
-
-  try {
-    fs.mkdirSync(nextDataPath, { recursive: true });
-
-    const legacySettingsPath = path.join(legacyDataPath, `${SETTINGS_STORE_NAME}.json`);
-    const nextSettingsDir = path.join(nextDataPath, "settings");
-    const nextSettingsPath = path.join(nextSettingsDir, `${SETTINGS_STORE_NAME}.json`);
-    if (fs.existsSync(legacySettingsPath) && !fs.existsSync(nextSettingsPath)) {
-      fs.mkdirSync(nextSettingsDir, { recursive: true });
-      fs.copyFileSync(legacySettingsPath, nextSettingsPath);
-    }
-
-    const legacySessionsRoot = path.join(legacyDataPath, "sessions");
-    const nextSessionsRoot = path.join(nextDataPath, "sessions");
-    if (fs.existsSync(legacySessionsRoot) && !fs.existsSync(nextSessionsRoot)) {
-      copyDirectoryContentsSync(legacySessionsRoot, nextSessionsRoot);
-    }
-
-    const legacyKnowledgeRoot = path.join(legacyDataPath, "knowledge");
-    const nextKnowledgeRoot = path.join(nextDataPath, "knowledge");
-    if (fs.existsSync(legacyKnowledgeRoot) && !fs.existsSync(nextKnowledgeRoot)) {
-      copyDirectoryContentsSync(legacyKnowledgeRoot, nextKnowledgeRoot);
-    }
-
-    const legacyLogsRoot = path.join(legacyDataPath, "logs");
-    const nextLogsRoot = path.join(nextDataPath, "logs");
-    if (fs.existsSync(legacyLogsRoot) && !fs.existsSync(nextLogsRoot)) {
-      copyDirectoryContentsSync(legacyLogsRoot, nextLogsRoot);
-    }
-  } catch (error) {
-    dataPathLogger.warn(
-      "迁移默认数据目录失败",
-      error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) }
-    );
-  }
-}
-
-function copyDirectoryContentsSync(sourceDir: string, targetDir: string): void {
-  if (!fs.existsSync(sourceDir)) return;
-  fs.mkdirSync(targetDir, { recursive: true });
-  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(sourceDir, entry.name);
-    const targetPath = path.join(targetDir, entry.name);
-    if (entry.isDirectory()) {
-      copyDirectoryContentsSync(sourcePath, targetPath);
-      continue;
-    }
-    if (entry.isFile() && !fs.existsSync(targetPath)) {
-      fs.copyFileSync(sourcePath, targetPath);
-    }
-  }
 }
 
 export async function pathExists(targetPath: string): Promise<boolean> {

@@ -78,7 +78,7 @@ describe("knowledgeRuntime", () => {
     const runtime = await initializeKnowledgeRuntime(config, dataRoot);
     const sources = runtime.store?.listSources() ?? [];
     const builtin = sources.find((source) =>
-      source.sourceName === "wps-office-excel-formula-differences.md"
+      source.sourceName === "excel-wps-formula-problem-solving-methodology.md"
     );
 
     expect(builtin).toBeTruthy();
@@ -88,6 +88,11 @@ describe("knowledgeRuntime", () => {
     expect(entries.every((entry) => entry.embedding)).toBe(true);
     expect(entries.every((entry) => entry.embeddingProvider === "openai")).toBe(true);
     expect(entries.every((entry) => entry.embeddingModel === "text-embedding-3-small")).toBe(true);
+    expect(entries.some((entry) => entry.content.includes("通用变换链"))).toBe(true);
+    expect(entries.some((entry) => entry.content.includes("不能直接视为当前任务答案"))).toBe(true);
+    expect(entries.some((entry) => entry.content.includes("控制数组与广播"))).toBe(true);
+    expect(entries.some((entry) => entry.content.includes("组内密集排名"))).toBe(true);
+    expect(entries.some((entry) => entry.content.includes("大数组分块处理"))).toBe(true);
   });
 
   it("reuses unchanged builtin knowledge embeddings across startups", async () => {
