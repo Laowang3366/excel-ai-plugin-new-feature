@@ -23,7 +23,6 @@
 @import "./sidebar-thread.css";
 /* 聊天页面 + 文件夹徽章 + 文件弹窗 */
 @import "./chat.css";
-@import "./home-workspace.css";
 @import "./feature-sidebar-panel.css";
 /* 消息气泡 */
 @import "./message-bubble.css";

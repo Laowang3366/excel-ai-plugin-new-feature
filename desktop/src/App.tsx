@@ -29,7 +29,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
 import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { ChevronLeft, Maximize2, Menu, Pin, Sparkles } from "./components/common/IconMap";
+import { ChevronLeft, Maximize2, Menu, Pin } from "./components/common/IconMap";
 import { logWarn } from "./utils/rendererLogger";
 import { getAppText } from "./i18n";
 import { ipcApi } from "./services/ipcApi";
@@ -48,8 +48,14 @@ function requestLayoutReflow(): void {
 }
 
 export const App: React.FC = () => {
-  const { isConfigured, isLoading, loadSettings, language, theme, officeAutoCompactEnabled } =
-    useSettingsStore();
+  const {
+    isConfigured,
+    isLoading,
+    loadSettings,
+    language,
+    theme,
+    officeAutoCompactEnabled,
+  } = useSettingsStore();
   const [currentPage, setCurrentPage] = useState<AppPage>("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState(false);
@@ -59,8 +65,7 @@ export const App: React.FC = () => {
   const { excelStatus } = useExcelConnection();
   const { wordStatus, presentationStatus } = useOfficeConnection();
   const text = getAppText(language);
-  const hasConnectedOffice =
-    excelStatus.connected || wordStatus.connected || presentationStatus.connected;
+  const hasConnectedOffice = excelStatus.connected || wordStatus.connected || presentationStatus.connected;
   const chatSidebarCollapsed = displayMode === "compact" || sidebarCollapsed;
   const settingsNavCollapsed = displayMode === "compact" || settingsSidebarCollapsed;
 
@@ -74,8 +79,7 @@ export const App: React.FC = () => {
   }, [language, theme]);
 
   useEffect(() => {
-    ipcApi.window
-      .getAlwaysOnTop()
+    ipcApi.window.getAlwaysOnTop()
       .then(setAlwaysOnTop)
       .catch(() => {
         logWarn("App", "获取窗口置顶状态失败，使用默认值");
@@ -96,8 +100,7 @@ export const App: React.FC = () => {
     };
 
     const syncActualMode = () => {
-      ipcApi.window
-        .getDisplayMode()
+      ipcApi.window.getDisplayMode()
         .then((mode) => applyActualMode(mode))
         .catch(() => {
           logWarn("App", "获取窗口显示模式失败");
@@ -135,8 +138,7 @@ export const App: React.FC = () => {
     const handleBlur = () => {
       setDisplayMode((currentMode) => {
         if (currentMode !== "normal") return currentMode;
-        ipcApi.window
-          .setDisplayMode("compact")
+        ipcApi.window.setDisplayMode("compact")
           .then(setDisplayMode)
           .catch(() => {
             logWarn("App", "设置紧凑模式失败");
@@ -182,12 +184,9 @@ export const App: React.FC = () => {
   const renderTitlebar = (
     showSidebarToggle: boolean,
     collapsed = false,
-    onToggleSidebar?: () => void,
+    onToggleSidebar?: () => void
   ) => (
     <div className="app-titlebar">
-      <div className="titlebar-brand-mark" aria-hidden="true">
-        <Sparkles size={18} />
-      </div>
       {showSidebarToggle && (
         <button
           className="titlebar-sidebar-toggle"
@@ -240,9 +239,7 @@ export const App: React.FC = () => {
     return (
       <ErrorBoundary>
         <div className={`app-shell ${displayMode}-mode`}>
-          {renderTitlebar(true, settingsNavCollapsed, () =>
-            setSettingsSidebarCollapsed((collapsed) => !collapsed),
-          )}
+          {renderTitlebar(true, settingsNavCollapsed, () => setSettingsSidebarCollapsed((collapsed) => !collapsed))}
           <div className="app-view">
             <SettingsPage
               onBack={() => setCurrentPage("chat")}
@@ -259,9 +256,7 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className={`app-shell ${displayMode}-mode`}>
-        {renderTitlebar(true, chatSidebarCollapsed, () =>
-          setSidebarCollapsed((collapsed) => !collapsed),
-        )}
+        {renderTitlebar(true, chatSidebarCollapsed, () => setSidebarCollapsed((collapsed) => !collapsed))}
         <div className={`app ${chatSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <Sidebar
             collapsed={chatSidebarCollapsed}

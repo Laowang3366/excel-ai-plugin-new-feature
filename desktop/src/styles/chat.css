@@ -3,13 +3,12 @@
    ============================================================ */
 
 .chat-page {
-  --chat-header-height: 58px;
+  --chat-header-height: 39px;
   position: relative;
   height: 100%;
   display: flex;
   flex-direction: row;
-  gap: 8px;
-  background: var(--bg-page);
+  background: var(--bg-main-panel);
   overflow: hidden;
 }
 
@@ -20,10 +19,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-main-panel);
-  box-shadow: var(--shadow-sm);
 }
 
 .chat-header {
@@ -33,7 +28,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 0 22px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border-default);
   background: var(--bg-main-panel);
   flex-shrink: 0;
@@ -46,8 +41,8 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .chat-header h2 span {
@@ -98,7 +93,7 @@
   padding: 3px 10px;
   border-radius: 10px;
   border: none;
-  background: var(--bg-hover, rgba(0, 0, 0, 0.06));
+  background: var(--bg-hover, rgba(0,0,0,0.06));
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary, #666);
@@ -248,13 +243,8 @@
   font-size: 16px;
   transition: all 0.15s;
 }
-.icon-btn.active {
-  background: var(--primary-light);
-  border-color: var(--primary-border);
-}
-.icon-btn:hover {
-  background: var(--bg-tint);
-}
+.icon-btn.active { background: var(--primary-light); border-color: var(--primary-border); }
+.icon-btn:hover { background: var(--bg-tint); }
 
 /* ---- 消息列表 ---- */
 
@@ -283,9 +273,8 @@
 }
 
 .welcome-chat .chat-messages-shell {
-  flex: 0 0 0;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
 }
 
 .welcome-chat .chat-messages {
@@ -312,11 +301,7 @@
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
   cursor: pointer;
   z-index: 10;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .jump-to-latest-btn:hover {
@@ -333,15 +318,9 @@
 /* ---- 空状态 ---- */
 
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  text-align: center;
-  color: var(--text-muted);
-  gap: 6px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex: 1; text-align: center;
+  color: var(--text-muted); gap: 6px;
 }
-.empty-state p {
-  font-size: 14px;
-}
+.empty-state p { font-size: 14px; }

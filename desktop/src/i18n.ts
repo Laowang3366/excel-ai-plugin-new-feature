@@ -106,15 +106,7 @@ export const APP_TEXT = {
     },
     chat: {
       newChat: "新会话",
-      welcomeTitle: "欢迎使用 AI 智能助手",
-      welcomeSubtitle: "我可以帮你处理文档、生成代码、分析数据，快来试试吧！",
-      quickActionsLabel: "常用任务",
-      quickActions: {
-        analyze: { title: "分析数据", description: "帮助分析 Excel 数据并生成图表" },
-        code: { title: "生成代码", description: "根据需求生成代码片段" },
-        summary: { title: "总结文档", description: "快速提炼文档关键信息" },
-        chart: { title: "制作图表", description: "根据数据生成可视化图表" },
-      },
+      welcomeTitle: "输入你的 Office 问题",
       emptyStart: "输入你的问题开始对话",
       aiReplying: "AI 正在回复中...",
       welcomePlaceholder: "欢迎向我提问",
@@ -144,14 +136,6 @@ export const APP_TEXT = {
         open: "打开功能模块",
         close: "关闭功能模块",
         empty: "选择上方功能开始配置",
-        descriptions: {
-          formula: "智能生成和解释各类公式",
-          code: "根据需求生成代码片段",
-          ocr: "识别图片或文档中的文字",
-          clean: "清洗、整理和标准化数据",
-          report: "自动生成专业分析报告",
-          chart: "创建各类数据可视化图表",
-        },
       },
       expandTurnDetails: "展开本轮细节",
       collapseTurnDetails: "折叠本轮细节",
@@ -197,8 +181,7 @@ export const APP_TEXT = {
       toolResult: "执行结果",
       sandboxJustification: "安全策略说明",
       compactionAuto: "上下文已自动压缩",
-      compactionWithTokens: (before: number, after: number) =>
-        `上下文已压缩：${before} → ${after} tokens`,
+      compactionWithTokens: (before: number, after: number) => `上下文已压缩：${before} → ${after} tokens`,
       copy: "复制",
       copied: "已复制",
       copyCode: "复制代码",
@@ -211,8 +194,7 @@ export const APP_TEXT = {
     },
     time: {
       seconds: (value: number) => `${value}秒`,
-      minuteSecond: (minutes: number, seconds: number) =>
-        seconds > 0 ? `${minutes}分${seconds}秒` : `${minutes}分钟`,
+      minuteSecond: (minutes: number, seconds: number) => seconds > 0 ? `${minutes}分${seconds}秒` : `${minutes}分钟`,
       hourParts: (hours: number, minutes: number, seconds: number) => {
         const parts = [`${hours}小时`];
         if (minutes > 0) parts.push(`${minutes}分`);
@@ -273,8 +255,7 @@ export const APP_TEXT = {
       connectedWps: "WPS connected",
       connectedExcel: (version?: string) => `Excel connected${version ? ` (${version})` : ""}`,
       selectHostTitle: "Select Target Application",
-      selectHostDescription:
-        "Both Microsoft Excel and WPS Spreadsheet are running. Please select which to connect:",
+      selectHostDescription: "Both Microsoft Excel and WPS Spreadsheet are running. Please select which to connect:",
       selectHostExcel: "Microsoft Excel",
       selectHostWps: "WPS Spreadsheet",
       justNow: "Just now",
@@ -324,15 +305,7 @@ export const APP_TEXT = {
     },
     chat: {
       newChat: "New chat",
-      welcomeTitle: "Welcome to AI Assistant",
-      welcomeSubtitle: "Work with documents, generate code, and analyze data in one place.",
-      quickActionsLabel: "Common tasks",
-      quickActions: {
-        analyze: { title: "Analyze data", description: "Analyze Excel data and create charts" },
-        code: { title: "Generate code", description: "Create code snippets from requirements" },
-        summary: { title: "Summarize document", description: "Extract key information quickly" },
-        chart: { title: "Create chart", description: "Turn data into visual charts" },
-      },
+      welcomeTitle: "Ask an Office question",
       emptyStart: "Enter a question to start chatting",
       aiReplying: "AI is replying...",
       welcomePlaceholder: "Ask me anything",
@@ -362,14 +335,6 @@ export const APP_TEXT = {
         open: "Open features",
         close: "Close features",
         empty: "Choose a feature above to configure",
-        descriptions: {
-          formula: "Generate and explain formulas",
-          code: "Create code snippets from requirements",
-          ocr: "Recognize text in images or documents",
-          clean: "Clean, organize, and standardize data",
-          report: "Generate professional analysis reports",
-          chart: "Create data visualization charts",
-        },
       },
       expandTurnDetails: "Expand turn details",
       collapseTurnDetails: "Collapse turn details",
@@ -415,8 +380,7 @@ export const APP_TEXT = {
       toolResult: "Execution result",
       sandboxJustification: "Security policy note",
       compactionAuto: "Context was automatically compacted",
-      compactionWithTokens: (before: number, after: number) =>
-        `Context compacted: ${before} → ${after} tokens`,
+      compactionWithTokens: (before: number, after: number) => `Context compacted: ${before} → ${after} tokens`,
       copy: "Copy",
       copied: "Copied",
       copyCode: "Copy code",
@@ -424,14 +388,12 @@ export const APP_TEXT = {
       resumeFromBreakpoint: "Resume from breakpoint",
       resumeSummarize: "Summarize and continue",
       resumeContinuePrompt: "Please continue the previous work.",
-      resumeBreakpointPrompt:
-        "Please resume from the interruption point and keep the previous approach.",
+      resumeBreakpointPrompt: "Please resume from the interruption point and keep the previous approach.",
       resumeSummarizePrompt: "Please summarize the progress so far, then continue.",
     },
     time: {
       seconds: (value: number) => `${value}s`,
-      minuteSecond: (minutes: number, seconds: number) =>
-        seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`,
+      minuteSecond: (minutes: number, seconds: number) => seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`,
       hourParts: (hours: number, minutes: number, seconds: number) => {
         const parts = [`${hours}h`];
         if (minutes > 0) parts.push(`${minutes}m`);
