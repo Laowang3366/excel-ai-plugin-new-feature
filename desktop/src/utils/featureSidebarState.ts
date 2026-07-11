@@ -13,6 +13,16 @@ export const INITIAL_FEATURE_SIDEBAR_STATE: FeatureSidebarState = {
   activeIntent: null,
 };
 
+export type FeatureSidebarCloseReason = "manual" | "send";
+
+export function shouldRestoreFeatureSidebarFocus(reason: FeatureSidebarCloseReason): boolean {
+  return reason === "manual";
+}
+
+export function shouldFocusFeatureSidebarOnToggle(isOpen: boolean): boolean {
+  return !isOpen;
+}
+
 export function reduceFeatureSidebarState(
   state: FeatureSidebarState,
   action: FeatureSidebarAction,

@@ -108,21 +108,20 @@ export function useComposer(draftKey = "new") {
   // 发送消息
   const handleSend = useCallback(() => {
     const trimmedInput = inputText.trim();
-    if (!trimmedInput && attachedFiles.length === 0) return;
+    if (!trimmedInput && attachedFiles.length === 0) return Promise.resolve(null);
 
     const content = trimmedInput;
     const attachments = attachedFiles.length > 0 ? attachedFiles : undefined;
 
-    if (turnStatus === "interrupted" && lastInterruptContext) {
-      resumeFromInterruption(content, attachments);
-    } else {
-      sendMessage(content, attachments);
-    }
+    const sendPromise = turnStatus === "interrupted" && lastInterruptContext
+      ? resumeFromInterruption(content, attachments).then(() => activeThreadId)
+      : sendMessage(content, attachments);
     if (isStreaming && !activeThreadId) {
-      return;
+      return sendPromise;
     }
     setInputText("");
     setAttachedFiles([]);
+    return sendPromise;
   }, [inputText, attachedFiles, isStreaming, activeThreadId, turnStatus, lastInterruptContext, sendMessage, resumeFromInterruption]);
 
   // 文件选择

@@ -58,7 +58,7 @@ export async function sendMessageAction(
   if (state.isStreaming) {
     if (!state.activeThreadId) {
       set({ error: "会话正在创建中，请等待连接完成后再发送" });
-      return;
+      return null;
     }
     try {
       const result = await ipcApi.agent.enqueueTurn({
@@ -73,16 +73,17 @@ export async function sendMessageAction(
       } else {
         set({ error: null });
       }
+      return result.success ? state.activeThreadId : null;
     } catch (err: any) {
       set({ error: err.message });
+      return null;
     }
-    return;
   }
 
   const threadReady = await ensureAgentThread(state.activeThreadId);
   if (!threadReady) {
     set({ error: "当前仍有会话在执行中，请等待完成或中断后再发送" });
-    return;
+    return null;
   }
 
   set(buildTurnStartPatch(state, clientId, { compactionNotice: null }));
@@ -103,11 +104,16 @@ export async function sendMessageAction(
         isStreaming: false,
         activeClientId: null,
       });
+      return null;
     } else {
       if (result.threadId) {
-        set({ activeThreadId: result.threadId, activeClientId: null, pendingFolderId: null });
+        const latest = get();
+        if (latest.activeClientId === clientId) {
+          set({ activeThreadId: result.threadId, activeClientId: null, pendingFolderId: null });
+        }
       }
       get().loadThreads();
+      return result.threadId ?? state.activeThreadId;
     }
   } catch (err: any) {
     set({
@@ -116,6 +122,7 @@ export async function sendMessageAction(
       isStreaming: false,
       activeClientId: null,
     });
+    return null;
   }
 }
 

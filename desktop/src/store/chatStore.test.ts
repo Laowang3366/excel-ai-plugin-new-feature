@@ -98,6 +98,26 @@ describe("chatStore sendMessage", () => {
     expect(useChatStore.getState().error).toBe("会话正在创建中，请等待连接完成后再发送");
     expect(useChatStore.getState().isStreaming).toBe(true);
   });
+
+  it("returns the thread id created for a new conversation", async () => {
+    const startTurn = deferred<{ success: boolean; threadId: string }>();
+    ipcMocks.startTurn.mockReturnValue(startTurn.promise);
+    useChatStore.setState({
+      isStreaming: false,
+      turnStatus: "idle",
+      activeThreadId: null,
+      activeClientId: null,
+      error: null,
+    });
+
+    const send = useChatStore.getState().sendMessage("创建新会话");
+    await Promise.resolve();
+    useChatStore.setState({ activeThreadId: "thread-existing", activeClientId: null });
+    startTurn.resolve({ success: true, threadId: "thread-created" });
+
+    await expect(send).resolves.toBe("thread-created");
+    expect(useChatStore.getState().activeThreadId).toBe("thread-existing");
+  });
 });
 
 describe("chatStore switchThread", () => {

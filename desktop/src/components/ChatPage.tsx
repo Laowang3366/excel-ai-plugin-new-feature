@@ -36,6 +36,9 @@ import { ipcApi } from "../services/ipcApi";
 import {
   INITIAL_FEATURE_SIDEBAR_STATE,
   reduceFeatureSidebarState,
+  shouldFocusFeatureSidebarOnToggle,
+  shouldRestoreFeatureSidebarFocus,
+  type FeatureSidebarCloseReason,
 } from "../utils/featureSidebarState";
 import { Sparkles } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
@@ -68,10 +71,33 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
   const { isOpen: featureSidebarOpen, activeIntent } = featureSidebar;
   const featureSidebarToggleRef = useRef<HTMLButtonElement>(null);
 
-  const closeFeatureSidebar = useCallback(() => {
+  const closeFeatureSidebar = useCallback((reason: FeatureSidebarCloseReason) => {
     if (!featureSidebarOpen) return;
     dispatchFeatureSidebar({ type: "close" });
-    window.requestAnimationFrame(() => featureSidebarToggleRef.current?.focus());
+    if (shouldRestoreFeatureSidebarFocus(reason)) {
+      window.requestAnimationFrame(() => featureSidebarToggleRef.current?.focus());
+    }
+  }, [featureSidebarOpen]);
+
+  const closeFeatureSidebarManually = useCallback(() => {
+    closeFeatureSidebar("manual");
+  }, [closeFeatureSidebar]);
+
+  const closeFeatureSidebarAfterSend = useCallback(() => {
+    closeFeatureSidebar("send");
+  }, [closeFeatureSidebar]);
+
+  const toggleFeatureSidebar = useCallback(() => {
+    const focusFirstShortcut = shouldFocusFeatureSidebarOnToggle(featureSidebarOpen);
+    dispatchFeatureSidebar({ type: "toggle" });
+    if (focusFirstShortcut) {
+      window.requestAnimationFrame(() => {
+        featureSidebarToggleRef.current
+          ?.closest(".chat-page")
+          ?.querySelector<HTMLButtonElement>(".feature-sidebar-shortcut")
+          ?.focus();
+      });
+    }
   }, [featureSidebarOpen]);
 
   const selectFeature = useCallback((intent: NonNullable<IntentKind>) => {
@@ -105,7 +131,6 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
   const composerDraftKey = activeThreadId ?? (pendingFolderId ? `new:${pendingFolderId}` : "new");
   const composer = useComposer(composerDraftKey);
   const { setInputText, handleSend, hasInput, showFolderFileList, setShowFolderFileList } = composer;
-  const pendingTaskDraftMigrationRef = useRef<string | null>(null);
 
   // TaskDrafts hook
   const {
@@ -114,31 +139,30 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
     handleSimplePickRange, moveTaskDrafts,
   } = useTaskDrafts(composerDraftKey);
 
-  useEffect(() => {
-    const pendingDraftKey = pendingTaskDraftMigrationRef.current;
-    if (!activeThreadId || !pendingDraftKey) return;
-    moveTaskDrafts(pendingDraftKey, activeThreadId);
-    pendingTaskDraftMigrationRef.current = null;
-  }, [activeThreadId, moveTaskDrafts]);
-
   const composerHandleSend = useCallback(() => {
-    if (!activeThreadId && hasInput) {
-      pendingTaskDraftMigrationRef.current = composerDraftKey;
+    const sourceDraftKey = !activeThreadId && hasInput ? composerDraftKey : null;
+    const send = handleSend();
+    closeFeatureSidebarAfterSend();
+    if (sourceDraftKey) {
+      void send.then((threadId) => {
+        if (threadId) moveTaskDrafts(sourceDraftKey, threadId);
+      });
     }
-    handleSend();
-    closeFeatureSidebar();
-  }, [activeThreadId, hasInput, composerDraftKey, handleSend, closeFeatureSidebar]);
+  }, [activeThreadId, hasInput, composerDraftKey, handleSend, closeFeatureSidebarAfterSend, moveTaskDrafts]);
 
   // 从 TaskComposerPanel 提交
   const handleTaskSubmit = useCallback((payload: string) => {
-    if (!activeThreadId) {
-      pendingTaskDraftMigrationRef.current = composerDraftKey;
-    }
+    const sourceDraftKey = !activeThreadId ? composerDraftKey : null;
     setInputText(payload);
-    sendMessage(payload);
+    const send = sendMessage(payload);
     window.setTimeout(() => setInputText(""), 0);
-    closeFeatureSidebar();
-  }, [activeThreadId, composerDraftKey, sendMessage, setInputText, closeFeatureSidebar]);
+    closeFeatureSidebarAfterSend();
+    if (sourceDraftKey) {
+      void send.then((threadId) => {
+        if (threadId) moveTaskDrafts(sourceDraftKey, threadId);
+      });
+    }
+  }, [activeThreadId, composerDraftKey, sendMessage, setInputText, closeFeatureSidebarAfterSend, moveTaskDrafts]);
 
   const updateSimpleRange = useCallback((intent: SimpleTaskIntent, range: string) => {
     setTaskDrafts((prev) => ({
@@ -190,7 +214,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
               ref={featureSidebarToggleRef}
               className={`feature-sidebar-toggle ${featureSidebarOpen ? "active" : ""}`}
               type="button"
-              onClick={() => dispatchFeatureSidebar({ type: "toggle" })}
+              onClick={toggleFeatureSidebar}
               title={featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open}
               aria-label={featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open}
               aria-pressed={featureSidebarOpen}
@@ -229,7 +253,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
         activeIntent={activeIntent}
         language={language}
         onIntentClick={selectFeature}
-        onClose={closeFeatureSidebar}
+        onClose={closeFeatureSidebarManually}
       >
         {activeIntent === "formula" && (
           <FormulaTaskComposerPanel
@@ -238,7 +262,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
             draft={taskDrafts.formula}
             onDraftChange={updateFormulaDraft}
             onSubmit={handleTaskSubmit}
-            onClose={closeFeatureSidebar}
+            onClose={closeFeatureSidebarManually}
           />
         )}
         {activeIntent === "code" && (
@@ -248,7 +272,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
             draft={taskDrafts.code}
             onDraftChange={updateCodeDraft}
             onSubmit={handleTaskSubmit}
-            onClose={closeFeatureSidebar}
+            onClose={closeFeatureSidebarManually}
           />
         )}
         {activeIntent === "ocr" && (
@@ -258,7 +282,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
             draft={taskDrafts.ocr}
             onDraftChange={updateOCRDraft}
             onSubmit={handleTaskSubmit}
-            onClose={closeFeatureSidebar}
+            onClose={closeFeatureSidebarManually}
           />
         )}
         {activeIntent === "report" && (
@@ -268,7 +292,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
             draft={taskDrafts.report}
             onDraftChange={updateReportDraft}
             onSubmit={handleTaskSubmit}
-            onClose={closeFeatureSidebar}
+            onClose={closeFeatureSidebarManually}
           />
         )}
         {(activeIntent === "clean" || activeIntent === "chart") && (
