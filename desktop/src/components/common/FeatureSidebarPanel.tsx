@@ -2,7 +2,7 @@ import type React from "react";
 import type { AppLanguage } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
 import { INTENT_SHORTCUTS, type IntentKind } from "../../utils/sidebarHelpers";
-import { Sparkles, X } from "./IconMap";
+import { Package, Sparkles, X } from "./IconMap";
 
 const FEATURE_SIDEBAR_TITLE_ID = "feature-sidebar-title";
 
@@ -33,7 +33,7 @@ export function FeatureSidebarPanel({
   return (
     <aside
       {...inertAttributes}
-      className={`feature-sidebar-panel ${isOpen ? "open" : "collapsed"}`}
+      className={`feature-sidebar-panel ${isOpen ? "open" : "collapsed"}${activeIntent ? " has-active-intent" : ""}`}
       aria-hidden={!isOpen}
       aria-labelledby={FEATURE_SIDEBAR_TITLE_ID}
     >
@@ -67,8 +67,13 @@ export function FeatureSidebarPanel({
               aria-pressed={activeIntent === shortcut.key}
               onClick={() => onIntentClick(shortcut.key)}
             >
-              <shortcut.icon size={16} />
-              <span>{text.sidebar.intents[shortcut.key]}</span>
+              <span className="feature-sidebar-shortcut-icon" aria-hidden="true">
+                <shortcut.icon size={22} />
+              </span>
+              <span className="feature-sidebar-shortcut-copy">
+                <strong>{text.sidebar.intents[shortcut.key]}</strong>
+                <span>{text.chat.featureSidebar.descriptions[shortcut.key]}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -77,7 +82,10 @@ export function FeatureSidebarPanel({
           {activeIntent ? (
             children
           ) : (
-            <div className="feature-sidebar-empty">{text.chat.featureSidebar.empty}</div>
+            <div className="feature-sidebar-empty">
+              <Package size={48} aria-hidden="true" />
+              <span>{text.chat.featureSidebar.empty}</span>
+            </div>
           )}
         </div>
       </div>

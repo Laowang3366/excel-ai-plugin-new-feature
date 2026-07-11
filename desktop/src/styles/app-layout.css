@@ -8,8 +8,9 @@
   flex-direction: row;
   box-sizing: border-box;
   overflow: hidden;
-  border-radius: 10px 10px 0 0;
-  background: var(--sidebar-bg);
+  gap: 8px;
+  padding: 0 8px 8px;
+  background: var(--bg-page);
 }
 
 .app-shell {
@@ -33,9 +34,23 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px;
-  background: var(--sidebar-bg);
+  padding: 0 10px;
+  background: var(--bg-page);
   -webkit-app-region: drag;
+}
+
+.titlebar-brand-mark {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: #3478f6;
+  box-shadow: var(--shadow-sm);
+  -webkit-app-region: no-drag;
 }
 
 .app-titlebar::after {
@@ -179,9 +194,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--bg-main-panel);
-  border-top-left-radius: 14px;
-  box-shadow: -1px 0 0 var(--border-default);
+  background: var(--bg-page);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 .app-loading {

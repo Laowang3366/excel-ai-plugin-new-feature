@@ -35,7 +35,8 @@ describe("FeatureSidebarPanel", () => {
     );
     expect(activeButtons).toHaveLength(1);
     expect(activeButtons[0]).toContain('class="feature-sidebar-shortcut active"');
-    expect(activeButtons[0]).toContain("<span>OCR 识别</span>");
+    expect(activeButtons[0]).toContain("<strong>OCR 识别</strong>");
+    expect(activeButtons[0]).toContain("识别图片或文档中的文字");
     expect(html).toContain("OCR form");
   });
 
