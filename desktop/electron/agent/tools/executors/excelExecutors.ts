@@ -12,7 +12,6 @@ import type {
   ExcelUiBridge,
   RangeReadExpandMode,
 } from "../contracts/excel";
-import { searchExcelFunctions } from "../data/excelFunctionCatalog";
 import { validateArgs } from "./validation";
 import { toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 
@@ -123,12 +122,19 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
     execute: async (args: Record<string, unknown>) => {
       const err = validateArgs(args, { sheetName: "string", range: "string" });
       if (err) return { success: false, error: err };
-      const expand = normalizeRangeReadExpand(args.expand);
-      if (expand instanceof Error) return { success: false, error: expand.message };
-      const result = await workbookBridge.readRange(args.sheetName as string, args.range as string, expand);
+      const requestedExpand = normalizeRangeReadExpand(args.expand);
+      if (requestedExpand instanceof Error) return { success: false, error: requestedExpand.message };
+      const shouldAutoDetectSpill =
+        isOmittedExpand(args.expand) && isSingleCellRange(args.range as string);
+      const effectiveExpand = shouldAutoDetectSpill ? "spill" : requestedExpand;
+      const result = await workbookBridge.readRange(
+        args.sheetName as string,
+        args.range as string,
+        effectiveExpand,
+      );
       return {
         success: true,
-        data: expand === "none" ? result.values : result,
+        data: requestedExpand === "none" ? result.values : result,
       };
     },
   });
@@ -205,16 +211,6 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       if (err) return { success: false, error: err };
       await vbaBridge.writeModule(args.moduleName as string, args.code as string);
       return { success: true, data: "模块写入成功" };
-    },
-  });
-
-  target.set("formula.search", {
-    name: "formula.search",
-    execute: async (args: Record<string, unknown>) => {
-      const query = ((args.query as string) || "").toLowerCase();
-      const category = (args.category as string) || "";
-      const results = searchExcelFunctions(query, category);
-      return { success: true, data: { query: args.query as string, results } };
     },
   });
 
@@ -376,4 +372,12 @@ function normalizeRangeReadExpand(value: unknown): RangeReadExpandMode | Error {
     return value;
   }
   return new Error("参数 expand 必须是 none、spill、currentArray 或 currentRegion");
+}
+
+function isOmittedExpand(value: unknown): boolean {
+  return value === undefined || value === null || value === "";
+}
+
+function isSingleCellRange(range: string): boolean {
+  return /^\$?[A-Z]{1,3}\$?\d+$/i.test(range.trim());
 }

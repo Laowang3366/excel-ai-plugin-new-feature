@@ -82,7 +82,6 @@ describe("Office Word/PPT tool definitions", () => {
       "formula.context",
       "vba.runMacro",
       "vba.writeModule",
-      "formula.search",
       "sheet.operation",
       "script.detect",
       "script.execute",
@@ -157,6 +156,7 @@ describe("Office Word/PPT tool definitions", () => {
 
     expect(parameters?.properties.expand.enum).toEqual(["none", "spill", "currentArray", "currentRegion"]);
     expect(readTool?.description).toContain('expand:"spill"');
+    expect(readTool?.description).toContain("省略 expand 时会自动探测");
   });
 
   it("keeps knowledge search focused on project and business context", () => {

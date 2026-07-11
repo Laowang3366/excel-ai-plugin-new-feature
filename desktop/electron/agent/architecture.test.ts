@@ -67,7 +67,6 @@ describe("agent folder architecture", () => {
       "tools/registry/web.ts",
       "tools/registry/ocr.ts",
       "tools/registry/office.ts",
-      "tools/data/excelFunctionCatalog.ts",
       "tools/implementations/excel/excelComBridge.ts",
       "tools/implementations/excel/excelVbaComBridge.ts",
       "tools/implementations/excel/excelScriptBridgeCom.ts",

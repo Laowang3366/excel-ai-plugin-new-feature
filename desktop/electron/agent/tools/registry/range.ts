@@ -9,7 +9,7 @@ import type { ToolDefinition } from "../../shared/types";
 /** 读取范围数据 */
 const RANGE_READ_DEF: ToolDefinition = {
   name: "range.read",
-  description: "【只读】读取单元格数据，默认返回二维数组。用途：查看数据、确认写入结果、分析内容。动态数组公式写入后验证溢出区时可传 expand:\"spill\"；读取连续结果区可传 expand:\"currentRegion\"。注意：此工具不能写入或修改任何数据，写入请用 range.write",
+  description: "【只读】读取单元格数据，默认返回二维数组。单单元格读取且省略 expand 时会自动探测并返回完整动态数组溢出区，也可显式传 expand:\"spill\"；明确传 expand:\"none\" 可强制只读指定单元格。读取连续结果区可传 expand:\"currentRegion\"。注意：此工具不能写入或修改任何数据，写入请用 range.write",
   parameters: {
     type: "object",
     properties: {
@@ -18,7 +18,7 @@ const RANGE_READ_DEF: ToolDefinition = {
       expand: {
         type: "string",
         enum: ["none", "spill", "currentArray", "currentRegion"],
-        description: "可选扩展读取模式。none=只读指定范围；spill=从锚点读取动态数组溢出区；currentArray=读取传统数组区域；currentRegion=读取当前连续区域",
+        description: "可选扩展读取模式。省略时单单元格自动探测 spill；none=只读指定范围；spill=从锚点读取动态数组溢出区；currentArray=读取传统数组区域；currentRegion=读取当前连续区域",
       },
     },
     required: ["sheetName", "range"],
