@@ -29,7 +29,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
 import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { ChevronLeft, Maximize2, Menu, Pin } from "./components/common/IconMap";
+import { ChevronLeft, Maximize2, PanelLeft, Pin } from "./components/common/IconMap";
 import { logWarn } from "./utils/rendererLogger";
 import { getAppText } from "./i18n";
 import { ipcApi } from "./services/ipcApi";
@@ -189,11 +189,12 @@ export const App: React.FC = () => {
     <div className="app-titlebar">
       {showSidebarToggle && (
         <button
-          className="titlebar-sidebar-toggle"
+          className={`titlebar-sidebar-toggle${collapsed ? "" : " active"}`}
           onClick={onToggleSidebar}
           title={collapsed ? text.app.expandSidebar : text.app.collapseSidebar}
+          aria-pressed={!collapsed}
         >
-          <Menu size={16} />
+          <PanelLeft size={17} />
         </button>
       )}
       <button

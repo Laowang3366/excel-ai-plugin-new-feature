@@ -70,6 +70,11 @@
   color: var(--text-primary);
 }
 
+.titlebar-sidebar-toggle.active {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
 .titlebar-window-mode-toggle {
   width: 26px;
   height: 26px;

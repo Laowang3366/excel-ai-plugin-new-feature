@@ -78,6 +78,8 @@ import {
   Activity,
   FileSpreadsheet,
   ListPlus,
+  PanelLeft,
+  PanelRight,
 } from "lucide-react";
 
 // Re-export all icons for direct import
@@ -154,4 +156,6 @@ export {
   Activity,
   FileSpreadsheet,
   ListPlus,
+  PanelLeft,
+  PanelRight,
 };

@@ -2,7 +2,7 @@ import type React from "react";
 import type { AppLanguage } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
 import { INTENT_SHORTCUTS, type IntentKind } from "../../utils/sidebarHelpers";
-import { Sparkles, X } from "./IconMap";
+import { PanelRight, Sparkles } from "./IconMap";
 
 const FEATURE_SIDEBAR_TITLE_ID = "feature-sidebar-title";
 
@@ -50,7 +50,7 @@ export function FeatureSidebarPanel({
             title={text.chat.featureSidebar.close}
             aria-label={text.chat.featureSidebar.close}
           >
-            <X size={18} />
+            <PanelRight size={18} />
           </button>
         </div>
 

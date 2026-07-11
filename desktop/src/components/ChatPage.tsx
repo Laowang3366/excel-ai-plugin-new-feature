@@ -40,7 +40,7 @@ import {
   shouldRestoreFeatureSidebarFocus,
   type FeatureSidebarCloseReason,
 } from "../utils/featureSidebarState";
-import { Sparkles } from "./common/IconMap";
+import { PanelRight } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
 
 interface ChatPageProps {
@@ -219,7 +219,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
               aria-label={featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open}
               aria-pressed={featureSidebarOpen}
             >
-              <Sparkles size={15} />
+              <PanelRight size={17} />
             </button>
           </div>
         </div>
