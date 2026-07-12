@@ -56,3 +56,5 @@ desktop/nul
 desktop/src/nul
 codex-reference/
 desktop/.vite/
+desktop/.secrets/
+.playwright-cli/

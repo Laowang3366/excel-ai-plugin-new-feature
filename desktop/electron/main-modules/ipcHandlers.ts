@@ -49,6 +49,8 @@ import {
   AppOpenExternalInput,
   AppOpenPathInput,
   LaunchOfficeApplicationInput,
+  UpdateCheckInput,
+  UpdateKindInput,
   ExcelReadRangeInput,
   ExcelSelectHostInput,
   ExcelWriteRangeInput,
@@ -70,6 +72,12 @@ import {
   setWindowDisplayMode,
   type WindowDisplayMode,
 } from "./windowManager";
+import {
+  applyDownloadedUpdate,
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateState,
+} from "./updateManager";
 
 const logger = createLogger("IPC");
 const rendererLogger = createLogger("renderer");
@@ -179,6 +187,15 @@ export function registerIpcHandlers(): void {
       };
     }
   });
+
+  ipcMain.handle("update:getState", () => getUpdateState());
+  ipcMain.handle("update:check", (_event, manual: unknown) => {
+    return checkForUpdates(validateInput(UpdateCheckInput, manual) ?? true);
+  });
+  ipcMain.handle("update:download", (_event, kind: unknown) => {
+    return downloadUpdate(validateInput(UpdateKindInput, kind));
+  });
+  ipcMain.handle("update:apply", () => applyDownloadedUpdate());
 
   // 转发渲染进程日志到主进程持久化
   ipcMain.handle("app:log", (_event, level: unknown, tag: unknown, message: unknown) => {

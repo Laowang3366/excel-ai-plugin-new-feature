@@ -11,6 +11,7 @@ import { BrowserWindow, Tray, Menu, app, screen } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { getSettingsStore, applyWindowOpacity, applyWindowTheme } from "./settingsManager";
+import { disableActiveHotPatch, resolveHotPatchPath } from "./hotPatchManager";
 
 let tray: Tray | null = null;
 let isQuitting = false;
@@ -87,9 +88,15 @@ export function createWindow(
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    mw.loadURL(process.env.VITE_DEV_SERVER_URL);
+    void mw.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    mw.loadFile(path.join(__dirname, "../dist/index.html"));
+    const bundledIndex = path.join(__dirname, "../dist/index.html");
+    const patchedIndex = resolveHotPatchPath("dist/index.html");
+    void mw.loadFile(patchedIndex ?? bundledIndex).catch(async () => {
+      if (!patchedIndex) return;
+      await disableActiveHotPatch(app.getPath("userData"));
+      await mw.loadFile(bundledIndex);
+    });
   }
 
   mw.on("page-title-updated", (event) => {

@@ -1,0 +1,22 @@
+[Unit]
+Description=Wenge AI product and download service
+After=network.target
+
+[Service]
+Type=simple
+User=wenge-product
+Group=wenge-product
+WorkingDirectory=/opt/wenge-product/app
+EnvironmentFile=/etc/wenge-product.env
+ExecStart=/usr/bin/node src/server.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wenge-product/data /opt/wenge-product/releases
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

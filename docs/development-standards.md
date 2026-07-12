@@ -230,7 +230,7 @@ await Promise.all(
 
 - **框架**：vitest（v4.1.8）+ @vitest/coverage-v8
 - **配置**：`desktop/vitest.config.ts`
-- **当前基线**：74 个测试文件，420 个测试；提交前必须保持 `npm run typecheck` 和 `npm test` 通过。
+- **当前基线**：165 个测试文件，862 个测试；提交前必须保持 `npm run typecheck`、`npm run lint` 和 `npm test` 通过。产品站测试在 `product-site/` 独立执行。
 - **运行命令**：
 
 ```bash

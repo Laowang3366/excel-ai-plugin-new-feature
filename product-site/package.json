@@ -1,0 +1,21 @@
+{
+  "name": "wenge-product-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.mjs",
+    "start": "node src/server.mjs",
+    "test": "node --test",
+    "hash-password": "node scripts/hash-password.mjs",
+    "publish-release": "node scripts/publish-release.mjs"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.1",
+    "@fastify/helmet": "13.1.0",
+    "@fastify/rate-limit": "11.1.0",
+    "@fastify/static": "10.1.0",
+    "better-sqlite3": "12.11.1",
+    "fastify": "5.10.0"
+  }
+}

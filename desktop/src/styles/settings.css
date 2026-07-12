@@ -332,3 +332,89 @@ select.form-input option {
 .settings-action-btn .spin {
   animation: spin 1s linear infinite;
 }
+.update-version-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+}
+
+.update-version-row > div {
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.update-version-row span {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.update-version-row strong {
+  color: var(--text-primary);
+  font-size: 20px;
+}
+
+.update-status {
+  min-height: 40px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.update-status-up-to-date {
+  color: var(--success);
+}
+
+.update-status-error {
+  color: var(--danger);
+}
+
+.update-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border-default);
+}
+
+.update-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+
+.update-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.update-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.update-release-notes h3 {
+  margin: 0 0 12px;
+}
+
+.update-release-notes ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.update-release-notes p {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 13px;
+}

@@ -76,6 +76,42 @@ export const ipcApi: IIpcApi = {
     },
   },
 
+  update: {
+    getState: async () => {
+      const raw = getRaw();
+      if (!raw?.update) {
+        return {
+          phase: "idle",
+          currentVersion: "dev",
+          installerAvailable: false,
+          hotPatchAvailable: false,
+          releaseNotes: [],
+        };
+      }
+      return raw.update.getState();
+    },
+    check: async (manual = true) => {
+      const raw = getRaw();
+      if (!raw?.update) return ipcApi.update.getState();
+      return raw.update.check(manual);
+    },
+    download: async (kind) => {
+      const raw = getRaw();
+      if (!raw?.update) return { ...(await ipcApi.update.getState()), phase: "error", error: "IPC not available" };
+      return raw.update.download(kind);
+    },
+    apply: async () => {
+      const raw = getRaw();
+      if (!raw?.update) return { ...(await ipcApi.update.getState()), phase: "error", error: "IPC not available" };
+      return raw.update.apply();
+    },
+    onStateChanged: (callback) => {
+      const raw = getRaw();
+      if (!raw?.update) return () => {};
+      return raw.update.onStateChanged(callback);
+    },
+  },
+
   window: {
     getAlwaysOnTop: async () => {
       const raw = getRaw();

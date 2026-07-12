@@ -1,167 +1,97 @@
-# Office AI 桌面助手
+# 文格 AI 助手
 
-面向 Excel / Word / PowerPoint 与 WPS Office 的本地桌面 AI 助手。应用运行在 Electron 桌面端，通过模型工具调用自主读取、编辑、验证办公文件，并优先使用 Open XML 文件级引擎，必要时再使用 COM 作为兜底。
+面向 Excel、Word、PowerPoint 与 WPS Office 的 Windows 桌面 AI 助手。应用通过模型工具调用读取、编辑和验证办公内容；文件级处理优先使用 Open XML，当前窗口交互使用 Office/WPS 桥接。
 
-## 功能概览
+## 主要功能
 
-- **Office 三件套自主编辑**：支持 Excel/WPS 表格、Word/WPS 文字、PowerPoint/WPS 演示的读取、编辑、保存和验证。
-- **统一 Office 操作入口**：模型优先调用 `office.action.inspect` / `office.action.apply` / `office.action.validate`，避免为 Word/PPT 临场拼 PowerShell 或 Python 脚本。
-- **Open XML 优先**：`.xlsx` / `.docx` / `.pptx` 文件级编辑不依赖 Office 进程；PPT 删除页、创建演示文稿、文本替换、表格样式、主题色、Excel 图表/条件格式/数据验证等走统一能力。
-- **COM 兜底**：动态图表、目录刷新、快照导出、当前窗口交互等需要 Office 应用对象模型的场景走 COM 桥接。
-- **多模型供应商**：支持 OpenAI 兼容协议、Anthropic、DeepSeek、Kimi、智谱、小米、阿里云百炼、腾讯云、火山方舟、讯飞星辰、百度千帆、京东云等配置。
-- **本地运行态存储**：使用 Node/Electron 内置 `node:sqlite` 管理四库 StateRuntime（`state.db` / `logs.db` / `goals.db` / `memories.db`），JSONL 保留为兼容审计副本。
-- **长期记忆**：重点记忆用户偏好、规则约束、纠正反馈、过往文件印象和工具成功率画像。
-- **权限与沙箱**：`shell.execute` 走命令策略、工作目录约束、环境变量清洗和审计日志；高风险操作仍需要用户确认。
-- **会话体验**：支持文件夹组织、会话搜索、运行中会话状态感知、输入队列、长消息窗口化渲染和侧边功能面板。
+- Excel/WPS 表格：选区读取与写入、公式生成与动态数组验证、工作表和工作簿操作。
+- Word/WPS 文字：文档读取、文本与表格编辑、目录和页眉页脚等操作。
+- PowerPoint/WPS 演示：页面、文本、图片、图表和版式操作。
+- 文件级 Office 处理：通过 `office.action.inspect/apply/validate` 统一处理 `.xlsx`、`.docx`、`.pptx`。
+- Python 扩展：保留兼容性较强的 `python.execute`，用于复杂文件处理和批量任务。
+- 本地知识与长期记忆：内置 Excel 解题方法论、知识检索、偏好和纠错记忆。
+- 多模型接入：支持 OpenAI 兼容协议、Anthropic 及常见国内模型平台。
+- 远程更新：支持应用内检查、下载并覆盖安装完整版本，以及受签名和路径约束的热补丁。
+
+项目已移除卡密授权、桌面激活、悬浮球、文件监控和独立授权后台，当前为开放使用版本。
 
 ## 快速开始
 
-前置条件：
+环境要求：Windows、Node.js 20+。当前窗口自动化需要安装对应的 Microsoft Office 或 WPS Office；仅处理 Open XML 文件时不要求 Office 进程运行。
 
-- Windows
-- Node.js 20+
-- 已安装 Microsoft Office 或 WPS Office（仅 Open XML 文件级编辑不强依赖运行中的 Office 进程）
-
-```bash
+```powershell
 cd desktop
 npm install
+npm run dev
 ```
 
+常用命令：
+
 | 命令 | 说明 |
-|------|------|
-| `npm run dev` | 启动 Vite 开发环境 |
-| `npm run typecheck` | 渲染进程 + Electron 主进程类型检查 |
-| `npm test` | 运行单元测试 |
+| --- | --- |
+| `npm run typecheck` | 检查渲染进程和 Electron 主进程类型 |
+| `npm run lint` | 执行 ESLint |
+| `npm test` | 执行桌面端单元测试 |
 | `npm run build` | 构建渲染进程 |
-| `npm run electron:build` | 构建 Windows 安装包 |
+| `npm run electron:build` | 生成 Windows NSIS 安装包 |
+| `npm run patch:build -- --id <id> --base-version <version>` | 创建受限热补丁 |
 
 ## 项目结构
 
 ```text
 .
-├─ README.md                         # 项目总览与架构说明
-├─ CHANGELOG.md                      # 版本变更记录
-├─ docs/                             # 开发规范、设计方案、审查记录和阶段日志
-│  ├─ development-standards.md       # 当前开发规范
-│  ├─ dev-log.md                     # 主要开发过程日志
-│  └─ superpowers/                   # 阶段计划与方案归档
-└─ desktop/                          # Electron 桌面应用
-   ├─ package.json                   # 桌面端脚本、依赖和 electron-builder 配置
-   ├─ electron/                      # Electron 主进程
-   │  ├─ main.ts                     # 主进程入口
-   │  ├─ preload.ts                  # preload API 桥
-   │  ├─ main-modules/               # 设置、窗口、IPC、事件转发等主进程模块
-   │  └─ agent/                      # Agent 运行时
-   │     ├─ interaction/             # 交互层：IPC、事件转发、审批回调
-   │     ├─ runtime/                 # 装配层：模型、工具、记忆、知识库、压缩运行时
-   │     ├─ core/agentLoop/          # 核心层：会话轮次、流式收集、工具循环、压缩、中断
-   │     ├─ tools/                   # 工具层：注册表、契约、执行器、Office/Excel 实现
-   │     │  ├─ registry/             # 模型可见工具定义
-   │     │  ├─ contracts/            # 实现无关契约
-   │     │  ├─ executors/            # 工具路由与结果封装
-   │     │  └─ implementations/      # Excel COM、Office COM、Open XML 引擎
-   │     ├─ memory/                  # 记忆层：SQLite StateRuntime、JSONL 审计、压缩、长期记忆
-   │     ├─ knowledge/               # 知识层：本地文件解析、索引、检索
-   │     ├─ prompts/                 # 提示词层：系统提示词、Office 工具选择、记忆模板
-   │     ├─ providers/               # 模型供应商层
-   │     ├─ security/sandbox/        # 命令沙箱与审计
-   │     ├─ automation/              # PowerShell、Python、JScript、JSON 基础能力
-   │     ├─ attachments/             # 图片等附件解析
-   │     └─ shared/                  # Agent 内共享类型与消息构建
-   ├─ src/                           # React 渲染进程
-   │  ├─ components/                 # 页面、侧边栏、聊天、设置、任务面板组件
-   │  ├─ store/                      # Zustand 状态管理
-   │  ├─ services/ipcApi.ts          # IPC 抽象层
-   │  ├─ hooks/                      # 输入框、连接状态、草稿等 hooks
-   │  └─ styles/                     # 按功能域拆分的样式
-   └─ python/                        # 嵌入式 Python 运行时说明与安装脚本
+|- desktop/                         Electron + React 桌面应用
+|  |- electron/main-modules/        窗口、IPC、更新和热补丁管理
+|  |- electron/agent/               Agent、工具、知识、记忆与安全策略
+|  |- src/                          React 界面与状态管理
+|  |- public/                       内置知识、WPS 桥接和更新公钥
+|  `- scripts/                      构建与热补丁脚本
+|- product-site/                    产品页、下载统计后台和发布服务
+|- release-notes/                   面向用户的版本更新日志
+|- docs/                            当前文档与历史设计归档
+|- CHANGELOG.md                     用户可感知版本变化
+`- overview.md                      简明架构总览
 ```
 
-## Agent 分层职责
+## 工具边界
 
-```text
-interaction -> runtime -> core
-core -> providers / prompts / memory / knowledge / tools / security / shared
-tools/executors -> tools/contracts + tools/registry + 注入的实现
-tools/implementations -> automation + tools/contracts
-memory -> shared
-knowledge -> 本层存储与 embedding
-providers -> shared
-prompts -> shared
-```
+- 当前 Excel/WPS 窗口：`range.*`、`formula.*`、`sheet.*`、`workbook.*`。
+- Office 磁盘文件：`office.action.inspect/apply/validate`，优先 Open XML，必要时使用 COM。
+- Word/PPT 当前窗口：`word.*`、`presentation.*`。
+- 通用复杂处理：`python.execute`。
+- 系统命令：`shell.execute`，受安全策略、目录约束、审批和审计限制。
+- 外部 `script.execute`、任意 PowerShell Office 脚本和 JScript 写入入口已移除。
 
-- `core` 只做 Agent 编排，不直接依赖 Excel/Word/PPT 具体实现。
-- `tools/registry` 只放模型可见 schema 和风险等级。
-- `tools/contracts` 只放实现无关接口。
-- `tools/executors` 负责参数校验、工具路由和结果封装。
-- `tools/implementations` 才承载 COM、Open XML、PowerShell 等实现细节。
-- `memory` 和 `knowledge` 不反向依赖核心循环。
+## 更新与发布
 
-## Office 操作路线
+桌面端从 `https://plugin.shelelove.top` 获取 Ed25519 签名更新清单。完整版本由 `electron-updater` 下载 NSIS 安装包并覆盖安装；热补丁只允许更新界面资源、内置知识和 WPS JSA 桥接资源，主进程、preload、原生依赖与 Python 运行时必须发布完整安装包。
 
-### 统一入口
+产品页服务位于 `product-site/`，提供产品介绍、安装包下载、更新 API 和带登录保护的下载统计后台。生产服务只监听 `127.0.0.1:18120`，由独立 Nginx 站点代理。
 
-| 意图 | 推荐工具 |
-|------|----------|
-| 检查文件结构、表格、布局 | `office.action.inspect` |
-| 修改 Excel/Word/PPT 文件 | `office.action.apply` |
-| 验证输出文件和对象变化 | `office.action.validate` |
-| 当前窗口交互 | `word.*` / `presentation.*` / Excel 专用工具 |
-| 专用工具覆盖不到的复杂文件操作 | `office.action.apply` / `python.execute` |
+发布与回滚步骤见：
 
-### Open XML 优先能力
+- [更新与发布](docs/update-and-release.md)
+- [产品站部署](docs/product-site-deployment.md)
+- [文档索引](docs/README.md)
 
-- Excel：插入图表、条件格式、数据验证、表格样式、文本替换。
-- Word：标题样式、表格样式、页眉/页脚、文本替换。
-- PPT：创建基础演示、主题色、删除指定页、文本替换。
+## 验证基线
 
-### COM 兜底能力
+桌面端当前基线为 165 个测试文件、862 项测试；产品站另有接口与下载统计测试。发布前必须通过：
 
-- Excel：图表、条件格式、数据验证、表格样式。
-- Word：目录插入/刷新、图片插入、快照导出、窗口内编辑。
-- PPT：快照导出、图表、图片占位、形状对齐、版式规范化、删除页兜底。
-
-## 存储与记忆
-
-当前运行态以 SQLite 为主：
-
-| 数据库 | 职责 |
-|--------|------|
-| `state.db` | 会话元数据、线程状态、活跃/卸载状态 |
-| `logs.db` | rollout 事件、工具执行日志、全文检索索引 |
-| `goals.db` | 目标、预算和完成状态 |
-| `memories.db` | 长期记忆、命名空间、记忆管道游标 |
-
-JSONL rollout 仍作为兼容审计副本保留，并支持后台归档压缩。长期记忆默认面向办公场景，只把用户偏好、规则、纠错、文件印象和工具成功率画像作为核心记忆。
-
-## 测试与验证
-
-```bash
+```powershell
 cd desktop
 npm run typecheck
+npm run lint
 npm test
+npm run build
 ```
 
-当前基线：
+安装包输出为 `desktop/release/Wengge-AI-Assistant-Setup-<version>.exe`，安装包、blockmap 和 `latest.yml` 作为 GitHub Release 资产发布，不提交为 Git 大文件。
 
-- `npm run typecheck`：渲染进程与 Electron 主进程均通过。
-- `npm test`：74 个测试文件，420 个测试。
-- `npm run electron:build`：生成 `release/Office AI 助手 Setup <version>.exe`。
+## 文档维护
 
-## 开发规范
-
-详见 [docs/development-standards.md](docs/development-standards.md)。
-
-核心约束：
-
-- 禁止过度设计、过度兜底、过度约束边界导致功能异常。
-- 遵循模块单一职责，但不要为了拆分而拆碎。
-- 文件按架构层和职责分类存放。
-- 注释说明当前模块职责和关联模块。
-- 每个阶段完成后必须 review，确认未破坏原业务、未引出新问题，再进入下一阶段。
-- 非必须、非必要的测试/烟测临时文件，验证后必须清理。
-- 每个任务 review 通过后提交 git。
+当前规范以 [开发规范](docs/development-standards.md) 和 [架构图](docs/architecture-map.md) 为准。`docs/superpowers/`、审查报告与阶段方案是历史记录，不代表当前仍存在对应模块或工具。
 
 ## License
 
-Private - 仅供内部使用
+Private - 仅供项目所有者使用。

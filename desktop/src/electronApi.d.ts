@@ -246,6 +246,30 @@ export type ThreadSpawnEdgeStatus = "open" | "closed";
 export type ThreadSpawnStatusFilter = ThreadSpawnEdgeStatus | "all";
 export type WindowDisplayMode = "normal" | "compact";
 export type OfficeApplication = "wps" | "excel" | "word" | "powerpoint";
+export type UpdateKind = "installer" | "hotPatch";
+export type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "up-to-date"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "applying"
+  | "error";
+
+export interface DesktopUpdateState {
+  phase: UpdatePhase;
+  currentVersion: string;
+  availableVersion?: string;
+  installerAvailable: boolean;
+  hotPatchAvailable: boolean;
+  activeHotPatchId?: string;
+  downloadedKind?: UpdateKind;
+  progress?: number;
+  releaseNotes: string[];
+  publishedAt?: string;
+  error?: string;
+}
 
 export interface ThreadSpawnEdge {
   parentThreadId: string;
@@ -338,6 +362,13 @@ export interface ElectronAPI {
       application: OfficeApplication,
     ) => Promise<{ success: boolean; error?: string }>;
     log: (level: string, tag: string, message: string) => Promise<void>;
+  };
+  update: {
+    getState: () => Promise<DesktopUpdateState>;
+    check: (manual?: boolean) => Promise<DesktopUpdateState>;
+    download: (kind: UpdateKind) => Promise<DesktopUpdateState>;
+    apply: () => Promise<DesktopUpdateState>;
+    onStateChanged: (callback: (state: DesktopUpdateState) => void) => () => void;
   };
   window: {
     getAlwaysOnTop: () => Promise<boolean>;

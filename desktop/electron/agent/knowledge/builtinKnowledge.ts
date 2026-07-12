@@ -3,6 +3,7 @@ import * as path from "path";
 import type { IndexResult } from "./types";
 import type { KnowledgeIndexer } from "./knowledgeIndexer";
 import { createLogger } from "../../shared/logger";
+import { resolveHotPatchPath } from "../../main-modules/hotPatchManager";
 
 const builtinKnowledgeLogger = createLogger("BuiltinKnowledge");
 
@@ -102,10 +103,11 @@ function readBuiltinKnowledgeManifest(root: string): Array<{ path: string; sha25
 
 function resolveBuiltinKnowledgeRoot(): string | null {
   const candidates = [
+    resolveHotPatchPath("public/knowledge"),
     path.join(process.cwd(), "public", "knowledge"),
     process.resourcesPath ? path.join(process.resourcesPath, "public", "knowledge") : "",
     path.join(__dirname, "..", "..", "public", "knowledge"),
-  ].filter(Boolean);
+  ].filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;

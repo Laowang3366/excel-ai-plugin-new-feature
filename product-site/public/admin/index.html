@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文格 AI 助手 · 下载统计</title>
+    <link rel="icon" href="/assets/app-icon.png" />
+    <link rel="stylesheet" href="/admin/admin.css" />
+    <script src="/admin/admin.js" defer></script>
+  </head>
+  <body>
+    <main class="login-view" data-login-view>
+      <form class="login-panel" data-login-form>
+        <img src="/assets/app-icon.png" alt="" />
+        <h1>发布后台</h1>
+        <p>查看安装包下载与版本分布。</p>
+        <label>管理密码<input type="password" name="password" autocomplete="current-password" required /></label>
+        <button type="submit">登录</button>
+        <span class="form-error" data-login-error></span>
+      </form>
+    </main>
+
+    <div class="dashboard" data-dashboard hidden>
+      <aside>
+        <div class="admin-brand"><img src="/assets/app-icon.png" alt="" /><span>文格发布后台</span></div>
+        <nav><button class="active">下载统计</button></nav>
+        <button class="logout" data-logout>退出登录</button>
+      </aside>
+      <main class="dashboard-main">
+        <header><div><h1>下载统计</h1><p data-current-release>读取当前版本...</p></div><label>统计周期<select data-days><option value="7">最近 7 天</option><option value="30" selected>最近 30 天</option><option value="90">最近 90 天</option></select></label></header>
+        <section class="metric-grid">
+          <article><span>周期下载量</span><strong data-total>0</strong></article>
+          <article><span>独立访客</span><strong data-unique>0</strong></article>
+          <article><span>今日下载</span><strong data-today>0</strong></article>
+          <article><span>当前版本</span><strong data-version>-</strong></article>
+        </section>
+        <section class="analytics-grid">
+          <article class="chart-panel"><div class="panel-title"><h2>每日下载</h2><span>按自然日统计</span></div><div class="bar-chart" data-daily-chart></div></article>
+          <article class="version-panel"><div class="panel-title"><h2>版本分布</h2><span>周期内下载</span></div><div class="version-list" data-version-list></div></article>
+        </section>
+        <section class="table-panel">
+          <div class="panel-title"><h2>最近下载</h2><span>IP 仅保留匿名哈希</span></div>
+          <div class="table-wrap"><table><thead><tr><th>时间</th><th>版本</th><th>访客</th><th>来源</th><th>客户端</th></tr></thead><tbody data-recent></tbody></table></div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

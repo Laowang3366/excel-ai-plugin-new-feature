@@ -1,32 +1,43 @@
-# 代码审查标准与流程 — 工作概览
+# 项目概览
 
-## 完成内容
+文格 AI 助手是一个 Windows Electron 桌面应用，通过模型工具调用操作 Excel、WPS、Word 和 PowerPoint。项目同时包含独立产品站，用于安装包分发、远程更新和匿名下载统计。
 
-为 Excel AI 插件项目制定了系统化的代码审查标准与流程文档 `docs/code-review-standards.md`。
+## 目录
 
-## 文档结构
+```text
+desktop/       Electron 桌面端、Agent Runtime、Office 工具和安装包配置
+product-site/  产品页、更新 API、下载统计后台和生产部署配置
+release-notes/ 面向用户的版本功能说明
+docs/          当前架构、开发、发布和历史设计文档
+```
 
-| 章节 | 内容 |
-|------|------|
-| 总则 | 文档定位、与现有规范关系、适用范围 |
-| 审查标准 | 六大维度 checklist（安全/正确性/可维护性/性能/测试/项目特定），分 P0/P1/P2 优先级 |
-| 审查流程 | 分支策略、PR 自查、审查者分配、时效要求、Hotfix 通道、合并规则、争议处理 |
-| 自动化工具链 | ESLint + Prettier + EditorConfig + Husky + lint-staged + CommitLint 完整配置方案 |
-| CI 门禁 | 升级版 CI 流水线（新增 Lint + Format + Coverage 门禁） |
-| 审查模板 | PR 描述模板、审查评论模板、审查总结模板 |
-| 审查文化 | 审查者/被审查者守则、红线、持续改进机制 |
+## 桌面端链路
 
-## 关键决策
+```text
+用户输入
+  -> 场景提示词与工具选择
+  -> Agent Loop
+  -> range / macro / word / presentation / office.action 等工具
+  -> Office 当前窗口或磁盘文件
+  -> 回读结果并展示
+```
 
-1. **不重复 development-standards.md**：该文档已有详尽的编码规范，本文档将其转化为可执行的审查 checklist 并补充流程
-2. **优先级体系**：使用 🔴 P0 / 🟡 P1 / 💭 P2 / ✅ 亮点 四级标记，与代码审查专家角色定义一致
-3. **自动化补齐**：项目当前零自动化工具（无 ESLint/Prettier），文档提供了完整的配置方案和安装清单
-4. **CI 门禁分工**：明确 CI 负责机械检查（格式/类型/测试），人工审查聚焦逻辑/安全/架构
-5. **覆盖率阶梯提升**：初始 60%，每季度提升 5%，避免一步到位造成阻塞
+## 更新链路
 
-## 后续建议
+- 完整版本：使用 NSIS 安装包和 `electron-updater`，在应用内下载后覆盖安装。
+- 热补丁：下载签名 ZIP，仅允许覆盖前端资源、内置知识库和 WPS JSA 桥接资源，重启生效。
+- 安全性：更新清单使用 Ed25519 签名，安装包和补丁均校验 SHA-256。
+- 发布源：`https://plugin.shelelove.top`。
 
-1. 按附录 8.2 的安装清单，逐步引入 ESLint + Prettier + Husky 工具链
-2. 在 GitHub 仓库设置中添加 PR 模板（附录 6.1）
-3. 升级 CI 流水线，新增 Lint + Format + Coverage 门禁
-4. 团队宣贯审查标准，首次审查回顾在 1 周后进行
+## 产品站
+
+- 产品页和更新日志从当前发布 API 自动读取版本信息。
+- 下载由 Nginx 直接传输，Node 服务只记录匿名化统计。
+- 后台提供周期下载量、独立访客、版本分布和最近下载记录。
+- 生产部署使用独立目录、系统用户、systemd 服务、端口和 Nginx 站点。
+
+## 当前验证基线
+
+- 桌面端：165 个测试文件、862 项测试。
+- 产品站：认证、下载统计和发布 API 集成测试。
+- 必跑命令：`npm run typecheck`、`npm run lint`、`npm test`、`npm run build`。
