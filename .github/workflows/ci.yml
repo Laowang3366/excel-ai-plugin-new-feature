@@ -6,7 +6,7 @@ on:
 
 jobs:
   desktop:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: desktop
@@ -23,3 +23,19 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  product-site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: product-site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: product-site/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm test
