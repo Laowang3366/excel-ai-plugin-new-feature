@@ -155,8 +155,11 @@ describe("agent folder architecture", () => {
 
     expect(systemPrompt).not.toContain("Office 连接预检铁律");
     expect(systemPrompt).not.toContain("场景化操作指南：公式助手");
+    expect(systemPrompt).not.toContain("已开启，这是公式函数能力的权威先验");
     expect(systemPrompt).toContain("templates/system/base.zh-CN.md?raw");
     expect(systemPrompt).toContain("templates/scenarios/formula.zh-CN.md?raw");
+    expect(systemPrompt).toContain("templates/runtime/dynamic-array-enabled.zh-CN.md?raw");
+    expect(systemPrompt).toContain("resolvePromptScenarios");
   });
 
   it("keeps IPC outside concrete Excel bridge implementations", () => {

@@ -12,7 +12,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json",
     "test": "npx vitest run",
     "test:watch": "npx vitest",
     "test:coverage": "npx vitest run --coverage"
