@@ -11,7 +11,8 @@
 
 ## 模块
 
-- `systemPrompt.ts`：定义片段注册顺序、场景触发条件和运行时模板变量。
+- `systemPrompt.ts`：定义片段注册顺序和运行时模板变量。
+- `promptRouting.ts`：统一解析功能模块标记、文本意图和附件类型，输出需要加载的场景片段。
 - `promptComposer.ts`：负责确定性排序、按 key 去重、空片段清理和严格变量替换。
 - `sections/folderContextPrompt.ts`：把文件夹文件列表渲染进运行时模板。
 - `templates/system/*.md`：基础角色、工具边界、安全和质量规则。
