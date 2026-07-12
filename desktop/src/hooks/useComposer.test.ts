@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveDroppedFiles } from "./useComposer";
+import {
+  COMPOSER_INPUT_MAX_LENGTH,
+  limitComposerInput,
+  resolveDroppedFiles,
+} from "./useComposer";
 
 vi.mock("../services/ipcApi", () => {
   const mock = {
@@ -20,6 +24,14 @@ const mockedFileApi = ipcApi.file as unknown as {
   getPathForFile: ReturnType<typeof vi.fn>;
   writeTempFile: ReturnType<typeof vi.fn>;
 };
+
+describe("limitComposerInput", () => {
+  it("keeps input within the 50000 character limit", () => {
+    const exact = "a".repeat(COMPOSER_INPUT_MAX_LENGTH);
+    expect(limitComposerInput(exact)).toBe(exact);
+    expect(limitComposerInput(`${exact}overflow`)).toHaveLength(COMPOSER_INPUT_MAX_LENGTH);
+  });
+});
 
 function createFile(name: string, type: string, content = "demo"): File {
   return new File([content], name, { type });

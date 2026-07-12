@@ -19,6 +19,12 @@ import type { FileAttachment } from "../electronApi";
 
 export { resolveDroppedFiles } from "./composerAttachmentFiles";
 
+export const COMPOSER_INPUT_MAX_LENGTH = 50_000;
+
+export function limitComposerInput(value: string): string {
+  return value.slice(0, COMPOSER_INPUT_MAX_LENGTH);
+}
+
 const COMPOSER_POPOVER_IGNORE_SELECTORS = [".composer-popover-wrapper"];
 const COMPOSER_FOLDER_IGNORE_SELECTORS = [
   ".chat-folder-badge-wrapper",
@@ -48,7 +54,7 @@ export function useComposer(draftKey = "new") {
     consumePendingFiles,
   } = useChatStore();
 
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputTextState] = useState("");
   const [showAttachPopover, setShowAttachPopover] = useState(false);
   const [showPermissionPopover, setShowPermissionPopover] = useState(false);
   const [showThinkingPopover, setShowThinkingPopover] = useState(false);
@@ -87,7 +93,7 @@ export function useComposer(draftKey = "new") {
       [previousKey]: previousDraft,
     }));
     draftKeyRef.current = draftKey;
-    setInputText(nextDraft.inputText);
+    setInputTextState(limitComposerInput(nextDraft.inputText));
     setAttachedFiles(nextDraft.attachedFiles);
     setShowAttachPopover(false);
     setShowPermissionPopover(false);
@@ -120,7 +126,7 @@ export function useComposer(draftKey = "new") {
     if (isStreaming && !activeThreadId) {
       return sendPromise;
     }
-    setInputText("");
+    setInputTextState("");
     setAttachedFiles([]);
     return sendPromise;
   }, [
@@ -260,12 +266,16 @@ export function useComposer(draftKey = "new") {
   }, []);
 
   // textarea 自动高度
+  const setInputText = useCallback((value: string) => {
+    setInputTextState(limitComposerInput(value));
+  }, []);
+
   const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value);
     const el = e.target;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 220) + "px";
-  }, []);
+  }, [setInputText]);
 
   // 粘贴文件/图片
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {

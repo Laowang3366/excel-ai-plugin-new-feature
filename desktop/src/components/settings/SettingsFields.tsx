@@ -69,25 +69,30 @@ export function SettingsSliderField({
   info,
   onChange,
 }: SettingsSliderFieldProps) {
+  const fillPercent = getSliderFillPercent(value, min, max);
+
   return (
     <div className={`form-group${className ? ` ${className}` : ""}`}>
       <label>{label}</label>
       {info}
       <div className="compaction-threshold-row">
-        <input
-          type="range"
-          className="compaction-slider"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          style={getSliderStyle(value, min, max)}
-          onChange={(event) => onChange(Number(event.target.value))}
-          disabled={disabled}
-        />
-        <span className="compaction-threshold-value">
-          {valueText ?? value}
-        </span>
+        <div className="compaction-slider-track">
+          <input
+            type="range"
+            className="compaction-slider"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            aria-label={label}
+            style={getSliderStyle(value, min, max)}
+            onChange={(event) => onChange(Number(event.target.value))}
+            disabled={disabled}
+          />
+          <span className={`compaction-threshold-value${fillPercent > 65 ? " over-fill" : ""}`}>
+            {valueText ?? value}
+          </span>
+        </div>
       </div>
       <span className="form-hint">{hint}</span>
     </div>

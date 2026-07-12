@@ -166,13 +166,23 @@
 .compaction-threshold-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+}
+.compaction-slider-track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  display: flex;
+  align-items: center;
 }
 .compaction-slider {
-  flex: 1;
-  height: 6px;
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  padding: 0;
   -webkit-appearance: none;
   appearance: none;
+  border: 0;
   background: linear-gradient(
     90deg,
     var(--primary) 0%,
@@ -180,28 +190,33 @@
     var(--border-default) var(--slider-fill, 0%),
     var(--border-default) 100%
   );
-  border-radius: 3px;
-  outline: none;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease, opacity 0.15s ease;
 }
 .compaction-slider:focus-visible {
-  box-shadow: 0 0 0 3px var(--primary-light);
+  outline: 2px solid var(--primary-border);
+  outline-offset: 4px;
 }
 .compaction-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
+  margin-top: 0;
+  box-sizing: border-box;
   border-radius: 50%;
   background: var(--primary);
-  cursor: pointer;
+  cursor: grab;
   border: 2px solid var(--bg-primary);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 .compaction-slider::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
+  height: 12px;
+  border-radius: 6px;
+}
+.compaction-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
 }
 .compaction-slider:disabled {
   opacity: 0.4;
@@ -211,11 +226,21 @@
   cursor: not-allowed;
 }
 .compaction-threshold-value {
-  font-size: 13px;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 9px;
   font-weight: 600;
-  color: var(--text);
-  min-width: 50px;
-  text-align: right;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 1;
+}
+.compaction-threshold-value.over-fill {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .compaction-model-info {
   font-size: 12px;

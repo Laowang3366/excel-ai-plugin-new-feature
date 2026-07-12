@@ -13,6 +13,7 @@ import {
   PenLine,
   Search,
   Settings,
+  X,
 } from "../common/IconMap";
 
 type SearchTab = "all" | "threads" | "files" | "actions";
@@ -98,14 +99,25 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
   return (
     <div className="sidebar-search-overlay">
       <div className="sidebar-search-palette" ref={cardRef} onClick={(event) => event.stopPropagation()}>
-        <div className="sidebar-search-input-row">
-          <Search size={18} />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={text.sidebar.searchPalettePlaceholder}
-          />
+        <div className="sidebar-search-header">
+          <div className="sidebar-search-input-row">
+            <Search size={18} />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={text.sidebar.searchPalettePlaceholder}
+            />
+          </div>
+          <button
+            type="button"
+            className="sidebar-search-close"
+            title={text.chat.close}
+            aria-label={text.chat.close}
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className="sidebar-search-tabs">

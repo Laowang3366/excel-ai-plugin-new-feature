@@ -13,6 +13,7 @@
  */
 
 import React from "react";
+import { COMPOSER_INPUT_MAX_LENGTH } from "../../hooks/useComposer";
 import { useChatStore } from "../../store/chatStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import type { FolderFileInfo } from "../../electronApi";
@@ -155,6 +156,7 @@ export function ComposerArea({
               ? text.chat.welcomePlaceholder
               : text.chat.inputPlaceholder
           }
+          maxLength={COMPOSER_INPUT_MAX_LENGTH}
           rows={2}
           onPaste={handlePaste}
         />
