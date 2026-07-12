@@ -1,5 +1,7 @@
 # Agent 命令执行沙箱化实现方案
 
+> 历史归档：本文记录早期设计过程，其中 `script.execute`、外部 VBA/JScript 写入等工具已经删除。当前实现只对 `shell.execute` 提供命令策略与审计，复杂处理保留 `python.execute`；现行规则以 `development-standards.md` 和 `electron/agent/security/sandbox/README.md` 为准。
+
 > 参考：`codex-reference/codex-rs/{sandboxing, linux-sandbox, windows-sandbox-rs, execpolicy, process-hardening}`
 > 落地点：本仓库 `desktop/electron/agent/` 与 `desktop/electron/main-modules/`
 > 目标平台：Windows（Excel/WPS COM 自动化场景）为主线，非 Windows 走现有 fallback

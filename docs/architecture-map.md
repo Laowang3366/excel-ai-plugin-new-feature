@@ -1,7 +1,7 @@
 # 项目文件架构与调用链路图
 
-更新时间：2026-07-07
-范围：`desktop/` Electron 桌面端、Renderer 前端、Agent 运行时、Office/WPS 桥接、知识库、OCR、记忆与设置链路。
+更新时间：2026-07-12
+范围：`desktop/` Electron 桌面端、Renderer 前端、Agent 运行时、Office/WPS 桥接、知识库、OCR、记忆、更新链路，以及 `product-site/` 发布服务。
 
 ## 1. 总体分层
 
@@ -288,7 +288,7 @@ flowchart LR
 | 工具域 | 模型可见定义 | 执行器 | 实现/依赖 | 典型能力 |
 | --- | --- | --- | --- | --- |
 | Workbook/Range/Formula/Sheet/UI | `tools/registry/workbook.ts`、`range.ts`、`formula.ts`、`sheet.ts`、`ui.ts` | `tools/executors/excelExecutors.ts` | `implementations/excel/*`、`contracts/excel.ts` | 检查工作簿、读写选区、公式验证、工作表操作、宿主选择 |
-| Script/VBA | `tools/registry/script.ts` | `excelExecutors.ts` | `excelScriptBridgeCom.ts`、`excelVbaComBridge.ts`、`automation/*` | Excel/WPS 脚本执行、VBA |
+| Python/VBA | `tools/registry/python.ts`、Excel 内部自动化定义 | `pythonExecutor.ts`、`excelExecutors.ts` | `automation/python.ts`、`excelVbaComBridge.ts` | 通用 Python 处理，以及向 Office 内部写入和运行宏 |
 | File | `tools/registry/file.ts` | `fileExecutors.ts` | 本地 FS、路径授权 | 读写项目/附件文件 |
 | Shell | `tools/registry/shell.ts` | `shellExecutor.ts` | `security/sandbox/*`、`automation/processLimits.ts` | 安全 shell 执行、审批、审计 |
 | Python | `tools/registry/python.ts` | `pythonExecutor.ts` | `automation/python.ts` | Python 脚本执行 |
@@ -341,7 +341,7 @@ Office 连接详情：
 | --- | --- | --- | --- |
 | 读取/写入当前 Excel/WPS | `preload.ts` 的 `excel.*`、`ipcOfficeApi.ts`、`ipcHandlers.ts` | `excelBridgeRef()` -> `excelComBridge.ts` -> `rangeOperations.ts`/`workbookOperations.ts` | 单元格值、选区、工作簿结构、写入结果 |
 | 公式生成/验证 | `tools/registry/formula.ts`、`prompts/templates/scenarios/formula.zh-CN.md` | `excelExecutors.ts` -> `formulaOperations.ts` / `rangeOperations.ts` | 公式写入、回读、动态数组 spill 校验 |
-| Excel 脚本 | `tools/registry/script.ts` | `excelExecutors.ts` -> `excelScriptBridgeCom.ts` / `automation/scriptEngine.ts` | Python/JScript/PowerShell 执行结果 |
+| Python 扩展 | `tools/registry/python.ts` | `pythonExecutor.ts` -> `automation/python.ts` | Python 处理结果；不再暴露外部 JScript 或任意 PowerShell Office 脚本工具 |
 | Word/PPT 当前窗口状态 | `preload.ts` 的 `office.*` | `ipcHandlers.ts` -> `wordComBridge.ts` / `presentationComBridge.ts` | 当前宿主连接状态 |
 | 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionAdapter.ts` -> `officeOpenXml/*`，必要时 COM fallback | 修改后的 Office 文件、视觉快照、变更摘要 |
 | OpenXML Excel | `officeOpenXml/advancedExcel.ts`、`excelSheetXml.ts`、`excelFormulaXml.ts` | `officeOpenXmlEngine.ts` 包读写 | sheet/cell/formula/table/style XML |
@@ -521,7 +521,7 @@ flowchart TB
 
 | 模块 | 文件 | 说明 |
 | --- | --- | --- |
-| 设置页面 | `components/SettingsPage.tsx`、`settings/*` | 模型、常规、知识库、安全策略、开源项目、统计页 |
+| 设置页面 | `components/SettingsPage.tsx`、`settings/*` | 模型、常规、知识库、安全策略、软件更新、开源项目、统计页 |
 | 设置状态 | `store/settingsStore.ts`、`settingsLoadedState.ts`、`settingsProviderState.ts`、`settingsValues.ts` | 从 electron-store 加载，局部持久化更新 |
 | Provider UI | `AddProviderDialog.tsx`、`EditProviderDialog.tsx`、`ProviderCard.tsx`、`ReasoningModeSelect.tsx` | 模型配置、推理模式、聚合平台适配 |
 | Provider 运行时 | `providers/aiClientFactory.ts`、`openaiCompatibleClient.ts`、`openaiResponsesClient.ts`、`providerClients.ts` | 生成统一 AI client，适配不同协议 |
@@ -560,7 +560,7 @@ flowchart TB
 | `desktop/electron/agent/knowledge/*` | RAG 文档解析、切块、embedding、检索、写入维护 | runtime、knowledge IPC、knowledge tools | SQLite、AI embedding |
 | `desktop/electron/agent/memory/*` | 会话、运行态、长期记忆、压缩、线程图 | AgentLoop、thread IPC、memory tools | SQLite、JSONL |
 | `desktop/electron/agent/security/sandbox/*` | shell 安全策略和审计 | shellExecutor、ipcSandboxHandlers | spawn 包装、audit logs |
-| `desktop/electron/agent/automation/*` | PowerShell/JScript/Python 进程执行基础设施 | Office/Excel implementations、shell/python executors | 本地脚本进程 |
+| `desktop/electron/agent/automation/*` | Python、受控 PowerShell 与进程限制基础设施 | Office/Excel implementations、shell/python executors | 本地受控子进程 |
 | `desktop/electron/agent/shared/*` | Agent 共享类型、消息转换、数值限制 | core/providers/tools | 轻量公共能力 |
 
 ## 13. 维护注意事项
