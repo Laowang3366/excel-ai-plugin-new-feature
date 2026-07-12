@@ -1,0 +1,58 @@
+name: Release Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run electron:build
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match package version $version"
+          }
+          $notes = Get-Content "../release-notes/$version.json" | ConvertFrom-Json
+          @("## 功能更新", "") + ($notes | ForEach-Object { "- $_" }) |
+            Set-Content "../release-body.md" -Encoding utf8
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            desktop/release/Wengge-AI-Assistant-Setup-*.exe
+            desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
+            desktop/release/latest.yml
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: false
+          body_path: release-body.md
+          files: |
+            desktop/release/Wengge-AI-Assistant-Setup-*.exe
+            desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
+            desktop/release/latest.yml
