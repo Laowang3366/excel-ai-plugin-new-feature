@@ -140,24 +140,30 @@ export function UpdateSettings() {
         )}
 
         <div className="update-actions">
-          <button className="btn secondary" onClick={check} disabled={Boolean(isBusy)}>
-            <RefreshCw size={15} />
+          <button
+            type="button"
+            className="btn-secondary update-check-btn"
+            onClick={check}
+            disabled={Boolean(isBusy)}
+            aria-busy={updateState?.phase === "checking"}
+          >
+            <RefreshCw size={15} className={updateState?.phase === "checking" ? "spin" : undefined} />
             {updateState?.phase === "checking" ? text.checking : text.check}
           </button>
           {updateState?.hotPatchAvailable && (
-            <button className="btn primary" onClick={() => download("hotPatch")} disabled={Boolean(isBusy)}>
+            <button type="button" className="btn-primary" onClick={() => download("hotPatch")} disabled={Boolean(isBusy)}>
               <Download size={15} />
               {busyKind === "hotPatch" ? text.downloading : text.downloadPatch}
             </button>
           )}
           {updateState?.installerAvailable && (
-            <button className="btn primary" onClick={() => download("installer")} disabled={Boolean(isBusy)}>
+            <button type="button" className="btn-primary" onClick={() => download("installer")} disabled={Boolean(isBusy)}>
               <Download size={15} />
               {busyKind === "installer" ? text.downloading : text.downloadInstaller}
             </button>
           )}
           {updateState?.phase === "downloaded" && (
-            <button className="btn primary" onClick={apply}>
+            <button type="button" className="btn-primary" onClick={apply}>
               <RefreshCw size={15} />
               {text.restart}
             </button>
