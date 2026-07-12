@@ -114,6 +114,11 @@
   border-radius: 10px 10px 4px 10px;
   box-shadow: none;
 }
+:root[data-theme="dark"] .user-message .message-content {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border-color: var(--border-card);
+}
 .user-message .message-text {
   line-height: 20px;
 }
