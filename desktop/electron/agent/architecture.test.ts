@@ -29,7 +29,6 @@ describe("agent folder architecture", () => {
       "automation/README.md",
       "automation/powershell.ts",
       "automation/python.ts",
-      "automation/jscript.ts",
       "automation/scriptEngine.ts",
       "automation/json.ts",
       "security/sandbox/index.ts",
@@ -40,7 +39,6 @@ describe("agent folder architecture", () => {
       "tools/contracts/README.md",
       "tools/contracts/excel.ts",
       "tools/contracts/office.ts",
-      "tools/contracts/scriptEnvironment.ts",
       "tools/executors/README.md",
       "tools/executors/createToolExecutors.ts",
       "tools/executors/validation.ts",
@@ -58,7 +56,7 @@ describe("agent folder architecture", () => {
       "tools/registry/range.ts",
       "tools/registry/formula.ts",
       "tools/registry/sheet.ts",
-      "tools/registry/script.ts",
+      "tools/registry/macro.ts",
       "tools/registry/ui.ts",
       "tools/registry/file.ts",
       "tools/registry/shell.ts",
@@ -69,7 +67,7 @@ describe("agent folder architecture", () => {
       "tools/registry/office.ts",
       "tools/implementations/excel/excelComBridge.ts",
       "tools/implementations/excel/excelVbaComBridge.ts",
-      "tools/implementations/excel/excelScriptBridgeCom.ts",
+      "tools/implementations/excel/wpsJsaBridge.ts",
       "tools/implementations/excel/excelUiComBridge.ts",
       "tools/implementations/excel/connectionMetadata.ts",
       "tools/implementations/excel/rangeValueUtils.ts",
@@ -79,7 +77,6 @@ describe("agent folder architecture", () => {
       "tools/implementations/excel/sheetOperations.ts",
       "tools/implementations/office/wordComBridge.ts",
       "tools/implementations/office/presentationComBridge.ts",
-      "tools/implementations/office/officeScriptBridge.ts",
       "tools/implementations/officeOpenXml/types.ts",
       "tools/implementations/officeOpenXml/officeOpenXmlEngine.ts",
       "tools/implementations/officeOpenXml/officeOpenXmlFileBridge.ts",
@@ -99,6 +96,13 @@ describe("agent folder architecture", () => {
       "shared/types.ts",
       "shared/messageBuilder.ts",
     ].forEach(expectAgentPath);
+  });
+
+  it("packages the WPS JSA add-in used for internal macro writes", () => {
+    const addonRoot = path.resolve(agentRoot, "../../public/wps-jsa-bridge");
+    ["index.html", "main.js", "manifest.xml", "ribbon.xml"].forEach((fileName) => {
+      expect(existsSync(path.join(addonRoot, fileName)), fileName).toBe(true);
+    });
   });
 
   it("documents architecture layer responsibilities with README files", () => {

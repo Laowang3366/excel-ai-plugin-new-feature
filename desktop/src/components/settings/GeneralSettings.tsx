@@ -8,7 +8,7 @@ import { useSettingsStore, type AppLanguage, type AppTheme } from "../../store/s
 import { formatTokensAsK, DEFAULT_CONTEXT_WINDOW } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
 import { SettingsSliderField, SettingsSwitchField } from "./SettingsFields";
-import { GENERAL_TEXT, getWindowOpacityText } from "./generalSettingsText";
+import { GENERAL_TEXT } from "./generalSettingsText";
 import { GeneralSettingsStorageCard } from "./GeneralSettingsStorageCard";
 
 export const GeneralSettings: React.FC = () => {
@@ -18,7 +18,6 @@ export const GeneralSettings: React.FC = () => {
     closeToTray,
     officeAutoCompactEnabled,
     dynamicArrayFunctionsEnabled,
-    windowOpacity,
     compactionEnabled,
     autoCompactThresholdPercent,
     providers,
@@ -28,7 +27,6 @@ export const GeneralSettings: React.FC = () => {
     setCloseToTray,
     setOfficeAutoCompactEnabled,
     setDynamicArrayFunctionsEnabled,
-    setWindowOpacity,
     setCompactionEnabled,
     setAutoCompactThresholdPercent,
     loadSettings,
@@ -40,14 +38,8 @@ export const GeneralSettings: React.FC = () => {
   const [mineruApiToken, setMineruApiToken] = useState("");
   const [mineruSaved, setMineruSaved] = useState(false);
   const text = GENERAL_TEXT[language];
-  const windowOpacityPercent = Math.round(windowOpacity * 100);
-  const windowOpacityMin = 55;
-  const windowOpacityMax = 100;
   const autoCompactThresholdMin = 10;
   const autoCompactThresholdMax = 95;
-  const windowOpacityText = getWindowOpacityText(language);
-  const windowOpacityLabel = windowOpacityText.label;
-  const windowOpacityHint = windowOpacityText.hint;
 
   // 获取当前供应商的上下文窗口大小（用户自定义，支持 per-model 覆盖）
   const activeProvider = providers[activeProviderId];
@@ -183,17 +175,6 @@ export const GeneralSettings: React.FC = () => {
           checked={officeAutoCompactEnabled}
           onChange={setOfficeAutoCompactEnabled}
           hint={text.officeAutoCompactHint}
-        />
-
-        <SettingsSliderField
-          label={windowOpacityLabel}
-          value={windowOpacityPercent}
-          min={windowOpacityMin}
-          max={windowOpacityMax}
-          step={5}
-          valueText={`${windowOpacityPercent}%`}
-          onChange={(value) => setWindowOpacity(value / 100)}
-          hint={windowOpacityHint}
         />
 
         <SettingsSwitchField

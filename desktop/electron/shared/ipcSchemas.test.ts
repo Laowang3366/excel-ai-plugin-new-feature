@@ -4,6 +4,7 @@ import {
   AgentInterruptInput,
   ExcelReadRangeInput,
   FileWriteTempFileInput,
+  LaunchOfficeApplicationInput,
   OcrRecognizeInput,
   SandboxUserRulesInput,
   validateInput,
@@ -21,11 +22,13 @@ describe("ipcSchemas", () => {
       mode: "invoice",
       filePaths: ["C:\\tmp\\invoice.pdf"],
     })).toMatchObject({ mode: "invoice" });
+    expect(validateInput(LaunchOfficeApplicationInput, "powerpoint")).toBe("powerpoint");
   });
 
   it("rejects malformed structured IPC inputs", () => {
     expect(() => validateInput(FileWriteTempFileInput, { data: "" })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(SandboxUserRulesInput, [{ decision: "allow" }])).toThrow("IPC 参数校验失败");
     expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow("IPC 参数校验失败");
+    expect(() => validateInput(LaunchOfficeApplicationInput, "cmd")).toThrow("IPC 参数校验失败");
   });
 });

@@ -61,6 +61,13 @@ export const ipcApi: IIpcApi = {
       if (!raw) return "";
       return raw.app.openExternal(targetUrl);
     },
+    launchOffice: async (application) => {
+      const raw = getRaw();
+      if (!raw?.app.launchOffice) {
+        return { success: false, error: "当前环境无法启动 Office 程序" };
+      }
+      return raw.app.launchOffice(application);
+    },
     /** 记录日志 → 主进程持久化（由 rendererLogger.ts 调用） */
     log: async (level, tag, message) => {
       const raw = getRaw();

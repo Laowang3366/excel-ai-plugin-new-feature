@@ -108,15 +108,3 @@ export const GENERAL_TEXT = {
 } as const;
 
 export type GeneralSettingsLanguage = keyof typeof GENERAL_TEXT;
-
-export function getWindowOpacityText(language: GeneralSettingsLanguage): { label: string; hint: string } {
-  return language === "zh-CN"
-    ? {
-        label: "窗口透明度",
-        hint: "降低透明度后，助手窗口会整体半透明，方便查看和操作被遮挡的 Office 内容。",
-      }
-    : {
-        label: "Window opacity",
-        hint: "Lower values make the whole assistant window translucent so Office content behind it remains easier to use.",
-      };
-}

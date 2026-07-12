@@ -1,7 +1,7 @@
 /**
  * ExcelComBridge — 工作簿 COM 桥接实现
  *
- * 通过 JScript/PowerShell COM 自动化与 Excel/WPS 交互，
+ * 通过 Python 优先、PowerShell 兜底的 COM 自动化与 Excel/WPS 交互，
  * 实现 ExcelWorkbookBridge 接口。
  */
 
@@ -200,8 +200,7 @@ export class ExcelComBridge implements ExcelWorkbookBridge {
   // ----------------------------------------------------------
   // ExcelWorkbookBridge 接口实现
   //
-  // 优先通过 Python(xlwings) → JScript(cscript) → PowerShell 执行
-  // Python/JScript 语法模型更熟悉，序列化可靠，出错率更低
+  // 优先通过 Python(xlwings) 执行，运行时不可用或失败时回退 PowerShell COM。
   // ----------------------------------------------------------
 
   async inspectWorkbook(): Promise<unknown> {

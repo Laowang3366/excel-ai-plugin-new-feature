@@ -297,7 +297,6 @@ expect(executors.has("range.write")).toBe(true);
 expect(executors.has("knowledge.search")).toBe(true);
 expect(executors.has("word.replaceText")).toBe(true);
 expect(executors.has("presentation.addSlide")).toBe(true);
-expect(executors.has("office.script.execute")).toBe(true);
 ```
 
 - [x] **Step 2: Run test before split**

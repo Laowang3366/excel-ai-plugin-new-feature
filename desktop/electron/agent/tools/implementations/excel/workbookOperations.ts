@@ -3,7 +3,7 @@
  *
  * 关联模块：
  * - excelComBridge.ts: 对外保留 ExcelWorkbookBridge 门面，委托本模块执行工作簿操作。
- * - automation: 通过 PowerShell/JScript/Python 执行 COM 自动化。
+ * - automation: 通过 Python 优先、PowerShell 兜底执行 COM 自动化。
  */
 
 import {
@@ -51,36 +51,6 @@ for b in app.books:
 print(json.dumps(info, ensure_ascii=False))
 `;
 
-    const jscriptScript = `
-var excel = GetObject("", "${progId}");
-var info = {
-    name: excel.Name,
-    version: excel.Version,
-    workbooks: []
-};
-var e = new Enumerator(excel.Workbooks);
-for (; !e.atEnd(); e.moveNext()) {
-    var b = e.item();
-    var sheets = [];
-    var se = new Enumerator(b.Worksheets);
-    for (; !se.atEnd(); se.moveNext()) {
-        var s = se.item();
-        var ur = s.UsedRange;
-        sheets.push({
-            name: s.Name,
-            rows: ur ? ur.Rows.Count : 0,
-            columns: ur ? ur.Columns.Count : 0
-        });
-    }
-    info.workbooks.push({
-        name: b.Name,
-        path: b.Path,
-        sheets: sheets
-    });
-}
-WScript.Echo(JSON.stringify(info));
-`;
-
     const psScript = `
 $excel = [System.Runtime.InteropServices.Marshal]::GetActiveObject('${progId}')
 $info = @{
@@ -106,7 +76,7 @@ foreach ($wb in $excel.Workbooks) {
 $info | ConvertTo-Json -Depth 5
 `;
 
-    const { result, engine } = await executeSmart(pythonScript, jscriptScript, psScript, 90000, { preferPython: false });
+    const { result, engine } = await executeSmart(pythonScript, psScript, 90000);
     const parsed = safeJsonParse(result, engine, "检查工作簿");
     return normalizeWorkbookInspectMetadata(parsed, host, deps.getComVersion());
   } catch (err: any) {

@@ -33,6 +33,8 @@ export type MigrateDataPathInput = z.infer<typeof MigrateDataPathInput>;
 
 export const AppOpenPathInput = z.string().min(1, "路径不能为空");
 export const AppOpenExternalInput = z.string().url("URL 格式不正确");
+export const LaunchOfficeApplicationInput = z.enum(["wps", "excel", "word", "powerpoint"]);
+export type LaunchOfficeApplicationInput = z.infer<typeof LaunchOfficeApplicationInput>;
 
 // ============================================================
 // Window

@@ -9,7 +9,7 @@ import type { ToolDefinition } from "../../shared/types";
 /** 添加工作表控件 */
 const UI_ADD_CONTROL_DEF: ToolDefinition = {
   name: "ui.addControl",
-  description: "在工作表上添加 ActiveX 控件。支持10种类型：button(按钮)、dropdown(下拉框)、checkbox(复选框)、listbox(列表框)、spinner(数值调节)、scrollbar(滚动条)、label(标签)、textbox(文本框)、optionbutton(选项按钮)、groupbox(分组框)。可通过 macroName 关联宏，linkedCell 链接单元格",
+  description: "在工作表上创建或更新控件。button 使用支持 OnAction 和 Application.Caller 的窗体按钮，并在创建后回读校验宏绑定；其余类型使用 ActiveX。需要点击回调时必须使用 button，并先用 macro.write(language=vba) 安装宏",
   parameters: {
     type: "object",
     properties: {
@@ -25,7 +25,7 @@ const UI_ADD_CONTROL_DEF: ToolDefinition = {
       width: { type: "number", description: "宽度(磅)" },
       height: { type: "number", description: "高度(磅)" },
       caption: { type: "string", description: "显示文本" },
-      macroName: { type: "string", description: "关联的宏名称（按钮点击时执行）" },
+      macroName: { type: "string", description: "button 点击时执行的 VBA 宏，建议写为 模块名.入口名；仅 button 支持" },
       linkedCell: { type: "string", description: "链接单元格（如 A1，控件值变化时写入该单元格）" },
     },
     required: ["sheetName", "controlType", "name", "left", "top", "width", "height"],
@@ -54,7 +54,7 @@ const UI_REMOVE_CONTROL_DEF: ToolDefinition = {
 /** 列出工作表控件 */
 const UI_LIST_CONTROLS_DEF: ToolDefinition = {
   name: "ui.listControls",
-  description: "列出工作表上的所有控件，返回控件名称、类型、位置、大小等信息。用于了解现有控件或确认删除目标",
+  description: "列出工作表上的窗体按钮和 ActiveX 控件，返回名称、类型、位置及按钮 OnAction。创建按钮后必须调用本工具确认宏绑定",
   parameters: {
     type: "object",
     properties: {

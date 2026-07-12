@@ -3,14 +3,13 @@ import { createToolExecutors } from "../executors/createToolExecutors";
 import { ALL_TOOL_DEFINITIONS, TOOL_DEFINITIONS_MAP } from "./toolDefinitions";
 import type { Retriever } from "../../knowledge/retriever";
 import type {
-  ExcelScriptBridge,
   ExcelUiBridge,
   ExcelVbaBridge,
   ExcelWorkbookBridge,
+  WpsJsaBridge,
 } from "../contracts/excel";
 import type {
   OfficeActionBridge,
-  OfficeScriptBridge,
   PresentationBridge,
   WordDocumentBridge,
 } from "../contracts/office";
@@ -48,14 +47,13 @@ function fakeVbaBridge(): ExcelVbaBridge {
     detectCapabilities: vi.fn(),
     runMacro: vi.fn(),
     writeModule: vi.fn(),
-    executeCode: vi.fn(),
   };
 }
 
-function fakeScriptBridge(): ExcelScriptBridge {
+function fakeJsaBridge(): WpsJsaBridge {
   return {
-    detectEnvironment: vi.fn(),
-    executeScript: vi.fn(),
+    detectCapabilities: vi.fn(),
+    writeCode: vi.fn(),
   };
 }
 
@@ -80,11 +78,10 @@ describe("Office Word/PPT tool definitions", () => {
       "range.clear",
       "selection.get",
       "formula.context",
-      "vba.runMacro",
-      "vba.writeModule",
+      "macro.detect",
+      "macro.write",
+      "macro.run",
       "sheet.operation",
-      "script.detect",
-      "script.execute",
       "ui.addControl",
       "ui.removeControl",
       "ui.listControls",
@@ -126,7 +123,6 @@ describe("Office Word/PPT tool definitions", () => {
       "office.action.inspect",
       "office.action.apply",
       "office.action.validate",
-      "office.script.execute",
     ]);
     expect(names).not.toContain("range_read");
     expect(names).not.toContain("office_action_apply");
@@ -136,8 +132,10 @@ describe("Office Word/PPT tool definitions", () => {
     const applyTool = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "office.action.apply");
     const parameters = applyTool?.parameters as ObjectToolParameters | undefined;
 
-    expect(parameters?.required).toEqual(["app", "action", "operation"]);
+    expect(parameters?.required).toEqual(["app", "action", "operation", "filePath"]);
     expect(parameters?.properties.action.description).toContain("必填");
+    expect(applyTool?.description).toContain("必须提供 filePath");
+    expect(applyTool?.description).toContain("当前活动窗口");
   });
 
   it("documents snapshot as an approved apply operation", () => {
@@ -157,6 +155,22 @@ describe("Office Word/PPT tool definitions", () => {
     expect(parameters?.properties.expand.enum).toEqual(["none", "spill", "currentArray", "currentRegion"]);
     expect(readTool?.description).toContain('expand:"spill"');
     expect(readTool?.description).toContain("省略 expand 时会自动探测");
+  });
+
+  it("uses one language-parameterized tool for internal macro code", () => {
+    const writeMacro = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "macro.write");
+    const parameters = writeMacro?.parameters as ObjectToolParameters | undefined;
+
+    expect(parameters?.required).toEqual(["language", "code", "entryPoint"]);
+    expect(parameters?.properties.language.enum).toEqual(["vba", "javascript"]);
+    expect(writeMacro?.description).toContain("内部宏工程");
+    expect(writeMacro?.description).not.toContain("Python");
+    expect(ALL_TOOL_DEFINITIONS.map((tool) => tool.name)).not.toContain("script.execute");
+    expect(ALL_TOOL_DEFINITIONS.map((tool) => tool.name)).not.toContain("vba.writeModule");
+    const runMacro = ALL_TOOL_DEFINITIONS.find((tool) => tool.name === "macro.run");
+    const runParameters = runMacro?.parameters as ObjectToolParameters | undefined;
+    expect(runParameters?.properties.language.enum).toEqual(["vba"]);
+    expect(ALL_TOOL_DEFINITIONS.map((tool) => tool.name)).toContain("python.execute");
   });
 
   it("keeps knowledge search focused on project and business context", () => {
@@ -215,14 +229,13 @@ describe("Office Word/PPT tool definitions", () => {
       "office.action.inspect",
       "office.action.apply",
       "office.action.validate",
-      "office.script.execute",
       "python.execute",
     ]));
   });
 });
 
 describe("Office Word/PPT tool executors", () => {
-  it("registers core Excel, file, knowledge, Word, PowerPoint, and Office script executors", () => {
+  it("registers core Excel, file, knowledge, Word, PowerPoint, and Office action executors", () => {
     const knowledgeRetriever = {
       search: vi.fn(),
       formatForToolResult: vi.fn(),
@@ -245,9 +258,6 @@ describe("Office Word/PPT tool executors", () => {
       replaceText: vi.fn(),
       savePresentation: vi.fn(),
     };
-    const officeScriptBridge: OfficeScriptBridge = {
-      executeScript: vi.fn(),
-    };
     const officeActionBridge: OfficeActionBridge = {
       executeAction: vi.fn(),
     };
@@ -255,13 +265,12 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
       "D:\\temp",
       knowledgeRetriever,
       wordBridge,
       presentationBridge,
-      officeScriptBridge,
       officeActionBridge
     );
 
@@ -293,7 +302,6 @@ describe("Office Word/PPT tool executors", () => {
       "office.action.apply",
       "office_action_apply",
       "office.action.validate",
-      "office.script.execute",
     ]));
     expect(names).not.toEqual(expect.arrayContaining([
       "office.file.inspect",
@@ -316,7 +324,7 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge()
     );
 
@@ -343,7 +351,7 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
       undefined,
       undefined,
@@ -381,7 +389,7 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
       undefined,
       undefined,
@@ -435,13 +443,12 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
       undefined,
       undefined,
       undefined,
       presentationBridge,
-      undefined,
       officeActionBridge
     );
 
@@ -495,12 +502,11 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
       undefined,
       undefined,
       wordBridge,
-      undefined,
       undefined,
       officeActionBridge
     );
@@ -527,49 +533,11 @@ describe("Office Word/PPT tool executors", () => {
     });
   });
 
-  it("forwards generic Office script calls to the Office script bridge", async () => {
-    const officeScriptBridge: OfficeScriptBridge = {
-      executeScript: vi.fn(async () => ({
-        success: true,
-        output: "OK",
-        app: "word",
-        engine: "powershell",
-      })),
-    };
-    const executors = createToolExecutors(
-      fakeExcelBridge(),
-      fakeVbaBridge(),
-      fakeScriptBridge(),
-      fakeUiBridge(),
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      officeScriptBridge
-    );
-
-    const result = await executors.get("office.script.execute")!.execute({
-      app: "word",
-      code: "$doc = $app.ActiveDocument",
-    });
-
-    expect(result).toEqual({
-      success: true,
-      data: {
-        success: true,
-        output: "OK",
-        app: "word",
-        engine: "powershell",
-      },
-    });
-    expect(officeScriptBridge.executeScript).toHaveBeenCalledWith("word", "$doc = $app.ActiveDocument");
-  });
-
   it("does not register legacy Open XML file executors", async () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
       undefined,
       undefined,
@@ -605,9 +573,8 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -642,9 +609,8 @@ describe("Office Word/PPT tool executors", () => {
     const executors = createToolExecutors(
       fakeExcelBridge(),
       fakeVbaBridge(),
-      fakeScriptBridge(),
+    fakeJsaBridge(),
       fakeUiBridge(),
-      undefined,
       undefined,
       undefined,
       undefined,

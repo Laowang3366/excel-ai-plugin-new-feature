@@ -16,10 +16,11 @@
 import React, { useEffect, useState, useCallback, useReducer, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
-import type { FolderFileInfo } from "../electronApi";
+import type { FolderFileInfo, WindowDisplayMode } from "../electronApi";
 import { ChatMessageList } from "./chat/ChatMessageList";
 import { ComposerArea } from "./chat/ComposerArea";
 import { ChatFolderBadge } from "./chat/ChatFolderBadge";
+import { OfficeLauncher } from "./chat/OfficeLauncher";
 import { FeatureSidebarPanel } from "./common/FeatureSidebarPanel";
 import { ToolConfirmDialog } from "./chat/ToolConfirmDialog";
 import { FormulaTaskComposerPanel } from "./task/FormulaTaskComposerPanel";
@@ -40,14 +41,20 @@ import {
   shouldRestoreFeatureSidebarFocus,
   type FeatureSidebarCloseReason,
 } from "../utils/featureSidebarState";
-import { PanelRight } from "./common/IconMap";
+import { Maximize2, Minimize2, PanelRight } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
 
 interface ChatPageProps {
+  displayMode: WindowDisplayMode;
+  onToggleCompactMode: () => void;
   onOpenSettings: (section?: SettingsSection) => void;
 }
 
-export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
+export const ChatPage: React.FC<ChatPageProps> = ({
+  displayMode,
+  onToggleCompactMode,
+  onOpenSettings,
+}) => {
   const {
     messages,
     isStreaming,
@@ -215,6 +222,19 @@ export const ChatPage: React.FC<ChatPageProps> = ({ onOpenSettings }) => {
                 onHideBadge={() => setFolderBadgeHidden(true)}
               />
             )}
+            <OfficeLauncher text={text.app.officeLauncher} />
+            <button
+              className={`feature-sidebar-toggle chat-window-mode-toggle ${
+                displayMode === "compact" ? "active" : ""
+              }`}
+              type="button"
+              onClick={onToggleCompactMode}
+              title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
+              aria-label={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
+              aria-pressed={displayMode === "compact"}
+            >
+              {displayMode === "normal" ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
             <button
               ref={featureSidebarToggleRef}
               className={`feature-sidebar-toggle ${featureSidebarOpen ? "active" : ""}`}

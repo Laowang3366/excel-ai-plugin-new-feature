@@ -175,6 +175,21 @@ describe("buildContextualPromptSections", () => {
     expect(prompt.length).toBeLessThan(2_500);
   });
 
+  test("injects the executable macro workflow only for macro tasks", () => {
+    const prompt = buildContextualPromptSections({
+      content: "请创建 VBA 宏并给工作表按钮绑定 Application.Caller",
+    });
+
+    expect(prompt).toContain("Excel/WPS 内部宏执行规则");
+    expect(prompt).toContain("不要只输出代码让用户手工粘贴");
+    expect(prompt).toContain("macro.detect");
+    expect(prompt).toContain("macro.write");
+    expect(prompt).toContain("WPS JSA 内部宏");
+    expect(prompt).toContain('controlType:"button"');
+    expect(prompt).toContain("ui.listControls");
+    expect(prompt.length).toBeLessThan(2_000);
+  });
+
   test("injects general scenario rules for data-cleaning and report tasks", () => {
     const prompt = buildContextualPromptSections({
       content: "清洗这张表并生成统计报告",

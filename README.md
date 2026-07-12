@@ -107,7 +107,7 @@ prompts -> shared
 | 修改 Excel/Word/PPT 文件 | `office.action.apply` |
 | 验证输出文件和对象变化 | `office.action.validate` |
 | 当前窗口交互 | `word.*` / `presentation.*` / Excel 专用工具 |
-| 专用工具覆盖不到的复杂自动化 | `office.script.execute` |
+| 专用工具覆盖不到的复杂文件操作 | `office.action.apply` / `python.execute` |
 
 ### Open XML 优先能力
 

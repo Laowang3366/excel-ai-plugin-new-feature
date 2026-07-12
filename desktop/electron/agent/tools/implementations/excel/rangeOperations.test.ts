@@ -116,20 +116,17 @@ describe("rangeOperations read performance path", () => {
     expect(script).not.toContain("$row +=");
   });
 
-  test("range write and clear keep executeSmart on the legacy non-Python-first path", async () => {
+  test("range write and clear use Python first with PowerShell fallback", async () => {
     const deps = connectedDeps();
 
     await writeRangeOperation(deps, "Sheet1", "A1", [["A"]]);
     await clearRangeOperation(deps, "Sheet1", "A1");
 
     expect(executeSmartMock).toHaveBeenCalledTimes(2);
-    expect(executeSmartMock.mock.calls[0][4]).toEqual({ preferPython: false });
-    expect(executeSmartMock.mock.calls[1][4]).toEqual({ preferPython: false });
-    const [pythonScript, jscriptScript, powershellScript] = executeSmartMock.mock.calls[0];
-    expect(pythonScript).toContain("rng.cells.item(r, c).value = val");
-    expect(jscriptScript).toContain("rng.Cells.Item(1, 1) =");
-    expect(powershellScript).toContain("$startRange.Cells.Item(1, 1) =");
-    expect(jscriptScript).not.toContain(".Value2 =");
+    const [pythonScript, powershellScript] = executeSmartMock.mock.calls[0];
+    expect(pythonScript).toContain("rng.cells.item(r + 1, c + 1).value = val");
+    expect(powershellScript).toContain("ConvertFrom-Json -InputObject $_valuesJson");
+    expect(powershellScript).toContain("$startRange.Cells.Item($r + 1, $c + 1) = $row[$c]");
     expect(powershellScript).not.toContain(".Value2 =");
   });
 
@@ -143,12 +140,10 @@ describe("rangeOperations read performance path", () => {
     ]);
 
     expect(executeSmartMock).toHaveBeenCalledTimes(1);
-    const [pythonScript, jscriptScript, powershellScript] = executeSmartMock.mock.calls[0];
-    const combinedScript = `${pythonScript}\n${jscriptScript}\n${powershellScript}`;
-    expect(executeSmartMock.mock.calls[0][4]).toEqual({ preferPython: false });
-    expect(pythonScript).toContain("rng.cells.item(r, c).value = val");
-    expect(jscriptScript).toContain("rng.Cells.Item(1, 1) =");
-    expect(powershellScript).toContain("$startRange.Cells.Item(1, 1) =");
+    const [pythonScript, powershellScript] = executeSmartMock.mock.calls[0];
+    const combinedScript = `${pythonScript}\n${powershellScript}`;
+    expect(pythonScript).toContain("rng.cells.item(r + 1, c + 1).value = val");
+    expect(powershellScript).toContain("$startRange.Cells.Item($r + 1, $c + 1) = $row[$c]");
     expect(combinedScript).not.toContain("Formula2");
     expect(combinedScript).not.toContain(".Formula");
     expect(combinedScript).not.toContain(".Value2 =");

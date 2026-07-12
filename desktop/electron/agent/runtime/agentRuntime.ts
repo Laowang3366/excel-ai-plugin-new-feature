@@ -183,13 +183,12 @@ export async function getOrCreateAgentRuntime(
   const toolExecutors = createToolExecutors(
     bridges.excelBridge,
     bridges.vbaBridge,
-    bridges.scriptBridge,
+    bridges.jsaBridge,
     bridges.uiBridge,
     undefined,
     knowledge.retriever ?? undefined,
     bridges.wordBridge,
     bridges.presentationBridge,
-    bridges.officeScriptBridge,
     officeActionBridge,
     memoryStore,
     {

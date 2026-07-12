@@ -10,7 +10,6 @@ describe("openaiToolNames", () => {
 
   it("restores known tool namespaces returned by providers", () => {
     expect(desanitizeToolName("office_action_apply")).toBe("office.action.apply");
-    expect(desanitizeToolName("office_script_execute")).toBe("office.script.execute");
     expect(desanitizeToolName("memory_delete")).toBe("memory.delete");
     expect(desanitizeToolName("range_read")).toBe("range.read");
     expect(desanitizeToolName("custom_tool_name")).toBe("custom_tool_name");

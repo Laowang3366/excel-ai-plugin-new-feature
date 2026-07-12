@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<JsPlugin>
+  <ApiVersion>1.0.0</ApiVersion>
+  <Name>Wengge JSA Bridge</Name>
+  <Description>文格 AI 助手与 WPS 工作簿内部 JSA 宏工程之间的本地桥接</Description>
+</JsPlugin>

@@ -36,6 +36,7 @@
 
 .chat-header h2 {
   min-width: 0;
+  max-width: 50%;
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
@@ -74,6 +75,135 @@
   justify-content: flex-end;
   gap: 8px;
   margin-left: auto;
+}
+
+.office-launcher {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.office-launcher-split {
+  height: 30px;
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.office-launcher-primary,
+.office-launcher-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.office-launcher-primary {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.office-launcher-toggle {
+  width: 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--border-default);
+}
+
+.office-launcher-primary:hover,
+.office-launcher-toggle:hover,
+.office-launcher-toggle.active {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+.office-launcher-primary:disabled,
+.office-launcher-toggle:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.office-launcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 196px;
+  padding: 5px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-lg);
+  z-index: 120;
+}
+
+.office-launcher-item {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.office-launcher-item:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+.office-launcher-item:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.office-launcher-item.wps svg { color: #e5484d; }
+.office-launcher-item.excel svg { color: #16825d; }
+.office-launcher-item.word svg { color: #2b6cb0; }
+.office-launcher-item.powerpoint svg { color: #c65d32; }
+
+.office-launcher-app-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.office-launcher-app-icon.wps { color: #e5484d; }
+.office-launcher-app-icon.excel { color: #16825d; }
+.office-launcher-app-icon.word { color: #2b6cb0; }
+.office-launcher-app-icon.powerpoint { color: #c65d32; }
+
+.office-launcher-error {
+  margin: 4px 6px 2px;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.compact-mode .office-launcher-primary {
+  width: 28px;
+  justify-content: center;
+  padding: 0;
+}
+
+.compact-mode .office-launcher-app-label {
+  display: none;
 }
 
 /* 文件夹徽章容器（位于顶部右侧操作区内，长名称自适应省略） */

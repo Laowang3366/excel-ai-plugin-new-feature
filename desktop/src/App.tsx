@@ -24,12 +24,16 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { useSettingsStore } from "./store/settingsStore";
+import {
+  MAX_WINDOW_OPACITY,
+  MIN_WINDOW_OPACITY,
+  useSettingsStore,
+} from "./store/settingsStore";
 import { Sidebar } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
 import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { ChevronLeft, Maximize2, PanelLeft, Pin } from "./components/common/IconMap";
+import { Eye, Maximize2, Minimize2, PanelLeft, Pin } from "./components/common/IconMap";
 import { logWarn } from "./utils/rendererLogger";
 import { getAppText } from "./i18n";
 import { ipcApi } from "./services/ipcApi";
@@ -55,6 +59,8 @@ export const App: React.FC = () => {
     language,
     theme,
     officeAutoCompactEnabled,
+    windowOpacity,
+    setWindowOpacity,
   } = useSettingsStore();
   const [currentPage, setCurrentPage] = useState<AppPage>("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -68,6 +74,14 @@ export const App: React.FC = () => {
   const hasConnectedOffice = excelStatus.connected || wordStatus.connected || presentationStatus.connected;
   const chatSidebarCollapsed = displayMode === "compact" || sidebarCollapsed;
   const settingsNavCollapsed = displayMode === "compact" || settingsSidebarCollapsed;
+  const windowOpacityPercent = Math.round(windowOpacity * 100);
+  const minWindowOpacityPercent = Math.round(MIN_WINDOW_OPACITY * 100);
+  const maxWindowOpacityPercent = Math.round(MAX_WINDOW_OPACITY * 100);
+  const opacitySliderFill =
+    ((windowOpacityPercent - minWindowOpacityPercent) /
+      (maxWindowOpacityPercent - minWindowOpacityPercent)) *
+    100;
+  const opacityThumbNearValue = opacitySliderFill >= 35 && opacitySliderFill <= 65;
 
   useEffect(() => {
     loadSettings();
@@ -184,7 +198,8 @@ export const App: React.FC = () => {
   const renderTitlebar = (
     showSidebarToggle: boolean,
     collapsed = false,
-    onToggleSidebar?: () => void
+    onToggleSidebar?: () => void,
+    showWindowModeToggle = true,
   ) => (
     <div className="app-titlebar">
       {showSidebarToggle && (
@@ -197,14 +212,42 @@ export const App: React.FC = () => {
           <PanelLeft size={17} />
         </button>
       )}
-      <button
-        className={`titlebar-window-mode-toggle ${displayMode === "compact" ? "active" : ""}`}
-        onClick={toggleCompactMode}
-        title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
-        aria-pressed={displayMode === "compact"}
+      {showWindowModeToggle && (
+        <button
+          className={`titlebar-window-mode-toggle ${displayMode === "compact" ? "active" : ""}`}
+          onClick={toggleCompactMode}
+          title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
+          aria-pressed={displayMode === "compact"}
+        >
+          {displayMode === "normal" ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </button>
+      )}
+      <label
+        className="titlebar-opacity-control"
+        title={`${text.app.windowOpacity}: ${windowOpacityPercent}%`}
       >
-        {displayMode === "normal" ? <ChevronLeft size={15} /> : <Maximize2 size={15} />}
-      </button>
+        <Eye size={14} aria-hidden="true" />
+        <span className="titlebar-opacity-track">
+          <input
+            type="range"
+            className="titlebar-opacity-slider"
+            min={minWindowOpacityPercent}
+            max={maxWindowOpacityPercent}
+            step={1}
+            value={windowOpacityPercent}
+            aria-label={text.app.windowOpacity}
+            style={{ "--slider-fill": `${opacitySliderFill}%` } as React.CSSProperties}
+            onChange={(event) => setWindowOpacity(Number(event.target.value) / 100)}
+          />
+          <span
+            className={`titlebar-opacity-value${
+              opacityThumbNearValue ? " avoid-thumb" : opacitySliderFill > 65 ? " over-fill" : ""
+            }`}
+          >
+            {windowOpacityPercent}%
+          </span>
+        </span>
+      </label>
       <button
         className={`titlebar-pin-toggle ${alwaysOnTop ? "active" : ""}`}
         onClick={toggleAlwaysOnTop}
@@ -257,7 +300,12 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className={`app-shell ${displayMode}-mode`}>
-        {renderTitlebar(true, chatSidebarCollapsed, () => setSidebarCollapsed((collapsed) => !collapsed))}
+        {renderTitlebar(
+          true,
+          chatSidebarCollapsed,
+          () => setSidebarCollapsed((collapsed) => !collapsed),
+          false,
+        )}
         <div className={`app ${chatSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <Sidebar
             collapsed={chatSidebarCollapsed}
@@ -270,6 +318,8 @@ export const App: React.FC = () => {
           />
           <main className="app-main">
             <ChatPage
+              displayMode={displayMode}
+              onToggleCompactMode={toggleCompactMode}
               onOpenSettings={(section = "general") => {
                 setSettingsSection(section);
                 setCurrentPage("settings");

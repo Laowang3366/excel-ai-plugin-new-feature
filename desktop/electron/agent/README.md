@@ -39,11 +39,10 @@ agent/
 ├─ security/                    # 安全基础设施层：跨 core/tools/interaction 复用的策略与审计能力
 │  └─ sandbox/                  # 命令沙箱：shell 策略、规则匹配、工作目录约束、审计和 spawn 包装
 │
-├─ automation/                  # 自动化基础层：PowerShell、COM、JScript、Python、进程执行和安全变量注入
+├─ automation/                  # 自动化基础层：PowerShell、COM、Python、进程执行和安全变量注入
 │  ├─ powershell.ts             # PowerShell 执行与安全变量注入
 │  ├─ python.ts                 # Python/xlwings 运行时定位与执行
-│  ├─ jscript.ts                # Windows Script Host JScript 执行
-│  ├─ scriptEngine.ts           # 自动选择 Python/JScript/PowerShell
+│  ├─ scriptEngine.ts           # Python 优先、PowerShell 兜底
 │  └─ json.ts                   # 自动化脚本 JSON 输出解析
 │
 ├─ providers/                   # 模型供应商层：OpenAI 兼容、Anthropic、厂商适配、模型上下文窗口

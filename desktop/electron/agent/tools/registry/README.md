@@ -9,7 +9,7 @@
 - `range.ts`: 区域读取、写入、清除和选区工具定义。
 - `formula.ts`: 公式上下文工具定义。
 - `sheet.ts`: 工作表操作工具定义。
-- `script.ts`: 脚本执行工具定义。
+- `macro.ts`: Excel/WPS 内部 VBA/JSA 宏工具定义。
 - `ui.ts`: Excel UI 控件和窗体工具定义。
 - `file.ts`: 文件读取和写入工具定义。
 - `shell.ts`: Shell 执行工具定义。

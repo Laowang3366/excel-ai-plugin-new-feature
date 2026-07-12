@@ -4,9 +4,8 @@
 
 模块说明：
 
-- `excel.ts`: Excel/WPS 工作簿、连接状态、VBA、脚本和 UI 控件桥接契约。
+- `excel.ts`: Excel/WPS 工作簿、连接状态、内部 VBA/JSA 宏和 UI 控件桥接契约。
 - `office.ts`: Word、PowerPoint、Office 脚本桥接契约，以及统一 Office file/action bridge 契约。
-- `scriptEnvironment.ts`: 脚本语言、执行结果和运行环境类型。
 
 关联模块：
 

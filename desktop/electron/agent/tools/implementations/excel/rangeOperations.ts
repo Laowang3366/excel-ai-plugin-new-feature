@@ -8,7 +8,6 @@
  */
 
 import { safeJsonParse } from "../../../automation/json";
-import { jsVar } from "../../../automation/jscript";
 import {
   executePowerShell,
   psVar,
@@ -172,61 +171,34 @@ s = wb.sheets[_sheetName]
 rng = s.range(_range)
 for r, row in enumerate(_values):
     for c, val in enumerate(row):
-        rng.cells.item(r, c).value = val
+        rng.cells.item(r + 1, c + 1).value = val
 print("OK")
 `;
 
-    const flatB64: string[] = [];
-    for (const row of normalized) {
-      for (const cell of row) {
-        const cellStr = cell === null || cell === undefined ? "" : String(cell);
-        flatB64.push(Buffer.from(cellStr, "utf16le").toString("base64"));
-      }
-    }
-    let jsAssign = "";
-    let idx = 0;
-    for (let r = 0; r < normalized.length; r++) {
-      for (let c = 0; c < (normalized[r]?.length || 0); c++) {
-        jsAssign += `rng.Cells.Item(${r + 1}, ${c + 1}) = (function() { var n = new ActiveXObject("MSXML2.DOMDocument").createElement("b64"); n.DataType = "bin.base64"; n.Text = "${flatB64[idx]}"; var b = n.NodeTypedValue; var s = new ActiveXObject("ADODB.Stream"); s.Type = 1; s.Open(); s.Write(b); s.Position = 0; s.Type = 2; s.Charset = "Unicode"; var v = s.ReadText(); s.Close(); return v; })();\n`;
-        idx++;
-      }
-    }
-    const jscriptScript = `
-${jsVar("_sheetName", sheetName)}
-${jsVar("_range", range)}
-var excel = GetObject("", "${progId}");
-var wb = excel.ActiveWorkbook;
-var ws = wb.Sheets.Item(_sheetName);
-var rng = ws.Range(_range);
-${jsAssign}
-WScript.Echo("OK");
-`;
-
-    let psAssign = "";
-    idx = 0;
-    for (let r = 0; r < normalized.length; r++) {
-      for (let c = 0; c < (normalized[r]?.length || 0); c++) {
-        psAssign += `$startRange.Cells.Item(${r + 1}, ${c + 1}) = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String('${flatB64[idx]}'))\n`;
-        idx++;
-      }
-    }
     const psScript = `
 ${psVar("_sheetName", sheetName)}
 ${psVar("_range", range)}
+${psVar("_valuesJson", valuesJson)}
 $ErrorActionPreference = 'Stop'
 try {
   $excel = [System.Runtime.InteropServices.Marshal]::GetActiveObject('${progId}')
   $wb = $excel.ActiveWorkbook
   $ws = $wb.Sheets.Item($_sheetName)
   $startRange = $ws.Range($_range)
-${psAssign}
+  $rows = @(ConvertFrom-Json -InputObject $_valuesJson)
+  for ($r = 0; $r -lt $rows.Count; $r++) {
+    $row = @($rows[$r])
+    for ($c = 0; $c -lt $row.Count; $c++) {
+      $startRange.Cells.Item($r + 1, $c + 1) = $row[$c]
+    }
+  }
 } catch {
   Write-Error $_.Exception.Message
   exit 1
 }
 `;
 
-    await executeSmart(pythonScript, jscriptScript, psScript, 90000, { preferPython: false });
+    await executeSmart(pythonScript, psScript, 90000);
   } catch (err: any) {
     throw new Error(`写入范围失败: ${err.message}`);
   }
@@ -250,16 +222,6 @@ s.range(_range).clear()
 print("OK")
 `;
 
-    const jscriptScript = `
-${jsVar("_sheetName", sheetName)}
-${jsVar("_range", range)}
-var excel = GetObject("", "${progId}");
-var wb = excel.ActiveWorkbook;
-var ws = wb.Sheets.Item(_sheetName);
-ws.Range(_range).Clear();
-WScript.Echo("OK");
-`;
-
     const psScript = `
 ${psVar("_sheetName", sheetName)}
 ${psVar("_range", range)}
@@ -269,7 +231,7 @@ $ws = $wb.Sheets.Item($_sheetName)
 $ws.Range($_range).Clear()
 `;
 
-    await executeSmart(pythonScript, jscriptScript, psScript, 90000, { preferPython: false });
+    await executeSmart(pythonScript, psScript, 90000);
   } catch (err: any) {
     throw new Error(`清除范围失败: ${err.message}`);
   }

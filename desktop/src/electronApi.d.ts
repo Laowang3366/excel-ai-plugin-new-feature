@@ -245,6 +245,7 @@ export interface ThreadRuntimeSnapshot {
 export type ThreadSpawnEdgeStatus = "open" | "closed";
 export type ThreadSpawnStatusFilter = ThreadSpawnEdgeStatus | "all";
 export type WindowDisplayMode = "normal" | "compact";
+export type OfficeApplication = "wps" | "excel" | "word" | "powerpoint";
 
 export interface ThreadSpawnEdge {
   parentThreadId: string;
@@ -333,6 +334,9 @@ export interface ElectronAPI {
     ) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
+    launchOffice: (
+      application: OfficeApplication,
+    ) => Promise<{ success: boolean; error?: string }>;
     log: (level: string, tag: string, message: string) => Promise<void>;
   };
   window: {

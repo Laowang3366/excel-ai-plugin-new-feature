@@ -1,8 +1,7 @@
 import { ExcelComBridge } from "../tools/implementations/excel/excelComBridge";
-import { ExcelScriptBridgeCom } from "../tools/implementations/excel/excelScriptBridgeCom";
 import { ExcelUiComBridge } from "../tools/implementations/excel/excelUiComBridge";
 import { ExcelVbaComBridge } from "../tools/implementations/excel/excelVbaComBridge";
-import { OfficeScriptBridge } from "../tools/implementations/office/officeScriptBridge";
+import { WpsJsaBridge } from "../tools/implementations/excel/wpsJsaBridge";
 import { PresentationComBridge } from "../tools/implementations/office/presentationComBridge";
 import { WordComBridge } from "../tools/implementations/office/wordComBridge";
 import { OfficeOpenXmlFileBridge } from "../tools/implementations/officeOpenXml/officeOpenXmlFileBridge";
@@ -14,21 +13,19 @@ const bridgeRegistryLogger = createLogger("BridgeRegistry");
 export interface OfficeBridgeRegistry {
   excelBridge: ExcelComBridge;
   vbaBridge: ExcelVbaComBridge;
-  scriptBridge: ExcelScriptBridgeCom;
+  jsaBridge: WpsJsaBridge;
   uiBridge: ExcelUiComBridge;
   wordBridge: WordComBridge;
   presentationBridge: PresentationComBridge;
-  officeScriptBridge: OfficeScriptBridge;
   officeFileBridge: OfficeOpenXmlFileBridge;
 }
 
 let excelBridge: ExcelComBridge | null = null;
 let vbaBridge: ExcelVbaComBridge | null = null;
-let scriptBridge: ExcelScriptBridgeCom | null = null;
+let jsaBridge: WpsJsaBridge | null = null;
 let uiBridge: ExcelUiComBridge | null = null;
 let wordBridge: WordComBridge | null = null;
 let presentationBridge: PresentationComBridge | null = null;
-let officeScriptBridge: OfficeScriptBridge | null = null;
 let officeFileBridge: OfficeOpenXmlFileBridge | null = null;
 
 /**
@@ -55,8 +52,8 @@ export function getOrCreateOfficeBridges(): OfficeBridgeRegistry {
   if (!vbaBridge) {
     vbaBridge = new ExcelVbaComBridge(activeExcelBridge);
   }
-  if (!scriptBridge) {
-    scriptBridge = new ExcelScriptBridgeCom(activeExcelBridge);
+  if (!jsaBridge) {
+    jsaBridge = new WpsJsaBridge(activeExcelBridge);
   }
   if (!uiBridge) {
     uiBridge = new ExcelUiComBridge(activeExcelBridge);
@@ -67,9 +64,6 @@ export function getOrCreateOfficeBridges(): OfficeBridgeRegistry {
   if (!presentationBridge) {
     presentationBridge = new PresentationComBridge();
   }
-  if (!officeScriptBridge) {
-    officeScriptBridge = new OfficeScriptBridge();
-  }
   if (!officeFileBridge) {
     officeFileBridge = new OfficeOpenXmlFileBridge();
   }
@@ -77,11 +71,10 @@ export function getOrCreateOfficeBridges(): OfficeBridgeRegistry {
   return {
     excelBridge: activeExcelBridge,
     vbaBridge,
-    scriptBridge,
+    jsaBridge,
     uiBridge,
     wordBridge,
     presentationBridge,
-    officeScriptBridge,
     officeFileBridge,
   };
 }
@@ -105,18 +98,17 @@ export function getVbaBridge(): ExcelVbaComBridge | null {
 export function setExcelBridgeInstance(bridge: ExcelComBridge | null): void {
   excelBridge = bridge;
   vbaBridge = null;
-  scriptBridge = null;
+  jsaBridge = null;
   uiBridge = null;
 }
 
 export function resetOfficeBridgeRegistry(): void {
   excelBridge = null;
   vbaBridge = null;
-  scriptBridge = null;
+  jsaBridge = null;
   uiBridge = null;
   wordBridge = null;
   presentationBridge = null;
-  officeScriptBridge = null;
   officeFileBridge = null;
 }
 

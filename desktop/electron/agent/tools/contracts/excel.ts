@@ -4,9 +4,8 @@
  * 被工具执行器和 Excel/WPS 具体实现共同依赖，不包含任何 COM、PowerShell 或 UI 细节。
  */
 
-import type { ScriptEnvironment, ScriptResult } from "./scriptEnvironment";
-
 export type RangeReadExpandMode = "none" | "spill" | "currentArray" | "currentRegion";
+export type WorkbookMacroLanguage = "vba" | "javascript";
 
 export interface RangeReadResult {
   values: unknown[][];
@@ -83,27 +82,80 @@ export interface ExcelConnectionBridge extends ExcelWorkbookBridge {
  */
 export interface ExcelVbaBridge {
   /** 检测 VBA 能力 */
-  detectCapabilities(): Promise<{ supported: boolean; version?: string }>;
+  detectCapabilities(): Promise<{
+    supported: boolean;
+    version?: string;
+    host?: "excel" | "wps";
+    reason?: string;
+  }>;
   /** 运行宏 */
   runMacro(macroName: string, args?: unknown[]): Promise<unknown>;
-  /** 写入模块 */
-  writeModule(moduleName: string, code: string): Promise<void>;
-  /** 执行代码 */
-  executeCode(code: string): Promise<unknown>;
+  /** 幂等写入模块，并回读、编译和按需保存 */
+  writeModule(
+    moduleName: string,
+    code: string,
+    options?: VbaModuleWriteOptions
+  ): Promise<VbaModuleWriteResult>;
+}
+
+export interface VbaModuleWriteOptions {
+  /** 需要确认存在的公开入口过程 */
+  entryPoint?: string;
+  /** 是否在校验后保存工作簿 */
+  save?: boolean;
+  /** 非宏工作簿另存为路径；省略时自动生成同目录 *-macro.xlsm */
+  saveAsPath?: string;
+}
+
+export interface VbaModuleWriteResult {
+  moduleName: string;
+  created: boolean;
+  lineCount: number;
+  sourceVerified: true;
+  compileVerified: true;
+  entryPoint?: string;
+  entryPointVerified: boolean;
+  saved: boolean;
+  workbookName: string;
+  workbookPath: string;
+  host: "excel" | "wps";
 }
 
 /**
- * 统一脚本执行桥接接口
+ * WPS JSA 桥接接口
  *
- * 根据环境自动选择最优引擎：
- * - WPS: JS(cscript) → VBA → Python
- * - Office Excel: VBA → Python
+ * 仅负责读写和调用 WPS 工作簿内部的 JavaScript 宏，不执行桌面端脚本。
  */
-export interface ExcelScriptBridge {
-  /** 检测脚本环境，返回可用语言及推荐 */
-  detectEnvironment(): Promise<ScriptEnvironment>;
-  /** 执行脚本代码，未指定语言时使用推荐语言，失败自动 fallback */
-  executeScript(code: string, language?: string): Promise<ScriptResult>;
+export interface WpsJsaBridge {
+  detectCapabilities(): Promise<MacroLanguageCapability>;
+  writeCode(code: string, options?: JsaWriteOptions): Promise<JsaWriteResult>;
+}
+
+export interface MacroLanguageCapability {
+  language: WorkbookMacroLanguage;
+  supported: boolean;
+  /** 当前是否已连接并可立即写入 */
+  ready: boolean;
+  internal: true;
+  engine: "VBA" | "WPS JSA";
+  reason?: string;
+}
+
+export interface JsaWriteOptions {
+  entryPoint?: string;
+  save?: boolean;
+}
+
+export interface JsaWriteResult {
+  language: "javascript";
+  componentName?: string;
+  lineCount: number;
+  sourceVerified: true;
+  entryPoint?: string;
+  entryPointVerified: boolean;
+  saved: boolean;
+  workbookName?: string;
+  host: "wps";
 }
 
 /**

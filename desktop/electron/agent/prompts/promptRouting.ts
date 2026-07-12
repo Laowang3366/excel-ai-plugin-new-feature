@@ -1,4 +1,4 @@
-export type PromptScenario = "formula" | "ocr-invoice" | "office-tools" | "general-office";
+export type PromptScenario = "formula" | "ocr-invoice" | "office-tools" | "general-office" | "macro";
 
 export interface PromptAttachment {
   fileName?: string;
@@ -19,7 +19,9 @@ const OCR_INTENT_PATTERN =
 const OFFICE_INTENT_PATTERN =
   /(?:excel|wps|word|ppt|powerpoint|表格|单元格|选区|工作簿|工作表|文档|演示文稿|幻灯片|open\s+xml|office\.action|\.xlsx?|\.csv|\.docx?|\.pptx?)/iu;
 const GENERAL_OFFICE_INTENT_PATTERN =
-  /(?:数据)?清洗|图表|报告|汇总|统计|趋势|批量|条件格式|数据验证|建模|预测|vba|脚本|宏/iu;
+  /(?:数据)?清洗|图表|报告|汇总|统计|趋势|批量|条件格式|数据验证|建模|预测/iu;
+const MACRO_INTENT_PATTERN =
+  /(?:创建|编写|写入|安装|修改|修复|绑定|运行|执行).{0,10}(?:vba|宏|jsa|脚本按钮|控制按钮)|(?:vba|宏|jsa|脚本按钮|控制按钮).{0,10}(?:创建|编写|写入|安装|修改|修复|绑定|运行|执行)|点击.{0,8}按钮|按钮.{0,8}(?:点击|绑定|切换)|application\.caller|onaction|macro\.write/iu;
 const IMAGE_OR_PDF_ATTACHMENT_PATTERN = /\.(?:png|jpe?g|webp|bmp|gif|tiff?|pdf)$/iu;
 const OFFICE_ATTACHMENT_PATTERN = /\.(?:xlsx|xlsm?|xlsb|csv|docx?|pptx?)$/iu;
 
@@ -39,6 +41,10 @@ export function resolvePromptScenarios(context: PromptRoutingContext): Set<Promp
     context.attachments?.some(isImageOrPdfAttachment)
   ) {
     scenarios.add("ocr-invoice");
+  }
+
+  if (MACRO_INTENT_PATTERN.test(content)) {
+    scenarios.add("macro");
   }
 
   if (!isFormula) {
