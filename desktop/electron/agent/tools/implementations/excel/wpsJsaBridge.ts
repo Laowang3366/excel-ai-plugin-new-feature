@@ -10,6 +10,7 @@ import type {
   WpsJsaBridge as WpsJsaBridgeContract,
 } from "../../contracts/excel";
 import { executePowerShell, psVar } from "../../../automation/powershell";
+import { resolveHotPatchPath } from "../../../../main-modules/hotPatchManager";
 import type { ExcelComBridge } from "./excelComBridge";
 
 const BRIDGE_PORT = 45221;
@@ -283,9 +284,10 @@ async function ensureAddonInstalled(): Promise<{ token: string; changed: boolean
 
 function resolveAddonSourceDir(): string {
   const candidates = [
+    resolveHotPatchPath("public/wps-jsa-bridge"),
     path.join(process.cwd(), "public", "wps-jsa-bridge"),
     process.resourcesPath ? path.join(process.resourcesPath, "public", "wps-jsa-bridge") : "",
-  ].filter(Boolean);
+  ].filter((candidate): candidate is string => Boolean(candidate));
   const source = candidates.find((candidate) => existsSync(path.join(candidate, "index.html")));
   if (!source) throw new Error("安装包缺少 WPS JSA 内部桥接资源");
   return source;

@@ -18,6 +18,8 @@ import type {
   SandboxPrefixRule,
   WindowDisplayMode,
   OfficeApplication,
+  DesktopUpdateState,
+  UpdateKind,
 } from "../electronApi";
 
 // ============================================================
@@ -34,6 +36,13 @@ export interface IIpcApi {
     openExternal: (targetUrl: string) => Promise<string>;
     launchOffice: (application: OfficeApplication) => Promise<{ success: boolean; error?: string }>;
     log: (level: string, tag: string, message: string) => Promise<void>;
+  };
+  update: {
+    getState: () => Promise<DesktopUpdateState>;
+    check: (manual?: boolean) => Promise<DesktopUpdateState>;
+    download: (kind: UpdateKind) => Promise<DesktopUpdateState>;
+    apply: () => Promise<DesktopUpdateState>;
+    onStateChanged: (callback: (state: DesktopUpdateState) => void) => () => void;
   };
   window: {
     getAlwaysOnTop: () => Promise<boolean>;

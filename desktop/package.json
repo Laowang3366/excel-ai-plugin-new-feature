@@ -1,6 +1,6 @@
 {
   "name": "excel-ai-assistant",
-  "version": "0.1.78",
+  "version": "0.1.79",
   "description": "Office AI 桌面助手 - 通过 AI 帮你处理表格、文档和演示文稿",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:build": "node scripts/clean-build-output.cjs && vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
+    "patch:build": "node scripts/create-hot-patch.cjs",
+    "release:verify": "vite-node scripts/verify-release-manifest.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -19,6 +21,7 @@
   },
   "dependencies": {
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
     "jszip": "^3.10.1",
     "lucide-react": "^1.21.0",
     "react": "^18.3.1",
@@ -74,6 +77,7 @@
       }
     ],
     "win": {
+      "artifactName": "Wengge-AI-Assistant-Setup-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -93,6 +97,12 @@
       "installerHeader": "build/installer-header.bmp",
       "installerIcon": "build/installerIcon.ico",
       "uninstallerIcon": "build/uninstallerIcon.ico"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://plugin.shelelove.top/releases/windows"
+      }
+    ]
   }
 }

@@ -80,6 +80,7 @@ import {
   ListPlus,
   PanelLeft,
   PanelRight,
+  Download,
 } from "lucide-react";
 
 // Re-export all icons for direct import
@@ -158,4 +159,5 @@ export {
   ListPlus,
   PanelLeft,
   PanelRight,
+  Download,
 };

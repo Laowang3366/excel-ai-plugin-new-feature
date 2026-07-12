@@ -38,7 +38,7 @@ powershell -ExecutionPolicy Bypass -File python\setup-python-embed.ps1
 - 此目录不提交到 Git（已在 .gitignore 中排除）
 - 构建安装包时，electron-builder 会将此目录打包为 extraResources
 - 如果用户机器已有系统 Python + xlwings，会优先使用系统 Python
-- 如果此目录不存在，应用会 fallback 到 JScript(cscript.exe) 或 PowerShell
+- 如果此目录不存在，应用会尝试系统 Python；找不到可用 Python 时返回明确错误，不再降级为 JScript 或任意 PowerShell 脚本
 
 ## 体积优化
 

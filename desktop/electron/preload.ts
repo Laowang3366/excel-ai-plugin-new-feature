@@ -23,6 +23,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("app:log", level, tag, message),
   },
 
+  // ---- 应用更新 ----
+  update: {
+    getState: () => ipcRenderer.invoke("update:getState"),
+    check: (manual = true) => ipcRenderer.invoke("update:check", manual),
+    download: (kind: "installer" | "hotPatch") => ipcRenderer.invoke("update:download", kind),
+    apply: () => ipcRenderer.invoke("update:apply"),
+    onStateChanged: (callback: (state: unknown) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state);
+      ipcRenderer.on("update:stateChanged", handler);
+      return () => ipcRenderer.removeListener("update:stateChanged", handler);
+    },
+  },
+
   // ---- 窗口 ----
   window: {
     getAlwaysOnTop: () => ipcRenderer.invoke("window:getAlwaysOnTop"),

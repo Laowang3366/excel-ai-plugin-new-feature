@@ -43,6 +43,12 @@ import {
 import { requestToolApproval } from "./agent/interaction/eventForwarder";
 import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
 import { createAppShutdownController, runCleanupSteps } from "./main-modules/appShutdown";
+import {
+  activatePendingHotPatch,
+  disposeUpdateManager,
+  initializeUpdateManager,
+  isUpdateRestartInProgress,
+} from "./main-modules/updateManager";
 
 const mainLogger = createLogger("main");
 
@@ -96,6 +102,8 @@ function recreateMainWindow(): BrowserWindow {
 app
   .whenReady()
   .then(async () => {
+    const userDataPath = app.getPath("userData");
+    activatePendingHotPatch(userDataPath);
     getSessionStoreInstance(); // 提前初始化 SessionStore
     await getOrCreateAgentRuntime({
       getActiveAIConfig,
@@ -107,6 +115,17 @@ app
     }); // 提前初始化 Agent（含 Office bridge + RAG）
     registerIpcHandlers();
     applySandboxConfig(); // 把 electron-store 中的用户规则热更新到沙箱单例
+    initializeUpdateManager({
+      userDataPath,
+      notify: (updateState) => {
+        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+        mainWindow.webContents.send("update:stateChanged", updateState);
+      },
+      prepareToRestart: async () => {
+        setIsQuitting(true);
+        await cleanupApplication();
+      },
+    });
     recreateMainWindow(); // 创建窗口并保存引用
 
     app.on("activate", () => {
@@ -159,13 +178,7 @@ app.on("window-all-closed", () => {
 // 3. 关闭状态运行时存储
 // 4. 断开 Office bridge 连接（Excel/WPS 等 COM 对象）
 const handleBeforeQuit = createAppShutdownController({
-  cleanup: async () => {
-    await runCleanupSteps([
-      () => getSessionStoreInstance().flushRolloutWrites(),
-      () => closeStateRuntimeStore(),
-      () => disconnectOfficeBridges(),
-    ]);
-  },
+  cleanup: cleanupApplication,
   quit: () => app.quit(),
   onCleanupError: (error) => {
     mainLogger.error(
@@ -179,5 +192,15 @@ const handleBeforeQuit = createAppShutdownController({
 
 app.on("before-quit", (event) => {
   setIsQuitting(true);
+  if (isUpdateRestartInProgress()) return;
   handleBeforeQuit(event);
 });
+
+async function cleanupApplication(): Promise<void> {
+  disposeUpdateManager();
+  await runCleanupSteps([
+    () => getSessionStoreInstance().flushRolloutWrites(),
+    () => closeStateRuntimeStore(),
+    () => disconnectOfficeBridges(),
+  ]);
+}

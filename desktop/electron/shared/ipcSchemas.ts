@@ -36,6 +36,9 @@ export const AppOpenExternalInput = z.string().url("URL 格式不正确");
 export const LaunchOfficeApplicationInput = z.enum(["wps", "excel", "word", "powerpoint"]);
 export type LaunchOfficeApplicationInput = z.infer<typeof LaunchOfficeApplicationInput>;
 
+export const UpdateKindInput = z.enum(["installer", "hotPatch"]);
+export const UpdateCheckInput = z.boolean().optional();
+
 // ============================================================
 // Window
 // ============================================================
