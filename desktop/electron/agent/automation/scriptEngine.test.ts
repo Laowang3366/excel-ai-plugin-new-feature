@@ -40,15 +40,13 @@ describe("getEmbeddedPythonPathCandidates", () => {
 });
 
 describe("executeSmart", () => {
-  test("falls back when JScript exits without output", async () => {
+  test("falls back to PowerShell when Python returns no output", async () => {
     if (process.platform !== "win32") return;
 
     const result = await executeSmart(
       "",
-      "",
       '"fallback"',
       15000,
-      { preferPython: false }
     );
 
     expect(result).toEqual({ result: "fallback", engine: "powershell" });

@@ -1318,7 +1318,7 @@ describe("shouldRequireApproval", () => {
     expect(shouldRequireApproval("range.write", "auto_approve_safe")).toBe(true);
     expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(true);
     expect(shouldRequireApproval("shell.execute", "auto_approve_safe")).toBe(true);
-    expect(shouldRequireApproval("script.execute", "auto_approve_safe")).toBe(true);
+    expect(shouldRequireApproval("macro.write", "auto_approve_safe")).toBe(true);
   });
 
   it("auto_approve_safe: unknown tools default to requiring approval", () => {
@@ -1336,8 +1336,8 @@ describe("shouldRequireApproval", () => {
     expect(shouldRequireApproval("range.read", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("range.write", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("shell.execute", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("script.execute", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("vba.runMacro", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("workbook.save", "confirm_all")).toBe(false);
   });
 

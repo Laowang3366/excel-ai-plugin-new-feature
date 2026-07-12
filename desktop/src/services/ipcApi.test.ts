@@ -27,6 +27,14 @@ describe("ipcApi wrapper", () => {
     expect(runtimeStatus).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards the fixed Office application enum through the wrapper", async () => {
+    const launchOffice = vi.fn().mockResolvedValue({ success: true });
+    setElectronApi({ app: { launchOffice } });
+
+    await expect(ipcApi.app.launchOffice("word")).resolves.toEqual({ success: true });
+    expect(launchOffice).toHaveBeenCalledWith("word");
+  });
+
   it("forwards Excel readRange expand mode through the wrapper", async () => {
     const readRange = vi.fn().mockResolvedValue({
       values: [[1], [2]],

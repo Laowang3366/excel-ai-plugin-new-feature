@@ -23,6 +23,7 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       migrateDataPath: async () => ({ success: true }),
       openPath: async () => "",
       openExternal: async () => "",
+      launchOffice: async () => ({ success: true }),
       log: async () => {},
     },
     window: {

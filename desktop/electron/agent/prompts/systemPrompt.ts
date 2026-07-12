@@ -4,6 +4,7 @@ import formulaPrompt from "./templates/scenarios/formula.zh-CN.md?raw";
 import ocrInvoicePrompt from "./templates/scenarios/ocr-invoice.zh-CN.md?raw";
 import officeToolsPrompt from "./templates/scenarios/office-tools.zh-CN.md?raw";
 import generalOfficePrompt from "./templates/scenarios/general-office.zh-CN.md?raw";
+import macroPrompt from "./templates/scenarios/macro.zh-CN.md?raw";
 import runtimeEnvironmentPrompt from "./templates/runtime/environment.zh-CN.md?raw";
 import dynamicArrayEnabledPrompt from "./templates/runtime/dynamic-array-enabled.zh-CN.md?raw";
 import dynamicArrayDisabledPrompt from "./templates/runtime/dynamic-array-disabled.zh-CN.md?raw";
@@ -43,6 +44,7 @@ const contextualSections: ContextualPromptDefinition[] = [
   { key: "ocr-invoice", content: ocrInvoicePrompt, scenario: "ocr-invoice" },
   { key: "office-tools", content: officeToolsPrompt, scenario: "office-tools" },
   { key: "general-office", content: generalOfficePrompt, scenario: "general-office" },
+  { key: "macro", content: macroPrompt, scenario: "macro" },
 ];
 
 export function buildSystemPrompt(): string {

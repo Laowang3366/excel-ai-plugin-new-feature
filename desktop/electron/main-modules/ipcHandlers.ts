@@ -48,6 +48,7 @@ import {
   validateInput,
   AppOpenExternalInput,
   AppOpenPathInput,
+  LaunchOfficeApplicationInput,
   ExcelReadRangeInput,
   ExcelSelectHostInput,
   ExcelWriteRangeInput,
@@ -57,6 +58,7 @@ import {
   SetAlwaysOnTopInput,
   WindowDisplayModeInput,
 } from "../shared/ipcSchemas";
+import { launchOfficeApplication } from "./officeProcessLauncher";
 import { createLogger } from "../shared/logger";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
 import { registerOcrIpcHandler } from "./ipcOcrHandlers";
@@ -163,6 +165,18 @@ export function registerIpcHandlers(): void {
       return "";
     } catch (error: any) {
       return error?.message || "Failed to open external URL";
+    }
+  });
+
+  ipcMain.handle("app:launchOffice", async (_event, application: unknown) => {
+    try {
+      const validated = validateInput(LaunchOfficeApplicationInput, application);
+      return await launchOfficeApplication(validated);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "启动程序失败",
+      };
     }
   });
 

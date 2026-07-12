@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ToolExecutor } from "../../shared/types";
 import type {
   OfficeActionBridge,
-  OfficeScriptBridge,
   PresentationBridge,
   WordDocumentBridge,
 } from "../contracts/office";
@@ -190,21 +189,22 @@ describe("addOfficeExecutors", () => {
     });
   });
 
-  it("rejects unsupported Office script apps", async () => {
-    const officeScriptBridge = {
-      executeScript: vi.fn(),
-    } as unknown as OfficeScriptBridge;
-    const target = createTarget({ officeScriptBridge });
+  it("requires filePath for file-level office.action.apply calls", async () => {
+    const officeActionBridge: OfficeActionBridge = { executeAction: vi.fn() };
+    const target = createTarget({ officeActionBridge });
 
-    const result = await target.get("office.script.execute")!.execute({
-      app: "excel",
-      code: "$app.ActiveWorkbook",
+    const result = await target.get("office.action.apply")!.execute({
+      app: "word",
+      action: "edit",
+      operation: "replaceText",
+      params: { findText: "A", replaceText: "B" },
     });
 
-    expect(result).toEqual({
-      success: false,
-      error: "参数 app 必须是 word 或 presentation",
-    });
-    expect(officeScriptBridge.executeScript).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: false, error: "缺少必填参数: filePath" });
+    expect(officeActionBridge.executeAction).not.toHaveBeenCalled();
+  });
+
+  it("does not expose an arbitrary PowerShell Office script executor", () => {
+    expect(createTarget({}).has("office.script.execute")).toBe(false);
   });
 });

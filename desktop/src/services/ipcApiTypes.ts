@@ -17,6 +17,7 @@ import type {
   SandboxConfig,
   SandboxPrefixRule,
   WindowDisplayMode,
+  OfficeApplication,
 } from "../electronApi";
 
 // ============================================================
@@ -31,6 +32,7 @@ export interface IIpcApi {
     migrateDataPath: (targetPath: string) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
+    launchOffice: (application: OfficeApplication) => Promise<{ success: boolean; error?: string }>;
     log: (level: string, tag: string, message: string) => Promise<void>;
   };
   window: {

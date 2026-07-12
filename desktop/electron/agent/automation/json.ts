@@ -1,7 +1,7 @@
 /**
  * 自动化脚本 JSON 解析
  *
- * 被 COM 桥接层用于解析 Python、JScript、PowerShell 返回的 JSON 输出。
+ * 被 COM 桥接层用于解析 Python、PowerShell 返回的 JSON 输出。
  */
 
 import type { ScriptEngine } from "./scriptEngine";

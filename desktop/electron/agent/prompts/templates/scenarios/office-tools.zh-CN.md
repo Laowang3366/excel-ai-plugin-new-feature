@@ -5,6 +5,7 @@
 - 磁盘文件或未连接 Office：Open XML 优先，用 `office.action.inspect`、`office.action.apply`、`office.action.validate` 处理 .xlsx/.docx/.pptx。
 - `office.action.apply` 结果必须看 status：`done` 完成，`unsupported`/ `needsCom`/ `failed` 再换方案；需要 COM 兜底可传 `preferEngine:"com"`。
 - 文件截图用 `office.action.apply({ app, action:"snapshot", operation:"snapshot", filePath })` 并走审批，不用 inspect/validate 绕过。
-- 当前 Excel 单元格写入用 `range.write`；文件级创建/编辑用 `office.action.apply`。不要把 `range.read` 当写入，也不要把 `office.script.execute` 当 Excel 公式写入首选。
+- 当前 Excel 单元格写入用 `range.write`；文件级创建/编辑用 `office.action.apply`。不要把 `range.read` 当写入。复杂文件处理可用 `python.execute`，不得拼接任意 PowerShell 操作 Office。
+- `office.action.apply` 只处理有明确 `filePath` 的磁盘文件；`word.*`、`presentation.*` 和 `range.*` 只处理当前已连接窗口、选区或未保存内容。二者按目标状态互斥选择，不为同一次操作重复调用。
 - 图片/PDF/界面/PPT 截图/Word 或 Excel 样式验收先用 `ocr.parseDocument` 得到可见内容，再做修改或判断。
 - 长期记忆删除用 `memory.delete`，先 `memory.list` 或 `memory.search` 确认 memoryId；知识库内容不要用 memory 工具删除。

@@ -42,16 +42,19 @@ function createThread(): Thread {
 describe("runAgentLoopRounds", () => {
   it("emits final assistant item and applies usage for a plain response", async () => {
     const usage = { inputTokens: 12, outputTokens: 3 };
-    const aiClient = {
-      streamChat: vi.fn(() => streamEvents([
-        { type: "text_delta", delta: "完成" },
-        { type: "usage", usage },
-        { type: "done", finishReason: "stop" },
-      ])),
-    };
     const turn = createTurn();
     const thread = createThread();
     const events: string[] = [];
+    const aiClient = {
+      streamChat: vi.fn(() => {
+        expect(events).toEqual(["context_usage:none"]);
+        return streamEvents([
+          { type: "text_delta", delta: "完成" },
+          { type: "usage", usage },
+          { type: "done", finishReason: "stop" },
+        ]);
+      }),
+    };
     const callbacks: AgentTurnCallbacks = {
       onStreamDelta: (delta, itemType, roundId) => {
         events.push(`delta:${itemType}:${roundId}:${delta}`);
@@ -118,10 +121,10 @@ describe("runAgentLoopRounds", () => {
     expect(turn.tokenUsage).toEqual(usage);
     expect(thread.metadata.totalTokenUsage).toEqual(usage);
     expect(events).toEqual([
+      "context_usage:none",
       "delta:assistant_message:1:完成",
       "item_started:assistant_message",
       "item_completed:assistant_message",
-      "context_usage:none",
     ]);
   });
 });

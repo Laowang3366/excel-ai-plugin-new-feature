@@ -261,20 +261,20 @@ const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
 
 const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
   name: "office.action.apply",
-  description: "统一 Office 高级操作入口。优先使用项目内置 Open XML 处理 Excel/Word/PPT 文件级创建和编辑，不依赖 openpyxl、python-docx、python-pptx 或现场 pip。Excel 文件级常用 operation: createWorkbook、writeRange、setDataValidation、applyConditionalFormatting、styleTable、insertChart；Word 文件级常用 operation: createDocument、replaceText、applyHeadingStyles、styleTables、setHeaderFooter；PPT 文件级常用 operation: createPresentation、deleteSlides、applyTheme。已连接 Office 且要操作当前窗口时才优先使用 range.*、python.execute 或专用 COM 工具。",
+  description: "统一 Office 文件级高级操作入口，必须提供 filePath，作用于磁盘文件而不是当前活动窗口。优先使用项目内置 Open XML，不依赖 openpyxl、python-docx、python-pptx 或现场 pip；必要时对该文件使用 COM 兜底。当前窗口、选区或未保存文档必须使用 range.*、word.*、presentation.* 专用工具。",
   parameters: {
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
       action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"], description: "动作类型，必填" },
       operation: { type: "string", description: "具体操作，如 createWorkbook、writeRange、createDocument、createPresentation、deleteSlides、replaceText、styleTable、snapshot、setDataValidation、applyHeadingStyles、applyTheme、insertChart" },
-      filePath: { type: "string", description: "Office 文件绝对路径" },
+      filePath: { type: "string", description: "Office 文件绝对路径；文件级 apply 必填" },
       outputPath: { type: "string", description: "输出文件路径；未指定时由实现生成副本" },
       target: { type: "string", description: "对象定位，如 range:Sheet1!A1:D10、table:1、slide:1" },
       preferEngine: { type: "string", enum: ["openxml", "com"], description: "首选引擎，默认 openxml" },
       params: { type: "object", description: "操作参数" },
     },
-    required: ["app", "action", "operation"],
+    required: ["app", "action", "operation", "filePath"],
   },
   riskLevel: "moderate",
   requiresApproval: true,
@@ -301,22 +301,6 @@ const OFFICE_ACTION_VALIDATE_DEF: ToolDefinition = {
   requiresApproval: false,
 };
 
-const OFFICE_SCRIPT_EXECUTE_DEF: ToolDefinition = {
-  name: "office.script.execute",
-  description: "在 Word 或 PowerPoint COM 对象上执行 PowerShell 脚本，用于完成专用工具覆盖不到的复杂编辑。脚本中会自动注入 $app 变量",
-  parameters: {
-    type: "object",
-    properties: {
-      app: { type: "string", enum: ["word", "presentation"], description: "目标 Office 应用" },
-      code: { type: "string", description: "PowerShell 脚本片段，自动可用 $app 变量" },
-    },
-    required: ["app", "code"],
-  },
-  riskLevel: "dangerous",
-  requiresApproval: true,
-  requiresOfficeApp: "any",
-};
-
 export const OFFICE_TOOL_DEFINITIONS: ToolDefinition[] = [
   OFFICE_CONNECTION_STATUS_DEF,
   WORD_OPEN_DEF,
@@ -336,5 +320,4 @@ export const OFFICE_TOOL_DEFINITIONS: ToolDefinition[] = [
   OFFICE_ACTION_INSPECT_DEF,
   OFFICE_ACTION_APPLY_DEF,
   OFFICE_ACTION_VALIDATE_DEF,
-  OFFICE_SCRIPT_EXECUTE_DEF,
 ];

@@ -621,7 +621,7 @@ npm test -- electron/agent/prompts/systemPrompt.test.ts
 ```md
 ### 视觉排版与表格美化
 Open XML 优先：先用 office.layout.inspect / office.table.inspect / office.visual.snapshot 获取结构和截图，再用 office.table.applyStyle 或 Open XML 文件工具修改。
-COM 仅作为兜底：只有 Open XML 不支持当前对象、无法渲染截图、或用户明确要求操作当前打开窗口时，才使用 word.* / presentation.* / office.script.execute。
+COM 仅作为兜底：只有 Open XML 不支持当前对象、无法渲染截图、或用户明确要求操作当前打开窗口时，才使用 word.* / presentation.* 专用工具。
 ```
 
 - [ ] **步骤 3：运行提示词测试**

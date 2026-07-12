@@ -34,7 +34,6 @@ describe("tool name normalization", () => {
     expect(desanitizeToolName("word_open")).toBe("word.open");
     expect(desanitizeToolName("presentation_setShapeText")).toBe("presentation.setShapeText");
     expect(desanitizeToolName("office_action_apply")).toBe("office.action.apply");
-    expect(desanitizeToolName("office_script_execute")).toBe("office.script.execute");
     expect(desanitizeToolName("ocr_parseDocument")).toBe("ocr.parseDocument");
     expect(desanitizeToolName("knowledge_write")).toBe("knowledge.write");
     expect(desanitizeToolName("web_search")).toBe("web.search");

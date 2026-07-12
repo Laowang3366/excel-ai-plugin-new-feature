@@ -8,8 +8,9 @@ import type { ToolExecutor } from "../../shared/types";
 import type {
   ExcelWorkbookBridge,
   ExcelVbaBridge,
-  ExcelScriptBridge,
   ExcelUiBridge,
+  WpsJsaBridge,
+  WorkbookMacroLanguage,
   RangeReadExpandMode,
 } from "../contracts/excel";
 import { validateArgs } from "./validation";
@@ -18,7 +19,7 @@ import { toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 export interface ExcelExecutorDeps {
   workbookBridge: ExcelWorkbookBridge;
   vbaBridge: ExcelVbaBridge;
-  scriptBridge: ExcelScriptBridge;
+  jsaBridge: WpsJsaBridge;
   uiBridge: ExcelUiBridge;
 }
 
@@ -107,7 +108,7 @@ function describeFormulaChar(char: string): string {
 }
 
 export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: ExcelExecutorDeps): void {
-  const { workbookBridge, vbaBridge, scriptBridge, uiBridge } = deps;
+  const { workbookBridge, vbaBridge, jsaBridge, uiBridge } = deps;
 
   target.set("workbook.inspect", {
     name: "workbook.inspect",
@@ -194,23 +195,86 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
     },
   });
 
-  target.set("vba.runMacro", {
-    name: "vba.runMacro",
+  target.set("macro.detect", {
+    name: "macro.detect",
+    execute: async (_args: Record<string, unknown>) => {
+      const [hostInfo, vba, javascript] = await Promise.all([
+        workbookBridge.getHostInfo(),
+        vbaBridge.detectCapabilities(),
+        jsaBridge.detectCapabilities(),
+      ]);
+      const capabilities = [
+        {
+          language: "vba" as const,
+          supported: vba.supported,
+          ready: vba.supported,
+          internal: true as const,
+          engine: "VBA" as const,
+          reason: vba.reason,
+        },
+        javascript,
+      ];
+      const available = capabilities.filter((item) => item.supported);
+      const ready = available.filter((item) => item.ready);
+      return {
+        success: true,
+        data: {
+          host: hostInfo.host,
+          recommended: ready[0]?.language ?? available[0]?.language ?? "none",
+          available,
+          unavailable: capabilities.filter((item) => !item.supported),
+        },
+      };
+    },
+  });
+
+  target.set("macro.run", {
+    name: "macro.run",
     execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { macroName: "string" });
+      const err = validateArgs(args, { language: "string", macroName: "string" });
       if (err) return { success: false, error: err };
-      const result = await vbaBridge.runMacro(args.macroName as string, args.args as unknown[] | undefined);
+      if (args.language !== "vba") {
+        return { success: false, error: "macro.run 当前仅支持 vba；WPS JSA 只提供写入和回读校验" };
+      }
+      const result = await vbaBridge.runMacro(
+        args.macroName as string,
+        args.args as unknown[] | undefined,
+      );
       return { success: true, data: result };
     },
   });
 
-  target.set("vba.writeModule", {
-    name: "vba.writeModule",
+  target.set("macro.write", {
+    name: "macro.write",
     execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { moduleName: "string", code: "string" });
+      const err = validateArgs(args, { language: "string", code: "string", entryPoint: "string" });
       if (err) return { success: false, error: err };
-      await vbaBridge.writeModule(args.moduleName as string, args.code as string);
-      return { success: true, data: "模块写入成功" };
+      const language = normalizeMacroLanguage(args.language);
+      if (language instanceof Error) return { success: false, error: language.message };
+
+      if (language === "vba") {
+        const vbaErr = validateArgs(args, { moduleName: "string" });
+        if (vbaErr) return { success: false, error: vbaErr };
+        const result = await vbaBridge.writeModule(
+          args.moduleName as string,
+          args.code as string,
+          {
+            entryPoint: args.entryPoint as string,
+            save: true,
+            saveAsPath: args.saveAsPath as string | undefined,
+          }
+        );
+        return { success: true, data: { language, ...result } };
+      }
+
+      if (args.saveAsPath !== undefined) {
+        return { success: false, error: "saveAsPath 仅支持 VBA；WPS JSA 保存到当前工作簿" };
+      }
+      const result = await jsaBridge.writeCode(args.code as string, {
+        entryPoint: args.entryPoint as string,
+        save: true,
+      });
+      return { success: true, data: result };
     },
   });
 
@@ -228,31 +292,18 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
     },
   });
 
-  target.set("script.detect", {
-    name: "script.detect",
-    execute: async (_args: Record<string, unknown>) => {
-      const env = await scriptBridge.detectEnvironment();
-      return { success: true, data: env };
-    },
-  });
-
-  target.set("script.execute", {
-    name: "script.execute",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { code: "string" });
-      if (err) return { success: false, error: err };
-      const result = await scriptBridge.executeScript(
-        args.code as string,
-        args.language as string | undefined
-      );
-      return { success: true, data: result };
-    },
-  });
-
   target.set("ui.addControl", {
     name: "ui.addControl",
     execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { sheetName: "string", controlType: "string", name: "string" });
+      const err = validateArgs(args, {
+        sheetName: "string",
+        controlType: "string",
+        name: "string",
+        left: "number",
+        top: "number",
+        width: "number",
+        height: "number",
+      });
       if (err) return { success: false, error: err };
       const result = await uiBridge.addControl({
         sheetName: args.sheetName as string,
@@ -363,6 +414,11 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       return { success: result.success, data: result };
     },
   });
+}
+
+function normalizeMacroLanguage(value: unknown): WorkbookMacroLanguage | Error {
+  if (value === "vba" || value === "javascript") return value;
+  return new Error("参数 language 必须是 vba 或 javascript");
 }
 
 function normalizeRangeReadExpand(value: unknown): RangeReadExpandMode | Error {

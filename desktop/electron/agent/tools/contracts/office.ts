@@ -81,14 +81,6 @@ export interface OfficeFileBridge {
 }
 
 /**
- * Office 通用脚本桥接接口
- */
-export interface OfficeScriptBridge {
-  /** 在指定 Office 应用 COM 对象上执行 PowerShell 脚本 */
-  executeScript(app: "word" | "presentation", code: string): Promise<unknown>;
-}
-
-/**
  * 统一 Office action 桥接接口
  */
 export interface OfficeActionBridge {

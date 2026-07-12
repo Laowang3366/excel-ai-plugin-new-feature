@@ -13,6 +13,12 @@ export const APP_TEXT = {
       pinOff: "取消置顶",
       compactWindow: "缩为紧凑栏",
       restoreWindow: "恢复普通窗口",
+      windowOpacity: "窗口透明度",
+      officeLauncher: {
+        open: (application: string) => `打开 ${application}`,
+        choose: "选择要打开的程序",
+        failed: "启动程序失败",
+      },
     },
     common: {
       errorOccurred: "出错了",
@@ -212,6 +218,12 @@ export const APP_TEXT = {
       pinOff: "Unpin window",
       compactWindow: "Shrink to compact panel",
       restoreWindow: "Restore normal window",
+      windowOpacity: "Window opacity",
+      officeLauncher: {
+        open: (application: string) => `Open ${application}`,
+        choose: "Choose an application to open",
+        failed: "Failed to launch application",
+      },
     },
     common: {
       errorOccurred: "Something went wrong",

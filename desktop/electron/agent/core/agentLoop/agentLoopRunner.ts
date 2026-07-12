@@ -77,6 +77,11 @@ export async function runAgentLoopRounds(input: AgentLoopRunnerInput): Promise<v
       resumeContext: input.resumeContext,
     });
 
+    input.emitContextUsage(input.callbacks, {
+      systemPrompt: effectiveSystemPrompt,
+      tools: toolDefs,
+    });
+
     const streamResult = await collectRoundStream({
       aiClient: input.aiClient,
       streamParams,
@@ -126,10 +131,6 @@ export async function runAgentLoopRounds(input: AgentLoopRunnerInput): Promise<v
       streamResult,
       turn: input.turn,
       activeThread: input.getActiveThread(),
-    });
-    input.emitContextUsage(input.callbacks, {
-      systemPrompt: effectiveSystemPrompt,
-      tools: toolDefs,
     });
     break;
   }

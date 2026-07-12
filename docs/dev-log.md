@@ -880,7 +880,7 @@ Codex 的关键约束对应到本项目：Excel 工具靠 `GetObject("Excel.Appl
 
 ### #1 PPT 删除页专用能力
 
-**问题描述**：用户要求“删除第 2~6 页，仅保留目录页”时，模型没有可选的专用工具，只能退回 `office.script.execute` 或 `python.execute`。PowerShell COM 脚本容易超时，Python 文件级处理又受文件占用、依赖和编码影响，失败率高。
+**问题描述**：用户要求“删除第 2~6 页，仅保留目录页”时，模型没有可选的专用工具，只能临时拼脚本处理。PowerShell COM 容易超时，Python 文件级处理又受文件占用、依赖和编码影响，失败率高。
 
 **改动详情**：
 - `office.action.apply` 新增 `presentation/deleteSlides` operation。

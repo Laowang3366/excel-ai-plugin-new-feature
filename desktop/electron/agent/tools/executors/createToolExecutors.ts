@@ -9,13 +9,12 @@ import type {
   ExcelConnectionBridge,
   ExcelWorkbookBridge,
   ExcelVbaBridge,
-  ExcelScriptBridge,
+  WpsJsaBridge,
   ExcelUiBridge,
 } from "../contracts/excel";
 import type {
   WordDocumentBridge,
   PresentationBridge,
-  OfficeScriptBridge,
   OfficeActionBridge,
 } from "../contracts/office";
 import type { Retriever } from "../../knowledge/retriever";
@@ -45,20 +44,19 @@ export interface ToolExecutorRuntimeDeps {
 export function createToolExecutors(
   workbookBridge: ExcelWorkbookBridge,
   vbaBridge: ExcelVbaBridge,
-  scriptBridge: ExcelScriptBridge,
+  jsaBridge: WpsJsaBridge,
   uiBridge: ExcelUiBridge,
   sessionFolderPath?: string,
   knowledgeRetriever?: Retriever,
   wordBridge?: WordDocumentBridge,
   presentationBridge?: PresentationBridge,
-  officeScriptBridge?: OfficeScriptBridge,
   officeActionBridge?: OfficeActionBridge,
   memoryStore?: LongTermMemoryStore,
   runtimeDeps: ToolExecutorRuntimeDeps = {}
 ): Map<string, ToolExecutor> {
   const executors = new Map<string, ToolExecutor>();
 
-  addExcelExecutors(executors, { workbookBridge, vbaBridge, scriptBridge, uiBridge });
+  addExcelExecutors(executors, { workbookBridge, vbaBridge, jsaBridge, uiBridge });
   addFileExecutors(executors, { sessionFolderPath });
   addShellExecutors(executors);
   addPythonExecutors(executors);
@@ -70,7 +68,6 @@ export function createToolExecutors(
     excelBridge: workbookBridge as ExcelConnectionBridge,
     wordBridge,
     presentationBridge,
-    officeScriptBridge,
     officeActionBridge,
   });
   addExecutorAliases(executors);

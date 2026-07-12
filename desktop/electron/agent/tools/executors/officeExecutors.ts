@@ -9,7 +9,6 @@ import type { ExcelConnectionBridge } from "../contracts/excel";
 import type {
   WordDocumentBridge,
   PresentationBridge,
-  OfficeScriptBridge,
   OfficeActionBridge,
 } from "../contracts/office";
 import { officeActionOperationError } from "../officeCore/operationPolicy";
@@ -21,7 +20,6 @@ export interface OfficeExecutorDeps {
   excelBridge?: ExcelConnectionBridge;
   wordBridge?: WordDocumentBridge;
   presentationBridge?: PresentationBridge;
-  officeScriptBridge?: OfficeScriptBridge;
   officeActionBridge?: OfficeActionBridge;
 }
 
@@ -32,7 +30,7 @@ function addToolAlias(target: Map<string, ToolExecutor>, alias: string, canonica
 }
 
 export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: OfficeExecutorDeps): void {
-  const { excelBridge, wordBridge, presentationBridge, officeScriptBridge, officeActionBridge } = deps;
+  const { excelBridge, wordBridge, presentationBridge, officeActionBridge } = deps;
 
   target.set("office.connection.status", {
     name: "office.connection.status",
@@ -251,28 +249,11 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
     });
   }
 
-  if (officeScriptBridge) {
-    target.set("office.script.execute", {
-      name: "office.script.execute",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { app: "string", code: "string" });
-        if (err) return { success: false, error: err };
-        const app = args.app as string;
-        if (app !== "word" && app !== "presentation") {
-          return { success: false, error: "参数 app 必须是 word 或 presentation" };
-        }
-        const result = await officeScriptBridge.executeScript(app, args.code as string);
-        return { success: true, data: result };
-      },
-    });
-  }
-
   addToolAlias(target, "office.connection_status", "office.connection.status");
   addToolAlias(target, "office_connection_status", "office.connection.status");
   addToolAlias(target, "office.action_inspect", "office.action.inspect");
   addToolAlias(target, "office.action_apply", "office.action.apply");
   addToolAlias(target, "office.action_validate", "office.action.validate");
-  addToolAlias(target, "office.script_execute", "office.script.execute");
 }
 
 async function inspectFileWithOpenXml(
@@ -327,6 +308,10 @@ async function executeOfficeAction(
 ) {
   const err = validateArgs(args, { app: "string", operation: "string" });
   if (err) return { success: false, error: err };
+  if (!defaultAction) {
+    const filePathError = validateArgs(args, { filePath: "string" });
+    if (filePathError) return { success: false, error: filePathError };
+  }
   if (!isOfficeActionApp(args.app)) {
     return { success: false, error: "参数 app 必须是 excel、word 或 presentation" };
   }

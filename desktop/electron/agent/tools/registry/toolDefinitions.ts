@@ -9,7 +9,7 @@ import { WORKBOOK_TOOL_DEFINITIONS } from "./workbook";
 import { RANGE_TOOL_DEFINITIONS } from "./range";
 import { FORMULA_TOOL_DEFINITIONS } from "./formula";
 import { SHEET_TOOL_DEFINITIONS } from "./sheet";
-import { SCRIPT_TOOL_DEFINITIONS } from "./script";
+import { MACRO_TOOL_DEFINITIONS } from "./macro";
 import { UI_TOOL_DEFINITIONS } from "./ui";
 import { FILE_TOOL_DEFINITIONS } from "./file";
 import { SHELL_TOOL_DEFINITIONS } from "./shell";
@@ -25,9 +25,8 @@ export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [
   WORKBOOK_TOOL_DEFINITIONS[0],
   ...RANGE_TOOL_DEFINITIONS,
   ...FORMULA_TOOL_DEFINITIONS,
-  ...SCRIPT_TOOL_DEFINITIONS.slice(0, 2),
+  ...MACRO_TOOL_DEFINITIONS,
   ...SHEET_TOOL_DEFINITIONS,
-  ...SCRIPT_TOOL_DEFINITIONS.slice(2),
   ...UI_TOOL_DEFINITIONS,
   ...FILE_TOOL_DEFINITIONS,
   ...WORKBOOK_TOOL_DEFINITIONS.slice(1, 4),
