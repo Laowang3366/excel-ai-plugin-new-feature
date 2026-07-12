@@ -16,6 +16,7 @@ import {
   type RemoteUpdateManifest,
   verifyRemoteUpdateManifest,
 } from "./updateManifest";
+import { resolveFinalDownloadUrl } from "./updateUrl";
 
 export type UpdateKind = "installer" | "hotPatch";
 export type UpdatePhase =
@@ -196,7 +197,12 @@ async function downloadFile(
   }
   const response = await net.fetch(url, { method: "GET" });
   if (!response.ok || !response.body) throw new Error(`补丁下载失败: ${response.status}`);
-  if (new URL(response.url).protocol !== "https:" && !localDevelopmentUrl) {
+  const finalUrl = resolveFinalDownloadUrl(parsedUrl, response.url);
+  const finalLocalDevelopmentUrl = finalUrl.hostname === "127.0.0.1" || finalUrl.hostname === "localhost";
+  if (
+    finalUrl.protocol !== "https:" &&
+    !(process.env.NODE_ENV !== "production" && finalLocalDevelopmentUrl)
+  ) {
     throw new Error("补丁下载重定向到了非 HTTPS 地址");
   }
   await fsp.mkdir(path.dirname(destination), { recursive: true });

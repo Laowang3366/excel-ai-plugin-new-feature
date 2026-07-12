@@ -26,11 +26,11 @@ npm run hash-password -- "your-long-password"
 
 ```bash
 npm run publish-release -- \
-  --version 0.1.80 \
-  --installer ../desktop/release/Wengge-AI-Assistant-Setup-0.1.80.exe \
-  --blockmap ../desktop/release/Wengge-AI-Assistant-Setup-0.1.80.exe.blockmap \
+  --version 0.1.81 \
+  --installer ../desktop/release/Wengge-AI-Assistant-Setup-0.1.81.exe \
+  --blockmap ../desktop/release/Wengge-AI-Assistant-Setup-0.1.81.exe.blockmap \
   --latest-yml ../desktop/release/latest.yml \
-  --notes-file ../release-notes/0.1.80.json \
+  --notes-file ../release-notes/0.1.81.json \
   --private-key ../desktop/.secrets/update-private.pem \
   --output ./.local/releases \
   --base-url https://plugin.shelelove.top
@@ -50,7 +50,7 @@ npm run publish-release -- \
 
 ```bash
 cd ../desktop
-npm run patch:build -- --id patch-001 --base-version 0.1.80 --output release/patch-001.zip
+npm run patch:build -- --id patch-001 --base-version 0.1.81 --output release/patch-001.zip
 ```
 
 ## 生产目录
