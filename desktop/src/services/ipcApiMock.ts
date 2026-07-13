@@ -84,6 +84,28 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
     office: {
       detectWordStatus: async () => ({ connected: false, host: "unknown" }),
       detectPresentationStatus: async () => ({ connected: false, host: "unknown" }),
+      automation: {
+        documents: { list: async () => ({ success: true, data: [] }), activate: async () => ({ success: false, error: "not implemented" }) },
+        objects: { list: async () => ({ success: true, data: [] }), activate: async () => ({ success: false, error: "not implemented" }) },
+        workflows: {
+          list: async () => ({ success: true, data: [] }),
+          get: async () => ({ success: false, error: "not implemented" }),
+          cancel: async () => ({ success: false, error: "not implemented" }),
+          resume: async () => ({ success: false, error: "not implemented" }),
+        },
+        templates: {
+          list: async () => ({ success: true, data: [] }),
+          saveFromWorkflow: async () => ({ success: false, error: "not implemented" }),
+          delete: async () => ({ success: false, error: "not implemented" }),
+          run: async () => ({ success: false, error: "not implemented" }),
+        },
+        transactions: {
+          list: async () => ({ success: true, data: [] }),
+          get: async () => ({ success: false, error: "not implemented" }),
+          undo: async () => ({ success: false, error: "not implemented" }),
+          redo: async () => ({ success: false, error: "not implemented" }),
+        },
+      },
     },
     agent: {
       startTurn: async () => ({ success: false, error: "not implemented" }),

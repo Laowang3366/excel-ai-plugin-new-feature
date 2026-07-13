@@ -5,6 +5,7 @@
  */
 
 import type { ToolDefinition } from "../../shared/types";
+import { OFFICE_RELIABILITY_TOOL_DEFINITIONS } from "./officeReliability";
 
 const OFFICE_CONNECTION_STATUS_DEF: ToolDefinition = {
   name: "office.connection.status",
@@ -18,6 +19,98 @@ const OFFICE_CONNECTION_STATUS_DEF: ToolDefinition = {
   },
   riskLevel: "safe",
   requiresApproval: false,
+};
+
+const OFFICE_DOCUMENTS_LIST_DEF: ToolDefinition = {
+  name: "office.documents.list",
+  description: "列出所有 Excel、Word、PowerPoint 或 WPS 进程中的已打开文档，返回完整路径、宿主、进程和稳定 instanceId。多窗口操作前先调用本工具定位目标。",
+  parameters: {
+    type: "object",
+    properties: {
+      app: { type: "string", enum: ["excel", "word", "presentation"], description: "可选；不填时列出全部 Office 应用" },
+    },
+    required: [],
+  },
+  riskLevel: "safe",
+  requiresApproval: false,
+};
+
+const OFFICE_DOCUMENTS_ACTIVATE_DEF: ToolDefinition = {
+  name: "office.documents.activate",
+  description: "按 office.documents.list 返回的 instanceId 和完整路径激活指定 Excel、Word、PowerPoint/WPS 文档；仅一个候选时也可按名称或序号。",
+  parameters: {
+    type: "object",
+    properties: {
+      app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用" },
+      filePath: { type: "string", description: "目标文档完整路径，优先使用" },
+      name: { type: "string", description: "目标文档名称" },
+      index: { type: "number", description: "目标文档在应用集合中的序号，从 1 开始" },
+      instanceId: { type: "string", description: "office.documents.list 返回的实例标识；多进程或同路径副本必须传" },
+    },
+    required: ["app"],
+  },
+  riskLevel: "safe",
+  requiresApproval: false,
+};
+
+const OFFICE_WORKFLOW_RUN_DEF: ToolDefinition = {
+  name: "office.workflow.run",
+  description: "执行最多 20 个持久化 Office 步骤，支持输出占位符、条件、受控并行、有限重试、超时、取消、崩溃租约恢复和确定性事务撤销重做。",
+  parameters: {
+    type: "object",
+    properties: {
+      steps: {
+        type: "array",
+        description: "有序步骤；每步结构与 office.action.apply 一致，需提供 app、action、operation、filePath，可选 target/outputPath/preferEngine/params",
+        items: {
+          type: "object",
+          properties: {
+            app: { type: "string", enum: ["excel", "word", "presentation"] },
+            action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"] },
+            operation: { type: "string" },
+            filePath: { type: "string" },
+            outputPath: { type: "string" },
+            target: { type: "string" },
+            preferEngine: { type: "string", enum: ["openxml", "com"] },
+            params: { type: "object" },
+            id: { type: "string", description: "可选稳定步骤 ID，供占位符和条件引用" },
+            parallelGroup: { type: "string", description: "连续且同名的步骤并行执行；写入目标不得重复" },
+            timeoutMs: { type: "number", description: "COM 步骤超时，5000-600000 毫秒" },
+            retry: {
+              type: "object",
+              properties: {
+                maxAttempts: { type: "number", description: "最大尝试次数，1-5" },
+                delayMs: { type: "number", description: "重试基础等待，0-10000 毫秒" },
+              },
+            },
+            when: {
+              type: "object",
+              properties: {
+                step: { description: "依赖步骤序号或 ID" },
+                status: { type: "string", enum: ["done", "failed", "skipped"] },
+                dataPath: { type: "string", description: "可选结果 data 路径" },
+                equals: { description: "期望值" },
+                exists: { type: "boolean" },
+              },
+              required: ["step"],
+            },
+          },
+          required: ["app", "action", "operation", "filePath"],
+        },
+      },
+      templateId: { type: "string", description: "使用已保存模板时传模板 ID 或名称，此时可省略 steps" },
+      variables: { type: "object", description: "模板变量；步骤字符串中的 {{vars.name}} 会在事务快照前展开" },
+      workflowId: { type: "string", description: "继续已有流水线时传原 workflowId" },
+      resume: { type: "boolean", description: "设为 true 时从 workflowId 记录的失败步骤继续" },
+      recoverRunning: { type: "boolean", description: "确认原执行进程已终止时，接管仍为 running 的工作流" },
+      leaseMs: { type: "number", description: "运行租约时长，默认 5 分钟" },
+      failureMode: { type: "string", enum: ["pause", "rollback"], description: "失败处理；默认 pause，rollback 会立即整体撤销" },
+      cancellationMode: { type: "string", enum: ["pause", "rollback"], description: "收到取消请求后的处理，默认 pause" },
+    },
+    required: [],
+  },
+  riskLevel: "moderate",
+  requiresApproval: true,
 };
 
 const WORD_OPEN_DEF: ToolDefinition = {
@@ -240,13 +333,13 @@ const PRESENTATION_SAVE_DEF: ToolDefinition = {
 
 const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
   name: "office.action.inspect",
-  description: "统一 Office 高级检查入口。用于检查 Excel/Word/PPT 的结构、对象、样式、表格、图表和图片信息",
+  description: "统一 Office 高级检查入口。Excel 可检查查询、图表、对象、模板、打印和公式治理；Word/PPT 可检查排版、审阅、母版、动画、备注以及 Excel 链接来源；也可检查 Office 文件结构与事务备份。",
   parameters: {
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
       action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"], description: "动作类型，默认 inspect" },
-      operation: { type: "string", description: "具体检查操作，如 inspectFile、layout、tables" },
+      operation: { type: "string", description: "检查操作。Word: inspectDocumentFormatting/inspectReferences/inspectRevisions/inspectContentControls/inspectLinkedOfficeContent；Excel: inspectPrintSettings/inspectFormulaDependencies/inspectFormulaBackups/inspectFormulaProtection/inspectPowerQueries/inspectCharts/inspectWorkbookObjects/captureWorkbookTemplate；PowerPoint: inspectPresentationTheme/inspectSlideElements/inspectAnimations/inspectSpeakerNotes/inspectLinkedOfficeContent；通用: inspectFile/layout/tables/listBackups。" },
       filePath: { type: "string", description: "Office 文件绝对路径" },
       outputPath: { type: "string", description: "输出文件路径" },
       target: { type: "string", description: "对象定位，如 range:Sheet1!A1:D10、table:1、slide:1" },
@@ -261,18 +354,18 @@ const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
 
 const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
   name: "office.action.apply",
-  description: "统一 Office 文件级高级操作入口，必须提供 filePath，作用于磁盘文件而不是当前活动窗口。优先使用项目内置 Open XML，不依赖 openpyxl、python-docx、python-pptx 或现场 pip；必要时对该文件使用 COM 兜底。当前窗口、选区或未保存文档必须使用 range.*、word.*、presentation.* 专用工具。",
+  description: "统一 Office 文件级高级操作入口，必须提供 filePath。支持 Excel 治理、Word/PPT 高级编辑、Excel 链接报告及原位刷新。复杂多文件任务应交给 office.workflow.run，以获得暂停续跑和整体撤销；当前活动窗口或未保存内容仍使用 range.*、word.*、presentation.*。",
   parameters: {
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
       action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"], description: "动作类型，必填" },
-      operation: { type: "string", description: "具体操作，如 createWorkbook、writeRange、createDocument、createPresentation、deleteSlides、replaceText、styleTable、snapshot、setDataValidation、applyHeadingStyles、applyTheme、insertChart" },
+      operation: { type: "string", description: "操作。Word: formatLongDocument/manageReferences/manageRevisions/compareDocuments/applyTrackedChanges/mailMerge/batchMailMerge/populateContentControls/manageContentControls/refreshLinkedOfficeContent/relinkLinkedOfficeContent；PowerPoint: insertTable/applyMasterBranding/layoutElements/configureAnimations/configureSlideShow/setSpeakerNotes/exportHandouts/refreshLinkedOfficeContent/relinkLinkedOfficeContent；Excel 跨应用: exportRangeToWord/exportRangeToPresentation/buildReportPackage（updateExisting 按 linkId 增量维护）；通用: snapshot。" },
       filePath: { type: "string", description: "Office 文件绝对路径；文件级 apply 必填" },
-      outputPath: { type: "string", description: "输出文件路径；未指定时由实现生成副本" },
+      outputPath: { type: "string", description: "输出文件路径；修改操作未指定时原地保存并自动备份，导出操作未指定时生成带后缀的新文件" },
       target: { type: "string", description: "对象定位，如 range:Sheet1!A1:D10、table:1、slide:1" },
       preferEngine: { type: "string", enum: ["openxml", "com"], description: "首选引擎，默认 openxml" },
-      params: { type: "object", description: "操作参数" },
+      params: { type: "object", description: "参数。Word 修订用 rule，批量合并用 dataSourcePath/outputDirectory/outputFormat；PowerPoint 排版用 edits/align/distribute/crop；Excel 联动用 linked:true、sourceType:range|chart、chartName、linkId，报告包可用 sections。其他高级参数见系统 Office 工具说明。" },
     },
     required: ["app", "action", "operation", "filePath"],
   },
@@ -303,6 +396,10 @@ const OFFICE_ACTION_VALIDATE_DEF: ToolDefinition = {
 
 export const OFFICE_TOOL_DEFINITIONS: ToolDefinition[] = [
   OFFICE_CONNECTION_STATUS_DEF,
+  OFFICE_DOCUMENTS_LIST_DEF,
+  OFFICE_DOCUMENTS_ACTIVATE_DEF,
+  OFFICE_WORKFLOW_RUN_DEF,
+  ...OFFICE_RELIABILITY_TOOL_DEFINITIONS,
   WORD_OPEN_DEF,
   WORD_INSPECT_DEF,
   WORD_READ_TEXT_DEF,

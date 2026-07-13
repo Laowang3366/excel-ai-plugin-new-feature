@@ -67,6 +67,7 @@ import { registerOcrIpcHandler } from "./ipcOcrHandlers";
 import { registerAiIpcHandlers } from "./ipcAiHandlers";
 import { applySandboxConfig, registerSandboxIpcHandlers } from "./ipcSandboxHandlers";
 import { registerFileIpcHandlers } from "./ipcFileHandlers";
+import { registerOfficeAutomationIpcHandlers } from "./ipcOfficeAutomationHandlers";
 import {
   getWindowDisplayMode,
   setWindowDisplayMode,
@@ -154,6 +155,7 @@ export function registerIpcHandlers(): void {
   registerAiIpcHandlers();
   registerSandboxIpcHandlers();
   registerFileIpcHandlers({ mainWindowRef, pathAuthorizer });
+  registerOfficeAutomationIpcHandlers({ getDataPath: getActiveDataPath });
 
   ipcMain.handle("app:getDataPath", () => getActiveDataPath());
 

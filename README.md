@@ -5,9 +5,10 @@
 ## 主要功能
 
 - Excel/WPS 表格：选区读取与写入、公式生成与动态数组验证、工作表和工作簿操作。
-- Word/WPS 文字：文档读取、文本与表格编辑、目录和页眉页脚等操作。
-- PowerPoint/WPS 演示：页面、文本、图片、图表和版式操作。
+- Word/WPS 文字：长文档统一排版、目录/题注/交叉引用、规则化审阅、修订式 AI 编辑、文档对比、批量邮件合并和智能模板。
+- PowerPoint/WPS 演示：主题母版和品牌模板、元素级排版与问题诊断、四类动画与自动放映、演讲者备注和讲义 PDF。
 - 文件级 Office 处理：通过 `office.action.inspect/apply/validate` 统一处理 `.xlsx`、`.docx`、`.pptx`。
+- 高级 Office 自动化：支持 Excel Power Query 完整生命周期、图表深度编辑、工作簿对象、专业模板、打印/PDF、公式依赖与恢复、透视表/切片器，Word 审阅/邮件合并/内容控件，PPT 母版品牌/元素诊断/动画放映/备注讲义，以及跨应用报告和失败回滚。
 - Python 扩展：保留兼容性较强的 `python.execute`，用于复杂文件处理和批量任务。
 - 本地知识与长期记忆：内置 Excel 解题方法论、知识检索、偏好和纠错记忆。
 - 多模型接入：支持 OpenAI 兼容协议、Anthropic 及常见国内模型平台。
@@ -57,6 +58,8 @@ npm run dev
 
 - 当前 Excel/WPS 窗口：`range.*`、`formula.*`、`sheet.*`、`workbook.*`。
 - Office 磁盘文件：`office.action.inspect/apply/validate`，优先 Open XML，必要时使用 COM。
+- 多窗口与批处理：`office.documents.*` + `office.objects.*` 按完整路径和稳定 locator 选择文件、工作表、页面、幻灯片与对象；`office.workflow.*` 执行可暂停续跑的多步任务。
+- 跨软件联动：Excel 区域或图表可作为链接对象写入 Word/PPT，数据变化后原位刷新；工作流事务支持修改清单、整体撤销和重做。
 - Word/PPT 当前窗口：`word.*`、`presentation.*`。
 - 通用复杂处理：`python.execute`。
 - 系统命令：`shell.execute`，受安全策略、目录约束、审批和审计限制。
@@ -72,11 +75,12 @@ npm run dev
 
 - [更新与发布](docs/update-and-release.md)
 - [产品站部署](docs/product-site-deployment.md)
+- [Office 高级自动化](docs/office-advanced-automation.md)
 - [文档索引](docs/README.md)
 
 ## 验证基线
 
-桌面端当前基线为 165 个测试文件、862 项测试；产品站另有接口与下载统计测试。发布前必须通过：
+桌面端当前基线为 174 个测试文件、968 项测试；产品站另有接口与下载统计测试。发布前必须通过：
 
 ```powershell
 cd desktop

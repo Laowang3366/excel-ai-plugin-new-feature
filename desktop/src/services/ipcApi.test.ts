@@ -53,6 +53,18 @@ describe("ipcApi wrapper", () => {
     expect(readRange).toHaveBeenCalledWith("Sheet1", "H2", "spill");
   });
 
+  it("forwards Office automation document and transaction operations", async () => {
+    const listDocuments = vi.fn().mockResolvedValue({ success: true, data: [] });
+    const undo = vi.fn().mockResolvedValue({ success: true, data: { id: "tx", status: "undone" } });
+    setElectronApi({ office: { automation: { documents: { list: listDocuments }, transactions: { undo } } } });
+
+    await ipcApi.office.automation.documents.list("excel");
+    await ipcApi.office.automation.transactions.undo("tx", true);
+
+    expect(listDocuments).toHaveBeenCalledWith("excel");
+    expect(undo).toHaveBeenCalledWith("tx", true);
+  });
+
   it("forwards thread graph APIs through the wrapper", async () => {
     const edge = {
       parentThreadId: "parent",

@@ -32,6 +32,7 @@ describe("presentationSlideContent", () => {
     expect(xml).toContain("Q&amp;A &lt;2026&gt;");
     expect(xml).toContain("Use &quot;quotes&quot; &amp; apostrophes");
     expect(emptySlideRelsXml()).toContain("<Relationships");
+    expect(emptySlideRelsXml()).toContain("relationships/slideLayout");
   });
 
   it("omits placeholder shapes for a blank empty slide", () => {

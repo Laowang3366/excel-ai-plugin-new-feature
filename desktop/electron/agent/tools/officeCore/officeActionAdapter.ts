@@ -7,13 +7,27 @@
  * - executors/officeExecutors.ts: 校验工具参数后把统一 action 转发到这里。
  */
 
-import type { OfficeActionBridge, OfficeFileBridge } from "../contracts/office";
+import path from "node:path";
+import type { OfficeActionBridge, OfficeDocumentManagerBridge, OfficeFileBridge } from "../contracts/office";
 import { applyExcelAdvancedAction } from "../implementations/officeOpenXml/advancedExcel";
 import { applyPresentationAdvancedAction } from "../implementations/officeOpenXml/advancedPresentation";
 import { applyWordAdvancedAction } from "../implementations/officeOpenXml/advancedWord";
 import { findOfficeCapability } from "./capabilities";
 import { officeActionOperationError } from "./operationPolicy";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "./results";
+import {
+  createOfficeBackup,
+  listOfficeBackups,
+  restoreOfficeBackup,
+  type OfficeBackupRecord,
+} from "./transactions";
+import {
+  beginOfficeTransaction,
+  finalizeOfficeTransaction,
+  listOfficeTransactionPaths,
+  recordOfficeTransactionResult,
+  undoOfficeTransaction,
+} from "./transactionJournal";
 import type { OfficeActionInput, OfficeActionResult } from "./types";
 
 type TableStylePreset = "professional" | "compact" | "financial";
@@ -22,14 +36,174 @@ export interface OfficeActionAdapterDeps {
   officeFileBridge?: OfficeFileBridge;
   /** COM 兜底执行器：Open XML 不适合处理动态对象、导出快照和应用内刷新时使用。 */
   officeComActionBridge?: OfficeActionBridge;
+  officeDocumentBridge?: OfficeDocumentManagerBridge;
+  backupRoot?: string;
+  transactionRoot?: string;
 }
 
 const TABLE_STYLES = new Set<TableStylePreset>(["professional", "compact", "financial"]);
 
 export function createOfficeActionBridge(deps: OfficeActionAdapterDeps): OfficeActionBridge {
   return {
-    executeAction: (input) => executeOfficeAction(input, deps),
+    executeAction: (input) => executeOfficeActionWithTransaction(input, deps),
   };
+}
+
+async function executeOfficeActionWithTransaction(
+  input: OfficeActionInput,
+  deps: OfficeActionAdapterDeps,
+): Promise<OfficeActionResult> {
+  if (input.operation === "listBackups") {
+    if (!deps.backupRoot) return failedResult(input, "Office 事务备份目录未配置");
+    const records = await listOfficeBackups(deps.backupRoot, input.filePath);
+    return doneResult({
+      engine: "openxml",
+      app: input.app,
+      action: input.action,
+      operation: input.operation,
+      filePath: input.filePath,
+      summary: `已列出 ${records.length} 个 Office 事务备份`,
+      data: { records },
+    });
+  }
+
+  if (input.operation === "restoreBackup") {
+    if (!deps.backupRoot) return failedResult(input, "Office 事务备份目录未配置");
+    const backupPath = stringParam(input.params, "backupPath");
+    if (!input.filePath || !backupPath) return failedResult(input, "restoreBackup 需要 filePath 和 params.backupPath");
+    try {
+      await restoreOfficeBackup({ backupRoot: deps.backupRoot, backupPath, destinationPath: input.filePath });
+      return doneResult({
+        engine: "openxml",
+        app: input.app,
+        action: input.action,
+        operation: input.operation,
+        filePath: input.filePath,
+        summary: "已恢复 Office 事务备份",
+        data: { backupPath },
+        changes: [{ kind: "transaction-restore", target: input.filePath, detail: `已从 ${backupPath} 恢复` }],
+      });
+    } catch (error) {
+      return failedResult(input, error);
+    }
+  }
+
+  if (requiresStandaloneCrossOfficeTransaction(input)) {
+    if (!deps.transactionRoot || !deps.officeDocumentBridge) {
+      return failedResult(input, "增量跨软件更新需要 Office 事务和文档协调器");
+    }
+    return executeStandaloneCrossOfficeTransaction(input, {
+      ...deps,
+      transactionRoot: deps.transactionRoot,
+      officeDocumentBridge: deps.officeDocumentBridge,
+    });
+  }
+
+  let backup: OfficeBackupRecord | undefined;
+  if (deps.backupRoot && shouldCreateBackup(input)) {
+    try {
+      backup = await createOfficeBackup({
+        backupRoot: deps.backupRoot,
+        app: input.app,
+        operation: input.operation,
+        sourcePath: input.filePath!,
+      });
+    } catch (error) {
+      return failedResult(input, error);
+    }
+  }
+
+  const result = await executeOfficeAction(input, deps);
+  if (!backup) return result;
+  const data = result.data && typeof result.data === "object" && !Array.isArray(result.data)
+    ? result.data as Record<string, unknown>
+    : {};
+  return {
+    ...result,
+    data: { ...data, transaction: backup },
+    changes: [
+      { kind: "transaction-backup", target: backup.backupPath, detail: `已备份原文件 ${backup.sourcePath}` },
+      ...result.changes,
+    ],
+  };
+}
+
+async function executeStandaloneCrossOfficeTransaction(
+  input: OfficeActionInput,
+  deps: OfficeActionAdapterDeps & { transactionRoot: string; officeDocumentBridge: OfficeDocumentManagerBridge },
+): Promise<OfficeActionResult> {
+  const paths = listOfficeTransactionPaths([input]);
+  try {
+    await deps.officeDocumentBridge.prepareTransaction(paths);
+  } catch (error) {
+    return failedResult(input, `准备已打开的 Office 文档失败: ${errorMessage(error)}`);
+  }
+
+  let transaction: Awaited<ReturnType<typeof beginOfficeTransaction>> | undefined;
+  try {
+    transaction = await beginOfficeTransaction({ root: deps.transactionRoot, steps: [input] });
+    const result = await executeOfficeAction(input, deps);
+    await recordOfficeTransactionResult(deps.transactionRoot, transaction, result);
+    if (result.status !== "done") {
+      await undoOfficeTransaction(deps.transactionRoot, transaction.id, transactionRestoreOptions(deps.officeDocumentBridge, true));
+      return withGroupTransaction(result, transaction.id, "已自动恢复跨软件更新前的文件");
+    }
+    const completed = await finalizeOfficeTransaction(deps.transactionRoot, transaction);
+    return withGroupTransaction(result, completed.id, "已创建可整体撤销的跨软件事务");
+  } catch (error) {
+    let rollbackError = "";
+    if (transaction) {
+      try {
+        await undoOfficeTransaction(deps.transactionRoot, transaction.id, transactionRestoreOptions(deps.officeDocumentBridge, true));
+      } catch (rollback) {
+        rollbackError = `；自动恢复失败: ${errorMessage(rollback)}`;
+      }
+    }
+    return failedResult(input, `${errorMessage(error)}${rollbackError}`);
+  }
+}
+
+function requiresStandaloneCrossOfficeTransaction(input: OfficeActionInput): boolean {
+  return input.transactionContext !== "workflow"
+    && input.params?.updateExisting === true
+    && ["exportRangeToWord", "exportRangeToPresentation", "buildReportPackage"].includes(input.operation);
+}
+
+function transactionRestoreOptions(bridge: OfficeDocumentManagerBridge, force: boolean) {
+  return {
+    force,
+    prepareFiles: (filePaths: string[]) => bridge.prepareTransaction(filePaths),
+    restoreFiles: (files: Parameters<OfficeDocumentManagerBridge["restoreTransactionFiles"]>[0]) => bridge.restoreTransactionFiles(files),
+  };
+}
+
+function withGroupTransaction(result: OfficeActionResult, transactionId: string, detail: string): OfficeActionResult {
+  const data = result.data && typeof result.data === "object" && !Array.isArray(result.data)
+    ? result.data as Record<string, unknown>
+    : {};
+  return {
+    ...result,
+    data: { ...data, transaction: { id: transactionId, kind: "office-group" } },
+    changes: [{ kind: "office-group-transaction", target: transactionId, detail }, ...result.changes],
+  };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function shouldCreateBackup(input: OfficeActionInput): boolean {
+  if (!input.filePath || input.action === "inspect" || input.action === "validate" || input.action === "snapshot") return false;
+  if ([
+    "createWorkbook", "createDocument", "createPresentation", "restoreBackup",
+    "exportPdf", "exportSheetsToPdf", "exportHandouts", "exportRangeToWord", "exportRangeToPresentation",
+    "buildReportPackage", "traceFormulaDependencies", "inspectFormulaDependencies",
+    "inspectFormulaBackups", "inspectFormulaProtection", "inspectPrintSettings",
+    "inspectDocumentFormatting", "inspectReferences", "inspectRevisions", "inspectContentControls",
+    "mailMerge", "batchMailMerge", "compareDocuments",
+  ].includes(input.operation)) return false;
+  if (input.outputPath && path.resolve(input.outputPath) !== path.resolve(input.filePath)) return false;
+  return true;
 }
 
 async function executeOfficeAction(
@@ -65,6 +239,11 @@ async function executeOfficeAction(
         return failedResult(input, "缺少 filePath，无法执行文件级 Office action");
       }
       return await withComFallback(input, deps, await applyPresentationAdvancedAction({ ...input, filePath: input.filePath }));
+    }
+
+    const capability = findOfficeCapability(input.app, input.operation);
+    if (capability?.preferredEngine === "com") {
+      return await routeComAction(input, deps);
     }
 
     if (!deps.officeFileBridge) {

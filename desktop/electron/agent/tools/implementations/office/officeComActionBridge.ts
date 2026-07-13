@@ -15,9 +15,34 @@ import { buildComScript } from "./officeComActionScripts";
 
 type ComChange = { kind: string; target?: string; detail: string };
 
-const EXCEL_COM_OPERATIONS = new Set(["insertChart", "applyConditionalFormatting", "setDataValidation", "styleTable"]);
-const WORD_COM_OPERATIONS = new Set(["applyHeadingStyles", "insertOrUpdateToc", "styleTables", "setHeaderFooter", "insertOrReplaceImage", "snapshot"]);
-const PPT_COM_OPERATIONS = new Set(["applyTheme", "deleteSlides", "normalizeLayouts", "insertChart", "replacePictureSlot", "alignShapes", "snapshot"]);
+const EXCEL_COM_OPERATIONS = new Set([
+  "insertChart", "applyConditionalFormatting", "setDataValidation", "styleTable",
+  "snapshot",
+  "createPivotTable", "refreshPivotTables", "addSlicer", "createPowerQuery",
+  "inspectPowerQueries", "managePowerQuery", "inspectCharts", "formatChart",
+  "inspectWorkbookObjects", "manageWorkbookObject", "manageWorksheetObjects",
+  "captureWorkbookTemplate", "inspectWorkbookFormatting", "applyWorkbookTemplate",
+  "inspectPrintSettings", "configurePrint", "exportSheetsToPdf",
+  "exportPdf", "traceFormulaDependencies", "inspectFormulaDependencies",
+  "repairFormulaReferences", "convertFormulasToValues", "inspectFormulaBackups",
+  "restoreFormulas", "inspectFormulaProtection", "manageFormulaProtection",
+  "exportRangeToWord", "exportRangeToPresentation", "buildReportPackage",
+]);
+const WORD_COM_OPERATIONS = new Set([
+  "applyHeadingStyles", "insertOrUpdateToc", "styleTables", "setHeaderFooter",
+  "insertOrReplaceImage", "snapshot", "formatLongDocument", "manageReferences",
+  "inspectDocumentFormatting", "inspectReferences", "inspectRevisions", "manageRevisions",
+  "compareDocuments", "applyTrackedChanges", "prepareMailMergeTemplate", "mailMerge", "batchMailMerge",
+  "inspectContentControls", "populateContentControls", "manageContentControls", "exportPdf",
+  "inspectLinkedOfficeContent", "refreshLinkedOfficeContent", "relinkLinkedOfficeContent",
+]);
+const PPT_COM_OPERATIONS = new Set([
+  "applyTheme", "deleteSlides", "normalizeLayouts", "insertChart", "insertTable", "replacePictureSlot",
+  "alignShapes", "snapshot", "applyMasterBranding", "layoutElements",
+  "inspectPresentationTheme", "inspectSlideElements", "inspectAnimations", "inspectSpeakerNotes",
+  "configureAnimations", "configureSlideShow", "setSpeakerNotes", "exportHandouts",
+  "inspectLinkedOfficeContent", "refreshLinkedOfficeContent", "relinkLinkedOfficeContent",
+]);
 
 export class OfficeComActionBridge implements OfficeActionBridge {
   async executeAction(input: OfficeActionInput): Promise<OfficeActionResult> {
@@ -42,7 +67,11 @@ export class OfficeComActionBridge implements OfficeActionBridge {
 
     try {
       const script = buildComScript(input);
-      const output = await executePowerShell(script, 120000);
+      const requestedTimeout = Number(input.params?.actionTimeoutMs);
+      const timeout = Number.isFinite(requestedTimeout)
+        ? Math.min(600_000, Math.max(5_000, Math.trunc(requestedTimeout)))
+        : 120_000;
+      const output = await executePowerShell(script, timeout);
       const data = safeJsonParse<{ outputPath?: string; changes?: ComChange[] }>(output, "powershell", "执行 COM Office action");
       const outputPath = data.outputPath || input.outputPath || input.filePath;
       return doneResult({

@@ -40,6 +40,24 @@ describe("officeComPowerShell", () => {
     expect(script).toContain("throw 'Word is not running'");
   });
 
+  test("does not attach an unrelated active instance for file-scoped actions", () => {
+    const script = buildAcquireOfficeAppScript({
+      progIds: ["Excel.Application", "Ket.Application"],
+      appKind: "excel",
+      reuseAnyActive: false,
+      missingMessage: "Excel is unavailable",
+    });
+
+    expect(script).toContain("Get-AllOfficeDocumentHandles 'excel'");
+    expect(script).toContain("if ($actionTargetPath -and $actionInstanceId)");
+    expect(script).not.toContain("GetActiveObject($preferredProgId)");
+    expect(script).not.toContain("GetActiveObject($id)");
+    expect(script).toContain("New-Object -ComObject $id");
+    expect(script).toContain("foreach ($attempt in 1..3)");
+    expect(script).toContain("$null = [string]$candidate.Version");
+    expect(script).toContain("$lastCreateError.Exception.Message");
+  });
+
   test("builds target file resolver scripts for different Office collections", () => {
     const script = buildTargetOfficeFileResolverScript({
       functionName: "Resolve-TargetPresentation",

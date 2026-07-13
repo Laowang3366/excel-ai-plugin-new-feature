@@ -20,6 +20,7 @@ import type {
   OfficeApplication,
   DesktopUpdateState,
   UpdateKind,
+  ElectronAPI,
 } from "../electronApi";
 
 // ============================================================
@@ -71,10 +72,7 @@ export interface IIpcApi {
     inspectWorkbook: () => Promise<unknown>;
     writeRange: (sheetName: string, range: string, values: unknown[][]) => Promise<{ success: boolean; error?: string }>;
   };
-  office: {
-    detectWordStatus: () => Promise<{ connected: boolean; host: string; version?: string; documentName?: string }>;
-    detectPresentationStatus: () => Promise<{ connected: boolean; host: string; version?: string; presentationName?: string }>;
-  };
+  office: ElectronAPI["office"];
   agent: {
     startTurn: (input: {
       content: string;

@@ -142,7 +142,7 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("发票号码");
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("写入后回读验证一次");
-    expect(prompt.length).toBeLessThan(2_000);
+    expect(prompt.length).toBeLessThan(3_600);
   });
 
   test("injects OCR rules for image or PDF attachments", () => {
@@ -172,7 +172,18 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain('office.action.apply({ app, action:"snapshot", operation:"snapshot"');
     expect(prompt).not.toContain("office.action.inspect 获取结构、表格和截图信息");
     expect(prompt).toContain('preferEngine:"com"');
-    expect(prompt.length).toBeLessThan(2_500);
+    expect(prompt).toContain("applyTrackedChanges");
+    expect(prompt).toContain("batchMailMerge");
+    expect(prompt).toContain("office.objects.list");
+    expect(prompt).toContain("完整路径和 locator");
+    expect(prompt).toContain("exportRangeToWord");
+    expect(prompt).toContain('params.linked:true');
+    expect(prompt).toContain("refreshLinkedOfficeContent");
+    expect(prompt).toContain("office.workflow.run");
+    expect(prompt).toContain("resume:true, workflowId");
+    expect(prompt).toContain("office.transaction.inspect");
+    expect(prompt).toContain("office.transaction.undo");
+    expect(prompt.length).toBeLessThan(3_200);
   });
 
   test("injects the executable macro workflow only for macro tasks", () => {
@@ -187,7 +198,7 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("WPS JSA 内部宏");
     expect(prompt).toContain('controlType:"button"');
     expect(prompt).toContain("ui.listControls");
-    expect(prompt.length).toBeLessThan(2_000);
+    expect(prompt.length).toBeLessThan(3_600);
   });
 
   test("injects general scenario rules for data-cleaning and report tasks", () => {

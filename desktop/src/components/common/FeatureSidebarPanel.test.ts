@@ -18,12 +18,12 @@ describe("FeatureSidebarPanel", () => {
       ),
     );
 
-    for (const label of ["公式助手", "代码生成", "OCR 识别", "数据清洗", "报告生成", "图表制作"]) {
+    for (const label of ["公式助手", "代码生成", "OCR 识别", "数据清洗", "报告生成", "图表制作", "Office 自动化"]) {
       expect(html).toContain(label);
     }
     const shortcutButtons =
-      html.match(/<button class="feature-sidebar-shortcut(?: active)?"[\s\S]*?<\/button>/g) ?? [];
-    expect(shortcutButtons).toHaveLength(6);
+      html.match(/<button class="feature-sidebar-shortcut feature-[^"]+(?: active)?"[\s\S]*?<\/button>/g) ?? [];
+    expect(shortcutButtons).toHaveLength(7);
     expect.soft(html).toContain('role="group"');
     expect.soft(html).not.toContain('role="listbox"');
     expect.soft(html).not.toContain('role="option"');
@@ -33,10 +33,23 @@ describe("FeatureSidebarPanel", () => {
       button.includes('aria-pressed="true"'),
     );
     expect(activeButtons).toHaveLength(1);
-    expect(activeButtons[0]).toContain('class="feature-sidebar-shortcut active"');
+    expect(activeButtons[0]).toContain('class="feature-sidebar-shortcut feature-ocr active"');
     expect(activeButtons[0]).toContain("<span>OCR 识别</span>");
     expect(html).toContain("OCR form");
     expect(html).not.toContain("feature-sidebar-close");
+  });
+
+  test("renders an explicit close command when supplied", () => {
+    const html = renderToStaticMarkup(React.createElement(FeatureSidebarPanel, {
+      isOpen: true,
+      activeIntent: "office",
+      language: "zh-CN",
+      onIntentClick: () => undefined,
+      onClose: () => undefined,
+    }));
+    expect(html).toContain("feature-sidebar-close");
+    expect(html).toContain('aria-label="关闭功能模块"');
+    expect(html).toContain("office-automation-mode");
   });
 
   test("makes the collapsed panel inert without a pressed feature", () => {

@@ -271,6 +271,86 @@ export interface DesktopUpdateState {
   error?: string;
 }
 
+export type OfficeAutomationApp = "excel" | "word" | "presentation";
+export interface OfficeAutomationResult<T> { success: boolean; data?: T; error?: string }
+export interface OfficeAutomationDocument {
+  app: OfficeAutomationApp;
+  name: string;
+  fullName?: string;
+  index: number;
+  active: boolean;
+  progId: string;
+  host: "microsoft-office" | "wps" | "unknown";
+  instanceId: string;
+  processId?: number;
+  hwnd?: number;
+  readOnly?: boolean;
+  saved?: boolean;
+}
+export interface OfficeAutomationObject {
+  app: OfficeAutomationApp;
+  documentPath?: string;
+  instanceId?: string;
+  kind: string;
+  name: string;
+  locator: string;
+  parent?: string;
+  index?: number;
+  detail?: string;
+  selected?: boolean;
+}
+export interface OfficeAutomationStep {
+  app: OfficeAutomationApp;
+  action: "inspect" | "edit" | "style" | "insert" | "snapshot" | "validate";
+  operation: string;
+  filePath?: string;
+  outputPath?: string;
+  target?: string;
+  params?: Record<string, unknown>;
+  id?: string;
+}
+export interface OfficeAutomationWorkflow {
+  id: string;
+  status: "running" | "paused" | "done" | "failed" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+  steps: OfficeAutomationStep[];
+  sourceSteps?: OfficeAutomationStep[];
+  stepRecords: Array<{
+    step: number;
+    id?: string;
+    status: "pending" | "running" | "done" | "failed" | "skipped";
+    attempts?: number;
+    artifacts: string[];
+    result?: { summary?: string; error?: string; changes?: OfficeAutomationChange[] };
+  }>;
+  completedSteps: number;
+  nextStep: number;
+  transactionId?: string;
+  error?: string;
+}
+export interface OfficeAutomationChange { kind: string; target?: string; detail: string }
+export interface OfficeAutomationTransaction {
+  id: string;
+  workflowId?: string;
+  status: "pending" | "applied" | "undone" | "failed" | "conflicted";
+  createdAt: string;
+  updatedAt: string;
+  artifacts: string[];
+  changes: OfficeAutomationChange[];
+  conflicts?: Array<{ filePath: string; expected: "before" | "after"; reason: string }>;
+  conflictBaseStatus?: "pending" | "applied" | "undone" | "failed";
+  error?: string;
+}
+export interface OfficeAutomationTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  steps: OfficeAutomationStep[];
+}
+
 export interface ThreadSpawnEdge {
   parentThreadId: string;
   childThreadId: string;
@@ -431,6 +511,34 @@ export interface ElectronAPI {
       version?: string;
       presentationName?: string;
     }>;
+    automation: {
+      documents: {
+        list: (app?: OfficeAutomationApp) => Promise<OfficeAutomationResult<OfficeAutomationDocument[]>>;
+        activate: (input: { app: OfficeAutomationApp; filePath: string; instanceId?: string }) => Promise<OfficeAutomationResult<OfficeAutomationDocument>>;
+      };
+      objects: {
+        list: (input: { app: OfficeAutomationApp; filePath: string; instanceId?: string; kind?: string }) => Promise<OfficeAutomationResult<OfficeAutomationObject[]>>;
+        activate: (input: { app: OfficeAutomationApp; filePath: string; instanceId?: string; locator: string }) => Promise<OfficeAutomationResult<OfficeAutomationObject>>;
+      };
+      workflows: {
+        list: () => Promise<OfficeAutomationResult<OfficeAutomationWorkflow[]>>;
+        get: (id: string) => Promise<OfficeAutomationResult<OfficeAutomationWorkflow>>;
+        cancel: (id: string) => Promise<OfficeAutomationResult<OfficeAutomationWorkflow>>;
+        resume: (id: string) => Promise<OfficeAutomationResult<unknown>>;
+      };
+      templates: {
+        list: () => Promise<OfficeAutomationResult<OfficeAutomationTemplate[]>>;
+        saveFromWorkflow: (input: { workflowId: string; templateId?: string; name: string; description?: string }) => Promise<OfficeAutomationResult<OfficeAutomationTemplate>>;
+        delete: (id: string) => Promise<OfficeAutomationResult<boolean>>;
+        run: (input: { templateId: string; variables?: Record<string, unknown> }) => Promise<OfficeAutomationResult<unknown>>;
+      };
+      transactions: {
+        list: () => Promise<OfficeAutomationResult<OfficeAutomationTransaction[]>>;
+        get: (id: string) => Promise<OfficeAutomationResult<OfficeAutomationTransaction>>;
+        undo: (id: string, force?: boolean) => Promise<OfficeAutomationResult<OfficeAutomationTransaction>>;
+        redo: (id: string, force?: boolean) => Promise<OfficeAutomationResult<OfficeAutomationTransaction>>;
+      };
+    };
   };
   agent: {
     startTurn: (input: {

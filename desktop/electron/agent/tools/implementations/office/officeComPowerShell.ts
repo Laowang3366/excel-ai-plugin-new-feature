@@ -1,10 +1,22 @@
 import { executePowerShell, psVar } from "../../../automation/powershell";
+import { officeInstanceDiscoveryScript } from "./officeDocumentComBridge";
 
 export interface AcquireOfficeAppScriptOptions {
   progIds: readonly string[];
   allowCreate?: boolean;
+  reuseAnyActive?: boolean;
   preferredProgId?: string | null;
   missingMessage: string;
+  visible?: boolean | number;
+  appKind?: "excel" | "word" | "presentation";
+  targetPathExpression?: string;
+  instanceIdExpression?: string;
+}
+
+export interface CreateOfficeAppScriptOptions {
+  progIds: readonly string[];
+  missingMessage: string;
+  visible?: boolean | number;
 }
 
 export interface TargetOfficeFileResolverScriptOptions {
@@ -94,27 +106,67 @@ export function buildAcquireOfficeAppScript(options: AcquireOfficeAppScriptOptio
   const {
     progIds,
     allowCreate = true,
+    reuseAnyActive = true,
     preferredProgId,
     missingMessage,
+    visible = true,
+    appKind,
+    targetPathExpression = "$_filePath",
+    instanceIdExpression = "$actionParams.instanceId",
   } = options;
+  const instanceBlock = appKind ? `
+${officeInstanceDiscoveryScript()}
+$actionTargetPath = [string](${targetPathExpression})
+$actionInstanceId = [string](${instanceIdExpression})
+if ($actionTargetPath -and $actionInstanceId) {
+  $actionWantedPath = [IO.Path]::GetFullPath($actionTargetPath)
+  $actionCandidates = @(Get-AllOfficeDocumentHandles '${appKind}' | Where-Object {
+    $pathMatches = try { [IO.Path]::GetFullPath([string]$_.document.FullName) -ieq $actionWantedPath } catch { $false }
+    $instanceMatches = -not $actionInstanceId -or [string]$_.instanceId -eq $actionInstanceId
+    $pathMatches -and $instanceMatches
+  })
+  if ($actionCandidates.Count -gt 1) { throw '找到多个 Office 文档候选，请传 office.documents.list 返回的 instanceId' }
+  if ($actionCandidates.Count -eq 1) { $app = $actionCandidates[0].application; $progId = [string]$actionCandidates[0].progId }
+}
+` : "";
   const createBlock = allowCreate ? `
 if ($null -eq $app) {
   if ($preferredProgId) {
-    try { $app = New-Object -ComObject $preferredProgId; $progId = $preferredProgId; $createdApp = $true } catch {}
+    foreach ($attempt in 1..3) {
+      $candidate = $null
+      try {
+        $candidate = New-Object -ComObject $preferredProgId
+        $null = [string]$candidate.Version
+        $app = $candidate; $candidate = $null; $progId = $preferredProgId; $createdApp = $true; break
+      } catch {
+        $lastCreateError = $_
+        if ($null -ne $candidate) { try { $candidate.Quit() } catch {}; try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($candidate) } catch {} }
+      }
+      Start-Sleep -Milliseconds (200 * $attempt)
+    }
   }
 }
 if ($null -eq $app) {
   foreach ($id in $progIds) {
     if ($id -eq $preferredProgId) { continue }
-    try { $app = New-Object -ComObject $id; $progId = $id; $createdApp = $true; break } catch {}
+    foreach ($attempt in 1..3) {
+      $candidate = $null
+      try {
+        $candidate = New-Object -ComObject $id
+        $null = [string]$candidate.Version
+        $app = $candidate; $candidate = $null; $progId = $id; $createdApp = $true; break
+      } catch {
+        $lastCreateError = $_
+        if ($null -ne $candidate) { try { $candidate.Quit() } catch {}; try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($candidate) } catch {} }
+      }
+      Start-Sleep -Milliseconds (200 * $attempt)
+    }
+    if ($null -ne $app) { break }
   }
 }
 ` : "";
-  return `
-$progIds = ${progIdsLiteral(progIds)}
-$preferredProgId = ${psStringLiteral(preferredProgId)}
-$app = $null; $progId = $null; $createdApp = $false
-if ($preferredProgId) {
+  const activeBlock = reuseAnyActive ? `
+if ($null -eq $app -and $preferredProgId) {
   try { $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject($preferredProgId); $progId = $preferredProgId } catch {}
 }
 if ($null -eq $app) {
@@ -123,10 +175,37 @@ if ($null -eq $app) {
     try { $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject($id); $progId = $id; break } catch {}
   }
 }
+` : "";
+  return `
+$progIds = ${progIdsLiteral(progIds)}
+$preferredProgId = ${psStringLiteral(preferredProgId)}
+$app = $null; $progId = $null; $createdApp = $false; $lastCreateError = $null
+${instanceBlock}
+${activeBlock}
 ${createBlock}
-if ($null -eq $app) { throw '${missingMessage}' }
-$app.Visible = $true
+if ($null -eq $app) {
+  $detail = if ($null -ne $lastCreateError) { ': ' + [string]$lastCreateError.Exception.Message } else { '' }
+  throw '${missingMessage}' + $detail
+}
+$app.Visible = ${powerShellScalar(visible)}
 `;
+}
+
+export function buildCreateOfficeAppScript(options: CreateOfficeAppScriptOptions): string {
+  const visible = powerShellScalar(options.visible ?? true);
+  return `
+$app = $null; $progId = $null; $createdApp = $false
+foreach ($id in ${progIdsLiteral(options.progIds)}) {
+  try { $app = New-Object -ComObject $id; $progId = $id; $createdApp = $true; break } catch {}
+}
+if ($null -eq $app) { throw '${options.missingMessage.replace(/'/g, "''")}' }
+$app.Visible = ${visible}
+try { $app.DisplayAlerts = $false } catch {}
+`;
+}
+
+function powerShellScalar(value: boolean | number): string {
+  return typeof value === "number" ? String(value) : value ? "$true" : "$false";
 }
 
 export function buildTargetOfficeFileResolverScript(options: TargetOfficeFileResolverScriptOptions): string {

@@ -154,6 +154,7 @@ describe("applyPresentationAdvancedAction", () => {
       const relsXml = await readZipText(filePath, "ppt/_rels/presentation.xml.rels");
       const contentTypesXml = await readZipText(filePath, "[Content_Types].xml");
       const slide2Xml = await readZipText(filePath, "ppt/slides/slide2.xml");
+      const slide2RelsXml = await readZipText(filePath, "ppt/slides/_rels/slide2.xml.rels");
       const slide3Xml = await readZipText(filePath, "ppt/slides/slide3.xml");
       expect(result.status).toBe("done");
       expect(zip.file("ppt/slides/_rels/slide2.xml.rels")).toBeTruthy();
@@ -165,6 +166,7 @@ describe("applyPresentationAdvancedAction", () => {
       expect(contentTypesXml).toContain('PartName="/ppt/slides/slide2.xml"');
       expect(contentTypesXml).toContain('PartName="/ppt/slides/slide3.xml"');
       expect(slide2Xml).toContain("营养原则");
+      expect(slide2RelsXml).toContain("relationships/slideLayout");
       expect(slide2Xml).toContain("均衡膳食");
       expect(slide3Xml).toContain("每日建议");
       expect(slide3Xml).toContain("早餐");

@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import JSZip from "jszip";
 import { describe, expect, it, vi } from "vitest";
-import type { OfficeFileBridge } from "../contracts/office";
+import type { OfficeDocumentManagerBridge, OfficeFileBridge } from "../contracts/office";
 import { createOfficeActionBridge } from "./officeActionAdapter";
 
 async function writeZip(filePath: string, files: Record<string, string>): Promise<void> {
@@ -409,4 +409,168 @@ describe("createOfficeActionBridge", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("creates and restores a transaction backup for an in-place COM edit", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-action-transaction-"));
+    try {
+      const filePath = path.join(tempDir, "book.xlsx");
+      const backupRoot = path.join(tempDir, "backups");
+      await writeFile(filePath, "before", "utf8");
+      const officeComActionBridge = {
+        executeAction: vi.fn(async (input) => {
+          await writeFile(input.filePath!, "after", "utf8");
+          return {
+            status: "done" as const,
+            engine: "com" as const,
+            app: input.app,
+            action: input.action,
+            operation: input.operation,
+            filePath: input.filePath,
+            outputPath: input.filePath,
+            summary: "edited",
+            changes: [],
+          };
+        }),
+      };
+      const bridge = createOfficeActionBridge({ officeComActionBridge, backupRoot });
+
+      const edited = await bridge.executeAction({
+        app: "excel",
+        action: "style",
+        operation: "formatChart",
+        preferEngine: "com",
+        filePath,
+      });
+      const transaction = (edited.data as { transaction: { backupPath: string } }).transaction;
+      expect(await readFile(filePath, "utf8")).toBe("after");
+      expect(transaction.backupPath).toContain(backupRoot);
+
+      const restored = await bridge.executeAction({
+        app: "excel",
+        action: "edit",
+        operation: "restoreBackup",
+        filePath,
+        params: { backupPath: transaction.backupPath },
+      });
+      expect(restored.status).toBe("done");
+      expect(await readFile(filePath, "utf8")).toBe("before");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not create a transaction backup when writing an explicit output copy", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-action-copy-"));
+    try {
+      const filePath = path.join(tempDir, "book.xlsx");
+      const outputPath = path.join(tempDir, "book-copy.xlsx");
+      const backupRoot = path.join(tempDir, "backups");
+      await writeFile(filePath, "source", "utf8");
+      const officeComActionBridge = {
+        executeAction: vi.fn(async (input) => ({
+          status: "done" as const,
+          engine: "com" as const,
+          app: input.app,
+          action: input.action,
+          operation: input.operation,
+          filePath: input.filePath,
+          outputPath: input.outputPath,
+          summary: "copied",
+          changes: [],
+        })),
+      };
+      const bridge = createOfficeActionBridge({ officeComActionBridge, backupRoot });
+
+      const result = await bridge.executeAction({
+        app: "excel",
+        action: "style",
+        operation: "formatChart",
+        preferEngine: "com",
+        filePath,
+        outputPath,
+      });
+      const backups = await bridge.executeAction({
+        app: "excel",
+        action: "inspect",
+        operation: "listBackups",
+        filePath,
+      });
+
+      expect(result.data).toBeUndefined();
+      expect(backups.data).toEqual({ records: [] });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("restores every report target when a standalone incremental cross-office update fails", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-cross-transaction-"));
+    try {
+      const sourcePath = path.join(tempDir, "source.xlsx");
+      const wordPath = path.join(tempDir, "report.docx");
+      const presentationPath = path.join(tempDir, "report.pptx");
+      const transactionRoot = path.join(tempDir, "transactions");
+      await writeFile(sourcePath, "source", "utf8");
+      await writeFile(wordPath, "word-before", "utf8");
+      await writeFile(presentationPath, "ppt-before", "utf8");
+
+      const officeDocumentBridge = createFileTransactionBridge();
+      const officeComActionBridge = {
+        executeAction: vi.fn(async () => {
+          await writeFile(wordPath, "word-after", "utf8");
+          await writeFile(presentationPath, "ppt-after", "utf8");
+          return {
+            status: "failed" as const,
+            engine: "com" as const,
+            app: "excel" as const,
+            action: "insert" as const,
+            operation: "buildReportPackage",
+            filePath: sourcePath,
+            summary: "模拟第二个输出失败",
+            changes: [],
+            error: "模拟第二个输出失败",
+          };
+        }),
+      };
+      const bridge = createOfficeActionBridge({ officeComActionBridge, officeDocumentBridge, transactionRoot });
+
+      const result = await bridge.executeAction({
+        app: "excel",
+        action: "insert",
+        operation: "buildReportPackage",
+        filePath: sourcePath,
+        params: {
+          updateExisting: true,
+          wordOutputPath: wordPath,
+          presentationOutputPath: presentationPath,
+          sections: [{ linkId: "sales", range: "A1:B3" }],
+        },
+      });
+
+      expect(result.status).toBe("failed");
+      expect(await readFile(wordPath, "utf8")).toBe("word-before");
+      expect(await readFile(presentationPath, "utf8")).toBe("ppt-before");
+      expect(officeDocumentBridge.prepareTransaction).toHaveBeenCalled();
+      expect(officeDocumentBridge.restoreTransactionFiles).toHaveBeenCalled();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });
+
+function createFileTransactionBridge(): OfficeDocumentManagerBridge {
+  return {
+    listDocuments: vi.fn(async () => []),
+    activateDocument: vi.fn(async () => { throw new Error("not used"); }),
+    listObjects: vi.fn(async () => []),
+    activateObject: vi.fn(async () => { throw new Error("not used"); }),
+    prepareTransaction: vi.fn(async () => []),
+    restoreTransactionFiles: vi.fn(async (files) => {
+      for (const file of files) {
+        if (file.existed && file.snapshotPath) await copyFile(file.snapshotPath, file.filePath);
+        else await rm(file.filePath, { force: true });
+      }
+      return [];
+    }),
+  };
+}

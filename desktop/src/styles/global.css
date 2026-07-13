@@ -24,6 +24,7 @@
 /* 聊天页面 + 文件夹徽章 + 文件弹窗 */
 @import "./chat.css";
 @import "./feature-sidebar-panel.css";
+@import "./office-automation.css";
 /* 消息气泡 */
 @import "./message-bubble.css";
 /* 图片附件预览 */

@@ -230,7 +230,7 @@ await Promise.all(
 
 - **框架**：vitest（v4.1.8）+ @vitest/coverage-v8
 - **配置**：`desktop/vitest.config.ts`
-- **当前基线**：165 个测试文件，862 个测试；提交前必须保持 `npm run typecheck`、`npm run lint` 和 `npm test` 通过。产品站测试在 `product-site/` 独立执行。
+- **当前基线**：174 个测试文件，968 个测试；提交前必须保持 `npm run typecheck`、`npm run lint` 和 `npm test` 通过。产品站测试在 `product-site/` 独立执行。
 - **运行命令**：
 
 ```bash
@@ -247,6 +247,7 @@ npm run test:coverage # 覆盖率报告
 | 工具执行逻辑 | 覆盖审批判断的所有模式 | `toolExecutor.ts`（shell.execute 始终审批、confirm_all、auto_approve_safe） |
 | 状态转换逻辑 | 覆盖主要路径 | `agentEventHandler.ts` |
 | IPC Schema | 覆盖合法/非法输入 | `ipcSchemas.ts` |
+| Office 可靠性 | 覆盖脚本解析、进程归属、完整路径 locator、暂停续跑、组事务撤销/重做；链接 OLE 变更必须跑真实 Office 冒烟 | `officeComActionScripts.test.ts`、`transactionJournal.test.ts`、`npm run test:office-reliability` |
 
 ### 4.3 测试文件规范
 

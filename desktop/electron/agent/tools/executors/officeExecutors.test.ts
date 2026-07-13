@@ -1,8 +1,13 @@
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
 import type { ToolExecutor } from "../../shared/types";
 import type {
   OfficeActionBridge,
+  OfficeDocumentManagerBridge,
   PresentationBridge,
   WordDocumentBridge,
 } from "../contracts/office";
@@ -45,7 +50,8 @@ describe("addOfficeExecutors", () => {
         host: "wps",
         formulaDialect: {
           regexFunction: "REGEXP",
-          guidance: "WPS 正则提取使用 REGEXP；不要使用 Excel 方言的 REGEXEXTRACT/REGEXREPLACE/REGEXTEST 函数名",
+          guidance:
+            "WPS 正则提取使用 REGEXP；不要使用 Excel 方言的 REGEXEXTRACT/REGEXREPLACE/REGEXTEST 函数名",
         },
       },
     });
@@ -82,6 +88,36 @@ describe("addOfficeExecutors", () => {
     expect(wordBridge.insertHeading).toHaveBeenCalledWith("季度报告", 2, "end");
   });
 
+  it("falls back to Open XML inspection when Word cannot open the file", async () => {
+    const wordBridge = {
+      openDocument: vi.fn(async () => ({ success: false, error: "Word 不可用" })),
+    } as unknown as WordDocumentBridge;
+    const officeActionBridge: OfficeActionBridge = {
+      executeAction: vi.fn(async (input) => ({
+        status: "done",
+        engine: "openxml",
+        ...input,
+        summary: "已检查 DOCX 文件结构",
+        changes: [],
+      })),
+    };
+    const target = createTarget({ wordBridge, officeActionBridge });
+
+    const result = await target.get("word.open")!.execute({ filePath: "D:/docs/report.docx" });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: "Word 不可用",
+      data: { fileReadable: true, openedInApp: false, fallback: "openxml" },
+    });
+    expect(officeActionBridge.executeAction).toHaveBeenCalledWith({
+      app: "word",
+      action: "inspect",
+      operation: "inspectFile",
+      filePath: "D:/docs/report.docx",
+    });
+  });
+
   it("validates PowerPoint slide index before reading slides", async () => {
     const presentationBridge = {
       readSlide: vi.fn(),
@@ -95,6 +131,38 @@ describe("addOfficeExecutors", () => {
       error: "缺少必填参数: slideIndex",
     });
     expect(presentationBridge.readSlide).not.toHaveBeenCalled();
+  });
+
+  it("falls back to Open XML inspection when PowerPoint cannot open the file", async () => {
+    const presentationBridge = {
+      openPresentation: vi.fn(async () => ({ success: false, error: "PowerPoint 不可用" })),
+    } as unknown as PresentationBridge;
+    const officeActionBridge: OfficeActionBridge = {
+      executeAction: vi.fn(async (input) => ({
+        status: "done",
+        engine: "openxml",
+        ...input,
+        summary: "已检查 PPTX 文件结构",
+        changes: [],
+      })),
+    };
+    const target = createTarget({ presentationBridge, officeActionBridge });
+
+    const result = await target
+      .get("presentation.open")!
+      .execute({ filePath: "D:/docs/talk.pptx" });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: "PowerPoint 不可用",
+      data: { fileReadable: true, openedInApp: false, fallback: "openxml" },
+    });
+    expect(officeActionBridge.executeAction).toHaveBeenCalledWith({
+      app: "presentation",
+      action: "inspect",
+      operation: "inspectFile",
+      filePath: "D:/docs/talk.pptx",
+    });
   });
 
   it("routes Office action inspect through the unified action bridge", async () => {
@@ -206,5 +274,220 @@ describe("addOfficeExecutors", () => {
 
   it("does not expose an arbitrary PowerShell Office script executor", () => {
     expect(createTarget({}).has("office.script.execute")).toBe(false);
+  });
+
+  it("lists and activates explicit Office document windows", async () => {
+    const officeDocumentBridge: OfficeDocumentManagerBridge = {
+      listDocuments: vi.fn(async () => [
+        {
+          app: "word" as const,
+          name: "report.docx",
+          fullName: "C:/tmp/report.docx",
+          index: 1,
+          active: true,
+          progId: "Word.Application",
+          host: "microsoft-office" as const,
+          instanceId: "word:100:200",
+        },
+      ]),
+      activateDocument: vi.fn(async (input) => ({
+        app: input.app,
+        name: input.name || "report.docx",
+        fullName: input.filePath,
+        index: input.index || 1,
+        active: true,
+        progId: "Word.Application",
+        host: "microsoft-office" as const,
+        instanceId: input.instanceId || "word:100:200",
+      })),
+      listObjects: vi.fn(async () => [
+        {
+          app: "word" as const,
+          documentPath: "C:/tmp/report.docx",
+          kind: "bookmark",
+          name: "Summary",
+          locator: "bookmark:Summary",
+        },
+      ]),
+      activateObject: vi.fn(async (input) => ({
+        app: input.app,
+        filePath: input.filePath,
+        kind: "document",
+        name: input.locator,
+        locator: input.locator,
+        active: true,
+      })),
+      prepareTransaction: vi.fn(async () => []),
+      restoreTransactionFiles: vi.fn(async () => []),
+    };
+    const target = createTarget({ officeDocumentBridge });
+
+    const listed = await target.get("office.documents.list")!.execute({ app: "word" });
+    const activated = await target.get("office.documents.activate")!.execute({
+      app: "word",
+      filePath: "C:/tmp/report.docx",
+    });
+    const objects = await target.get("office.objects.list")!.execute({
+      app: "word",
+      filePath: "C:/tmp/report.docx",
+      kind: "bookmark",
+    });
+    const selected = await target.get("office.objects.activate")!.execute({
+      app: "word",
+      filePath: "C:/tmp/report.docx",
+      locator: "bookmark:Summary",
+    });
+
+    expect(listed).toMatchObject({ success: true, data: { count: 1 } });
+    expect(activated).toMatchObject({ success: true, data: { active: true } });
+    expect(objects).toMatchObject({ success: true, data: { count: 1 } });
+    expect(selected).toMatchObject({ success: true, data: { locator: "bookmark:Summary" } });
+    expect(officeDocumentBridge.activateDocument).toHaveBeenCalledWith({
+      app: "word",
+      filePath: "C:/tmp/report.docx",
+      name: undefined,
+      index: undefined,
+      instanceId: undefined,
+    });
+    expect(officeDocumentBridge.listObjects).toHaveBeenCalledWith({
+      app: "word",
+      filePath: "C:/tmp/report.docx",
+      instanceId: undefined,
+      kind: "bookmark",
+    });
+  });
+
+  it("runs validated multi-step Office workflows through the action bridge", async () => {
+    const officeActionBridge: OfficeActionBridge = {
+      executeAction: vi.fn(async (input) => ({
+        status: "done",
+        engine: "com",
+        ...input,
+        summary: "done",
+        changes: [],
+      })),
+    };
+    const target = createTarget({ officeActionBridge });
+
+    const result = await target.get("office.workflow.run")!.execute({
+      steps: [
+        {
+          app: "excel",
+          action: "style",
+          operation: "applyWorkbookTemplate",
+          filePath: "C:/tmp/book.xlsx",
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({ success: true, data: { status: "done", completedSteps: 1 } });
+    expect(officeActionBridge.executeAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves, lists, runs, and deletes reusable Office workflow templates", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "office-template-executors-"));
+    try {
+      const officeActionBridge: OfficeActionBridge = {
+        executeAction: vi.fn(async (input) => ({
+          status: "done",
+          engine: "com",
+          ...input,
+          summary: "done",
+          changes: [],
+        })),
+      };
+      const target = createTarget({ officeActionBridge, workflowRoot: root });
+      const saved = await target.get("office.workflow.template.save")!.execute({
+        name: "月报",
+        steps: [
+          {
+            app: "excel",
+            action: "inspect",
+            operation: "inspectCharts",
+            filePath: "{{vars.source}}",
+          },
+        ],
+      });
+      const templateId = (saved.data as { id: string }).id;
+      const listed = await target.get("office.workflow.template.list")!.execute({});
+      const run = await target.get("office.workflow.run")!.execute({
+        templateId,
+        variables: { source: "C:/tmp/monthly.xlsx" },
+      });
+      const deleted = await target.get("office.workflow.template.delete")!.execute({ templateId });
+
+      expect(saved).toMatchObject({ success: true, data: { name: "月报" } });
+      expect(listed).toMatchObject({ success: true, data: { count: 1 } });
+      expect(run).toMatchObject({ success: true, data: { status: "done" } });
+      expect(officeActionBridge.executeAction).toHaveBeenCalledWith(
+        expect.objectContaining({ filePath: "C:/tmp/monthly.xlsx" }),
+      );
+      expect(deleted).toEqual({ success: true, data: { deleted: true } });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes persistent workflow status and group transaction undo/redo", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "office-executors-"));
+    try {
+      const workflowRoot = path.join(root, "workflows");
+      const transactionRoot = path.join(root, "transactions");
+      const sourcePath = path.join(root, "book.xlsx");
+      const outputPath = path.join(root, "report.docx");
+      await writeFile(sourcePath, "source", "utf8");
+      const officeActionBridge: OfficeActionBridge = {
+        executeAction: vi.fn(async (input) => {
+          await writeFile(input.outputPath!, "report", "utf8");
+          return {
+            status: "done",
+            engine: "com",
+            ...input,
+            summary: "done",
+            changes: [{ kind: "create", target: input.outputPath, detail: "生成报告" }],
+          };
+        }),
+      };
+      const target = createTarget({ officeActionBridge, workflowRoot, transactionRoot });
+      const run = await target.get("office.workflow.run")!.execute({
+        steps: [
+          {
+            app: "word",
+            action: "insert",
+            operation: "buildReport",
+            filePath: sourcePath,
+            outputPath,
+          },
+        ],
+      });
+      const data = run.data as { workflowId: string; transactionId: string };
+
+      const status = await target
+        .get("office.workflow.status")!
+        .execute({ workflowId: data.workflowId });
+      const inspected = await target
+        .get("office.transaction.inspect")!
+        .execute({ transactionId: data.transactionId });
+      const undone = await target
+        .get("office.transaction.undo")!
+        .execute({ transactionId: data.transactionId });
+      await expect(access(outputPath)).rejects.toThrow();
+      const redone = await target
+        .get("office.transaction.redo")!
+        .execute({ transactionId: data.transactionId });
+
+      expect(run).toMatchObject({ success: true, data: { status: "done", completedSteps: 1 } });
+      expect(status).toMatchObject({ success: true, data: { status: "done", nextStep: 2 } });
+      expect(inspected).toMatchObject({
+        success: true,
+        data: { status: "applied", artifacts: [outputPath] },
+      });
+      expect(undone).toMatchObject({ success: true, data: { status: "undone" } });
+      expect(redone).toMatchObject({ success: true, data: { status: "applied" } });
+      await expect(access(outputPath)).resolves.toBeUndefined();
+      expect(officeActionBridge.executeAction).toHaveBeenCalledTimes(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

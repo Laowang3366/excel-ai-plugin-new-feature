@@ -16,7 +16,7 @@
 - `python.ts`: 通用 Python 脚本执行工具定义。
 - `knowledge.ts`: 知识库检索工具定义。
 - `ocr.ts`: OCR 解析工具定义，供文本模型通过 MinerU 读取图片/PDF。
-- `office.ts`: Word、PowerPoint、统一 Office action 和 Office 脚本工具定义。文件级编辑优先暴露为 `office.action.inspect` / `office.action.apply` / `office.action.validate`。
+- `office.ts`: Word、PowerPoint、统一 Office action、多窗口文档选择和事务工作流工具定义。
 
 关联模块：
 

@@ -11,7 +11,7 @@
 - `fileExecutors.ts`: 文件读写工具执行器。
 - `knowledgeExecutors.ts`: 知识库检索工具执行器。
 - `ocrExecutors.ts`: MinerU OCR 解析工具执行器，把图片/PDF 转成文本和表格。
-- `officeExecutors.ts`: Word、PowerPoint、统一 Office action 和 Office 脚本工具执行器。
+- `officeExecutors.ts`: Word、PowerPoint、统一 Office action、多窗口选择和可回滚工作流执行器。
 - `pythonExecutor.ts`: 通用 Python 脚本执行器，通过临时脚本文件避免 shell 引号转义问题。
 
 关联模块：

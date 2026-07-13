@@ -296,7 +296,7 @@ flowchart LR
 | Web | `tools/registry/web.ts` | `webSearchExecutors.ts` | HTTP fetch、HTML parser | 模型上网搜索 |
 | OCR | `tools/registry/ocr.ts` | `ocrExecutors.ts` | MinerU token、免费降级、本地解析 | 图片/PDF OCR、发票字段提取辅助 |
 | Memory | `tools/registry/memory.ts` | `memoryExecutors.ts` | `memory/longTerm/*` | 长期记忆列出、写入、删除 |
-| Office 文件级 | `tools/registry/office.ts` | `officeExecutors.ts` | `officeCore/*`、`officeOpenXml/*`、`office/*` | Word/PPT/Excel 文件创建、编辑、美化、快照 |
+| Office 文件级 | `tools/registry/office.ts`、`officeReliability.ts` | `officeExecutors.ts`、`officeReliabilityExecutors.ts` | `officeCore/*`、`officeOpenXml/*`、`office/*` | 高级对象操作、链接报告、多窗口对象选择、持久化工作流和组事务恢复 |
 
 ## 7. Office/WPS 当前窗口与 OpenXML 文件级编辑
 
@@ -320,7 +320,9 @@ flowchart TB
     WordBridge["implementations/office/wordComBridge.ts"]
     PptBridge["implementations/office/presentationComBridge.ts"]
     ComAction["implementations/office/officeComActionBridge.ts"]
+    Documents["implementations/office/officeDocumentComBridge.ts"]
     OpenXmlEngine["implementations/officeOpenXml/officeOpenXmlEngine.ts"]
+    Transactions["officeCore/transactions.ts + transactionJournal.ts + workflow.ts"]
   end
 
   DirectIPC --> ExcelBridge
@@ -330,6 +332,8 @@ flowchart TB
   AgentTools --> RangeOps
   AgentTools --> FormulaOps
   AgentTools --> ComAction
+  AgentTools --> Documents
+  ComAction --> Transactions
   ComAction --> OpenXmlEngine
   ComAction --> WordBridge
   ComAction --> PptBridge
@@ -344,6 +348,8 @@ Office 连接详情：
 | Python 扩展 | `tools/registry/python.ts` | `pythonExecutor.ts` -> `automation/python.ts` | Python 处理结果；不再暴露外部 JScript 或任意 PowerShell Office 脚本工具 |
 | Word/PPT 当前窗口状态 | `preload.ts` 的 `office.*` | `ipcHandlers.ts` -> `wordComBridge.ts` / `presentationComBridge.ts` | 当前宿主连接状态 |
 | 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionAdapter.ts` -> `officeOpenXml/*`，必要时 COM fallback | 修改后的 Office 文件、视觉快照、变更摘要 |
+| 高级对象与跨应用操作 | `office.action.*`、`office.workflow.*`、`office.transaction.*` | `officeActionAdapter.ts` -> `officeComActionBridge.ts` -> `officeComExcel*` / `officeComWord*` / `officeComPresentation*` / `officeComCrossActionScripts.ts`；`officeReliabilityExecutors.ts` -> `workflow.ts` / `transactionJournal.ts` | Excel 查询/打印/公式治理、Word/PPT 高级编辑、链接报告原位刷新、步骤产物、暂停续跑、整体撤销和重做 |
+| 多窗口与对象选择 | `office.documents.*`、`office.objects.*` | `officeReliabilityExecutors.ts` -> `officeDocumentComBridge.ts` | 打开文档列表、按完整路径定位，列出并激活工作表/区域/图表/页面/书签/幻灯片/形状 |
 | OpenXML Excel | `officeOpenXml/advancedExcel.ts`、`excelSheetXml.ts`、`excelFormulaXml.ts` | `officeOpenXmlEngine.ts` 包读写 | sheet/cell/formula/table/style XML |
 | OpenXML Word | `officeOpenXml/advancedWord.ts` | `officeOpenXmlEngine.ts` | docx 段落、表格、样式 |
 | OpenXML PPT | `officeOpenXml/advancedPresentation.ts`、`presentationPackageParts.ts`、`presentationSlideContent.ts` | `officeOpenXmlEngine.ts` | pptx slide、rels、theme、layout |
@@ -554,7 +560,7 @@ flowchart TB
 | `desktop/electron/agent/tools/registry/*` | 工具 schema | buildStreamParams/toolExecutor | 模型可见工具列表 |
 | `desktop/electron/agent/tools/executors/*` | 工具执行器 | toolExecutor | contracts、implementations、knowledge、OCR、sandbox |
 | `desktop/electron/agent/tools/implementations/excel/*` | Excel/WPS COM 具体能力 | excelExecutors、ipcHandlers | COM、automation |
-| `desktop/electron/agent/tools/implementations/office/*` | Word/PPT COM 与 Office action fallback | officeExecutors、officeCore | COM、PowerShell |
+| `desktop/electron/agent/tools/implementations/office/*` | Word/PPT/Excel 高级 COM、跨应用报告与多窗口定位 | officeExecutors、officeCore | 参数化 COM、PowerShell |
 | `desktop/electron/agent/tools/implementations/officeOpenXml/*` | xlsx/docx/pptx 文件级 OpenXML 引擎 | officeCore/officeExecutors | ZIP/XML 文件包 |
 | `desktop/electron/agent/tools/officeCore/*` | Office action 统一定位、能力、结果适配 | officeExecutors | OpenXML 优先、COM fallback |
 | `desktop/electron/agent/knowledge/*` | RAG 文档解析、切块、embedding、检索、写入维护 | runtime、knowledge IPC、knowledge tools | SQLite、AI embedding |

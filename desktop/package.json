@@ -17,13 +17,20 @@
     "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json",
     "test": "npx vitest run",
     "test:watch": "npx vitest",
-    "test:coverage": "npx vitest run --coverage"
+    "test:coverage": "npx vitest run --coverage",
+    "test:office-smoke": "vite-node scripts/smoke-office-advanced.ts",
+    "test:word-smoke": "vite-node scripts/smoke-word-advanced.ts",
+    "test:word-lifecycle": "vite-node scripts/smoke-word-lifecycle.ts",
+    "test:excel-lifecycle": "vite-node scripts/smoke-excel-lifecycle.ts",
+    "test:presentation-smoke": "vite-node scripts/smoke-presentation-advanced.ts",
+    "test:office-reliability": "vite-node scripts/smoke-office-reliability.ts"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.9",
     "jszip": "^3.10.1",
     "lucide-react": "^1.21.0",
+    "pptxgenjs": "^4.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.0.1",

@@ -72,6 +72,32 @@ export const ExcelWriteRangeInput = z.object({
 export const ExcelSelectHostInput = z.enum(["excel", "wps"]);
 
 // ============================================================
+// Office 自动化管理
+// ============================================================
+
+export const OfficeAutomationAppInput = z.enum(["excel", "word", "presentation"]);
+export const OfficeAutomationDocumentsListInput = z.object({ app: OfficeAutomationAppInput.optional() }).optional();
+export const OfficeAutomationDocumentInput = z.object({
+  app: OfficeAutomationAppInput,
+  filePath: z.string().min(1),
+  instanceId: z.string().min(1).optional(),
+});
+export const OfficeAutomationObjectsListInput = OfficeAutomationDocumentInput.extend({ kind: z.string().min(1).optional() });
+export const OfficeAutomationObjectActivateInput = OfficeAutomationDocumentInput.extend({ locator: z.string().min(1) });
+export const OfficeAutomationIdInput = z.object({ id: z.string().uuid() });
+export const OfficeAutomationForceInput = OfficeAutomationIdInput.extend({ force: z.boolean().optional() });
+export const OfficeAutomationTemplateSaveInput = z.object({
+  workflowId: z.string().uuid(),
+  templateId: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional(),
+});
+export const OfficeAutomationTemplateRunInput = z.object({
+  templateId: z.string().uuid(),
+  variables: z.record(z.string(), z.unknown()).optional(),
+});
+
+// ============================================================
 // Agent
 // ============================================================
 

@@ -4,8 +4,15 @@
 - Word 文档、报告、方案、总结、说明书等写作任务，先读取当前文档/附件/用户资料并判断写作难度；简单改写或短文本补全不搜库，涉及项目背景、业务口径、模板规范、历史规则或用户明确要求“根据知识库/资料”时，再用场景摘要调用 `knowledge.search`。
 - 磁盘文件或未连接 Office：Open XML 优先，用 `office.action.inspect`、`office.action.apply`、`office.action.validate` 处理 .xlsx/.docx/.pptx。
 - `office.action.apply` 结果必须看 status：`done` 完成，`unsupported`/ `needsCom`/ `failed` 再换方案；需要 COM 兜底可传 `preferEngine:"com"`。
+- 多窗口先用 `office.documents.list` 取得完整路径，再用 `office.objects.list` 列工作表、页面、幻灯片或对象；用户确认后原样传完整路径和 locator 给 `office.documents.activate` / `office.objects.activate`，不要按同名文件或后台活动窗口猜目标。
+- 透视表、Power Query、审阅、邮件合并、母版、动画、讲义及跨应用报告统一用 `office.action.*`，高级编辑先检查后修改，operation 和 params 按工具说明填写。
+- 同时安装 Microsoft Office 与 WPS 时，文件级 COM 操作按目标软件传 `params.host`：Excel 用 `excel/wps`，Word 用 `word/wps`，演示用 `powerpoint/wps`。跨应用报告分别传 `sourceHost`、`wordHost`、`presentationHost`；目标文件已打开时同时传 `instanceId`，未打开时工具会创建隔离进程，不附着无关活动窗口。
+- Word 文件先按需调用 `inspectDocumentFormatting/inspectReferences/inspectRevisions/inspectContentControls`；排版、引用、审阅、邮件合并和内容控件分别调用对应高级 operation。AI 改写需保留原文时必须用 `applyTrackedChanges`。
+- 批量合同、通知、证书和报价单先 `prepareMailMergeTemplate`，再用 `batchMailMerge`；明确输出格式、命名字段、条件字段和图片字段，禁止让用户逐份手工保存。
+- PPT 高级操作先按任务调用 `inspectPresentationTheme/inspectSlideElements/inspectAnimations/inspectSpeakerNotes`。新增数据表用 `insertTable`；统一旧模板用 `applyMasterBranding`；精确排版、对齐、等距、裁剪和越界修复用 `layoutElements`；动画与放映分别用 `configureAnimations/configureSlideShow`；模型根据页面内容生成讲稿后用 `setSpeakerNotes` 写入，再用 `inspectSpeakerNotes` 检查对应关系，最后按需用 `exportHandouts` 导出备注页或讲义 PDF。
+- Excel 表格或图表联动 Word/PPT：调用 `exportRangeToWord` / `exportRangeToPresentation`，传 `params.linked:true`；图表另传 `sourceType:"chart"` 和 `chartName`。先用目标文件的 `inspectLinkedOfficeContent` 核对来源，数据变化后用 `refreshLinkedOfficeContent` 原位刷新，不删除重建链接对象。
+- Excel 汇总、图表、Word 报告、PPT 汇报等多步任务必须用 `office.workflow.run`，每步明确输入和输出路径。失败后保留 `workflowId`，修正条件后传 `resume:true, workflowId` 从失败步骤继续，不重复成功步骤。
+- 工作流成功返回 `transactionId`。整体撤销或重做前先用 `office.transaction.inspect` 查看文件快照、产物和修改清单，再调用 `office.transaction.undo` / `office.transaction.redo`；单文件原地修改仍可用 `data.transaction.backupPath` 和 `restoreBackup`。
 - 文件截图用 `office.action.apply({ app, action:"snapshot", operation:"snapshot", filePath })` 并走审批，不用 inspect/validate 绕过。
-- 当前 Excel 单元格写入用 `range.write`；文件级创建/编辑用 `office.action.apply`。不要把 `range.read` 当写入。复杂文件处理可用 `python.execute`，不得拼接任意 PowerShell 操作 Office。
-- `office.action.apply` 只处理有明确 `filePath` 的磁盘文件；`word.*`、`presentation.*` 和 `range.*` 只处理当前已连接窗口、选区或未保存内容。二者按目标状态互斥选择，不为同一次操作重复调用。
+- 当前窗口用 `range.*`/`word.*`/`presentation.*`，明确磁盘 `filePath` 才用 `office.action.*`，同一操作不重复调用；`range.read` 不写入，复杂文件可用 `python.execute`，不得拼接 PowerShell 操作 Office。
 - 图片/PDF/界面/PPT 截图/Word 或 Excel 样式验收先用 `ocr.parseDocument` 得到可见内容，再做修改或判断。
-- 长期记忆删除用 `memory.delete`，先 `memory.list` 或 `memory.search` 确认 memoryId；知识库内容不要用 memory 工具删除。

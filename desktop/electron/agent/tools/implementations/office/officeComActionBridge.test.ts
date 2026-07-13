@@ -44,7 +44,7 @@ describe("OfficeComActionBridge", () => {
     expect(script).toContain("ReleaseComObject($workbook)");
   });
 
-  test("runs Word insertOrUpdateToc through COM with field update", async () => {
+  test("runs Word insertOrUpdateToc through COM and updates the TOC", async () => {
     executePowerShellMock.mockResolvedValue(JSON.stringify({
       outputPath: "C:\\tmp\\report-toc.docx",
       changes: [{ kind: "toc", detail: "已插入或更新目录" }],
@@ -62,7 +62,6 @@ describe("OfficeComActionBridge", () => {
     const script = executePowerShellMock.mock.calls[0][0];
     expect(script).toContain("$doc.TablesOfContents.Add");
     expect(script).toContain("$toc.Update()");
-    expect(script).toContain("$doc.Fields.Update()");
     expect(script).toContain("$doc.SaveAs2($_outputPath)");
     expect(script).toContain("$app.Quit()");
   });
@@ -110,7 +109,7 @@ describe("OfficeComActionBridge", () => {
     expect(script).toContain("$deleteSlideIndexes = @(2, 3, 4, 5, 6)");
     expect(script).toContain("Sort-Object -Descending");
     expect(script).toContain("$pres.Slides.Item($idx).Delete()");
-    expect(script).toContain("$pres.SaveAs($_outputPath)");
+    expect(script).toContain("Save-PresentationFile $pres $_outputPath $true");
   });
 
   test("rejects unsupported COM action before executing PowerShell", async () => {
@@ -125,5 +124,26 @@ describe("OfficeComActionBridge", () => {
 
     expect(result.status).toBe("unsupported");
     expect(executePowerShellMock).not.toHaveBeenCalled();
+  });
+
+  test("routes every declared advanced Office operation to a concrete COM script", async () => {
+    executePowerShellMock.mockResolvedValue(JSON.stringify({ outputPath: "C:\\tmp\\output.office", changes: [] }));
+    const bridge = new OfficeComActionBridge();
+    const operations = [
+      ...["createPivotTable", "refreshPivotTables", "addSlicer", "createPowerQuery", "inspectPowerQueries", "managePowerQuery", "inspectCharts", "formatChart", "inspectWorkbookObjects", "manageWorkbookObject", "manageWorksheetObjects", "captureWorkbookTemplate", "inspectWorkbookFormatting", "applyWorkbookTemplate", "inspectPrintSettings", "configurePrint", "exportSheetsToPdf", "exportPdf", "traceFormulaDependencies", "inspectFormulaDependencies", "repairFormulaReferences", "convertFormulasToValues", "inspectFormulaBackups", "restoreFormulas", "inspectFormulaProtection", "manageFormulaProtection", "exportRangeToWord", "exportRangeToPresentation", "buildReportPackage"].map((operation) => ({ app: "excel" as const, operation })),
+      ...["inspectDocumentFormatting", "formatLongDocument", "inspectReferences", "manageReferences", "inspectRevisions", "manageRevisions", "compareDocuments", "applyTrackedChanges", "prepareMailMergeTemplate", "mailMerge", "batchMailMerge", "inspectContentControls", "populateContentControls", "manageContentControls", "exportPdf", "inspectLinkedOfficeContent", "refreshLinkedOfficeContent", "relinkLinkedOfficeContent"].map((operation) => ({ app: "word" as const, operation })),
+      ...["insertTable", "inspectPresentationTheme", "inspectSlideElements", "inspectAnimations", "inspectSpeakerNotes", "applyMasterBranding", "layoutElements", "configureAnimations", "configureSlideShow", "setSpeakerNotes", "exportHandouts", "inspectLinkedOfficeContent", "refreshLinkedOfficeContent", "relinkLinkedOfficeContent"].map((operation) => ({ app: "presentation" as const, operation })),
+    ];
+
+    for (const { app, operation } of operations) {
+      const result = await bridge.executeAction({
+        app,
+        action: ["traceFormulaDependencies", "inspectFormulaDependencies", "inspectFormulaBackups", "inspectFormulaProtection", "inspectPrintSettings", "inspectPowerQueries", "inspectCharts", "inspectWorkbookObjects", "captureWorkbookTemplate", "inspectWorkbookFormatting", "inspectDocumentFormatting", "inspectReferences", "inspectRevisions", "inspectContentControls", "inspectLinkedOfficeContent"].includes(operation) ? "inspect" : "edit",
+        operation,
+        filePath: "C:\\tmp\\input.office",
+      });
+      expect(result.status, `${app}/${operation}`).toBe("done");
+    }
+    expect(executePowerShellMock).toHaveBeenCalledTimes(operations.length);
   });
 });

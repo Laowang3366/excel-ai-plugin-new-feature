@@ -5,7 +5,7 @@
 模块说明：
 
 - `excel/`: Excel/WPS 表格 COM 桥接、内部 VBA/WPS JSA 宏、UI 控件和工作簿/区域/公式/工作表操作。
-- `office/`: Word、PowerPoint 和 Office 脚本 COM 桥接；`officeComActionBridge.ts` 作为统一 Office action 的 COM 兜底，覆盖目录刷新、快照、图表、PPT 删除页等需要应用对象模型的场景。
+- `office/`: Word、PowerPoint 和 Office COM 桥接；`officeComActionBridge.ts` 统一调度按 Excel/Word/PPT/跨应用拆分的高级脚本。Excel 深度能力按查询、图表、对象、模板、打印和公式治理拆分；Word 深度能力按排版、引用、审阅、邮件合并和内容控件拆分；PowerPoint 深度能力按主题母版、元素排版诊断、动画放映和备注讲义拆分；`officeDocumentComBridge.ts` 负责多窗口列出与激活。
 - `officeOpenXml/`: 直接读写 `.docx` / `.pptx` / `.xlsx` 的 ZIP + XML 文件结构，用于不依赖 Office 进程的文件级编辑；当前覆盖 Excel 高级编辑、Word 标题/表格/页眉页脚、PPT 创建/主题/删除页等操作。
 
 关联模块：
@@ -20,3 +20,4 @@
 - 文件级 Word/PPT/Excel 操作优先接入 `officeOpenXml/`，并通过 `officeCore/officeActionAdapter.ts` 暴露给 `office.action.*`。
 - 只有 Open XML 不适合处理的动态对象、当前窗口状态、预览导出或应用内刷新，才进入 `office/` COM 兜底。
 - 新增操作必须同步更新能力表、工具注册表、提示词说明和测试。
+- 原地文件修改必须经过 `officeCore/transactions.ts`；多步任务由 `officeCore/workflow.ts` 逆序恢复事务备份。

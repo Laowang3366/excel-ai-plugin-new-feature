@@ -29,6 +29,8 @@ export interface OfficeActionInput {
   target?: string;
   preferEngine?: OfficeActionEngine;
   params?: Record<string, unknown>;
+  /** 内部执行上下文，防止工作流事务内再次创建嵌套事务。 */
+  transactionContext?: "workflow";
 }
 
 export interface OfficeActionValidation {

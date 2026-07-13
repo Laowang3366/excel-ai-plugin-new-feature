@@ -17,6 +17,7 @@ export async function executePowerShell(script: string, timeout = 90000): Promis
   const path = require("path");
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "excel-ai-ps-"));
   const scriptPath = path.join(tempDir, "script.ps1");
+  const managedProcessIdPath = path.join(tempDir, "managed-process.pid");
 
   try {
     await fs.promises.writeFile(scriptPath, wrapPowerShellScript(script), "utf8");
@@ -24,11 +25,18 @@ export async function executePowerShell(script: string, timeout = 90000): Promis
       execFile(
         "powershell.exe",
         ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
-        { timeout, maxBuffer: DEFAULT_PROCESS_MAX_BUFFER, encoding: "buffer", windowsHide: true },
-        (err: any, stdout: Buffer, stderr: Buffer) => {
+        {
+          timeout,
+          maxBuffer: DEFAULT_PROCESS_MAX_BUFFER,
+          encoding: "buffer",
+          windowsHide: true,
+          env: { ...process.env, WENGGE_MANAGED_PROCESS_ID_FILE: managedProcessIdPath },
+        },
+        async (err: any, stdout: Buffer, stderr: Buffer) => {
           const stdoutText = decodeProcessOutput(stdout).trim();
           const stderrText = decodeProcessOutput(stderr).trim();
           if (err) {
+            await terminateManagedProcess(fs, managedProcessIdPath);
             reject(new Error(stderrText || err.message));
           } else {
             resolve(stdoutText);
@@ -39,6 +47,17 @@ export async function executePowerShell(script: string, timeout = 90000): Promis
   } finally {
     await fs.promises.rm(tempDir, { recursive: true, force: true });
   }
+}
+
+async function terminateManagedProcess(fs: any, processIdPath: string): Promise<void> {
+  try {
+    const content = String(await fs.promises.readFile(processIdPath, "utf8"));
+    const processIds = [...new Set<number>((content.match(/\d+/g) || []).map(Number))]
+      .filter((processId) => Number.isSafeInteger(processId) && processId > 0);
+    for (const processId of processIds) {
+      try { process.kill(processId, "SIGKILL"); } catch { /* already exited */ }
+    }
+  } catch { return; }
 }
 
 export function wrapPowerShellScript(script: string): string {

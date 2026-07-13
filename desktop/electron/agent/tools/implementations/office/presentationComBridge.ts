@@ -41,6 +41,7 @@ function acquirePresentationAppScript(allowCreate = true, preferredProgId?: stri
     allowCreate,
     preferredProgId,
     missingMessage,
+    visible: -1,
   });
 }
 

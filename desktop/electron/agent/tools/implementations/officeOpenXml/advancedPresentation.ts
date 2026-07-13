@@ -9,6 +9,7 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import JSZip from "jszip";
+import pptxgen from "pptxgenjs";
 import { failedResult, needsComResult, unsupportedResult } from "../../officeCore/results";
 import type { OfficeActionKind, OfficeActionResult } from "../../officeCore/types";
 import {
@@ -23,7 +24,6 @@ import {
   nextRelationshipNumber,
   nextSlidePartNumber,
 } from "./presentationPackageParts";
-import { createBasicPresentationPackage } from "./presentationTemplate";
 import { contentSlideXml, emptySlideRelsXml, normalizeSlidesParam } from "./presentationSlideContent";
 import { createOpenXmlDoneResult } from "./actionResult";
 
@@ -100,9 +100,44 @@ async function createPresentation(input: PresentationAdvancedActionInput): Promi
   const outputPath = input.outputPath || input.filePath;
   const title = stringParam(input.params, "title") || "新建演示文稿";
   const subtitle = stringParam(input.params, "subtitle") || "";
-  const zip = createBasicPresentationPackage(title, subtitle);
-
-  await writeFile(outputPath, await zip.generateAsync({ type: "nodebuffer" }));
+  const presentation = new pptxgen();
+  presentation.layout = "LAYOUT_WIDE";
+  presentation.author = "Office AI 助手";
+  presentation.subject = title;
+  presentation.title = title;
+  presentation.company = "Office AI 助手";
+  presentation.theme = {
+    headFontFace: "Microsoft YaHei",
+    bodyFontFace: "Microsoft YaHei",
+  };
+  const slide = presentation.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText(title, {
+    x: 0.8,
+    y: 1.55,
+    w: 11.7,
+    h: 0.8,
+    fontFace: "Microsoft YaHei",
+    fontSize: 30,
+    bold: true,
+    color: "111827",
+    align: "center",
+    margin: 0,
+  });
+  if (subtitle) {
+    slide.addText(subtitle, {
+      x: 1.2,
+      y: 2.75,
+      w: 10.9,
+      h: 0.5,
+      fontFace: "Microsoft YaHei",
+      fontSize: 18,
+      color: "4B5563",
+      align: "center",
+      margin: 0,
+    });
+  }
+  await presentation.writeFile({ fileName: outputPath });
   return presentationDone(input, outputPath, ["ppt/presentation.xml", "ppt/slides/slide1.xml"], "已创建基础 PPTX 演示文稿");
 }
 
