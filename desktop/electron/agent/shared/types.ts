@@ -453,13 +453,8 @@ export interface ToolExecutionResult {
   error?: string;
 }
 
-/** 工具执行上下文：由核心层传递内部运行态，不暴露给模型参数 */
-export interface ToolExecutionContext {
-  sandboxEvaluation?: unknown;
-}
-
 /** 工具执行器接口 */
 export interface ToolExecutor {
   readonly name: string;
-  execute(args: Record<string, unknown>, context?: ToolExecutionContext): Promise<ToolExecutionResult>;
+  execute(args: Record<string, unknown>): Promise<ToolExecutionResult>;
 }

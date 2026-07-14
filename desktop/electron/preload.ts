@@ -235,16 +235,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     list: () => ipcRenderer.invoke("tools:list"),
   },
 
-  // ---- 沙箱策略配置 ----
-  sandbox: {
-    /** 获取当前策略配置（默认规则 + 用户规则 + 可写根） */
-    getConfig: () => ipcRenderer.invoke("sandbox:getConfig"),
-    /** 更新用户自定义规则（覆盖式） */
-    setUserRules: (rules: unknown[]) => ipcRenderer.invoke("sandbox:setUserRules", rules),
-    /** 更新额外可写根目录（覆盖式） */
-    setWritableRoots: (roots: string[]) => ipcRenderer.invoke("sandbox:setWritableRoots", roots),
-  },
-
   // ---- 工具确认 ----
   tool: {
     /** 确认执行挂起的工具调用 */

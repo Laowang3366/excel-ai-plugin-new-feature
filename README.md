@@ -9,7 +9,7 @@
 - PowerPoint/WPS 演示：主题母版和品牌模板、元素级排版与问题诊断、四类动画与自动放映、演讲者备注和讲义 PDF。
 - 文件级 Office 处理：通过 `office.action.inspect/apply/validate` 统一处理 `.xlsx`、`.docx`、`.pptx`。
 - 高级 Office 自动化：支持 Excel Power Query 完整生命周期、图表深度编辑、工作簿对象、专业模板、打印/PDF、公式依赖与恢复、透视表/切片器，Word 审阅/邮件合并/内容控件，PPT 母版品牌/元素诊断/动画放映/备注讲义，以及跨应用报告和失败回滚。
-- Python 扩展：保留兼容性较强的 `python.execute`，用于复杂文件处理和批量任务。
+- 类型化 Office Worker：Electron 通过 .NET 8 Worker 执行 COM 与 Open XML 操作，不向模型暴露任意脚本执行入口。
 - 本地知识与长期记忆：内置 Excel 解题方法论、知识检索、偏好和纠错记忆。
 - 多模型接入：支持 OpenAI 兼容协议、Anthropic 及常见国内模型平台。
 - 远程更新：支持应用内检查、下载并覆盖安装完整版本，以及受签名和路径约束的热补丁。
@@ -61,13 +61,12 @@ npm run dev
 - 多窗口与批处理：`office.documents.*` + `office.objects.*` 按完整路径和稳定 locator 选择文件、工作表、页面、幻灯片与对象；`office.workflow.*` 执行可暂停续跑的多步任务。
 - 跨软件联动：Excel 区域或图表可作为链接对象写入 Word/PPT，数据变化后原位刷新；工作流事务支持修改清单、整体撤销和重做。
 - Word/PPT 当前窗口：`word.*`、`presentation.*`。
-- 通用复杂处理：`python.execute`。
-- 系统命令：`shell.execute`，受安全策略、目录约束、审批和审计限制。
-- 外部 `script.execute`、任意 PowerShell Office 脚本和 JScript 写入入口已移除。
+- Office 与文件处理只通过类型化工具和 .NET Office Worker 执行。
+- `python.execute`、`shell.execute`、外部 `script.execute`、任意 PowerShell Office 脚本和 JScript 写入入口均已移除。
 
 ## 更新与发布
 
-桌面端从 `https://plugin.shelelove.top` 获取 Ed25519 签名更新清单。完整版本由 `electron-updater` 下载 NSIS 安装包并覆盖安装；热补丁只允许更新界面资源、内置知识和 WPS JSA 桥接资源，主进程、preload、原生依赖与 Python 运行时必须发布完整安装包。
+桌面端从 `https://plugin.shelelove.top` 获取 Ed25519 签名更新清单。完整版本由 `electron-updater` 下载 NSIS 安装包并覆盖安装；热补丁只允许更新界面资源、内置知识和 WPS JSA 桥接资源，主进程、preload、原生依赖与 .NET Office Worker 必须发布完整安装包。
 
 产品页服务位于 `product-site/`，提供产品介绍、安装包下载、更新 API 和带登录保护的下载统计后台。生产服务只监听 `127.0.0.1:18120`，由独立 Nginx 站点代理。
 
@@ -80,7 +79,7 @@ npm run dev
 
 ## 验证基线
 
-桌面端当前基线为 174 个测试文件、968 项测试；产品站另有接口与下载统计测试。发布前必须通过：
+测试数量随实现变化，以命令实际输出为准；产品站另有接口与下载统计测试。发布前必须通过：
 
 ```powershell
 cd desktop
@@ -88,6 +87,9 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
+npm run office:test
+npm run office:publish
+npm run electron:build
 ```
 
 安装包输出为 `desktop/release/Wengge-AI-Assistant-Setup-<version>.exe`，安装包、blockmap 和 `latest.yml` 作为 GitHub Release 资产发布，不提交为 Git 大文件。

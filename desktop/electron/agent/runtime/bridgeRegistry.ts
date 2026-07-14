@@ -1,71 +1,66 @@
-import { ExcelComBridge } from "../tools/implementations/excel/excelComBridge";
-import { ExcelUiComBridge } from "../tools/implementations/excel/excelUiComBridge";
-import { ExcelVbaComBridge } from "../tools/implementations/excel/excelVbaComBridge";
-import { WpsJsaBridge } from "../tools/implementations/excel/wpsJsaBridge";
-import { PresentationComBridge } from "../tools/implementations/office/presentationComBridge";
-import { WordComBridge } from "../tools/implementations/office/wordComBridge";
-import { OfficeOpenXmlFileBridge } from "../tools/implementations/officeOpenXml/officeOpenXmlFileBridge";
-import type { ExcelConnectionBridge } from "../tools/contracts/excel";
+import { DotNetExcelBridge } from "../officeWorker/dotNetExcelBridge";
+import { DotNetJsaBridge, DotNetUiBridge, DotNetVbaBridge } from "../officeWorker/dotNetMacroBridges";
+import { DotNetPresentationBridge, DotNetWordBridge } from "../officeWorker/dotNetDocumentBridges";
+import { DotNetOpenXmlBridge } from "../officeWorker/dotNetOpenXmlBridge";
+import { disposeOfficeWorkerClient } from "../officeWorker/officeWorkerClient";
 import { createLogger } from "../../shared/logger";
 
 const bridgeRegistryLogger = createLogger("BridgeRegistry");
 
 export interface OfficeBridgeRegistry {
-  excelBridge: ExcelComBridge;
-  vbaBridge: ExcelVbaComBridge;
-  jsaBridge: WpsJsaBridge;
-  uiBridge: ExcelUiComBridge;
-  wordBridge: WordComBridge;
-  presentationBridge: PresentationComBridge;
-  officeFileBridge: OfficeOpenXmlFileBridge;
+  excelBridge: DotNetExcelBridge;
+  vbaBridge: DotNetVbaBridge;
+  jsaBridge: DotNetJsaBridge;
+  uiBridge: DotNetUiBridge;
+  wordBridge: DotNetWordBridge;
+  presentationBridge: DotNetPresentationBridge;
+  officeFileBridge: DotNetOpenXmlBridge;
 }
 
-let excelBridge: ExcelComBridge | null = null;
-let vbaBridge: ExcelVbaComBridge | null = null;
-let jsaBridge: WpsJsaBridge | null = null;
-let uiBridge: ExcelUiComBridge | null = null;
-let wordBridge: WordComBridge | null = null;
-let presentationBridge: PresentationComBridge | null = null;
-let officeFileBridge: OfficeOpenXmlFileBridge | null = null;
+let excelBridge: DotNetExcelBridge | null = null;
+let vbaBridge: DotNetVbaBridge | null = null;
+let jsaBridge: DotNetJsaBridge | null = null;
+let uiBridge: DotNetUiBridge | null = null;
+let wordBridge: DotNetWordBridge | null = null;
+let presentationBridge: DotNetPresentationBridge | null = null;
+let officeFileBridge: DotNetOpenXmlBridge | null = null;
 
 /**
  * Office 桥接实例注册表。
  *
  * 关联模块：
- * - tools/implementations/excel/*Bridge: Excel/WPS COM 操作桥接。
- * - tools/implementations/office/*Bridge: Word/PPT/Office 脚本桥接。
- * - tools/implementations/officeOpenXml/*: docx/pptx/xlsx 文件级编辑桥接。
+ * - officeWorker/*: .NET 8 COM 与 Open XML Worker 的 TypeScript 薄桥。
  * - main-modules/ipcHandlers: Excel 连接状态和手动连接复用这里的实例。
  *
  * 主进程运行期 intentionally 复用同一组 bridge，避免每个 IPC 请求重复创建 COM 门面。
  * resetOfficeBridgeRegistry 用于会话/测试清理边界，不在工具执行中途调用。
  */
-export function getOrCreateExcelBridge(): ExcelConnectionBridge {
+export function getOrCreateExcelBridge(): DotNetExcelBridge {
   if (!excelBridge) {
-    excelBridge = new ExcelComBridge();
+    excelBridge = new DotNetExcelBridge();
   }
   return excelBridge;
 }
 
 export function getOrCreateOfficeBridges(): OfficeBridgeRegistry {
-  const activeExcelBridge = getOrCreateExcelBridge() as ExcelComBridge;
+  const activeExcelBridge = getOrCreateExcelBridge();
   if (!vbaBridge) {
-    vbaBridge = new ExcelVbaComBridge(activeExcelBridge);
+    vbaBridge = new DotNetVbaBridge();
   }
   if (!jsaBridge) {
-    jsaBridge = new WpsJsaBridge(activeExcelBridge);
+    jsaBridge = new DotNetJsaBridge();
   }
   if (!uiBridge) {
-    uiBridge = new ExcelUiComBridge(activeExcelBridge);
+    uiBridge = new DotNetUiBridge();
   }
   if (!wordBridge) {
-    wordBridge = new WordComBridge();
+    wordBridge = new DotNetWordBridge();
   }
   if (!presentationBridge) {
-    presentationBridge = new PresentationComBridge();
+    presentationBridge = new DotNetPresentationBridge();
   }
   if (!officeFileBridge) {
-    officeFileBridge = new OfficeOpenXmlFileBridge();
+    officeFileBridge = new DotNetOpenXmlBridge();
   }
 
   return {
@@ -79,23 +74,23 @@ export function getOrCreateOfficeBridges(): OfficeBridgeRegistry {
   };
 }
 
-export function getExcelBridge(): ExcelComBridge | null {
+export function getExcelBridge(): DotNetExcelBridge | null {
   return excelBridge;
 }
 
-export function getWordBridge(): WordComBridge | null {
+export function getWordBridge(): DotNetWordBridge | null {
   return wordBridge;
 }
 
-export function getPresentationBridge(): PresentationComBridge | null {
+export function getPresentationBridge(): DotNetPresentationBridge | null {
   return presentationBridge;
 }
 
-export function getVbaBridge(): ExcelVbaComBridge | null {
+export function getVbaBridge(): DotNetVbaBridge | null {
   return vbaBridge;
 }
 
-export function setExcelBridgeInstance(bridge: ExcelComBridge | null): void {
+export function setExcelBridgeInstance(bridge: DotNetExcelBridge | null): void {
   excelBridge = bridge;
   vbaBridge = null;
   jsaBridge = null;
@@ -115,8 +110,8 @@ export function resetOfficeBridgeRegistry(): void {
 export async function disconnectOfficeBridges(): Promise<void> {
   const cleanupTasks: Array<Promise<unknown>> = [];
   if (excelBridge) cleanupTasks.push(excelBridge.disconnect());
-  if (wordBridge) cleanupTasks.push(wordBridge.saveDocument());
-  if (presentationBridge) cleanupTasks.push(presentationBridge.savePresentation());
+  if (wordBridge?.isConnected()) cleanupTasks.push(wordBridge.saveDocument());
+  if (presentationBridge?.isConnected()) cleanupTasks.push(presentationBridge.savePresentation());
 
   const results = await Promise.allSettled(cleanupTasks);
   for (const result of results) {
@@ -126,4 +121,5 @@ export async function disconnectOfficeBridges(): Promise<void> {
         : { reason: String(result.reason) });
     }
   }
+  await disposeOfficeWorkerClient();
 }

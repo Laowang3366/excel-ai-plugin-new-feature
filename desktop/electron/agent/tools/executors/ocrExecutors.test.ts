@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import JSZip from "jszip";
+import { strToU8, zipSync } from "fflate";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { addOcrExecutors } from "./ocrExecutors";
@@ -311,9 +311,7 @@ async function executeOcr(args: Record<string, unknown>) {
 }
 
 async function mineruZip(markdown: string): Promise<Buffer> {
-  const zip = new JSZip();
-  zip.file("full.md", markdown);
-  return await zip.generateAsync({ type: "nodebuffer" });
+  return Buffer.from(zipSync({ "full.md": strToU8(markdown) }));
 }
 
 function jsonResponse(value: unknown, status = 200): Response {

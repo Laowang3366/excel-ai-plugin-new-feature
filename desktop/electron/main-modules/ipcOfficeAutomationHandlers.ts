@@ -4,8 +4,8 @@ import { ipcMain } from "electron";
 
 import { getOrCreateOfficeBridges } from "../agent/runtime/bridgeRegistry";
 import type { OfficeActionBridge, OfficeDocumentManagerBridge } from "../agent/tools/contracts/office";
-import { OfficeComActionBridge } from "../agent/tools/implementations/office/officeComActionBridge";
-import { OfficeDocumentComBridge } from "../agent/tools/implementations/office/officeDocumentComBridge";
+import { DotNetOfficeActionBridge } from "../agent/officeWorker/dotNetOfficeActionBridge";
+import { DotNetOfficeDocumentBridge } from "../agent/officeWorker/dotNetOfficeDocumentBridge";
 import { createOfficeActionBridge } from "../agent/tools/officeCore/officeActionAdapter";
 import { getOfficeTransaction, listOfficeTransactions, redoOfficeTransaction, undoOfficeTransaction } from "../agent/tools/officeCore/transactionJournal";
 import { getOfficeWorkflow, listOfficeWorkflows, requestOfficeWorkflowCancellation, runOfficeWorkflow } from "../agent/tools/officeCore/workflow";
@@ -35,7 +35,7 @@ interface OfficeAutomationServiceDeps {
 }
 
 export function createOfficeAutomationService(deps: OfficeAutomationServiceDeps) {
-  const documentBridge = deps.documentBridge || new OfficeDocumentComBridge();
+  const documentBridge = deps.documentBridge || new DotNetOfficeDocumentBridge();
   const roots = () => {
     const automationRoot = path.join(deps.getDataPath(), "office-automation");
     return {
@@ -46,7 +46,7 @@ export function createOfficeAutomationService(deps: OfficeAutomationServiceDeps)
   const actionBridge = (transactionRoot: string) => deps.createActionBridge?.(transactionRoot, documentBridge)
     || createOfficeActionBridge({
       officeFileBridge: getOrCreateOfficeBridges().officeFileBridge,
-      officeComActionBridge: new OfficeComActionBridge(),
+      officeComActionBridge: new DotNetOfficeActionBridge(),
       officeDocumentBridge: documentBridge,
       backupRoot: path.join(deps.getDataPath(), "office-backups"),
       transactionRoot,

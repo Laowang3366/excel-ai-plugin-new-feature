@@ -7,14 +7,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import JSZip from "jszip";
-import { extractOpenXmlParagraphTexts, extractOpenXmlTextValues } from "../shared/openXmlText";
-import {
-  detectWorksheetRange,
-  parseWorksheetRows,
-  readSharedStrings,
-  readWorkbookSheets,
-} from "./excelWorkbookParser";
+import { parseOpenXmlDocument } from "../officeWorker/dotNetDocumentParser";
 import { flattenJson } from "./jsonFlatten";
 import type { KnowledgeFileType } from "./types";
 
@@ -33,6 +26,8 @@ export interface RawChunk {
     headers?: string[];
     rowCount?: number;
     colCount?: number;
+    slideNumber?: number;
+    rows?: string[][];
   };
 }
 
@@ -106,48 +101,7 @@ export class DocumentParser {
       throw new Error(`Excel 文件过大，知识库索引最多支持 ${Math.floor(MAX_EXCEL_PARSE_BYTES / 1024 / 1024)}MB: ${sourceName}`);
     }
 
-    const zip = await JSZip.loadAsync(fs.readFileSync(filePath));
-    const sharedStrings = await readSharedStrings(zip);
-    const sheets = await readWorkbookSheets(zip);
-    const chunks: RawChunk[] = [];
-
-    for (const sheetInfo of sheets) {
-      const sheetPart = zip.file(sheetInfo.partName);
-      if (!sheetPart) continue;
-
-      const xml = await sheetPart.async("text");
-      const parsedRows = parseWorksheetRows(xml, sharedStrings, MAX_EXCEL_DATA_ROWS + 1);
-      if (parsedRows.rows.length === 0) continue;
-
-      const headers = parsedRows.rows[0].map((h) => h.trim());
-      const rowCount = Math.max(0, parsedRows.totalRows - 1);
-      const colCount = Math.max(headers.length, parsedRows.maxCol);
-      const lines: string[] = [`【表头】${headers.join(" | ")}`];
-
-      for (const row of parsedRows.rows.slice(1, MAX_EXCEL_DATA_ROWS + 1)) {
-        lines.push(row.map((cell) => cell.trim()).join(" | "));
-      }
-
-      if (rowCount > MAX_EXCEL_DATA_ROWS) {
-        lines.push(`...（还有 ${rowCount - MAX_EXCEL_DATA_ROWS} 行未展示）`);
-      }
-
-      chunks.push({
-        content: lines.join("\n"),
-        sourcePath: filePath,
-        sourceName,
-        sourceType,
-        metadata: {
-          sheetName: sheetInfo.name,
-          tableRange: detectWorksheetRange(xml, parsedRows),
-          headers,
-          rowCount,
-          colCount,
-        },
-      });
-    }
-
-    return chunks;
+    return this.parseOpenXml(filePath, sourceName, sourceType);
   }
 
   private parseCsv(filePath: string, sourceName: string): RawChunk[] {
@@ -216,56 +170,11 @@ export class DocumentParser {
   }
 
   private async parseDocx(filePath: string, sourceName: string): Promise<RawChunk[]> {
-    const zip = await JSZip.loadAsync(fs.readFileSync(filePath));
-    const documentPart = zip.file("word/document.xml");
-    if (!documentPart) return [];
-
-    const xml = await documentPart.async("text");
-    const lines = extractOpenXmlParagraphTexts(xml);
-    if (lines.length === 0) return [];
-
-    return [
-      {
-        content: lines.join("\n"),
-        sourcePath: filePath,
-        sourceName,
-        sourceType: "docx",
-        metadata: {
-          rowCount: lines.length,
-        },
-      },
-    ];
+    return this.parseOpenXml(filePath, sourceName, "docx");
   }
 
   private async parsePptx(filePath: string, sourceName: string): Promise<RawChunk[]> {
-    const zip = await JSZip.loadAsync(fs.readFileSync(filePath));
-    const slideParts = Object.keys(zip.files)
-      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
-      .sort((a, b) => this.slidePartNumber(a) - this.slidePartNumber(b));
-    const chunks: RawChunk[] = [];
-
-    for (const partName of slideParts) {
-      const part = zip.file(partName);
-      if (!part) continue;
-      const xml = await part.async("text");
-      const lines = extractOpenXmlTextValues(xml, { namespaceAgnostic: true })
-        .map((value) => value.trim())
-        .filter(Boolean);
-      if (lines.length === 0) continue;
-      const slideNumber = this.slidePartNumber(partName) || chunks.length + 1;
-      chunks.push({
-        content: [`【幻灯片 ${slideNumber}】`, ...lines].join("\n"),
-        sourcePath: filePath,
-        sourceName,
-        sourceType: "pptx",
-        metadata: {
-          slideNumber,
-          rowCount: lines.length,
-        },
-      });
-    }
-
-    return chunks;
+    return this.parseOpenXml(filePath, sourceName, "pptx");
   }
 
   private parseMarkdown(filePath: string, sourceName: string): RawChunk[] {
@@ -302,8 +211,19 @@ export class DocumentParser {
     ];
   }
 
-  private slidePartNumber(partName: string): number {
-    return Number(/slide(\d+)\.xml$/i.exec(partName)?.[1] || 0);
+  private async parseOpenXml(
+    filePath: string,
+    sourceName: string,
+    sourceType: KnowledgeFileType,
+  ): Promise<RawChunk[]> {
+    const chunks = await parseOpenXmlDocument(filePath);
+    return chunks.map((chunk) => ({
+      content: chunk.content,
+      sourcePath: filePath,
+      sourceName,
+      sourceType,
+      metadata: chunk.metadata,
+    }));
   }
 
   private getFileType(filePath: string): KnowledgeFileType {

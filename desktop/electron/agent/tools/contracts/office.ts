@@ -50,6 +50,8 @@ export interface PresentationBridge {
  * Office Open XML 文件桥接接口
  */
 export interface OfficeFileBridge {
+  /** 使用 .NET Open XML SDK 执行统一文件级高级操作。 */
+  executeAction?(input: OfficeActionInput): Promise<OfficeActionResult>;
   /** 检查 docx/pptx/xlsx 文件结构和文本摘要 */
   inspectFile(filePath: string): Promise<unknown>;
   /** 在 docx/pptx/xlsx 文件内查找替换文本 */

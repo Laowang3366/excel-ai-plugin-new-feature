@@ -63,7 +63,7 @@ import { collectStreamEvents } from "./streamCollector";
 | 大型 Store | 事件处理 + actions 提取 | chatStore → agentEventHandler + threadActions |
 | 大型 Electron 入口 | settingsManager + windowManager + ipcHandlers + eventForwarder | main.ts → 4 个模块 |
 | 大型工具注册表 | interfaces + definitions + executors | toolRegistry → 4 个模块 |
-| 大型桥接层 | 按桥接对象拆分 | excelBridge → comBridge + vbaBridge + scriptBridge + uiBridge |
+| 大型桥接层 | Electron 保持类型化薄桥，Worker 按应用和操作域拆分 | `officeWorker/*` → `desktop/dotnet/Wengge.OfficeWorker/{Office,Excel,Word,Presentation,OpenXml}` |
 | 大型 CSS | 按组件/功能域拆分 | global.css → 23 个模块 |
 
 ### 1.5 当前待拆分文件
@@ -72,7 +72,6 @@ import { collectStreamEvents } from "./streamCollector";
 |------|------|-------------|
 | `ModelSettings.tsx` | 1,186 | ProviderList + ProviderForm + ModelConfig 子组件 |
 | `aiClient.ts` | 1,078 | providers/ 目录 + streaming.ts + messageBuilder.ts |
-| `excelComBridge.ts` | 918 | rangeOps.ts + workbookOps.ts + sheetOps.ts |
 | `systemPrompt.ts` | 714 | sections/ 目录，每段提示词独立文件 |
 
 ---
@@ -230,7 +229,7 @@ await Promise.all(
 
 - **框架**：vitest（v4.1.8）+ @vitest/coverage-v8
 - **配置**：`desktop/vitest.config.ts`
-- **当前基线**：174 个测试文件，968 个测试；提交前必须保持 `npm run typecheck`、`npm run lint` 和 `npm test` 通过。产品站测试在 `product-site/` 独立执行。
+- **当前基线**：测试数量以命令实际输出为准；提交前必须保持 `npm run typecheck`、`npm run lint`、`npm test` 和 `npm run office:test` 通过。产品站测试在 `product-site/` 独立执行。
 - **运行命令**：
 
 ```bash
@@ -244,10 +243,10 @@ npm run test:coverage # 覆盖率报告
 | 模块类型 | 覆盖要求 | 示例 |
 |----------|----------|------|
 | 纯函数 | 覆盖所有分支和边界条件 | `compaction.ts`（token 估算、压缩判断） |
-| 工具执行逻辑 | 覆盖审批判断的所有模式 | `toolExecutor.ts`（shell.execute 始终审批、confirm_all、auto_approve_safe） |
+| 工具执行逻辑 | 覆盖风险等级和审批模式 | `toolApproval.test.ts`、`toolExecutor.test.ts` |
 | 状态转换逻辑 | 覆盖主要路径 | `agentEventHandler.ts` |
 | IPC Schema | 覆盖合法/非法输入 | `ipcSchemas.ts` |
-| Office 可靠性 | 覆盖脚本解析、进程归属、完整路径 locator、暂停续跑、组事务撤销/重做；链接 OLE 变更必须跑真实 Office 冒烟 | `officeComActionScripts.test.ts`、`transactionJournal.test.ts`、`npm run test:office-reliability` |
+| Office 可靠性 | 覆盖 Worker 协议、进程归属、完整路径 locator、暂停续跑、组事务撤销/重做；链接 OLE 变更必须跑真实 Office 冒烟 | `WorkerProtocolTests.cs`、`transactionJournal.test.ts`、`npm run test:office-reliability` |
 
 ### 4.3 测试文件规范
 
@@ -268,8 +267,8 @@ describe("shouldRequireApproval", () => {
     clearAlwaysAllowedTools(); // 每个测试前重置状态
   });
 
-  it("should always require approval for shell.execute", () => {
-    expect(shouldRequireApproval("shell.execute", "confirm_all")).toBe(true);
+  it("should require approval for moderate tools in confirm_all mode", () => {
+    expect(shouldRequireApproval("range.write", "confirm_all")).toBe(true);
   });
 
   it("should auto-approve safe tools in auto_approve_safe mode", () => {

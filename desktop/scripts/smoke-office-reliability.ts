@@ -2,13 +2,20 @@ import { access, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { executePowerShell, psVar } from "../electron/agent/automation/powershell";
 import type { OfficeActionBridge } from "../electron/agent/tools/contracts/office";
-import { OfficeComActionBridge } from "../electron/agent/tools/implementations/office/officeComActionBridge";
-import { OfficeDocumentComBridge, officeInstanceDiscoveryScript } from "../electron/agent/tools/implementations/office/officeDocumentComBridge";
-import { applyExcelAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedExcel";
-import { applyPresentationAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedPresentation";
-import { applyWordAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedWord";
+import {
+  closeOfficeFixtures,
+  disposeOfficeWorker,
+  DotNetOfficeActionBridge as OfficeComActionBridge,
+  DotNetOfficeDocumentBridge as OfficeDocumentComBridge,
+  applyExcelAdvancedAction,
+  applyPresentationAdvancedAction,
+  applyWordAdvancedAction,
+  listOfficeSmokeProcesses,
+  markWordBookmarkDirty,
+  openOfficeFixtures,
+  runningOfficeSmokeProcesses,
+} from "./officeWorkerSmokeHelpers";
 import { getOfficeTransaction, redoOfficeTransaction, undoOfficeTransaction } from "../electron/agent/tools/officeCore/transactionJournal";
 import { getOfficeWorkflow, runOfficeWorkflow } from "../electron/agent/tools/officeCore/workflow";
 import type { OfficeActionInput, OfficeActionResult } from "../electron/agent/tools/officeCore/types";
@@ -16,6 +23,7 @@ import type { OfficeActionInput, OfficeActionResult } from "../electron/agent/to
 type OwnedProcesses = { excel: number[]; word: number[]; presentation: number[] };
 
 async function main(): Promise<void> {
+  process.env.WENGGE_OFFICE_SMOKE = "1";
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wengge-office-reliability-"));
   const keepArtifacts = process.env.KEEP_OFFICE_RELIABILITY_SMOKE === "1";
   const sourcePath = path.join(tempDir, "source.xlsx");
@@ -81,6 +89,9 @@ async function main(): Promise<void> {
       app: "word", action: "edit", operation: "applyTrackedChanges", filePath: linkedWordPath,
       params: { edits: [{ command: "replaceBookmark", name: "ManualKeep", text: "人工保留段落" }], keepTracking: false },
     });
+    assertWordBookmark(await runAction(bridge, {
+      app: "word", action: "inspect", operation: "inspectReferences", filePath: linkedWordPath,
+    }), "ManualKeep", "人工保留段落");
     await runAction(bridge, {
       app: "presentation", action: "insert", operation: "insertTable", filePath: linkedPresentationPath,
       target: "slide:1", params: { name: "ManualKeep", values: [["人工保留表格"]], left: 520, top: 400, width: 180, height: 60 },
@@ -253,12 +264,14 @@ async function main(): Promise<void> {
       try { await operation(); } catch (error) { cleanupErrors.push(error); }
     };
     if (ownedProcesses) await cleanup(() => closeFixtures(ownedProcesses!));
+    await cleanup(() => disposeOfficeWorker());
     await cleanup(() => assertProcessesStillRunning(protectedWpsProcesses, "测试前已存在的 WPS 窗口"));
     await cleanup(() => assertProcessesStillRunning(officeProcessesBefore, "测试前已存在的 Microsoft Office 进程"));
     if (ownedProcesses) await cleanup(() => assertOwnedMicrosoftOfficeProcessesStopped(ownedProcesses!));
     await cleanup(() => assertNoUnexpectedMicrosoftOfficeProcesses(officeProcessesBefore));
     if (keepArtifacts) process.stdout.write(`Office reliability smoke artifacts: ${tempDir}\n`);
     else await cleanup(() => rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }));
+    await cleanup(() => disposeOfficeWorker());
     if (cleanupErrors.length > 0) {
       const detail = cleanupErrors.map((error) => error instanceof Error ? error.message : String(error)).join("；");
       if (primaryError) process.stderr.write(`Office reliability cleanup: ${detail}\n`);
@@ -290,14 +303,15 @@ async function createSelectionFixtures(wordPath: string, presentationPath: strin
 }
 
 async function runAction(bridge: OfficeActionBridge, input: OfficeActionInput): Promise<OfficeActionResult> {
+  process.stdout.write(`Testing ${input.app}/${input.operation}\n`);
   const result = await bridge.executeAction(input);
   if (result.status !== "done") throw new Error(`${input.app}/${input.operation}: ${result.error || result.summary}`);
+  process.stdout.write(`Passed ${input.app}/${input.operation}\n`);
   return result;
 }
 
 function operationData(result: OfficeActionResult): Record<string, unknown> {
-  const outer = asRecord(result.data);
-  return asRecord(outer.data);
+  return asRecord(result.data);
 }
 
 function linksFrom(result: OfficeActionResult): Array<Record<string, unknown>> {
@@ -325,8 +339,10 @@ function assertSameLocators(before: Array<Record<string, unknown>>, after: Array
 }
 
 function assertWordBookmark(result: OfficeActionResult, name: string, text: string): void {
-  const references = asRecord(operationData(result).references);
-  const bookmarks = Array.isArray(references.bookmarks) ? references.bookmarks.map(asRecord) : [];
+  const data = operationData(result);
+  const references = asRecord(data.references);
+  const rawBookmarks = Array.isArray(data.bookmarks) ? data.bookmarks : references.bookmarks;
+  const bookmarks = Array.isArray(rawBookmarks) ? rawBookmarks.map(asRecord) : [];
   const bookmark = bookmarks.find((item) => String(item.name) === name);
   if (!bookmark || !String(bookmark.text || "").includes(text)) {
     throw new Error(`Word 增量更新未保留人工书签内容: ${JSON.stringify(bookmarks)}`);
@@ -447,22 +463,7 @@ async function verifyDirtyDocumentTransaction(input: {
 }
 
 async function markOpenWordBookmarkDirty(filePath: string, instanceId: string, name: string, text: string): Promise<void> {
-  const output = await executePowerShell(`
-${officeInstanceDiscoveryScript()}
-${psVar("_filePath", filePath)}
-${psVar("_instanceId", instanceId)}
-${psVar("_bookmarkName", name)}
-${psVar("_bookmarkText", text)}
-$handle = Resolve-OfficeDocumentHandle 'word' $_filePath $_instanceId '' 0
-$document = $handle.document
-$start = [Math]::Max(0, $document.Content.End - 1)
-$target = $document.Range($start, $start)
-$target.InsertAfter($_bookmarkText)
-if ($document.Bookmarks.Exists($_bookmarkName)) { $document.Bookmarks.Item($_bookmarkName).Delete() }
-[void]$document.Bookmarks.Add($_bookmarkName, $document.Range($start, $start + $_bookmarkText.Length))
-[pscustomobject]@{ saved = [bool]$document.Saved; instanceId = [string]$handle.instanceId } | ConvertTo-Json -Compress
-`);
-  const result = JSON.parse(output) as { saved: boolean };
+  const result = await markWordBookmarkDirty({ filePath, instanceId, name, text });
   if (result.saved) throw new Error("未能构造未保存的 Word 文档状态");
 }
 
@@ -494,103 +495,24 @@ async function expectMissing(filePath: string): Promise<void> {
 }
 
 async function openFixtures(excelPaths: string[], wordPaths: string[], presentationPaths: string[]): Promise<OwnedProcesses> {
-  const output = await executePowerShell(`
-${psVar("_excelPath1", excelPaths[0])}
-${psVar("_excelPath2", excelPaths[1])}
-${psVar("_wordPath1", wordPaths[0])}
-${psVar("_wordPath2", wordPaths[1])}
-${psVar("_presentationPath1", presentationPaths[0])}
-${psVar("_presentationPath2", presentationPaths[1])}
-$beforeExcel = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue | ForEach-Object Id)
-$beforeWord = @(Get-Process -Name WINWORD -ErrorAction SilentlyContinue | ForEach-Object Id)
-$beforePresentation = @(Get-Process -Name POWERPNT -ErrorAction SilentlyContinue | ForEach-Object Id)
-if (-not ('WenggeReliabilityWindow' -as [type])) { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class WenggeReliabilityWindow { [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId); }' }
-function Get-AppProcessId($app) {
-  $window = [int64]0
-  try { $window = [int64]$app.Hwnd } catch {}
-  if ($window -eq 0) { try { $window = [int64]$app.HWND } catch {} }
-  if ($window -eq 0) { try { $window = [int64]$app.ActiveWindow.Hwnd } catch {} }
-  if ($window -eq 0) { try { $window = [int64]$app.ActiveWindow.HWND } catch {} }
-  if ($window -eq 0) { return 0 }
-  $pidValue = [uint32]0
-  [void][WenggeReliabilityWindow]::GetWindowThreadProcessId([IntPtr]$window, [ref]$pidValue)
-  return [int]$pidValue
-}
-function New-TestComApplication([string]$progId) {
-  $lastError = $null
-  foreach ($attempt in 1..3) {
-    $candidate = $null
-    try {
-      $candidate = New-Object -ComObject $progId
-      $null = [string]$candidate.Version
-      return $candidate
-    } catch {
-      $lastError = $_
-      if ($null -ne $candidate) {
-        try { $candidate.Quit() } catch {}
-        try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($candidate) } catch {}
-      }
-      Start-Sleep -Milliseconds (300 * $attempt)
-    }
-  }
-  throw $lastError
-}
-$apps = @()
-try {
-  $excel1 = New-TestComApplication 'Excel.Application'; $apps += $excel1; $excel1.Visible = $true; [void]$excel1.Workbooks.Open($_excelPath1)
-  $excel2 = New-TestComApplication 'Excel.Application'; $apps += $excel2; $excel2.Visible = $true; [void]$excel2.Workbooks.Open($_excelPath2)
-  $word1 = New-TestComApplication 'Word.Application'; $apps += $word1; $word1.Visible = $true; $word1.DisplayAlerts = 0; [void]$word1.Documents.Open($_wordPath1)
-  $word2 = New-TestComApplication 'Word.Application'; $apps += $word2; $word2.Visible = $true; $word2.DisplayAlerts = 0; [void]$word2.Documents.Open($_wordPath2)
-  $presentation1 = New-TestComApplication 'PowerPoint.Application'; $apps += $presentation1; $presentation1.Visible = -1; [void]$presentation1.Presentations.Open($_presentationPath1)
-  $presentation2 = New-TestComApplication 'PowerPoint.Application'; $apps += $presentation2; $presentation2.Visible = -1; [void]$presentation2.Presentations.Open($_presentationPath2)
-  $excelPids = @()
-  $excelPids += Get-AppProcessId $excel1
-  $excelPids += Get-AppProcessId $excel2
-  $excelPids = @($excelPids | Where-Object { $_ -notin $beforeExcel } | Select-Object -Unique)
-  $wordPids = @()
-  $wordPids += Get-AppProcessId $word1
-  $wordPids += Get-AppProcessId $word2
-  $wordPids = @($wordPids | Where-Object { $_ -notin $beforeWord } | Select-Object -Unique)
-  $presentationPids = @()
-  $presentationPids += Get-AppProcessId $presentation1
-  $presentationPids += Get-AppProcessId $presentation2
-  $presentationPids += @(Get-Process -Name POWERPNT -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $beforePresentation } | ForEach-Object { [int]$_.Id })
-  $presentationPids = @($presentationPids | Where-Object { $_ -notin $beforePresentation } | Select-Object -Unique)
-  [pscustomobject]@{ excel = @($excelPids); word = @($wordPids); presentation = @($presentationPids) } | ConvertTo-Json -Depth 4 -Compress
-} catch {
-  foreach ($app in $apps) { try { $app.Quit() } catch {}; try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($app) } catch {} }
-  throw
-}
-`, 120000);
-  const parsed = JSON.parse(output) as Record<keyof OwnedProcesses, number | number[]>;
-  return { excel: toProcessIds(parsed.excel), word: toProcessIds(parsed.word), presentation: toProcessIds(parsed.presentation) };
+  return openOfficeFixtures({ excelPaths, wordPaths, presentationPaths });
 }
 
 async function closeFixtures(processes: OwnedProcesses): Promise<void> {
-  await executePowerShell(`
-${psVar("_processesJson", JSON.stringify(processes))}
-$owned = ConvertFrom-Json $_processesJson
-$ownedIds = @(@($owned.excel) + @($owned.word) + @($owned.presentation) | ForEach-Object { [int]$_ } | Where-Object { $_ -gt 0 } | Select-Object -Unique)
-foreach ($processId in $ownedIds) { try { Stop-Process -Id $processId -Force -ErrorAction Stop } catch {} }
-`);
+  await closeOfficeFixtures(processes);
 }
 
 async function listMicrosoftOfficeProcessIds(): Promise<number[]> {
-  const output = await executePowerShell("@(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.Id }) | ConvertTo-Json -Compress");
-  if (!output) return [];
-  const parsed = JSON.parse(output) as number | number[];
-  return Array.isArray(parsed) ? parsed : [parsed];
+  return (await listOfficeSmokeProcesses()).microsoft;
 }
 
 async function listVisibleWpsProcessIds(): Promise<number[]> {
-  const output = await executePowerShell("@(Get-Process -Name wps, et, wpp -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { [int]$_.Id }) | ConvertTo-Json -Compress");
-  return output ? toProcessIds(JSON.parse(output) as number | number[]) : [];
+  return (await listOfficeSmokeProcesses()).wpsVisible;
 }
 
 async function assertProcessesStillRunning(processIds: number[], label: string): Promise<void> {
   if (processIds.length === 0) return;
-  const running = await executePowerShell(`${psVar("_idsJson", JSON.stringify(processIds))}\n@((ConvertFrom-Json $_idsJson) | Where-Object { Get-Process -Id ([int]$_) -ErrorAction SilentlyContinue }) | ConvertTo-Json -Compress`);
-  const current = running ? toProcessIds(JSON.parse(running) as number | number[]) : [];
+  const current = await runningOfficeSmokeProcesses(processIds);
   const missing = processIds.filter((id) => !current.includes(id));
   if (missing.length > 0) throw new Error(`${label}被意外关闭: ${missing.join(", ")}`);
 }
@@ -622,10 +544,6 @@ function samePath(expected: string, actual?: string): boolean {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function toProcessIds(value: number | number[]): number[] {
-  return (Array.isArray(value) ? value : [value]).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0);
 }
 
 function routeToMicrosoftOffice(input: OfficeActionInput): OfficeActionInput {

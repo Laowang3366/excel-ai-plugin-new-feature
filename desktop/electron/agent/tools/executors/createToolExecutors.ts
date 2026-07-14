@@ -28,14 +28,8 @@ import { addKnowledgeExecutors } from "./knowledgeExecutors";
 import { addMemoryExecutors } from "./memoryExecutors";
 import { addOfficeExecutors } from "./officeExecutors";
 import { addOcrExecutors } from "./ocrExecutors";
-import { addPythonExecutors } from "./pythonExecutor";
-import { addShellExecutors, executeShellCommand } from "./shellExecutor";
 import { addWebSearchExecutors } from "./webSearchExecutors";
-import type { ShellCommandResult } from "./shellExecutor";
 import { getToolNameAliases } from "../registry/toolDefinitions";
-
-export { executeShellCommand };
-export type { ShellCommandResult };
 
 export interface ToolExecutorRuntimeDeps {
   getMineruApiToken?: () => string;
@@ -63,8 +57,6 @@ export function createToolExecutors(
 
   addExcelExecutors(executors, { workbookBridge, vbaBridge, jsaBridge, uiBridge });
   addFileExecutors(executors, { sessionFolderPath });
-  addShellExecutors(executors);
-  addPythonExecutors(executors);
   addKnowledgeExecutors(executors, { knowledgeRetriever });
   addWebSearchExecutors(executors);
   addOcrExecutors(executors, { getMineruApiToken: runtimeDeps.getMineruApiToken });

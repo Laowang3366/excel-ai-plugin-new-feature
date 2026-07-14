@@ -2,10 +2,12 @@ import { access, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { OfficeComActionBridge } from "../electron/agent/tools/implementations/office/officeComActionBridge";
-import { buildComScript } from "../electron/agent/tools/implementations/office/officeComActionScripts";
-import { applyExcelAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedExcel";
-import { applyWordAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedWord";
+import {
+  DotNetOfficeActionBridge as OfficeComActionBridge,
+  applyExcelAdvancedAction,
+  applyWordAdvancedAction,
+  disposeOfficeWorker,
+} from "./officeWorkerSmokeHelpers";
 import type { OfficeActionInput } from "../electron/agent/tools/officeCore/types";
 
 async function main(): Promise<void> {
@@ -127,7 +129,7 @@ async function main(): Promise<void> {
     for (const action of selectedActions) {
       const command = typeof action.params?.command === "string" ? `-${action.params.command}` : "";
       process.stdout.write(`Testing ${action.operation}${command}\n`);
-      if (keepArtifacts) await writeFile(path.join(tempDir, `${action.operation}${command}.ps1`), buildComScript(action), "utf8");
+      if (keepArtifacts) await writeFile(path.join(tempDir, `${action.operation}${command}.json`), JSON.stringify(action, null, 2), "utf8");
       const result = await bridge.executeAction(action);
       results.push({ operation: `${action.operation}${command}`, status: result.status, error: result.error });
       if (result.status !== "done") throw new Error(`${action.operation}${command}: ${result.error || result.summary}`);
@@ -145,30 +147,33 @@ async function main(): Promise<void> {
     }
     process.stdout.write(`${JSON.stringify({ ok: true, results, mergedFiles }, null, 2)}\n`);
   } finally {
+    await disposeOfficeWorker();
     if (keepArtifacts) process.stdout.write(`Word smoke artifacts: ${tempDir}\n`);
-    else await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    else await rm(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 300 });
   }
 }
 
 function verifyResult(action: OfficeActionInput, data: unknown): void {
-  const operationData = asRecord(asRecord(data).data);
+  const operationData = asRecord(data);
   if (action.operation === "inspectDocumentFormatting") {
-    const formatting = asRecord(operationData.formatting);
-    if (Number(formatting.paragraphCount) < 2 || !Array.isArray(formatting.styles)) throw new Error("长文档格式检查失败");
+    const formatting = operationData;
+    if (Number(formatting.paragraphCount) < 2 || !Array.isArray(formatting.styles)) {
+      throw new Error(`长文档格式检查失败: ${JSON.stringify(operationData)}`);
+    }
   }
   if (action.operation === "inspectReferences") {
-    const references = asRecord(operationData.references);
-    if (!Array.isArray(references.bookmarks) || references.bookmarks.length < 1 || !Array.isArray(references.footnotes) || references.footnotes.length < 1 || !Array.isArray(references.endnotes) || references.endnotes.length < 1) {
+    const references = operationData;
+    if (!Array.isArray(references.bookmarks) || references.bookmarks.length < 1 || Number(references.footnoteCount) < 1 || Number(references.endnoteCount) < 1) {
       throw new Error(`引用检查失败: ${JSON.stringify(references)}`);
     }
   }
   if (action.operation === "inspectRevisions") {
-    const review = asRecord(operationData.review);
+    const review = operationData;
     if (Number(review.revisionCount) < 1 || review.trackRevisions !== true) throw new Error(`修订检查失败: ${JSON.stringify(review)}`);
   }
   if (action.operation === "compareDocuments") {
-    const summary = asRecord(operationData.summary);
-    if (Number(summary.changeCount) < 1) throw new Error(`文档对比失败: ${JSON.stringify(summary)}`);
+    const summary = operationData;
+    if (Number(summary.revisionCount) < 1) throw new Error(`文档对比失败: ${JSON.stringify(summary)}`);
   }
   if (action.operation === "inspectContentControls") {
     const controls = Array.isArray(operationData.controls) ? operationData.controls.map(asRecord) : [];

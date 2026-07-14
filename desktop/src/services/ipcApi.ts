@@ -282,24 +282,6 @@ export const ipcApi: IIpcApi = {
     },
   },
 
-  sandbox: {
-    getConfig: async () => {
-      const raw = getRaw();
-      if (!raw) return { defaultRules: [], userRules: [], extraWritableRoots: [] };
-      return raw.sandbox.getConfig();
-    },
-    setUserRules: async (rules) => {
-      const raw = getRaw();
-      if (!raw) return { success: false, error: "IPC not available" };
-      return raw.sandbox.setUserRules(rules);
-    },
-    setWritableRoots: async (roots) => {
-      const raw = getRaw();
-      if (!raw) return { success: false, error: "IPC not available" };
-      return raw.sandbox.setWritableRoots(roots);
-    },
-  },
-
   tool: {
     confirm: async (toolCallId, alwaysAllow) => {
       const raw = getRaw();

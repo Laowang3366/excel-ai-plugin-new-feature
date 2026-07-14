@@ -13,7 +13,11 @@ import { randomUUID } from "crypto";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import JSZip from "jszip";
+
+const { officeWorkerInvoke } = vi.hoisted(() => ({ officeWorkerInvoke: vi.fn() }));
+vi.mock("../officeWorker/officeWorkerClient", () => ({
+  getOfficeWorkerClient: () => ({ invoke: officeWorkerInvoke }),
+}));
 
 // ============================================================
 // 类型和模块导入
@@ -541,6 +545,7 @@ describe("DocumentParser", () => {
   let parser: any;
 
   beforeEach(async () => {
+    officeWorkerInvoke.mockReset();
     const mod = await import("./documentParser");
     DocumentParser = mod.DocumentParser;
     parser = new DocumentParser();
@@ -562,34 +567,15 @@ describe("DocumentParser", () => {
 
   it("should parse an XLSX workbook through Open XML", async () => {
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.xlsx`);
-    const zip = new JSZip();
-    zip.file("xl/workbook.xml", `
-      <workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-        <sheets><sheet name="People" sheetId="1" r:id="rId1"/></sheets>
-      </workbook>
-    `);
-    zip.file("xl/_rels/workbook.xml.rels", `
-      <Relationships>
-        <Relationship Id="rId1" Target="worksheets/sheet1.xml"/>
-      </Relationships>
-    `);
-    zip.file("xl/sharedStrings.xml", `
-      <sst>
-        <si><t>Name</t></si>
-        <si><t>Age</t></si>
-        <si><t>Ada</t></si>
-      </sst>
-    `);
-    zip.file("xl/worksheets/sheet1.xml", `
-      <worksheet>
-        <dimension ref="A1:B2"/>
-        <sheetData>
-          <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>
-          <row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2"><v>36</v></c></row>
-        </sheetData>
-      </worksheet>
-    `);
-    fs.writeFileSync(tmpPath, await zip.generateAsync({ type: "nodebuffer" }));
+    fs.writeFileSync(tmpPath, "fixture");
+    officeWorkerInvoke.mockResolvedValueOnce({
+      filePath: tmpPath,
+      chunks: [{
+        content: "【表头】Name | Age\nAda | 36",
+        sourceType: "xlsx",
+        metadata: { sheetName: "People", tableRange: "A1:B2", headers: ["Name", "Age"], rowCount: 1, colCount: 2 },
+      }],
+    });
 
     try {
       const chunks = await parser.parseAsync(tmpPath);
@@ -642,16 +628,15 @@ describe("DocumentParser", () => {
 
   it("should parse DOCX body text through Open XML", async () => {
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.docx`);
-    const zip = new JSZip();
-    zip.file("word/document.xml", `
-      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-        <w:body>
-          <w:p><w:r><w:t>区域汇总公式说明</w:t></w:r></w:p>
-          <w:p><w:r><w:t>公式应该写入汇总表锚点单元格。</w:t></w:r></w:p>
-        </w:body>
-      </w:document>
-    `);
-    fs.writeFileSync(tmpPath, await zip.generateAsync({ type: "nodebuffer" }));
+    fs.writeFileSync(tmpPath, "fixture");
+    officeWorkerInvoke.mockResolvedValueOnce({
+      filePath: tmpPath,
+      chunks: [{
+        content: "区域汇总公式说明\n公式应该写入汇总表锚点单元格。",
+        sourceType: "docx",
+        metadata: { rowCount: 2 },
+      }],
+    });
 
     try {
       const chunks = await parser.parseAsync(tmpPath);
@@ -666,25 +651,14 @@ describe("DocumentParser", () => {
 
   it("should parse PPTX slide text through Open XML", async () => {
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.pptx`);
-    const zip = new JSZip();
-    zip.file("ppt/slides/slide1.xml", `
-      <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
-             xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-        <p:cSld><p:spTree><p:sp><p:txBody>
-          <a:p><a:r><a:t>知识库演示页</a:t></a:r></a:p>
-          <a:p><a:r><a:t>支持提取 PPT 文本</a:t></a:r></a:p>
-        </p:txBody></p:sp></p:spTree></p:cSld>
-      </p:sld>
-    `);
-    zip.file("ppt/slides/slide2.xml", `
-      <p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
-             xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-        <p:cSld><p:spTree><p:sp><p:txBody>
-          <a:p><a:r><a:t>第二页内容</a:t></a:r></a:p>
-        </p:txBody></p:sp></p:spTree></p:cSld>
-      </p:sld>
-    `);
-    fs.writeFileSync(tmpPath, await zip.generateAsync({ type: "nodebuffer" }));
+    fs.writeFileSync(tmpPath, "fixture");
+    officeWorkerInvoke.mockResolvedValueOnce({
+      filePath: tmpPath,
+      chunks: [
+        { content: "【幻灯片 1】\n知识库演示页\n支持提取 PPT 文本", sourceType: "pptx", metadata: { slideNumber: 1, rowCount: 2 } },
+        { content: "【幻灯片 2】\n第二页内容", sourceType: "pptx", metadata: { slideNumber: 2, rowCount: 1 } },
+      ],
+    });
 
     try {
       const chunks = await parser.parseAsync(tmpPath);

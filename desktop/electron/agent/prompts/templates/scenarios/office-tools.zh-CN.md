@@ -14,5 +14,5 @@
 - Excel 汇总、图表、Word 报告、PPT 汇报等多步任务必须用 `office.workflow.run`，每步明确输入和输出路径。失败后保留 `workflowId`，修正条件后传 `resume:true, workflowId` 从失败步骤继续，不重复成功步骤。
 - 工作流成功返回 `transactionId`。整体撤销或重做前先用 `office.transaction.inspect` 查看文件快照、产物和修改清单，再调用 `office.transaction.undo` / `office.transaction.redo`；单文件原地修改仍可用 `data.transaction.backupPath` 和 `restoreBackup`。
 - 文件截图用 `office.action.apply({ app, action:"snapshot", operation:"snapshot", filePath })` 并走审批，不用 inspect/validate 绕过。
-- 当前窗口用 `range.*`/`word.*`/`presentation.*`，明确磁盘 `filePath` 才用 `office.action.*`，同一操作不重复调用；`range.read` 不写入，复杂文件可用 `python.execute`，不得拼接 PowerShell 操作 Office。
+- 当前窗口用 `range.*`/`word.*`/`presentation.*`，明确磁盘 `filePath` 才用 `office.action.*`，同一操作不重复调用；`range.read` 不写入，不得拼接外部脚本操作 Office。
 - 图片/PDF/界面/PPT 截图/Word 或 Excel 样式验收先用 `ocr.parseDocument` 得到可见内容，再做修改或判断。

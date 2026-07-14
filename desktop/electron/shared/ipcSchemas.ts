@@ -214,28 +214,6 @@ export const StatsGetSummaryInput = z.object({
 }).optional();
 
 // ============================================================
-// Sandbox
-// ============================================================
-
-const SandboxPatternToken = z.union([
-  z.string(),
-  z.array(z.string()).min(1),
-]);
-
-export const SandboxUserRuleInput = z.object({
-  first: z.string().min(1).optional(),
-  pattern: z.array(SandboxPatternToken).min(1).optional(),
-  rest: z.array(SandboxPatternToken).optional(),
-  decision: z.enum(["allow", "prompt", "forbidden"]),
-  justification: z.string().optional(),
-}).refine((rule) => Boolean(rule.first || rule.pattern?.[0]), {
-  message: "规则必须包含 first 或 pattern",
-});
-
-export const SandboxUserRulesInput = z.array(SandboxUserRuleInput);
-export const SandboxWritableRootsInput = z.array(z.string().min(1));
-
-// ============================================================
 // Knowledge (RAG)
 // ============================================================
 

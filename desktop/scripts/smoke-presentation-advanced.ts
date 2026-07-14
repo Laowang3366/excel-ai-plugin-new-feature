@@ -2,9 +2,7 @@ import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { OfficeComActionBridge } from "../electron/agent/tools/implementations/office/officeComActionBridge";
-import { buildComScript } from "../electron/agent/tools/implementations/office/officeComActionScripts";
-import { applyPresentationAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedPresentation";
+import { DotNetOfficeActionBridge as OfficeComActionBridge, applyPresentationAdvancedAction, disposeOfficeWorker } from "./officeWorkerSmokeHelpers";
 import type { OfficeActionInput } from "../electron/agent/tools/officeCore/types";
 
 async function main(): Promise<void> {
@@ -14,6 +12,7 @@ async function main(): Promise<void> {
   const handoutPath = path.join(tempDir, "notes.pdf");
   const logoPath = path.join(tempDir, "logo.png");
   const keepArtifacts = process.env.KEEP_PRESENTATION_SMOKE === "1";
+  const partialFailureOnly = process.env.PRESENTATION_SMOKE_PARTIAL_FAILURE_ONLY === "1";
   const requestedHost = (process.env.PRESENTATION_SMOKE_HOST || "").trim().toLowerCase();
   const operationFilter = new Set(
     (process.env.PRESENTATION_SMOKE_OPERATIONS || "")
@@ -120,29 +119,54 @@ async function main(): Promise<void> {
     const hostActions = requestedHost
       ? actions.map((action) => ({ ...action, params: { ...action.params, host: requestedHost } }))
       : actions;
-    const selectedActions = operationFilter.size > 0
+    const selectedActions = partialFailureOnly ? [] : operationFilter.size > 0
       ? hostActions.filter((action) => operationFilter.has(action.operation))
       : hostActions;
     const results = [];
 
     for (const [index, action] of selectedActions.entries()) {
       process.stdout.write(`Testing ${action.operation}\n`);
-      if (keepArtifacts) await writeFile(path.join(tempDir, `${index}-${action.operation}.ps1`), buildComScript(action), "utf8");
+      if (keepArtifacts) await writeFile(path.join(tempDir, `${index}-${action.operation}.json`), JSON.stringify(action, null, 2), "utf8");
       const result = await bridge.executeAction(action);
       results.push({ operation: action.operation, status: result.status, error: result.error });
       if (result.status !== "done") throw new Error(`${action.operation}: ${result.error || result.summary}`);
       verifyResult(action, result.data);
     }
+    if ((partialFailureOnly || selectedActions.some((action) => action.operation === "layoutElements")) && requestedHost !== "wps") {
+      await verifyMissingShapeFails(bridge, presentationPath, requestedHost);
+      results.push({ operation: "layoutElements:missing-shape", status: "partial_failure", error: undefined });
+    }
     if (selectedActions.some((action) => action.operation === "exportHandouts")) await access(handoutPath);
     process.stdout.write(`${JSON.stringify({ ok: true, results, handoutPath }, null, 2)}\n`);
   } finally {
+    await disposeOfficeWorker();
     if (keepArtifacts) process.stdout.write(`Presentation smoke artifacts: ${tempDir}\n`);
     else await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 }
 
+async function verifyMissingShapeFails(bridge: DotNetOfficeActionBridge, presentationPath: string, host: string): Promise<void> {
+  try {
+    await bridge.executeAction({
+      app: "presentation",
+      action: "style",
+      operation: "layoutElements",
+      filePath: presentationPath,
+      params: {
+        ...(host ? { host } : {}),
+        mode: "none",
+        edits: [{ shapeName: "__WENGGE_MISSING_SHAPE__", left: 10 }],
+      },
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "partial_failure") return;
+    throw error;
+  }
+  throw new Error("layoutElements 找不到形状时仍错误返回成功");
+}
+
 function verifyResult(action: OfficeActionInput, data: unknown): void {
-  const operationData = asRecord(asRecord(data).data);
+  const operationData = asRecord(data);
   const requestedHost = String(action.params?.host || "").toLowerCase();
   const progId = String(operationData.progId || "").toLowerCase();
   if (requestedHost === "wps" && !progId.includes("wpp")) throw new Error(`未使用 WPS 演示 COM: ${operationData.progId || "unknown"}`);

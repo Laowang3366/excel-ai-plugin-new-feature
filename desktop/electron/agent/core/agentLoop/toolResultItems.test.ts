@@ -23,7 +23,7 @@ describe("createToolResultItem", () => {
   it("creates an error tool result item", () => {
     expect(createToolResultItem({
       toolCallId: "call-2",
-      toolName: "shell.execute",
+      toolName: "office.action.execute",
       result: "blocked",
       isError: true,
       timestamp: 5678,
@@ -31,7 +31,7 @@ describe("createToolResultItem", () => {
       type: "tool_result",
       id: "result-5678",
       toolCallId: "call-2",
-      toolName: "shell.execute",
+      toolName: "office.action.execute",
       result: "blocked",
       isError: true,
       timestamp: 5678,

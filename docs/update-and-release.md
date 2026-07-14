@@ -10,7 +10,7 @@
 
 - Electron 主进程和 preload
 - 原生依赖或 Node 依赖
-- Python 运行时
+- .NET Office Worker 及其自包含运行时
 - 安装参数和系统集成
 
 ### 热补丁

@@ -9,21 +9,6 @@
 // Window 接口扩展 — 让 TypeScript 识别 window.electronAPI
 // ============================================================
 
-/** 沙箱命令策略规则（与 electron/agent/sandbox/execPolicy.ts PrefixRule 对齐） */
-export interface SandboxPrefixRule {
-  first: string;
-  rest: Array<{ kind: "single"; value: string } | { kind: "alts"; values: string[] }>;
-  decision: "allow" | "prompt" | "forbidden";
-  justification?: string;
-}
-
-/** 沙箱配置快照 */
-export interface SandboxConfig {
-  defaultRules: SandboxPrefixRule[];
-  userRules: SandboxPrefixRule[];
-  extraWritableRoots: string[];
-}
-
 export type ExcelRangeExpandMode = "none" | "spill" | "currentArray" | "currentRegion";
 
 declare global {
@@ -644,14 +629,6 @@ export interface ElectronAPI {
   };
   tools: {
     list: () => Promise<unknown[]>;
-  };
-  sandbox: {
-    /** 获取当前策略配置（默认规则 + 用户规则 + 可写根） */
-    getConfig: () => Promise<SandboxConfig>;
-    /** 更新用户自定义规则（覆盖式） */
-    setUserRules: (rules: SandboxPrefixRule[]) => Promise<{ success: boolean; error?: string }>;
-    /** 更新额外可写根目录（覆盖式） */
-    setWritableRoots: (roots: string[]) => Promise<{ success: boolean; error?: string }>;
   };
   tool: {
     /** 确认执行挂起的工具调用 */

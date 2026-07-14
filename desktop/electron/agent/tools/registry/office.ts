@@ -9,7 +9,7 @@ import { OFFICE_RELIABILITY_TOOL_DEFINITIONS } from "./officeReliability";
 
 const OFFICE_CONNECTION_STATUS_DEF: ToolDefinition = {
   name: "office.connection.status",
-  description: "检测指定 Office 环境是否已连接。每次执行 Excel/Word/PowerPoint 创建、编辑、读取或当前窗口操作前，先调用本工具判断 connected，再按连接状态选择 office.action.*、range.*、python.execute 或专用 COM 工具。",
+  description: "检测指定 Office 环境是否已连接。每次执行 Excel/Word/PowerPoint 创建、编辑、读取或当前窗口操作前，先调用本工具判断 connected，再按连接状态选择 office.action.*、range.* 或专用 Office 工具。",
   parameters: {
     type: "object",
     properties: {
@@ -375,18 +375,18 @@ const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
 
 const OFFICE_ACTION_VALIDATE_DEF: ToolDefinition = {
   name: "office.action.validate",
-  description: "统一 Office 高级操作验证入口。用于验证对象存在、输出文件生成、样式或数量变化",
+  description: "统一 Office 只读验证入口。operation 使用 inspectFile、layout、tables 或其他 inspect* 操作；params 可用 containsText、countPath+expectedCount/minCount、outputExists 定义可判定的验证条件。",
   parameters: {
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
       action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"], description: "动作类型，默认 validate" },
-      operation: { type: "string", description: "具体验证操作，如 inspectFile、replaceText、styleTable" },
+      operation: { type: "string", description: "只读检查操作，如 inspectFile、layout、tables、inspectCharts、inspectReferences" },
       filePath: { type: "string", description: "Office 文件绝对路径" },
       outputPath: { type: "string", description: "输出文件路径" },
       target: { type: "string", description: "对象定位" },
       preferEngine: { type: "string", enum: ["openxml", "com"], description: "首选引擎，默认 openxml" },
-      params: { type: "object", description: "验证参数" },
+      params: { type: "object", description: "验证条件：containsText 字符串或数组；countPath 配合 expectedCount/minCount；outputExists 检查输出文件" },
     },
     required: ["app", "operation"],
   },

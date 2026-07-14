@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { createHash } from "crypto";
-import JSZip from "jszip";
+import { strFromU8, unzipSync } from "fflate";
 import { extractMarkdownTables } from "../shared/markdownTables";
 
 export interface MineruParsedDocument {
@@ -292,12 +292,12 @@ async function downloadFullMarkdown(zipUrl: string): Promise<string> {
   if (!response.ok) {
     throw new Error(`下载 MinerU 结果压缩包失败 (${response.status}): ${await safeResponseText(response)}`);
   }
-  const zip = await JSZip.loadAsync(Buffer.from(await response.arrayBuffer()));
-  const markdownFile = findFullMarkdownFile(zip);
-  if (!markdownFile) {
+  const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+  const markdown = findFullMarkdownFile(files);
+  if (!markdown) {
     throw new Error("MinerU 结果压缩包中未找到 full.md");
   }
-  return await markdownFile.async("text");
+  return strFromU8(markdown);
 }
 
 async function downloadMarkdownText(markdownUrl: string): Promise<string> {
@@ -308,11 +308,11 @@ async function downloadMarkdownText(markdownUrl: string): Promise<string> {
   return await response.text();
 }
 
-function findFullMarkdownFile(zip: JSZip): JSZip.JSZipObject | null {
-  const files = Object.values(zip.files).filter((file) => !file.dir);
-  return files.find((file) => /(^|\/)full\.md$/i.test(file.name))
-    || files.find((file) => /\.md$/i.test(file.name))
-    || null;
+function findFullMarkdownFile(files: Record<string, Uint8Array>): Uint8Array | null {
+  const entries = Object.entries(files);
+  return entries.find(([name]) => /(^|\/)full\.md$/i.test(name))?.[1]
+    ?? entries.find(([name]) => /\.md$/i.test(name))?.[1]
+    ?? null;
 }
 
 function mineruJsonHeaders(token: string): Record<string, string> {

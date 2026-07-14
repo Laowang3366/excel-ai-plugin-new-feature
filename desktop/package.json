@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:build": "node scripts/clean-build-output.cjs && vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
+    "electron:build": "npm run office:publish && node scripts/clean-build-output.cjs && vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
+    "office:build": "node scripts/run-dotnet.cjs build dotnet/Wengge.OfficeAutomation.sln --configuration Release",
+    "office:test": "node scripts/run-dotnet.cjs test dotnet/Wengge.OfficeAutomation.sln --configuration Release",
+    "office:publish": "node scripts/run-dotnet.cjs publish dotnet/Wengge.OfficeWorker/Wengge.OfficeWorker.csproj --configuration Release --runtime win-x64 --self-contained true --output dotnet/publish/win-x64",
     "patch:build": "node scripts/create-hot-patch.cjs",
     "release:verify": "vite-node scripts/verify-release-manifest.ts",
     "lint": "eslint .",
@@ -18,19 +21,19 @@
     "test": "npx vitest run",
     "test:watch": "npx vitest",
     "test:coverage": "npx vitest run --coverage",
-    "test:office-smoke": "vite-node scripts/smoke-office-advanced.ts",
-    "test:word-smoke": "vite-node scripts/smoke-word-advanced.ts",
-    "test:word-lifecycle": "vite-node scripts/smoke-word-lifecycle.ts",
-    "test:excel-lifecycle": "vite-node scripts/smoke-excel-lifecycle.ts",
-    "test:presentation-smoke": "vite-node scripts/smoke-presentation-advanced.ts",
-    "test:office-reliability": "vite-node scripts/smoke-office-reliability.ts"
+    "test:office-smoke": "npm run office:publish && vite-node scripts/smoke-office-advanced.ts",
+    "test:word-smoke": "npm run office:publish && vite-node scripts/smoke-word-advanced.ts",
+    "test:word-lifecycle": "npm run office:publish && vite-node scripts/smoke-word-lifecycle.ts",
+    "test:excel-lifecycle": "npm run office:publish && vite-node scripts/smoke-excel-lifecycle.ts",
+    "test:presentation-smoke": "npm run office:publish && vite-node scripts/smoke-presentation-advanced.ts",
+    "test:office-reliability": "npm run office:publish && vite-node scripts/smoke-office-reliability.ts",
+    "test:wps-routing": "npm run office:publish && vite-node scripts/smoke-wps-routing.ts"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.9",
-    "jszip": "^3.10.1",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.21.0",
-    "pptxgenjs": "^4.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.0.1",
@@ -76,8 +79,8 @@
         ]
       },
       {
-        "from": "python",
-        "to": "python",
+        "from": "dotnet/publish/win-x64",
+        "to": "office-worker",
         "filter": [
           "**/*"
         ]

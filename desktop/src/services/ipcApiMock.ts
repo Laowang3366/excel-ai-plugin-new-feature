@@ -156,11 +156,6 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
     tools: {
       list: async () => [],
     },
-    sandbox: {
-      getConfig: async () => ({ defaultRules: [], userRules: [], extraWritableRoots: [] }),
-      setUserRules: async () => ({ success: false, error: "not implemented" }),
-      setWritableRoots: async () => ({ success: false, error: "not implemented" }),
-    },
     tool: {
       confirm: async () => {},
       cancel: async () => {},

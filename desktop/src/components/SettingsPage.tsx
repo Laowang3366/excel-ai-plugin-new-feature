@@ -15,7 +15,6 @@ import {
   Wrench,
   Bot,
   BarChart3,
-  ShieldAlert,
   BookOpen,
   Package,
   Download,
@@ -23,12 +22,11 @@ import {
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { ModelSettings } from "./settings/ModelSettings";
 import { UsageStats } from "./settings/UsageStats";
-import { ExecPolicySettings } from "./settings/ExecPolicySettings";
 import { KnowledgeSettings } from "./settings/KnowledgeSettings";
 import { OpenSourceSettings } from "./settings/OpenSourceSettings";
 import { UpdateSettings } from "./settings/UpdateSettings";
 
-export type SettingsSection = "profile" | "general" | "model" | "usage" | "updates" | "safety" | "knowledge" | "opensource";
+export type SettingsSection = "profile" | "general" | "model" | "usage" | "updates" | "knowledge" | "opensource";
 
 const SETTINGS_TEXT = {
   "zh-CN": {
@@ -40,7 +38,6 @@ const SETTINGS_TEXT = {
       model: "模型配置",
       usage: "使用统计",
       updates: "软件更新",
-      safety: "安全策略",
       knowledge: "知识库",
       opensource: "开源项目",
     },
@@ -58,7 +55,6 @@ const SETTINGS_TEXT = {
       model: "Models",
       usage: "Usage",
       updates: "Updates",
-      safety: "Safety",
       knowledge: "Knowledge",
       opensource: "Open Source",
     },
@@ -75,7 +71,6 @@ const SECTIONS = [
   { key: "model" as const, icon: Bot },
   { key: "usage" as const, icon: BarChart3 },
   { key: "updates" as const, icon: Download },
-  { key: "safety" as const, icon: ShieldAlert },
   { key: "knowledge" as const, icon: BookOpen },
   { key: "opensource" as const, icon: Package },
 ];
@@ -139,7 +134,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, initialSecti
         {section === "model" && <ModelSettings />}
         {section === "usage" && <UsageStats />}
         {section === "updates" && <UpdateSettings />}
-        {section === "safety" && <ExecPolicySettings />}
         {section === "knowledge" && <KnowledgeSettings />}
         {section === "opensource" && <OpenSourceSettings />}
       </main>

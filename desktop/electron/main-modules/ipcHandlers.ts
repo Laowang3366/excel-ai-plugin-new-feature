@@ -65,7 +65,6 @@ import { createLogger } from "../shared/logger";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
 import { registerOcrIpcHandler } from "./ipcOcrHandlers";
 import { registerAiIpcHandlers } from "./ipcAiHandlers";
-import { applySandboxConfig, registerSandboxIpcHandlers } from "./ipcSandboxHandlers";
 import { registerFileIpcHandlers } from "./ipcFileHandlers";
 import { registerOfficeAutomationIpcHandlers } from "./ipcOfficeAutomationHandlers";
 import {
@@ -132,12 +131,6 @@ export function registerIpcHandlers(): void {
             .filter(Boolean)
         : [];
     },
-    getExtraRoots: () => {
-      const roots = getSettingsStore().get("sandboxExtraWritableRoots") as unknown;
-      return Array.isArray(roots)
-        ? roots.filter((root): root is string => typeof root === "string" && root.trim().length > 0)
-        : [];
-    },
   });
 
   registerAgentIpcHandlers({
@@ -153,7 +146,6 @@ export function registerIpcHandlers(): void {
   // ---- 应用信息 ----
   registerOcrIpcHandler(pathAuthorizer);
   registerAiIpcHandlers();
-  registerSandboxIpcHandlers();
   registerFileIpcHandlers({ mainWindowRef, pathAuthorizer });
   registerOfficeAutomationIpcHandlers({ getDataPath: getActiveDataPath });
 
@@ -389,5 +381,3 @@ export function registerIpcHandlers(): void {
 function getExcelBridgeForIpc(): ExcelConnectionBridge {
   return excelBridgeRef() ?? getOrCreateExcelBridge();
 }
-
-export { applySandboxConfig };

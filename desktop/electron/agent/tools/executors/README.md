@@ -6,23 +6,19 @@
 
 - `createToolExecutors.ts`: 组装所有工具执行器。
 - `validation.ts`: 工具参数校验和错误格式化。
-- `shellExecutor.ts`: Shell 命令执行工具，依赖安全沙箱评估结果。
 - `excelExecutors.ts`: Excel/WPS 工作簿、区域、公式、工作表、内部宏和 UI 工具执行器。
 - `fileExecutors.ts`: 文件读写工具执行器。
 - `knowledgeExecutors.ts`: 知识库检索工具执行器。
 - `ocrExecutors.ts`: MinerU OCR 解析工具执行器，把图片/PDF 转成文本和表格。
 - `officeExecutors.ts`: Word、PowerPoint、统一 Office action、多窗口选择和可回滚工作流执行器。
-- `pythonExecutor.ts`: 通用 Python 脚本执行器，通过临时脚本文件避免 shell 引号转义问题。
 
 关联模块：
 
 - `../contracts`: 通过契约调用注入的 bridge。
 - `../registry`: 执行器名称必须与工具定义保持一致。
-- `../../security/sandbox`: Shell 工具执行前的策略评估和 spawn 包装。
 
 执行约定：
 
 - Word/PPT/Excel 文件级编辑优先路由到 `office.action.*`，由 `officeCore/officeActionAdapter.ts` 决定 Open XML 或 COM。
-- `macro.*` 只路由到工作簿内部 VBA/WPS JSA，不能回退为 Python、cscript 或 PowerShell 临时执行。
-- 复杂文件处理保留 `python.execute`；不暴露任意 PowerShell Office 脚本工具。
-- Shell/Python 执行器不得承担 Office 专用能力的常规路径，避免权限、依赖和编码问题扩大失败率。
+- `macro.*` 只路由到工作簿内部 VBA/WPS JSA，不能回退为外部脚本执行。
+- Office 与文件处理能力必须通过类型化工具和 .NET Office Worker 暴露，不提供任意 Shell/Python 脚本入口。

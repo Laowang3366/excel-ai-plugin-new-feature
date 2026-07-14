@@ -27,23 +27,12 @@ agent/
 │  ├─ retriever.ts              # 检索与结果格式化
 │  └─ sqliteStore.ts            # 知识库持久化
 │
-├─ tools/                       # 工具层：模型可调用工具的定义、契约、路由和具体实现
+├─ tools/                       # 工具层：模型可调用工具的定义、契约和路由
 │  ├─ registry/                 # 工具注册表：工具 Schema、风险等级、工具目录
-│  ├─ contracts/                # 工具契约：Excel/Word/PPT/Shell/Knowledge 等实现无关接口
+│  ├─ contracts/                # 工具契约：Excel/Word/PPT/Knowledge 等实现无关接口
 │  ├─ executors/                # 工具执行器：参数校验、工具路由、结果封装
-│  ├─ implementations/          # 工具实现：Excel、Office 等本机自动化桥
-│  │  ├─ excel/                 # Excel/WPS 表格 COM 桥
-│  │  ├─ office/                # Word/PowerPoint/WPS 文字/演示 COM 桥和 COM action 兜底
-│  │  └─ officeOpenXml/         # Excel/Word/PPT 文件级 Open XML 编辑引擎
 │
-├─ security/                    # 安全基础设施层：跨 core/tools/interaction 复用的策略与审计能力
-│  └─ sandbox/                  # 命令沙箱：shell 策略、规则匹配、工作目录约束、审计和 spawn 包装
-│
-├─ automation/                  # 自动化基础层：PowerShell、COM、Python、进程执行和安全变量注入
-│  ├─ powershell.ts             # PowerShell 执行与安全变量注入
-│  ├─ python.ts                 # Python/xlwings 运行时定位与执行
-│  ├─ scriptEngine.ts           # Python 优先、PowerShell 兜底
-│  └─ json.ts                   # 自动化脚本 JSON 输出解析
+├─ officeWorker/                # .NET 8 COM 与 DocumentFormat.OpenXml Worker 薄桥
 │
 ├─ providers/                   # 模型供应商层：OpenAI 兼容、Anthropic、厂商适配、模型上下文窗口
 │  ├─ aiClient.ts               # 模型客户端统一出口
@@ -69,10 +58,9 @@ agent/
 
 ```text
 interaction -> runtime -> core
-core -> providers / prompts / memory / knowledge / tools / security / shared
-tools/executors -> tools/contracts + tools/registry + 注入的实现
-tools/executors -> security
-tools/implementations -> automation + tools/contracts
+core -> providers / prompts / memory / knowledge / tools / shared
+tools/executors -> tools/contracts + tools/registry + officeCore + officeWorker
+officeWorker -> .NET Worker JSON-RPC
 memory -> shared
 knowledge -> 本层存储与 embedding
 providers -> shared
@@ -83,7 +71,7 @@ attachments -> providers 消息类型
 ## 约束
 
 - `core` 只做编排，不直接依赖 Excel/Word/PPT 具体 COM 实现。
-- `tools/contracts` 只放实现无关接口，不反向依赖 `tools/implementations`。
+- `tools/contracts` 只放实现无关接口，不反向依赖 `officeWorker`。
 - `tools/executors` 负责工具路由和结果封装，不依赖 Electron UI。
 - `memory`、`knowledge` 不依赖 `core`。
 - `providers` 不依赖 `core`、`tools`、`memory`、`knowledge`。
@@ -92,7 +80,7 @@ attachments -> providers 消息类型
 ## 当前归位状态
 
 - `tools/contracts` 保存实现无关接口，`tools/executors` 保存工具执行路由，`tools/registry` 只保存模型可见工具定义。
-- Excel、Word、PowerPoint 共用的脚本执行能力归入 `automation`，产品相关 COM 逻辑和 Open XML 文件编辑逻辑保留在 `tools/implementations`。
+- Excel、Word、PowerPoint 和 WPS 的 COM/Open XML 能力统一由 `officeWorker` 类型化薄桥调用 `desktop/dotnet/Wengge.OfficeWorker`；不保留任意脚本执行层。
 - Office 三件套文件级编辑统一走 `office.action.*`，Open XML 优先，COM 只作为动态对象、快照、当前窗口交互或 Open XML 不适用时的兜底。
 - Agent IPC 和事件转发归入 `interaction`，运行期装配归入 `runtime`。
 - `core/agentLoop` 已拆出 turn、stream、tool-call、压缩配置和上下文窗口相关辅助模块。

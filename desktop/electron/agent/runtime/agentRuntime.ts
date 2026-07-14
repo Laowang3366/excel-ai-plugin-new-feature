@@ -8,8 +8,8 @@ import type { StateRuntimeStore } from "../memory/stateRuntimeStore";
 import type { ThreadMetadata } from "../shared/types";
 import { LongTermMemoryStore } from "../memory/longTerm/memoryStore";
 import { createToolExecutors } from "../tools/executors/createToolExecutors";
-import { OfficeComActionBridge } from "../tools/implementations/office/officeComActionBridge";
-import { OfficeDocumentComBridge } from "../tools/implementations/office/officeDocumentComBridge";
+import { DotNetOfficeActionBridge } from "../officeWorker/dotNetOfficeActionBridge";
+import { DotNetOfficeDocumentBridge } from "../officeWorker/dotNetOfficeDocumentBridge";
 import { createOfficeActionBridge } from "../tools/officeCore/officeActionAdapter";
 import { getOrCreateOfficeBridges, type OfficeBridgeRegistry } from "./bridgeRegistry";
 import { buildCompactionConfig, type SavedCompactionConfig } from "./compactionRuntime";
@@ -179,10 +179,10 @@ export async function getOrCreateAgentRuntime(
   const knowledge = await initializeKnowledgeRuntime(aiConfig, deps.getActiveDataPath());
   const memoryStore = new LongTermMemoryStore(stateRuntime);
   const officeAutomationRoot = path.join(deps.getActiveDataPath(), "office-automation");
-  const officeDocumentBridge = new OfficeDocumentComBridge();
+  const officeDocumentBridge = new DotNetOfficeDocumentBridge();
   const officeActionBridge = createOfficeActionBridge({
     officeFileBridge: bridges.officeFileBridge,
-    officeComActionBridge: new OfficeComActionBridge(),
+    officeComActionBridge: new DotNetOfficeActionBridge(),
     backupRoot: path.join(deps.getActiveDataPath(), "office-backups"),
     transactionRoot: path.join(officeAutomationRoot, "transactions"),
     officeDocumentBridge,

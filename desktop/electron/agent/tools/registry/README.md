@@ -12,8 +12,6 @@
 - `macro.ts`: Excel/WPS 内部 VBA/JSA 宏工具定义。
 - `ui.ts`: Excel UI 控件和窗体工具定义。
 - `file.ts`: 文件读取和写入工具定义。
-- `shell.ts`: Shell 执行工具定义。
-- `python.ts`: 通用 Python 脚本执行工具定义。
 - `knowledge.ts`: 知识库检索工具定义。
 - `ocr.ts`: OCR 解析工具定义，供文本模型通过 MinerU 读取图片/PDF。
 - `office.ts`: Word、PowerPoint、统一 Office action、多窗口文档选择和事务工作流工具定义。
@@ -28,4 +26,4 @@
 
 - 新增工具或 operation 时，必须同步更新 `prompts/templates/scenarios/office-tools.zh-CN.md`，避免模型退回高失败率的临时脚本。
 - 统一 Office action 的 `operation` 描述要列出核心能力，例如 `createPresentation`、`deleteSlides`、`replaceText`、`styleTable`、`insertChart`。
-- 风险等级需要与真实写入行为一致：只读检查为 `safe`，文件写入和另存为为 `moderate`，任意脚本为 `dangerous`。
+- 风险等级需要与真实写入行为一致：只读检查为 `safe`，文件写入和另存为为 `moderate`。

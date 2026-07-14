@@ -10,11 +10,6 @@ dist/
 *.egg
 *.db
 
-# Embedded Python (downloaded by setup script, not committed)
-desktop/python/*
-!desktop/python/README.md
-!desktop/python/setup-python-embed.ps1
-
 # Node
 node_modules/
 dist/
@@ -38,6 +33,9 @@ worktrees/
 .codex/
 .workbuddy/
 desktop/data/
+desktop/dotnet/**/bin/
+desktop/dotnet/**/obj/
+desktop/dotnet/publish/
 
 # Local one-off probes
 .certs/

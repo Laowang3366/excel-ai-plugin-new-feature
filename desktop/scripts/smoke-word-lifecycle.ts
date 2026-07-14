@@ -2,8 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { OfficeComActionBridge } from "../electron/agent/tools/implementations/office/officeComActionBridge";
-import { applyWordAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedWord";
+import { DotNetOfficeActionBridge as OfficeComActionBridge, applyWordAdvancedAction, disposeOfficeWorker } from "./officeWorkerSmokeHelpers";
 
 async function main(): Promise<void> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wengge-word-lifecycle-"));
@@ -32,6 +31,7 @@ async function main(): Promise<void> {
 
     process.stdout.write(`${JSON.stringify({ ok: true, attempts: 2, filePath }, null, 2)}\n`);
   } finally {
+    await disposeOfficeWorker();
     await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 }

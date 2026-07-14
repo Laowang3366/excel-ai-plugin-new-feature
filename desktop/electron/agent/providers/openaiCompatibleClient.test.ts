@@ -37,7 +37,6 @@ describe("tool name normalization", () => {
     expect(desanitizeToolName("ocr_parseDocument")).toBe("ocr.parseDocument");
     expect(desanitizeToolName("knowledge_write")).toBe("knowledge.write");
     expect(desanitizeToolName("web_search")).toBe("web.search");
-    expect(desanitizeToolName("python_execute")).toBe("python.execute");
     expect(desanitizeToolName("memory_search")).toBe("memory.search");
   });
 });

@@ -29,8 +29,6 @@ describe("Office tool definitions", () => {
         "range.write",
         "macro.write",
         "macro.run",
-        "shell.execute",
-        "python.execute",
         "knowledge.search",
         "knowledge.write",
         "memory.write",
@@ -62,6 +60,8 @@ describe("Office tool definitions", () => {
         "vba.writeModule",
         "office.file.inspect",
         "office.visual.snapshot",
+        "shell.execute",
+        "python.execute",
       ]),
     );
   });

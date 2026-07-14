@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import JSZip from "jszip";
+import { strToU8, zipSync } from "fflate";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { extractMarkdownTables } from "../shared/markdownTables";
@@ -39,15 +39,14 @@ describe("mineruOcr", () => {
     tempFiles.push(filePath);
     fs.writeFileSync(filePath, "pdf");
 
-    const zip = new JSZip();
-    zip.file("sample/full.md", [
+    const markdown = [
       "# 发票",
       "",
       "| 字段 | 值 |",
       "| --- | --- |",
       "| 发票号码 | 001 |",
-    ].join("\n"));
-    const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+    ].join("\n");
+    const zipBuffer = Buffer.from(zipSync({ "sample/full.md": strToU8(markdown) }));
 
     // @MOCK_INTERFACE: simulates MinerU signed-url upload, polling, and zip download HTTP endpoints.
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {

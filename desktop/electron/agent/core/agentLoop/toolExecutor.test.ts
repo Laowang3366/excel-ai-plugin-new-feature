@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../security/sandbox", () => ({
-  evaluateCommand: vi.fn(),
-}));
-
 import type {
   AgentTurnCallbacks,
   ToolCallItem,
@@ -20,7 +16,6 @@ import {
   processToolCalls,
   shouldRequireApproval,
 } from "./toolExecutor";
-import { evaluateCommand } from "../../security/sandbox";
 
 function createTurn(item?: ToolCallItem): Turn {
   return {
@@ -44,22 +39,19 @@ describe("executeTool", () => {
     });
   });
 
-  it("parses JSON arguments and passes execution context to the executor", async () => {
+  it("parses JSON arguments before calling the executor", async () => {
     const executor = vi.fn(async () => ({ success: true, data: "ok" }));
     const executors = new Map<string, ToolExecutor>([
       ["range.read", { name: "range.read", execute: executor }],
     ]);
-    const context = { sandboxEvaluation: { decision: "allow" } as any };
-
     const result = await executeTool(
       "range.read",
       "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}",
-      executors,
-      context
+      executors
     );
 
     expect(result).toEqual({ success: true, data: "ok" });
-    expect(executor).toHaveBeenCalledWith({ sheetName: "Sheet1", range: "A1" }, context);
+    expect(executor).toHaveBeenCalledWith({ sheetName: "Sheet1", range: "A1" });
   });
 
   it("executes underscored tool aliases through the canonical executor when available", async () => {
@@ -75,10 +67,7 @@ describe("executeTool", () => {
     );
 
     expect(result).toEqual({ success: true, data: "parsed" });
-    expect(executor).toHaveBeenCalledWith(
-      { filePaths: ["C:\\Users\\29721\\Pictures\\image.png"] },
-      undefined
-    );
+    expect(executor).toHaveBeenCalledWith({ filePaths: ["C:\\Users\\29721\\Pictures\\image.png"] });
   });
 });
 
@@ -102,7 +91,6 @@ describe("shouldRequireApproval", () => {
 describe("processToolCalls", () => {
   beforeEach(() => {
     clearAlwaysAllowedTools();
-    vi.mocked(evaluateCommand).mockReset();
   });
 
   it("does not execute a tool when approval is denied", async () => {
@@ -261,78 +249,6 @@ describe("processToolCalls", () => {
     expect(getAlwaysAllowedTools().has("range.write")).toBe(true);
   });
 
-  it("applies shell sandbox approval to underscored shell.execute aliases", async () => {
-    const sandboxEvaluation = {
-      decision: "prompt",
-      evaluation: {
-        decision: "prompt",
-        hits: [
-          {
-            matchedPrefix: ["shell"],
-            rule: { decision: "prompt", justification: "Needs shell approval" },
-          },
-        ],
-        violations: [],
-        unparseable: [],
-      },
-      cwd: { allowed: true, effectiveWorkdir: "D:\\work", redirected: false },
-      parsed: [],
-    } as any;
-    vi.mocked(evaluateCommand).mockResolvedValueOnce(sandboxEvaluation);
-
-    const execute = vi.fn(async () => ({ success: true, data: { stdout: "ok" } }));
-    const requestToolApproval = vi.fn(async () => ({ approved: true }));
-    const logToolExecution = vi.fn(async () => {});
-    const turn = createTurn();
-
-    await processToolCalls(
-      [
-        {
-          id: "call-shell",
-          name: "shell_execute",
-          arguments: "{\"command\":\"git status\",\"workdir\":\"D:\\\\work\"}",
-        },
-      ],
-      new Map(),
-      turn,
-      new Map([["shell_execute", { name: "shell_execute", execute }]]),
-      {
-        permissionMode: "confirm_all",
-        requestToolApproval,
-      },
-      createCallbacks(),
-      vi.fn(async () => {}),
-      logToolExecution
-    );
-
-    expect(evaluateCommand).toHaveBeenCalledWith("git status", "D:\\work");
-    expect(requestToolApproval).toHaveBeenCalledWith(expect.objectContaining({
-      toolCallId: "call-shell",
-      toolName: "shell.execute",
-      riskLevel: "dangerous",
-      sandboxJustification: "Needs shell approval",
-    }));
-    expect(execute).toHaveBeenCalledWith(
-      { command: "git status", workdir: "D:\\work" },
-      { sandboxEvaluation }
-    );
-    expect(turn.items[0]).toMatchObject({
-      type: "tool_call",
-      toolName: "shell.execute",
-      status: "completed",
-    });
-    expect(turn.items[1]).toMatchObject({
-      type: "tool_result",
-      toolName: "shell.execute",
-      isError: false,
-    });
-    expect(logToolExecution).toHaveBeenCalledWith(expect.objectContaining({
-      toolName: "shell.execute",
-      status: "success",
-      metadata: expect.objectContaining({ sandboxDecision: "prompt" }),
-    }));
-  });
-
   it("canonicalizes OCR tool aliases before execution and event storage", async () => {
     const turn = createTurn();
     const execute = vi.fn(async () => ({ success: true, data: { text: "hello" } }));
@@ -353,10 +269,9 @@ describe("processToolCalls", () => {
       vi.fn(async () => {})
     );
 
-    expect(execute).toHaveBeenCalledWith(
-      { filePaths: ["C:\\Users\\29721\\Pictures\\image.png"] },
-      undefined
-    );
+    expect(execute).toHaveBeenCalledWith({
+      filePaths: ["C:\\Users\\29721\\Pictures\\image.png"],
+    });
     expect(turn.items[0]).toMatchObject({
       type: "tool_call",
       toolName: "ocr.parseDocument",

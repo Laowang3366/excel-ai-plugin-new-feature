@@ -76,12 +76,12 @@ const PROJECTS: OpenSourceProject[] = [
     githubUrl: "https://github.com/sindresorhus/electron-store",
   },
   {
-    name: "JSZip",
+    name: "fflate",
     category: "runtime",
-    purposeZh: "读取和生成 Office Open XML、MinerU 结果压缩包等 ZIP 内容。",
-    purposeEn: "Reads and creates ZIP content for Office Open XML and MinerU result packages.",
-    license: "MIT OR GPL-3.0-or-later",
-    githubUrl: "https://github.com/Stuk/jszip",
+    purposeZh: "读取 MinerU 结果包并生成经过白名单约束的热更新 ZIP。",
+    purposeEn: "Reads MinerU result packages and creates allowlisted hot-update ZIP archives.",
+    license: "MIT",
+    githubUrl: "https://github.com/101arrowz/fflate",
   },
   {
     name: "MinerU",
@@ -94,8 +94,8 @@ const PROJECTS: OpenSourceProject[] = [
   {
     name: "Office Open XML",
     category: "standard",
-    purposeZh: "作为内置文件级 Word、Excel、PowerPoint 读取、检查、创建和样式修改能力的开放文档格式基础；本应用直接读写 ZIP/XML 结构，未捆绑 Open XML SDK。",
-    purposeEn: "Open document format basis for built-in file-level Word, Excel, and PowerPoint inspection, creation, and styling; this app directly reads and writes ZIP/XML structures and does not bundle the Open XML SDK.",
+    purposeZh: "作为 Word、Excel、PowerPoint 文件级读取、检查、创建和样式修改能力的开放文档格式基础；由 .NET Worker 和 DocumentFormat.OpenXml 实现。",
+    purposeEn: "Open document format basis for file-level Word, Excel, and PowerPoint inspection, creation, and styling through the .NET Worker and DocumentFormat.OpenXml.",
     license: "ECMA-376 / ISO/IEC 29500",
     githubUrl: "https://github.com/dotnet/Open-XML-SDK",
   },

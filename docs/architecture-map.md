@@ -1,6 +1,6 @@
 # 项目文件架构与调用链路图
 
-更新时间：2026-07-12
+更新时间：2026-07-14
 范围：`desktop/` Electron 桌面端、Renderer 前端、Agent 运行时、Office/WPS 桥接、知识库、OCR、记忆、更新链路，以及 `product-site/` 发布服务。
 
 ## 1. 总体分层
@@ -34,10 +34,10 @@ flowchart TB
     Loop["core/agentLoop/*"]
     Providers["providers/*"]
     Prompts["prompts/*"]
-    Tools["tools/registry + tools/executors + tools/implementations"]
+    Tools["tools/registry + tools/executors + tools/officeCore"]
+    OfficeWorkerBridge["officeWorker/* TypeScript 薄桥"]
     Knowledge["knowledge/*"]
     Memory["memory/*"]
-    Security["security/sandbox/*"]
   end
 
   subgraph External["外部能力与本地资源"]
@@ -72,9 +72,9 @@ flowchart TB
   Loop --> Providers
   Loop --> Prompts
   Loop --> Tools
-  Tools --> Security
-  Tools --> Office
-  Tools --> OpenXml
+  Tools --> OfficeWorkerBridge
+  OfficeWorkerBridge --> Office
+  OfficeWorkerBridge --> OpenXml
   Tools --> FS
   Knowledge --> Data
   Memory --> Data
@@ -93,7 +93,7 @@ flowchart TB
 - `agent/interaction/ipcAgentHandlers.ts` 负责 Agent、Thread、Knowledge、Stats、工具审批相关 IPC。
 - `agent/runtime/agentRuntime.ts` 负责把 AI 配置、Office bridge、知识库、记忆、工具执行器、AgentLoop 装配到一起。
 - `agent/core/agentLoop/*` 只做对话轮次、模型流、工具调用、压缩、中断/恢复编排，不直接依赖 COM 具体实现。
-- `agent/tools/registry` 是模型可见工具定义；`agent/tools/executors` 是工具路由；`agent/tools/implementations` 才触达 COM、OpenXML、PowerShell、Python 等具体实现。
+- `agent/tools/registry` 是模型可见工具定义；`agent/tools/executors` 是工具路由；`agent/officeWorker` 是到 .NET 8 Worker 的类型化薄桥，COM 与 Open XML 的实际实现位于 `desktop/dotnet/Wengge.OfficeWorker`。
 
 ## 2. 启动与运行时装配链路
 
@@ -161,7 +161,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | 聊天对话 | `components/ChatPage.tsx`、`components/chat/*`、`components/task/*` | `store/chatStore.ts`、`store/chatTurnActions.ts`、`store/chatStreamBuffer.ts` | `electronAPI.agent.*` | `agent/interaction/ipcAgentHandlers.ts` |
 | 会话/文件夹 | `components/Sidebar.tsx`、`components/sidebar/*` | `store/threadActions.ts`、`hooks/useSidebar*` | `electronAPI.thread.*`、`threadGraph.*`、`folder.*` | `ipcAgentHandlers.ts`、`ipcFileHandlers.ts` |
-| 设置 | `components/SettingsPage.tsx`、`components/settings/*` | `store/settingsStore.ts`、`settingsPersistence.ts`、`settingsProviderState.ts` | `electronAPI.settings.*`、`sandbox.*` | `main-modules/ipcHandlers.ts`、`ipcSandboxHandlers.ts` |
+| 设置 | `components/SettingsPage.tsx`、`components/settings/*` | `store/settingsStore.ts`、`settingsPersistence.ts`、`settingsProviderState.ts` | `electronAPI.settings.*` | `main-modules/ipcHandlers.ts` |
 | Excel 当前窗口 | `components/excel/HostSelectionDialog.tsx`、任务面板 | `hooks/useExcelConnection.ts`、`services/ipcOfficeApi.ts` | `electronAPI.excel.*` | `main-modules/ipcHandlers.ts` |
 | Word/PPT 当前窗口 | `components/office/OfficePreviewPanel.tsx` | `hooks/useOfficeConnection.ts` | `electronAPI.office.*` | `main-modules/ipcHandlers.ts` |
 | OCR 面板 | `components/task/OCRTaskComposerPanel.tsx` + OCR 子组件 | `utils/fileBase64.ts`、`ocrTaskFileHelpers.ts` | `electronAPI.ocr.recognize` | `main-modules/ipcOcrHandlers.ts`、`mineruOcr.ts` |
@@ -256,7 +256,7 @@ Agent 核心文件：
 | `core/agentLoop/buildStreamParams.ts` | 组装系统提示词、上下文、工具定义、history | `roundStreamParams.ts` | `prompts/*`、`messageBuilder.ts` |
 | `core/agentLoop/streamRound.ts` | 调模型流，收集增量 | `turnRunner.ts` | `providers/*`、`streamCollector.ts` |
 | `core/agentLoop/toolRound.ts` | 处理模型工具调用 | `streamRound.ts` | `toolExecutor.ts` |
-| `core/agentLoop/toolExecutor.ts` | 权限、沙箱策略、工具执行日志、结果封装 | `toolRound.ts` | `tools/executors/*`、`security/sandbox/*` |
+| `core/agentLoop/toolExecutor.ts` | 风险审批、工具执行日志、结果封装 | `toolRound.ts` | `tools/executors/*` |
 | `core/agentLoop/compaction*.ts` | 上下文压缩、token 估算、历史裁剪 | `turnRunner.ts` | `memory/compaction.ts`、Provider |
 | `providers/aiClientFactory.ts` | 按配置创建模型客户端 | `buildStreamParams.ts` / runtime | Responses/OpenAI Compatible/Anthropic/厂商子类 |
 | `prompts/systemPrompt.ts` | 基础系统提示词 + 动态场景片段入口 | `buildStreamParams.ts` | `prompts/templates/*`、`promptComposer.ts` |
@@ -271,7 +271,8 @@ flowchart LR
   Registry["tools/registry/*.ts"]
   Executors["tools/executors/*.ts"]
   Contracts["tools/contracts/*.ts"]
-  Implementations["tools/implementations/*"]
+  OfficeCore["tools/officeCore/*"]
+  WorkerBridges["officeWorker/*"]
   Result["tool_result + AgentEvent"]
 
   Model --> ToolRound
@@ -279,24 +280,24 @@ flowchart LR
   ToolExecutor --> Registry
   ToolExecutor --> Executors
   Executors --> Contracts
-  Executors --> Implementations
-  Implementations --> Result
+  Executors --> OfficeCore
+  Executors --> WorkerBridges
+  OfficeCore --> WorkerBridges
+  WorkerBridges --> Result
 ```
 
 工具层连接表：
 
 | 工具域 | 模型可见定义 | 执行器 | 实现/依赖 | 典型能力 |
 | --- | --- | --- | --- | --- |
-| Workbook/Range/Formula/Sheet/UI | `tools/registry/workbook.ts`、`range.ts`、`formula.ts`、`sheet.ts`、`ui.ts` | `tools/executors/excelExecutors.ts` | `implementations/excel/*`、`contracts/excel.ts` | 检查工作簿、读写选区、公式验证、工作表操作、宿主选择 |
-| Python/VBA | `tools/registry/python.ts`、Excel 内部自动化定义 | `pythonExecutor.ts`、`excelExecutors.ts` | `automation/python.ts`、`excelVbaComBridge.ts` | 通用 Python 处理，以及向 Office 内部写入和运行宏 |
+| Workbook/Range/Formula/Sheet/UI | `tools/registry/workbook.ts`、`range.ts`、`formula.ts`、`sheet.ts`、`ui.ts` | `tools/executors/excelExecutors.ts` | `officeWorker/dotNetExcelBridge.ts`、`dotNetMacroBridges.ts`、.NET Worker | 检查工作簿、读写选区、公式验证、工作表操作、宿主选择 |
+| 工作簿内部宏 | `tools/registry/macro.ts` | `tools/executors/excelExecutors.ts` | `officeWorker/dotNetMacroBridges.ts`、.NET Worker | 仅在工作簿宿主内部运行 VBA/WPS JSA，不提供外部脚本执行 |
 | File | `tools/registry/file.ts` | `fileExecutors.ts` | 本地 FS、路径授权 | 读写项目/附件文件 |
-| Shell | `tools/registry/shell.ts` | `shellExecutor.ts` | `security/sandbox/*`、`automation/processLimits.ts` | 安全 shell 执行、审批、审计 |
-| Python | `tools/registry/python.ts` | `pythonExecutor.ts` | `automation/python.ts` | Python 脚本执行 |
 | Knowledge | `tools/registry/knowledge.ts` | `knowledgeExecutors.ts` | `knowledge/retriever.ts`、`knowledgeWriter.ts` | 检索、列出、写入、修改、追加、删除知识库内容 |
 | Web | `tools/registry/web.ts` | `webSearchExecutors.ts` | HTTP fetch、HTML parser | 模型上网搜索 |
 | OCR | `tools/registry/ocr.ts` | `ocrExecutors.ts` | MinerU token、免费降级、本地解析 | 图片/PDF OCR、发票字段提取辅助 |
 | Memory | `tools/registry/memory.ts` | `memoryExecutors.ts` | `memory/longTerm/*` | 长期记忆列出、写入、删除 |
-| Office 文件级 | `tools/registry/office.ts`、`officeReliability.ts` | `officeExecutors.ts`、`officeReliabilityExecutors.ts` | `officeCore/*`、`officeOpenXml/*`、`office/*` | 高级对象操作、链接报告、多窗口对象选择、持久化工作流和组事务恢复 |
+| Office 文件级 | `tools/registry/office.ts`、`officeReliability.ts` | `officeExecutors.ts`、`officeReliabilityExecutors.ts` | `officeCore/*`、`officeWorker/*`、`desktop/dotnet/Wengge.OfficeWorker/*` | 高级对象操作、链接报告、多窗口对象选择、持久化工作流和组事务恢复 |
 
 ## 7. Office/WPS 当前窗口与 OpenXML 文件级编辑
 
@@ -313,46 +314,52 @@ flowchart TB
     OfficeTools["office.action.*"]
   end
 
-  subgraph Bridges["桥接实现"]
-    ExcelBridge["implementations/excel/excelComBridge.ts"]
-    RangeOps["implementations/excel/rangeOperations.ts"]
-    FormulaOps["implementations/excel/formulaOperations.ts"]
-    WordBridge["implementations/office/wordComBridge.ts"]
-    PptBridge["implementations/office/presentationComBridge.ts"]
-    ComAction["implementations/office/officeComActionBridge.ts"]
-    Documents["implementations/office/officeDocumentComBridge.ts"]
-    OpenXmlEngine["implementations/officeOpenXml/officeOpenXmlEngine.ts"]
+  subgraph Bridges["Electron 类型化桥接"]
+    Registry["runtime/bridgeRegistry.ts"]
+    ExcelBridge["officeWorker/dotNetExcelBridge.ts"]
+    DocumentBridges["officeWorker/dotNetDocumentBridges.ts"]
+    ActionBridge["officeWorker/dotNetOfficeActionBridge.ts"]
+    Documents["officeWorker/dotNetOfficeDocumentBridge.ts"]
+    OpenXmlBridge["officeWorker/dotNetOpenXmlBridge.ts"]
+    Client["officeWorker/officeWorkerClient.ts"]
     Transactions["officeCore/transactions.ts + transactionJournal.ts + workflow.ts"]
   end
 
-  DirectIPC --> ExcelBridge
-  DirectIPC --> WordBridge
-  DirectIPC --> PptBridge
+  subgraph Worker[".NET 8 Office Worker"]
+    JsonRpc["Protocol/JsonRpcServer.cs"]
+    ComServices["Office + Excel + Word + Presentation + Wps"]
+    OpenXmlServices["OpenXml + DocumentFormat.OpenXml"]
+  end
+
+  DirectIPC --> Registry
+  Registry --> ExcelBridge
+  Registry --> DocumentBridges
   AgentTools --> ExcelBridge
-  AgentTools --> RangeOps
-  AgentTools --> FormulaOps
-  AgentTools --> ComAction
+  AgentTools --> ActionBridge
   AgentTools --> Documents
-  ComAction --> Transactions
-  ComAction --> OpenXmlEngine
-  ComAction --> WordBridge
-  ComAction --> PptBridge
+  AgentTools --> OpenXmlBridge
+  ActionBridge --> Transactions
+  ExcelBridge --> Client
+  DocumentBridges --> Client
+  ActionBridge --> Client
+  Documents --> Client
+  OpenXmlBridge --> Client
+  Client --> JsonRpc
+  JsonRpc --> ComServices
+  JsonRpc --> OpenXmlServices
 ```
 
 Office 连接详情：
 
 | 场景 | 入口文件 | 调用链 | 输出 |
 | --- | --- | --- | --- |
-| 读取/写入当前 Excel/WPS | `preload.ts` 的 `excel.*`、`ipcOfficeApi.ts`、`ipcHandlers.ts` | `excelBridgeRef()` -> `excelComBridge.ts` -> `rangeOperations.ts`/`workbookOperations.ts` | 单元格值、选区、工作簿结构、写入结果 |
-| 公式生成/验证 | `tools/registry/formula.ts`、`prompts/templates/scenarios/formula.zh-CN.md` | `excelExecutors.ts` -> `formulaOperations.ts` / `rangeOperations.ts` | 公式写入、回读、动态数组 spill 校验 |
-| Python 扩展 | `tools/registry/python.ts` | `pythonExecutor.ts` -> `automation/python.ts` | Python 处理结果；不再暴露外部 JScript 或任意 PowerShell Office 脚本工具 |
-| Word/PPT 当前窗口状态 | `preload.ts` 的 `office.*` | `ipcHandlers.ts` -> `wordComBridge.ts` / `presentationComBridge.ts` | 当前宿主连接状态 |
-| 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionAdapter.ts` -> `officeOpenXml/*`，必要时 COM fallback | 修改后的 Office 文件、视觉快照、变更摘要 |
-| 高级对象与跨应用操作 | `office.action.*`、`office.workflow.*`、`office.transaction.*` | `officeActionAdapter.ts` -> `officeComActionBridge.ts` -> `officeComExcel*` / `officeComWord*` / `officeComPresentation*` / `officeComCrossActionScripts.ts`；`officeReliabilityExecutors.ts` -> `workflow.ts` / `transactionJournal.ts` | Excel 查询/打印/公式治理、Word/PPT 高级编辑、链接报告原位刷新、步骤产物、暂停续跑、整体撤销和重做 |
-| 多窗口与对象选择 | `office.documents.*`、`office.objects.*` | `officeReliabilityExecutors.ts` -> `officeDocumentComBridge.ts` | 打开文档列表、按完整路径定位，列出并激活工作表/区域/图表/页面/书签/幻灯片/形状 |
-| OpenXML Excel | `officeOpenXml/advancedExcel.ts`、`excelSheetXml.ts`、`excelFormulaXml.ts` | `officeOpenXmlEngine.ts` 包读写 | sheet/cell/formula/table/style XML |
-| OpenXML Word | `officeOpenXml/advancedWord.ts` | `officeOpenXmlEngine.ts` | docx 段落、表格、样式 |
-| OpenXML PPT | `officeOpenXml/advancedPresentation.ts`、`presentationPackageParts.ts`、`presentationSlideContent.ts` | `officeOpenXmlEngine.ts` | pptx slide、rels、theme、layout |
+| 读取/写入当前 Excel/WPS | `preload.ts` 的 `excel.*`、`ipcOfficeApi.ts`、`ipcHandlers.ts` | `runtime/bridgeRegistry.ts` -> `officeWorker/dotNetExcelBridge.ts` -> .NET Worker | 单元格值、选区、工作簿结构、写入结果 |
+| 公式生成/验证 | `tools/registry/formula.ts`、`prompts/templates/scenarios/formula.zh-CN.md` | `excelExecutors.ts` -> `dotNetExcelBridge.ts` -> .NET Worker | 公式写入、回读、动态数组 spill 校验 |
+| Word/PPT 当前窗口状态 | `preload.ts` 的 `office.*` | `ipcHandlers.ts` -> `runtime/bridgeRegistry.ts` -> `dotNetDocumentBridges.ts` | 当前宿主连接状态 |
+| 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionAdapter.ts` -> `dotNetOfficeActionBridge.ts` -> .NET Worker | 修改后的 Office 文件、视觉快照、变更摘要 |
+| 高级对象与跨应用操作 | `office.action.*`、`office.workflow.*`、`office.transaction.*` | `officeActionAdapter.ts` -> `dotNetOfficeActionBridge.ts`；`officeReliabilityExecutors.ts` -> `workflow.ts` / `transactionJournal.ts` | Excel 查询/打印/公式治理、Word/PPT 高级编辑、链接报告原位刷新、步骤产物、暂停续跑、整体撤销和重做 |
+| 多窗口与对象选择 | `office.documents.*`、`office.objects.*` | `officeReliabilityExecutors.ts` -> `dotNetOfficeDocumentBridge.ts` -> .NET Worker | 打开文档列表、按完整路径定位，列出并激活工作表/区域/图表/页面/书签/幻灯片/形状 |
+| Open XML 文件处理 | `office.action.*` | `dotNetOpenXmlBridge.ts` / `dotNetOfficeActionBridge.ts` -> .NET Worker 的 `OpenXml/*` | xlsx/docx/pptx 的结构化读取、编辑、校验和视觉快照 |
 
 ## 8. 知识库 RAG 与模型可修改内容链路
 
@@ -500,7 +507,7 @@ flowchart TB
 | `memory/agentGraphStore.ts` | 线程派生关系图 | `threadGraph:* IPC` |
 | `memory/compaction.ts` | 历史压缩和 token 估算基础能力 | `core/agentLoop/compaction*.ts` |
 
-## 11. 设置、Provider、沙箱与窗口体验
+## 11. 设置、Provider 与窗口体验
 
 ```mermaid
 flowchart TB
@@ -510,15 +517,11 @@ flowchart TB
   MainSettings["main-modules/settingsManager.ts"]
   IpcHandlers["main-modules/ipcHandlers.ts settings:*"]
   RuntimeRefresh["agent/runtime/agentRuntime.ts refreshKnowledgeRuntime"]
-  SandboxUI["ExecPolicySettings.tsx"]
-  SandboxMain["main-modules/ipcSandboxHandlers.ts"]
-  SandboxCore["agent/security/sandbox/*"]
   WindowMgr["main-modules/windowManager.ts"]
   Providers["agent/providers/*"]
 
   SettingsUI --> SettingsStore --> IpcSettings --> IpcHandlers --> MainSettings
   IpcHandlers --> RuntimeRefresh
-  SettingsStore --> SandboxUI --> SandboxMain --> SandboxCore
   MainSettings --> WindowMgr
   MainSettings --> Providers
 ```
@@ -527,12 +530,11 @@ flowchart TB
 
 | 模块 | 文件 | 说明 |
 | --- | --- | --- |
-| 设置页面 | `components/SettingsPage.tsx`、`settings/*` | 模型、常规、知识库、安全策略、软件更新、开源项目、统计页 |
+| 设置页面 | `components/SettingsPage.tsx`、`settings/*` | 模型、常规、知识库、软件更新、开源项目、统计页 |
 | 设置状态 | `store/settingsStore.ts`、`settingsLoadedState.ts`、`settingsProviderState.ts`、`settingsValues.ts` | 从 electron-store 加载，局部持久化更新 |
 | Provider UI | `AddProviderDialog.tsx`、`EditProviderDialog.tsx`、`ProviderCard.tsx`、`ReasoningModeSelect.tsx` | 模型配置、推理模式、聚合平台适配 |
 | Provider 运行时 | `providers/aiClientFactory.ts`、`openaiCompatibleClient.ts`、`openaiResponsesClient.ts`、`providerClients.ts` | 生成统一 AI client，适配不同协议 |
 | 常规体验 | `GeneralSettings.tsx`、`windowManager.ts` | 紧凑模式、透明度、动态数组函数环境支持 |
-| 沙箱策略 | `ExecPolicySettings.tsx`、`ipcSandboxHandlers.ts`、`security/sandbox/*` | shell 命令前置评估、审批、审计、可写根 |
 | 设置变更副作用 | `ipcHandlers.ts` 的 `settings:set` | AI 配置变化刷新 Agent/Knowledge runtime；动态数组开关注册到全局 |
 
 ## 12. 文件级模块索引
@@ -551,29 +553,26 @@ flowchart TB
 | `desktop/src/utils/*` | 纯函数和格式化工具 | UI/store/hooks | 无运行时副作用 |
 | `desktop/electron/preload.ts` | 安全隔离桥 | Renderer | ipcRenderer.invoke/on |
 | `desktop/electron/main.ts` | 主进程生命周期入口 | Electron app | runtime、IPC、window、shutdown |
-| `desktop/electron/main-modules/*` | 主进程设置、窗口、文件、AI、OCR、沙箱 IPC | main.ts/preload | settingsManager、Agent runtime、MinerU、本地 FS |
+| `desktop/electron/main-modules/*` | 主进程设置、窗口、文件、AI、OCR 与 Office IPC | main.ts/preload | settingsManager、Agent runtime、MinerU、本地 FS |
 | `desktop/electron/agent/interaction/*` | Agent IPC 与事件转发 | main-modules/ipcHandlers.ts | AgentLoop、Session/Knowledge/Stats、BrowserWindow |
 | `desktop/electron/agent/runtime/*` | Agent 装配层 | main.ts、settings:set | bridges、knowledge、memory、toolExecutors、AgentLoop |
 | `desktop/electron/agent/core/agentLoop/*` | 对话轮次和工具编排核心 | ipcAgentHandlers、AgentLoopManager | providers、prompts、tools、memory |
 | `desktop/electron/agent/providers/*` | AI 协议客户端 | AgentLoop | OpenAI/Responses/Anthropic/厂商 API |
 | `desktop/electron/agent/prompts/*` | 系统提示词和场景片段 | buildStreamParams | 模型请求 |
 | `desktop/electron/agent/tools/registry/*` | 工具 schema | buildStreamParams/toolExecutor | 模型可见工具列表 |
-| `desktop/electron/agent/tools/executors/*` | 工具执行器 | toolExecutor | contracts、implementations、knowledge、OCR、sandbox |
-| `desktop/electron/agent/tools/implementations/excel/*` | Excel/WPS COM 具体能力 | excelExecutors、ipcHandlers | COM、automation |
-| `desktop/electron/agent/tools/implementations/office/*` | Word/PPT/Excel 高级 COM、跨应用报告与多窗口定位 | officeExecutors、officeCore | 参数化 COM、PowerShell |
-| `desktop/electron/agent/tools/implementations/officeOpenXml/*` | xlsx/docx/pptx 文件级 OpenXML 引擎 | officeCore/officeExecutors | ZIP/XML 文件包 |
-| `desktop/electron/agent/tools/officeCore/*` | Office action 统一定位、能力、结果适配 | officeExecutors | OpenXML 优先、COM fallback |
+| `desktop/electron/agent/tools/executors/*` | 工具执行器 | toolExecutor | contracts、officeCore、officeWorker、knowledge、OCR |
+| `desktop/electron/agent/tools/officeCore/*` | Office action 统一定位、能力、结果适配和事务工作流 | officeExecutors | .NET Worker 类型化桥接 |
+| `desktop/electron/agent/officeWorker/*` | Electron 到 Office Worker 的 JSON-RPC 客户端和类型化薄桥 | runtime、executors、officeCore、IPC | 自包含 .NET Worker 子进程 |
+| `desktop/dotnet/Wengge.OfficeWorker/*` | Excel/Word/PPT/WPS COM 与 Open XML 具体能力 | Electron officeWorker 客户端 | COM、DocumentFormat.OpenXml、STA 调度 |
 | `desktop/electron/agent/knowledge/*` | RAG 文档解析、切块、embedding、检索、写入维护 | runtime、knowledge IPC、knowledge tools | SQLite、AI embedding |
 | `desktop/electron/agent/memory/*` | 会话、运行态、长期记忆、压缩、线程图 | AgentLoop、thread IPC、memory tools | SQLite、JSONL |
-| `desktop/electron/agent/security/sandbox/*` | shell 安全策略和审计 | shellExecutor、ipcSandboxHandlers | spawn 包装、audit logs |
-| `desktop/electron/agent/automation/*` | Python、受控 PowerShell 与进程限制基础设施 | Office/Excel implementations、shell/python executors | 本地受控子进程 |
 | `desktop/electron/agent/shared/*` | Agent 共享类型、消息转换、数值限制 | core/providers/tools | 轻量公共能力 |
 
 ## 13. 维护注意事项
 
 - 新增前端能力时，优先走 `services/ipcApi.ts` 子 wrapper；如果新增 preload API，需要同步 `src/electronApi.d.ts`、`services/ipcApiTypes.ts` 和对应 wrapper。
-- 新增模型工具时，必须同时补齐 `tools/registry/*`、`tools/executors/*`、必要的 `contracts/*` 或 `implementations/*`，并确认 `toolDefinitions.ts` 暴露顺序。
-- 新增 Office 文件级能力时，优先接 `office.action.*`，OpenXML 能完成的能力先放在 `officeOpenXml/*`，COM 只做当前窗口、动态对象、快照或兜底。
+- 新增模型工具时，必须同时补齐 `tools/registry/*`、`tools/executors/*`、必要的 `contracts/*` 或 `officeWorker/*`，并确认 `toolDefinitions.ts` 暴露顺序。
+- 新增 Office 文件级能力时，优先接 `office.action.*`；Electron 侧只扩展类型化 Worker 契约，具体 Open XML 或 COM 能力放在 `desktop/dotnet/Wengge.OfficeWorker`。
 - 新增知识库解析格式时，入口应在 `knowledge/documentParser.ts` 或独立 parser，再接 `KnowledgeIndexer -> textChunker -> embeddingService -> sqliteStore`；模型可修改能力走 `KnowledgeWriter`。
 - 修改 AI provider、reasoning、context 逻辑时，需要同步 `providers/*`、`settingsProviderState.ts`、`ReasoningModeSelect.tsx` 和 `buildStreamParams.ts`。
 - 修改流式渲染时，要同时考虑主进程 `eventForwarder.ts` 的 32ms 合并和前端 `chatStreamBuffer.ts` 的 50ms 合并，避免工具事件、思考正文和最终回答时间线错位。

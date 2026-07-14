@@ -2,10 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { OfficeComActionBridge } from "../electron/agent/tools/implementations/office/officeComActionBridge";
-import { applyExcelAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedExcel";
+import { DotNetOfficeActionBridge as OfficeComActionBridge, applyExcelAdvancedAction, disposeOfficeWorker } from "./officeWorkerSmokeHelpers";
 
 async function main(): Promise<void> {
+  process.env.WENGGE_OFFICE_SMOKE = "1";
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wengge-excel-lifecycle-"));
   const filePath = path.join(tempDir, "reopen.xlsx");
 
@@ -24,6 +24,7 @@ async function main(): Promise<void> {
         action: "inspect",
         operation: "inspectWorkbookFormatting",
         filePath,
+        params: { actionTimeoutMs: 20_000 },
       });
       if (result.status !== "done") {
         throw new Error(`第 ${attempt} 次打开失败: ${result.error || result.summary}`);
@@ -32,6 +33,7 @@ async function main(): Promise<void> {
 
     process.stdout.write(`${JSON.stringify({ ok: true, attempts: 2, filePath }, null, 2)}\n`);
   } finally {
+    await disposeOfficeWorker();
     await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 }

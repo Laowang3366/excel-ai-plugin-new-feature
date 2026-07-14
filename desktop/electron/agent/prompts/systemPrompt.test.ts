@@ -22,9 +22,8 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("不要在任务开始时只凭用户一句话直接检索知识库");
     expect(prompt).toContain("仅在任务依赖项目资料");
     expect(prompt).not.toContain("公式方法论知识");
-    expect(prompt).toContain("shell.execute");
-    expect(prompt).toContain("prompt");
-    expect(prompt).toContain("forbidden");
+    expect(prompt).not.toContain("shell.execute");
+    expect(prompt).not.toContain("python.execute");
   });
 
   test("keeps concise final reply formatting guidance", () => {
@@ -51,12 +50,12 @@ describe("buildSystemPrompt", () => {
     expect(buildSystemPrompt().length).toBeLessThan(3_000);
   });
 
-  test("keeps shell approval and sandbox guidance", () => {
+  test("keeps external script execution out of the model guidance", () => {
     const prompt = buildSystemPrompt();
 
-    expect(prompt).toContain("`shell.execute` 受命令安全策略");
-    expect(prompt).toContain("prompt");
-    expect(prompt).toContain("forbidden");
+    expect(prompt).toContain("不要尝试生成 PowerShell、Python、JavaScript 或其他外部脚本");
+    expect(prompt).not.toContain("shell.execute");
+    expect(prompt).not.toContain("python.execute");
   });
 
   test("appends folder context with Office open guidance", () => {

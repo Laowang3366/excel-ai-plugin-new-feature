@@ -14,8 +14,6 @@ import type {
   ThreadSpawnEdge,
   ThreadSpawnStatusFilter,
   ExcelRangeExpandMode,
-  SandboxConfig,
-  SandboxPrefixRule,
   WindowDisplayMode,
   OfficeApplication,
   DesktopUpdateState,
@@ -146,11 +144,6 @@ export interface IIpcApi {
   };
   tools: {
     list: () => Promise<unknown[]>;
-  };
-  sandbox: {
-    getConfig: () => Promise<SandboxConfig>;
-    setUserRules: (rules: SandboxPrefixRule[]) => Promise<{ success: boolean; error?: string }>;
-    setWritableRoots: (roots: string[]) => Promise<{ success: boolean; error?: string }>;
   };
   tool: {
     confirm: (toolCallId: string, alwaysAllow?: boolean) => Promise<void>;

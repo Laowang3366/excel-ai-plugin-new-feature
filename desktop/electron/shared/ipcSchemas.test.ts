@@ -6,7 +6,6 @@ import {
   FileWriteTempFileInput,
   LaunchOfficeApplicationInput,
   OcrRecognizeInput,
-  SandboxUserRulesInput,
   validateInput,
 } from "./ipcSchemas";
 
@@ -27,7 +26,6 @@ describe("ipcSchemas", () => {
 
   it("rejects malformed structured IPC inputs", () => {
     expect(() => validateInput(FileWriteTempFileInput, { data: "" })).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(SandboxUserRulesInput, [{ decision: "allow" }])).toThrow("IPC 参数校验失败");
     expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(LaunchOfficeApplicationInput, "cmd")).toThrow("IPC 参数校验失败");
   });

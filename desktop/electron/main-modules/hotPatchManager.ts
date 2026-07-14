@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { promises as fsp } from "node:fs";
 import * as path from "node:path";
 
-import JSZip from "jszip";
+import { unzipSync } from "fflate";
 
 import type { HotPatchUpdate } from "./updateManifest";
 
@@ -98,17 +98,16 @@ export async function installHotPatchArchive(input: {
     throw new Error("热补丁文件哈希校验失败");
   }
 
-  const zip = await JSZip.loadAsync(await fsp.readFile(archivePath));
-  const entries = Object.values(zip.files).filter((entry) => !entry.dir);
+  const entries = Object.entries(unzipSync(await fsp.readFile(archivePath)));
   if (entries.length === 0 || entries.length > MAX_PATCH_ENTRIES) {
     throw new Error("热补丁文件数量无效");
   }
-  for (const entry of entries) {
-    if (!isAllowedHotPatchPath(entry.name)) {
-      throw new Error(`热补丁包含不允许的文件: ${entry.name}`);
+  for (const [entryName] of entries) {
+    if (!isAllowedHotPatchPath(entryName)) {
+      throw new Error(`热补丁包含不允许的文件: ${entryName}`);
     }
   }
-  validatePatchEntrySet(entries.map((entry) => entry.name));
+  validatePatchEntrySet(entries.map(([entryName]) => entryName));
 
   const root = patchRoot(userDataPath);
   const staging = path.join(root, `.staging-${randomUUID()}`);
@@ -117,11 +116,10 @@ export async function installHotPatchArchive(input: {
 
   let totalBytes = 0;
   try {
-    for (const entry of entries) {
-      const normalized = entry.name.replace(/\\/gu, "/");
+    for (const [entryName, data] of entries) {
+      const normalized = entryName.replace(/\\/gu, "/");
       const destination = path.resolve(staging, normalized);
-      if (!isPathInside(staging, destination)) throw new Error(`热补丁路径越界: ${entry.name}`);
-      const data = await entry.async("nodebuffer");
+      if (!isPathInside(staging, destination)) throw new Error(`热补丁路径越界: ${entryName}`);
       totalBytes += data.byteLength;
       if (totalBytes > MAX_UNCOMPRESSED_BYTES) throw new Error("热补丁解压后体积超过限制");
       await fsp.mkdir(path.dirname(destination), { recursive: true });

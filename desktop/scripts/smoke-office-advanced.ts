@@ -2,11 +2,13 @@ import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { OfficeComActionBridge } from "../electron/agent/tools/implementations/office/officeComActionBridge";
-import { buildComScript } from "../electron/agent/tools/implementations/office/officeComActionScripts";
-import { applyExcelAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedExcel";
-import { applyPresentationAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedPresentation";
-import { applyWordAdvancedAction } from "../electron/agent/tools/implementations/officeOpenXml/advancedWord";
+import {
+  DotNetOfficeActionBridge as OfficeComActionBridge,
+  applyExcelAdvancedAction,
+  applyPresentationAdvancedAction,
+  applyWordAdvancedAction,
+  disposeOfficeWorker,
+} from "./officeWorkerSmokeHelpers";
 import type { OfficeActionInput } from "../electron/agent/tools/officeCore/types";
 
 async function main(): Promise<void> {
@@ -16,6 +18,12 @@ async function main(): Promise<void> {
   const presentationPath = path.join(tempDir, "slides.pptx");
   const pdfPath = path.join(tempDir, "selected-sheets.pdf");
   const keepArtifacts = process.env.KEEP_OFFICE_SMOKE === "1";
+  const operationFilter = new Set(
+    (process.env.OFFICE_SMOKE_OPERATIONS || "")
+      .split(",")
+      .map((operation) => operation.trim())
+      .filter(Boolean),
+  );
   try {
     await createFixtures(excelPath, wordPath, presentationPath);
     const bridge = new OfficeComActionBridge();
@@ -242,17 +250,21 @@ async function main(): Promise<void> {
         params: { sheetNames: ["Sheet1", "Inputs"], mode: "combined", overwrite: true },
       },
     ];
+    const selectedActions = operationFilter.size > 0
+      ? actions.filter((action) => operationFilter.has(action.operation))
+      : actions;
     const results = [];
-    for (const action of actions) {
-      if (keepArtifacts) await writeFile(path.join(tempDir, `${action.app}-${action.operation}.ps1`), buildComScript(action), "utf8");
+    for (const action of selectedActions) {
+      if (keepArtifacts) await writeFile(path.join(tempDir, `${action.app}-${action.operation}.json`), JSON.stringify(action, null, 2), "utf8");
       const result = await bridge.executeAction(action);
       results.push({ app: action.app, operation: action.operation, status: result.status, error: result.error });
       if (result.status !== "done") throw new Error(`${action.app}/${action.operation}: ${result.error || result.summary}`);
       verifyAdvancedExcelResult(action, result.data);
     }
-    await access(pdfPath);
+    if (selectedActions.some((action) => action.operation === "exportSheetsToPdf")) await access(pdfPath);
     process.stdout.write(`${JSON.stringify({ ok: true, results }, null, 2)}\n`);
   } finally {
+    await disposeOfficeWorker();
     if (keepArtifacts) process.stdout.write(`Office smoke artifacts: ${tempDir}\n`);
     else await rm(tempDir, { recursive: true, force: true });
   }
@@ -345,8 +357,7 @@ function verifyAdvancedExcelResult(action: OfficeActionInput, resultData: unknow
 }
 
 function nestedData(value: unknown): Record<string, unknown> {
-  const outer = asRecord(value);
-  return asRecord(outer.data);
+  return asRecord(value);
 }
 
 function objectField(value: Record<string, unknown>, key: string): Record<string, unknown> {

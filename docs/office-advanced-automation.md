@@ -179,6 +179,6 @@
 - COM 清理按进程归属执行：本次新建的 Office 进程会完整退出；复用用户已有 WPS 进程时只关闭本次打开的文件并释放 COM 对象，不遍历关闭其他文件，也不调用应用级 `Quit()`。
 - WPS 12.0 的主题色 COM 属性只读，且多页备注可能只持久化第一页。工具会在 WPS 保存并释放文件后使用 XML 解析器更新主题包或补齐备注部件及关系，再通过后续检查回读真实结果。
 - Power Query、切片器、动画和讲义等能力在不同 Office/WPS 版本中的对象模型覆盖不同；不支持时工具会返回 `failed`，不会伪报成功。
-- 工具不暴露任意 PowerShell 脚本入口。PowerShell 仅在内置、参数化、测试过的桥接内部使用。
+- 工具不暴露任意 Shell、Python、PowerShell 或 JScript 执行入口；Office 自动化统一由类型化的 .NET Worker 协议执行。
 
-安装了 Microsoft Office 的开发机可运行 `npm run test:office-smoke`、`npm run test:word-smoke` 和 `npm run test:presentation-smoke`，分别验证 Excel 深度能力、Word 排版/引用/修订/邮件合并/内容控件，以及 PPT 母版品牌、元素诊断、四类动画、放映、备注和讲义导出。`npm run test:office-reliability` 额外实测 Excel 链接 Word/PPT、原位刷新、流水线暂停续跑、跨文件撤销重做及多窗口对象选择。PowerShell 中先设置 `$env:PRESENTATION_SMOKE_HOST="wps"` 再运行演示冒烟，可强制验收 WPS；设为 `powerpoint` 可强制验收 Microsoft PowerPoint。`npm run test:excel-lifecycle` 与 `npm run test:word-lifecycle` 会验证同一文件连续打开和锁释放。
+安装了 Microsoft Office 的开发机可运行 `npm run test:office-smoke`、`npm run test:word-smoke` 和 `npm run test:presentation-smoke`，分别验证 Excel 深度能力、Word 排版/引用/修订/邮件合并/内容控件，以及 PPT 母版品牌、元素诊断、四类动画、放映、备注和讲义导出。`npm run test:office-reliability` 额外实测 Excel 链接 Word/PPT、原位刷新、流水线暂停续跑、跨文件撤销重做及多窗口对象选择。PowerShell 中先设置 `$env:PRESENTATION_SMOKE_HOST="wps"` 再运行演示冒烟，可强制验收 WPS；设为 `powerpoint` 可强制验收 Microsoft PowerPoint。WPS 冒烟必须先在磁盘创建测试文件，再用 WPS 打开该现有文件；不得从 WPS 新建界面创建测试文件。运行前后应清理确认属于测试的残留 WPS 进程，避免连接到错误实例。`npm run test:excel-lifecycle` 与 `npm run test:word-lifecycle` 会验证同一文件连续打开和锁释放。
