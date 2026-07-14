@@ -6,7 +6,6 @@ export function sanitizeToolName(name: string): string {
 export function desanitizeToolName(name: string): string {
   const compoundPrefixes: Record<string, string> = {
     office_action_: "office.action.",
-    office_script_: "office.script.",
   };
   for (const [safePrefix, internalPrefix] of Object.entries(compoundPrefixes)) {
     if (name.startsWith(safePrefix)) {
@@ -16,8 +15,8 @@ export function desanitizeToolName(name: string): string {
 
   const prefixes = [
     "workbook", "range", "selection", "formula", "vba", "sheet",
-    "script", "ui", "file", "shell", "word", "presentation", "office", "knowledge",
-    "web", "ocr", "memory", "python",
+    "ui", "file", "word", "presentation", "office", "knowledge",
+    "web", "ocr", "memory",
   ];
   for (const prefix of prefixes) {
     if (name.startsWith(prefix + "_")) {

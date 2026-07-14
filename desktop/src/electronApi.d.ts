@@ -9,21 +9,6 @@
 // Window 接口扩展 — 让 TypeScript 识别 window.electronAPI
 // ============================================================
 
-/** 沙箱命令策略规则（与 electron/agent/sandbox/execPolicy.ts PrefixRule 对齐） */
-export interface SandboxPrefixRule {
-  first: string;
-  rest: Array<{ kind: "single"; value: string } | { kind: "alts"; values: string[] }>;
-  decision: "allow" | "prompt" | "forbidden";
-  justification?: string;
-}
-
-/** 沙箱配置快照 */
-export interface SandboxConfig {
-  defaultRules: SandboxPrefixRule[];
-  userRules: SandboxPrefixRule[];
-  extraWritableRoots: string[];
-}
-
 export type ExcelRangeExpandMode = "none" | "spill" | "currentArray" | "currentRegion";
 
 declare global {
@@ -271,6 +256,86 @@ export interface DesktopUpdateState {
   error?: string;
 }
 
+export type OfficeAutomationApp = "excel" | "word" | "presentation";
+export interface OfficeAutomationResult<T> { success: boolean; data?: T; error?: string }
+export interface OfficeAutomationDocument {
+  app: OfficeAutomationApp;
+  name: string;
+  fullName?: string;
+  index: number;
+  active: boolean;
+  progId: string;
+  host: "microsoft-office" | "wps" | "unknown";
+  instanceId: string;
+  processId?: number;
+  hwnd?: number;
+  readOnly?: boolean;
+  saved?: boolean;
+}
+export interface OfficeAutomationObject {
+  app: OfficeAutomationApp;
+  documentPath?: string;
+  instanceId?: string;
+  kind: string;
+  name: string;
+  locator: string;
+  parent?: string;
+  index?: number;
+  detail?: string;
+  selected?: boolean;
+}
+export interface OfficeAutomationStep {
+  app: OfficeAutomationApp;
+  action: "inspect" | "edit" | "style" | "insert" | "snapshot" | "validate";
+  operation: string;
+  filePath?: string;
+  outputPath?: string;
+  target?: string;
+  params?: Record<string, unknown>;
+  id?: string;
+}
+export interface OfficeAutomationWorkflow {
+  id: string;
+  status: "running" | "paused" | "done" | "failed" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+  steps: OfficeAutomationStep[];
+  sourceSteps?: OfficeAutomationStep[];
+  stepRecords: Array<{
+    step: number;
+    id?: string;
+    status: "pending" | "running" | "done" | "failed" | "skipped";
+    attempts?: number;
+    artifacts: string[];
+    result?: { summary?: string; error?: string; changes?: OfficeAutomationChange[] };
+  }>;
+  completedSteps: number;
+  nextStep: number;
+  transactionId?: string;
+  error?: string;
+}
+export interface OfficeAutomationChange { kind: string; target?: string; detail: string }
+export interface OfficeAutomationTransaction {
+  id: string;
+  workflowId?: string;
+  status: "pending" | "applied" | "undone" | "failed" | "conflicted";
+  createdAt: string;
+  updatedAt: string;
+  artifacts: string[];
+  changes: OfficeAutomationChange[];
+  conflicts?: Array<{ filePath: string; expected: "before" | "after"; reason: string }>;
+  conflictBaseStatus?: "pending" | "applied" | "undone" | "failed";
+  error?: string;
+}
+export interface OfficeAutomationTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  steps: OfficeAutomationStep[];
+}
+
 export interface ThreadSpawnEdge {
   parentThreadId: string;
   childThreadId: string;
@@ -431,6 +496,34 @@ export interface ElectronAPI {
       version?: string;
       presentationName?: string;
     }>;
+    automation: {
+      documents: {
+        list: (app?: OfficeAutomationApp) => Promise<OfficeAutomationResult<OfficeAutomationDocument[]>>;
+        activate: (input: { app: OfficeAutomationApp; filePath: string; instanceId?: string }) => Promise<OfficeAutomationResult<OfficeAutomationDocument>>;
+      };
+      objects: {
+        list: (input: { app: OfficeAutomationApp; filePath: string; instanceId?: string; kind?: string }) => Promise<OfficeAutomationResult<OfficeAutomationObject[]>>;
+        activate: (input: { app: OfficeAutomationApp; filePath: string; instanceId?: string; locator: string }) => Promise<OfficeAutomationResult<OfficeAutomationObject>>;
+      };
+      workflows: {
+        list: () => Promise<OfficeAutomationResult<OfficeAutomationWorkflow[]>>;
+        get: (id: string) => Promise<OfficeAutomationResult<OfficeAutomationWorkflow>>;
+        cancel: (id: string) => Promise<OfficeAutomationResult<OfficeAutomationWorkflow>>;
+        resume: (id: string) => Promise<OfficeAutomationResult<unknown>>;
+      };
+      templates: {
+        list: () => Promise<OfficeAutomationResult<OfficeAutomationTemplate[]>>;
+        saveFromWorkflow: (input: { workflowId: string; templateId?: string; name: string; description?: string }) => Promise<OfficeAutomationResult<OfficeAutomationTemplate>>;
+        delete: (id: string) => Promise<OfficeAutomationResult<boolean>>;
+        run: (input: { templateId: string; variables?: Record<string, unknown> }) => Promise<OfficeAutomationResult<unknown>>;
+      };
+      transactions: {
+        list: () => Promise<OfficeAutomationResult<OfficeAutomationTransaction[]>>;
+        get: (id: string) => Promise<OfficeAutomationResult<OfficeAutomationTransaction>>;
+        undo: (id: string, force?: boolean) => Promise<OfficeAutomationResult<OfficeAutomationTransaction>>;
+        redo: (id: string, force?: boolean) => Promise<OfficeAutomationResult<OfficeAutomationTransaction>>;
+      };
+    };
   };
   agent: {
     startTurn: (input: {
@@ -536,14 +629,6 @@ export interface ElectronAPI {
   };
   tools: {
     list: () => Promise<unknown[]>;
-  };
-  sandbox: {
-    /** 获取当前策略配置（默认规则 + 用户规则 + 可写根） */
-    getConfig: () => Promise<SandboxConfig>;
-    /** 更新用户自定义规则（覆盖式） */
-    setUserRules: (rules: SandboxPrefixRule[]) => Promise<{ success: boolean; error?: string }>;
-    /** 更新额外可写根目录（覆盖式） */
-    setWritableRoots: (roots: string[]) => Promise<{ success: boolean; error?: string }>;
   };
   tool: {
     /** 确认执行挂起的工具调用 */

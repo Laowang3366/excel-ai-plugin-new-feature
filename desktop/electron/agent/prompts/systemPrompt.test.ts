@@ -22,9 +22,8 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("不要在任务开始时只凭用户一句话直接检索知识库");
     expect(prompt).toContain("仅在任务依赖项目资料");
     expect(prompt).not.toContain("公式方法论知识");
-    expect(prompt).toContain("shell.execute");
-    expect(prompt).toContain("prompt");
-    expect(prompt).toContain("forbidden");
+    expect(prompt).not.toContain("shell.execute");
+    expect(prompt).not.toContain("python.execute");
   });
 
   test("keeps concise final reply formatting guidance", () => {
@@ -51,12 +50,12 @@ describe("buildSystemPrompt", () => {
     expect(buildSystemPrompt().length).toBeLessThan(3_000);
   });
 
-  test("keeps shell approval and sandbox guidance", () => {
+  test("keeps external script execution out of the model guidance", () => {
     const prompt = buildSystemPrompt();
 
-    expect(prompt).toContain("`shell.execute` 受命令安全策略");
-    expect(prompt).toContain("prompt");
-    expect(prompt).toContain("forbidden");
+    expect(prompt).toContain("不要尝试生成 PowerShell、Python、JavaScript 或其他外部脚本");
+    expect(prompt).not.toContain("shell.execute");
+    expect(prompt).not.toContain("python.execute");
   });
 
   test("appends folder context with Office open guidance", () => {
@@ -142,7 +141,7 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("发票号码");
     expect(prompt).toContain("range.write");
     expect(prompt).toContain("写入后回读验证一次");
-    expect(prompt.length).toBeLessThan(2_000);
+    expect(prompt.length).toBeLessThan(3_600);
   });
 
   test("injects OCR rules for image or PDF attachments", () => {
@@ -172,7 +171,18 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain('office.action.apply({ app, action:"snapshot", operation:"snapshot"');
     expect(prompt).not.toContain("office.action.inspect 获取结构、表格和截图信息");
     expect(prompt).toContain('preferEngine:"com"');
-    expect(prompt.length).toBeLessThan(2_500);
+    expect(prompt).toContain("applyTrackedChanges");
+    expect(prompt).toContain("batchMailMerge");
+    expect(prompt).toContain("office.objects.list");
+    expect(prompt).toContain("完整路径和 locator");
+    expect(prompt).toContain("exportRangeToWord");
+    expect(prompt).toContain('params.linked:true');
+    expect(prompt).toContain("refreshLinkedOfficeContent");
+    expect(prompt).toContain("office.workflow.run");
+    expect(prompt).toContain("resume:true, workflowId");
+    expect(prompt).toContain("office.transaction.inspect");
+    expect(prompt).toContain("office.transaction.undo");
+    expect(prompt.length).toBeLessThan(3_200);
   });
 
   test("injects the executable macro workflow only for macro tasks", () => {
@@ -187,7 +197,7 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("WPS JSA 内部宏");
     expect(prompt).toContain('controlType:"button"');
     expect(prompt).toContain("ui.listControls");
-    expect(prompt.length).toBeLessThan(2_000);
+    expect(prompt.length).toBeLessThan(3_600);
   });
 
   test("injects general scenario rules for data-cleaning and report tasks", () => {

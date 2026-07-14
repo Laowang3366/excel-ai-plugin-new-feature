@@ -176,89 +176,6 @@ describe("processToolCalls", () => {
     expect(appended).toContain(resultItem);
   });
 
-  it("confirm_all: follows user permission for non-forced shell prompts", async () => {
-    const activeItem: ToolCallItem = {
-      type: "tool_call",
-      id: "call-shell",
-      toolName: "shell.execute",
-      arguments: { command: "curl https://example.com" },
-      status: "pending",
-      timestamp: 1000,
-    };
-    const turn: Turn = {
-      turnId: "turn-1",
-      threadId: "thread-1",
-      status: "in_progress",
-      items: [activeItem],
-      startedAt: 1000,
-    };
-    const executor = vi.fn(async () => ({ success: true, data: { stdout: "ok" } }));
-    const executors = new Map<string, ToolExecutor>([
-      ["shell.execute", { name: "shell.execute", execute: executor }],
-    ]);
-    const requestToolApproval = vi.fn(async () => ({ approved: true }));
-    const callbacks: AgentTurnCallbacks = { onEvent: vi.fn() };
-    const sessionStoreAppend = vi.fn(async () => {});
-
-    await processToolCalls(
-      [{ id: "call-shell", name: "shell.execute", arguments: "{\"command\":\"curl https://example.com\"}" }],
-      new Map([["call-shell", activeItem]]),
-      turn,
-      executors,
-      { permissionMode: "confirm_all", requestToolApproval },
-      callbacks,
-      sessionStoreAppend
-    );
-
-    expect(requestToolApproval).not.toHaveBeenCalled();
-    expect(executor).toHaveBeenCalledWith(
-      expect.objectContaining({ command: "curl https://example.com" }),
-      expect.objectContaining({
-        sandboxEvaluation: expect.objectContaining({ decision: "allow" }),
-      })
-    );
-  });
-
-  it("confirm_all: still asks for forced shell prompts", async () => {
-    const activeItem: ToolCallItem = {
-      type: "tool_call",
-      id: "call-nohup",
-      toolName: "shell.execute",
-      arguments: { command: "nohup node server.js" },
-      status: "pending",
-      timestamp: 1000,
-    };
-    const turn: Turn = {
-      turnId: "turn-1",
-      threadId: "thread-1",
-      status: "in_progress",
-      items: [activeItem],
-      startedAt: 1000,
-    };
-    const executor = vi.fn(async () => ({ success: true, data: { stdout: "ok" } }));
-    const executors = new Map<string, ToolExecutor>([
-      ["shell.execute", { name: "shell.execute", execute: executor }],
-    ]);
-    const requestToolApproval = vi.fn(async () => ({ approved: false }));
-    const callbacks: AgentTurnCallbacks = { onEvent: vi.fn() };
-    const sessionStoreAppend = vi.fn(async () => {});
-
-    await processToolCalls(
-      [{ id: "call-nohup", name: "shell.execute", arguments: "{\"command\":\"nohup node server.js\"}" }],
-      new Map([["call-nohup", activeItem]]),
-      turn,
-      executors,
-      { permissionMode: "confirm_all", requestToolApproval },
-      callbacks,
-      sessionStoreAppend
-    );
-
-    expect(requestToolApproval).toHaveBeenCalledWith(expect.objectContaining({
-      toolName: "shell.execute",
-      sandboxJustification: expect.stringContaining("后台长期运行"),
-    }));
-    expect(executor).not.toHaveBeenCalled();
-  });
 });
 
 // ============================================================
@@ -1291,7 +1208,7 @@ describe("shouldRequireApproval", () => {
 
   // ---- normal 模式：所有工具都需要审批（但 alwaysAllowedTools 可跳过） ----
   it("normal: all tools require approval unless alwaysAllowedTools", () => {
-    expect(shouldRequireApproval("shell.execute", "normal")).toBe(true);
+    expect(shouldRequireApproval("office.action.execute", "normal")).toBe(true);
     expect(shouldRequireApproval("range.read", "normal")).toBe(true);
     expect(shouldRequireApproval("range.write", "normal")).toBe(true);
     expect(shouldRequireApproval("range.clear", "normal")).toBe(true);
@@ -1300,8 +1217,8 @@ describe("shouldRequireApproval", () => {
   });
 
   it("normal: alwaysAllowedTools overrides approval", () => {
-    markToolAlwaysAllowed("shell.execute");
-    expect(shouldRequireApproval("shell.execute", "normal")).toBe(false);
+    markToolAlwaysAllowed("office.action.execute");
+    expect(shouldRequireApproval("office.action.execute", "normal")).toBe(false);
     clearAlwaysAllowedTools();
     markToolAlwaysAllowed("range.write");
     expect(shouldRequireApproval("range.write", "normal")).toBe(false);
@@ -1317,7 +1234,7 @@ describe("shouldRequireApproval", () => {
   it("auto_approve_safe: moderate and dangerous tools require approval", () => {
     expect(shouldRequireApproval("range.write", "auto_approve_safe")).toBe(true);
     expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(true);
-    expect(shouldRequireApproval("shell.execute", "auto_approve_safe")).toBe(true);
+    expect(shouldRequireApproval("office.action.execute", "auto_approve_safe")).toBe(true);
     expect(shouldRequireApproval("macro.write", "auto_approve_safe")).toBe(true);
   });
 
@@ -1335,7 +1252,7 @@ describe("shouldRequireApproval", () => {
   it("confirm_all: non-deletion tools are auto-approved", () => {
     expect(shouldRequireApproval("range.read", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("range.write", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("shell.execute", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("office.action.execute", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("workbook.save", "confirm_all")).toBe(false);

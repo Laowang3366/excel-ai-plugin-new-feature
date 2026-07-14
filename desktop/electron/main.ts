@@ -38,7 +38,6 @@ import {
   setAgentLoopsRef,
   setExcelBridgeRef,
   setOfficeBridgesRefs,
-  applySandboxConfig,
 } from "./main-modules/ipcHandlers";
 import { requestToolApproval } from "./agent/interaction/eventForwarder";
 import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
@@ -114,7 +113,6 @@ app
       requestToolApproval: (params) => requestToolApproval(() => mainWindow, params),
     }); // 提前初始化 Agent（含 Office bridge + RAG）
     registerIpcHandlers();
-    applySandboxConfig(); // 把 electron-store 中的用户规则热更新到沙箱单例
     initializeUpdateManager({
       userDataPath,
       notify: (updateState) => {

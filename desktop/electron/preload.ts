@@ -77,6 +77,34 @@ contextBridge.exposeInMainWorld("electronAPI", {
   office: {
     detectWordStatus: () => ipcRenderer.invoke("word:detectStatus"),
     detectPresentationStatus: () => ipcRenderer.invoke("ppt:detectStatus"),
+    automation: {
+      documents: {
+        list: (app?: "excel" | "word" | "presentation") => ipcRenderer.invoke("office:automation:documents:list", { app }),
+        activate: (input: unknown) => ipcRenderer.invoke("office:automation:documents:activate", input),
+      },
+      objects: {
+        list: (input: unknown) => ipcRenderer.invoke("office:automation:objects:list", input),
+        activate: (input: unknown) => ipcRenderer.invoke("office:automation:objects:activate", input),
+      },
+      workflows: {
+        list: () => ipcRenderer.invoke("office:automation:workflows:list"),
+        get: (id: string) => ipcRenderer.invoke("office:automation:workflows:get", { id }),
+        cancel: (id: string) => ipcRenderer.invoke("office:automation:workflows:cancel", { id }),
+        resume: (id: string) => ipcRenderer.invoke("office:automation:workflows:resume", { id }),
+      },
+      templates: {
+        list: () => ipcRenderer.invoke("office:automation:templates:list"),
+        saveFromWorkflow: (input: unknown) => ipcRenderer.invoke("office:automation:templates:saveFromWorkflow", input),
+        delete: (id: string) => ipcRenderer.invoke("office:automation:templates:delete", { id }),
+        run: (input: unknown) => ipcRenderer.invoke("office:automation:templates:run", input),
+      },
+      transactions: {
+        list: () => ipcRenderer.invoke("office:automation:transactions:list"),
+        get: (id: string) => ipcRenderer.invoke("office:automation:transactions:get", { id }),
+        undo: (id: string, force = false) => ipcRenderer.invoke("office:automation:transactions:undo", { id, force }),
+        redo: (id: string, force = false) => ipcRenderer.invoke("office:automation:transactions:redo", { id, force }),
+      },
+    },
   },
 
   // ---- Agent 对话 ----
@@ -205,16 +233,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   tools: {
     /** 获取所有可用的工具定义 */
     list: () => ipcRenderer.invoke("tools:list"),
-  },
-
-  // ---- 沙箱策略配置 ----
-  sandbox: {
-    /** 获取当前策略配置（默认规则 + 用户规则 + 可写根） */
-    getConfig: () => ipcRenderer.invoke("sandbox:getConfig"),
-    /** 更新用户自定义规则（覆盖式） */
-    setUserRules: (rules: unknown[]) => ipcRenderer.invoke("sandbox:setUserRules", rules),
-    /** 更新额外可写根目录（覆盖式） */
-    setWritableRoots: (roots: string[]) => ipcRenderer.invoke("sandbox:setWritableRoots", roots),
   },
 
   // ---- 工具确认 ----

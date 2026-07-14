@@ -38,10 +38,9 @@ describe("toolApproval", () => {
 
     const result = await requestToolApproval({
       toolCallId: "call-2",
-      toolName: "shell.execute",
-      arguments: { command: "git status" },
-      riskLevel: "dangerous",
-      sandboxJustification: "Needs approval",
+      toolName: "office.action.execute",
+      arguments: { operation: "createWorkbook" },
+      riskLevel: "moderate",
     }, {
       permissionMode: "confirm_all",
       requestToolApproval: requestToolApprovalCallback,
@@ -50,8 +49,7 @@ describe("toolApproval", () => {
     expect(result).toEqual({ approved: true, alwaysAllow: true });
     expect(requestToolApprovalCallback).toHaveBeenCalledWith(expect.objectContaining({
       toolCallId: "call-2",
-      toolName: "shell.execute",
-      sandboxJustification: "Needs approval",
+      toolName: "office.action.execute",
     }));
   });
 });

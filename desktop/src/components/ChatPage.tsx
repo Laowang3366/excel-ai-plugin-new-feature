@@ -27,6 +27,7 @@ import { FormulaTaskComposerPanel } from "./task/FormulaTaskComposerPanel";
 import { CodeTaskComposerPanel } from "./task/CodeTaskComposerPanel";
 import { OCRTaskComposerPanel } from "./task/OCRTaskComposerPanel";
 import { ReportTaskComposerPanel } from "./task/ReportTaskComposerPanel";
+import { OfficeAutomationPanel } from "./office/OfficeAutomationPanel";
 import { SimpleTaskComposerPanel, type SimpleTaskIntent } from "./task/SimpleTaskComposerPanel";
 import { getChatTitleSummary, MessageBubbleIcon } from "../utils/chatHelpers";
 import { useComposer } from "../hooks/useComposer";
@@ -278,6 +279,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         activeIntent={activeIntent}
         language={language}
         onIntentClick={selectFeature}
+        onClose={closeFeatureSidebarManually}
       >
         {activeIntent === "formula" && (
           <FormulaTaskComposerPanel
@@ -331,6 +333,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({
             onSubmit={handleTaskSubmit}
           />
         )}
+        {activeIntent === "office" && <OfficeAutomationPanel />}
       </FeatureSidebarPanel>
     </div>
   );

@@ -211,7 +211,7 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
           errors,
           warnings: normalizeWarnings(warnings, selectedProvider, mode, filePaths),
           fallbacks,
-          nextTools: buildSelfFallbackTools(filePaths, mode, selectedProvider),
+          nextTools: buildSelfFallbackTools(filePaths, mode),
         },
       };
     },
@@ -371,8 +371,7 @@ function normalizeWarnings(
 
 function buildSelfFallbackTools(
   filePaths: string[],
-  mode: OcrMode,
-  provider: OverallOcrProvider
+  mode: OcrMode
 ): Array<Record<string, string>> {
   const extensions = new Set(filePaths.map((filePath) => path.extname(filePath).toLowerCase()));
   const tools: Array<Record<string, string>> = [];
@@ -385,12 +384,6 @@ function buildSelfFallbackTools(
     tools.push({
       tool: "office.action.validate",
       useWhen: "完成文件级修改后验证数量、结构、样式或对象变化",
-    });
-  }
-  if ((provider === "local" || provider === "mixed") && [...extensions].some((ext) => [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".pdf"].includes(ext))) {
-    tools.push({
-      tool: "python.execute",
-      useWhen: "本地环境已有可用 OCR/转换库时，可用脚本提取文本或把文件转换成模型可读的中间格式",
     });
   }
   if (mode === "layout" || mode === "style") {

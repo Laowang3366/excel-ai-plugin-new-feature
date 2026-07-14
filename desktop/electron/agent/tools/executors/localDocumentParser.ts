@@ -8,9 +8,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import JSZip from "jszip";
 import { DocumentParser } from "../../knowledge/documentParser";
-import { extractOpenXmlTextValues, readOpenXmlTextParts } from "../../shared/openXmlText";
 import { extractMarkdownTables } from "../../../shared/markdownTables";
 
 export interface LocalParsedDocument {
@@ -24,7 +22,7 @@ export interface LocalParsedDocument {
 }
 
 const TEXT_EXTENSIONS = new Set([".txt", ".md", ".csv"]);
-const KNOWLEDGE_PARSER_EXTENSIONS = new Set([".xlsx", ".xlsm", ".csv", ".md", ".txt"]);
+const KNOWLEDGE_PARSER_EXTENSIONS = new Set([".xlsx", ".xlsm", ".docx", ".pptx", ".csv", ".md", ".txt"]);
 const LOCAL_UNSUPPORTED_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -53,12 +51,6 @@ async function parseFileLocally(filePath: string): Promise<LocalParsedDocument> 
 
   if (KNOWLEDGE_PARSER_EXTENSIONS.has(ext)) {
     return parseWithKnowledgeParser(filePath, filename, ext);
-  }
-  if (ext === ".docx") {
-    return parseDocx(filePath, filename);
-  }
-  if (ext === ".pptx") {
-    return parsePptx(filePath, filename);
   }
   if (isLocallyUnsupportedForOcr(filePath)) {
     return {
@@ -99,7 +91,7 @@ async function parseWithKnowledgeParser(
         : `### ${chunk.sourceName}`;
       return `${title}\n${chunk.content}`;
     }).join("\n\n");
-    const rows = chunks.flatMap((chunk) => extractRowsFromChunk(chunk.content));
+    const rows = chunks.flatMap((chunk) => chunk.metadata.rows ?? extractRowsFromChunk(chunk.content));
     const warnings: string[] = [];
     if (!text.trim()) {
       warnings.push(`${filename}: 本地解析未提取到可用文本。`);
@@ -164,100 +156,6 @@ function parsePlainTextFallback(
   }
 }
 
-async function parseDocx(filePath: string, filename: string): Promise<LocalParsedDocument> {
-  try {
-    const zip = await JSZip.loadAsync(await fs.promises.readFile(filePath));
-    const documentText = (await readOpenXmlTextParts(zip, /^word\/(?:document|header\d+|footer\d+|footnotes|endnotes)\.xml$/i, {
-      tagName: "w:t",
-      includeEmpty: false,
-    })).map((part) => part.text).join("\n");
-    const rows = await readDocxTables(zip);
-    const textParts = [documentText.trim()];
-    if (rows.length > 0) {
-      textParts.push(formatRowsAsMarkdown(rows));
-    }
-    const text = textParts.filter(Boolean).join("\n\n");
-    return {
-      filename,
-      text,
-      rows,
-      provider: "local",
-      sourceType: "docx",
-      warnings: text.trim() ? [] : [`${filename}: 本地 DOCX 解析未提取到可用文本。`],
-      error: text.trim() ? undefined : "local_empty",
-    };
-  } catch (error: any) {
-    return {
-      filename,
-      text: "",
-      rows: [],
-      provider: "local",
-      sourceType: "docx",
-      warnings: [`${filename}: 本地 DOCX 解析失败: ${error?.message || String(error)}`],
-      error: error?.message || "local_docx_parse_failed",
-    };
-  }
-}
-
-async function parsePptx(filePath: string, filename: string): Promise<LocalParsedDocument> {
-  try {
-    const zip = await JSZip.loadAsync(await fs.promises.readFile(filePath));
-    const slideNames = Object.keys(zip.files)
-      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
-      .sort((a, b) => slideNumber(a) - slideNumber(b));
-    const slideTexts: string[] = [];
-
-    for (const slideName of slideNames) {
-      const slide = zip.file(slideName);
-      if (!slide) continue;
-      const xml = await slide.async("text");
-      const values = extractOpenXmlTextValues(xml, { tagName: "a:t", includeEmpty: false });
-      if (values.length > 0) {
-        slideTexts.push(`### Slide ${slideNumber(slideName)}\n${values.join("\n")}`);
-      }
-    }
-
-    const text = slideTexts.join("\n\n");
-    return {
-      filename,
-      text,
-      rows: [],
-      provider: "local",
-      sourceType: "pptx",
-      warnings: text.trim() ? [] : [`${filename}: 本地 PPTX 解析未提取到可用文本。`],
-      error: text.trim() ? undefined : "local_empty",
-    };
-  } catch (error: any) {
-    return {
-      filename,
-      text: "",
-      rows: [],
-      provider: "local",
-      sourceType: "pptx",
-      warnings: [`${filename}: 本地 PPTX 解析失败: ${error?.message || String(error)}`],
-      error: error?.message || "local_pptx_parse_failed",
-    };
-  }
-}
-
-async function readDocxTables(zip: JSZip): Promise<string[][]> {
-  const part = zip.file("word/document.xml");
-  if (!part) return [];
-  const xml = await part.async("text");
-  const rows: string[][] = [];
-  for (const tableMatch of xml.matchAll(/<w:tbl\b[\s\S]*?<\/w:tbl>/g)) {
-    for (const rowMatch of tableMatch[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)) {
-      const cells = Array.from(rowMatch[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g), (cellMatch) =>
-        extractOpenXmlTextValues(cellMatch[0], { tagName: "w:t" }).join("")
-      );
-      if (cells.some((cell) => cell.trim())) {
-        rows.push(cells);
-      }
-    }
-  }
-  return rows;
-}
-
 function extractRowsFromChunk(content: string): string[][] {
   const rows = extractMarkdownTables(content);
   if (rows.length > 0) return rows;
@@ -278,22 +176,4 @@ function parseCsvRows(text: string): string[][] {
     .split(/\r?\n/)
     .filter((line) => line.trim())
     .map((line) => line.split(",").map((cell) => cell.trim().replace(/^"(.*)"$/, "$1")));
-}
-
-function formatRowsAsMarkdown(rows: string[][]): string {
-  if (rows.length === 0) return "";
-  const width = Math.max(...rows.map((row) => row.length));
-  const normalized = rows.map((row) => Array.from({ length: width }, (_, index) => row[index] || ""));
-  const header = normalized[0];
-  const separator = Array.from({ length: width }, () => "---");
-  const body = normalized.slice(1);
-  return [
-    "| " + header.join(" | ") + " |",
-    "| " + separator.join(" | ") + " |",
-    ...body.map((row) => "| " + row.join(" | ") + " |"),
-  ].join("\n");
-}
-
-function slideNumber(partName: string): number {
-  return Number(/slide(\d+)\.xml$/i.exec(partName)?.[1] || 0);
 }

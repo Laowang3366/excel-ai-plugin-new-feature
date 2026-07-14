@@ -13,7 +13,6 @@
 import {
   type ToolCallItem,
   type ToolDefinition,
-  type ToolExecutionContext,
   type ToolExecutionResult,
   type ToolExecutor,
   type Turn,
@@ -32,7 +31,6 @@ import {
   summarizeForLog,
   type ToolExecutionLogRecord,
 } from "./toolExecutionLog";
-import { evaluateToolSandboxPolicy } from "./toolSandboxPolicy";
 import { resolveExecutableToolName } from "./toolNameResolution";
 import { createToolResultItem } from "./toolResultItems";
 import {
@@ -63,8 +61,7 @@ export type { ToolApprovalConfig } from "./toolApproval";
 export async function executeTool(
   name: string,
   argsJson: string,
-  executors?: Map<string, ToolExecutor>,
-  context?: ToolExecutionContext
+  executors?: Map<string, ToolExecutor>
 ): Promise<ToolExecutionResult> {
   const resolvedName = resolveExecutableToolName(name, executors);
   if (!executors || !resolvedName) {
@@ -77,7 +74,7 @@ export async function executeTool(
   const executor = executors.get(resolvedName)!;
   try {
     const args = JSON.parse(argsJson || "{}");
-    return await executor.execute(args, context);
+    return await executor.execute(args);
   } catch (err: any) {
     return {
       success: false,
@@ -132,71 +129,7 @@ export async function processToolCalls(
     const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedToolName) ?? TOOL_DEFINITIONS_MAP.get(tc.name);
     const canonicalToolName = toolDef?.name ?? resolvedToolName;
 
-    // 沙箱决策覆盖 permissionMode 与 alwaysAllowedTools：forbidden 永拒，prompt 强制审批。
-    const sandboxPolicy = await evaluateToolSandboxPolicy(canonicalToolName, tc.arguments);
-    const sandboxEvaluation = sandboxPolicy.evaluation;
-    const sandboxJustification = sandboxPolicy.justification;
-    const sandboxForcedForbidden = sandboxPolicy.forcedForbidden;
-    const sandboxForcedApproval = sandboxPolicy.forcedApproval;
-
-    // forbidden：直接拒绝，不进审批、不进 spawn
-    if (sandboxForcedForbidden) {
-      let item = pendingToolCallItems.get(tc.id);
-      if (item && item.toolName !== canonicalToolName) {
-        item.toolName = canonicalToolName;
-      }
-      if (!item) {
-        try {
-          const parsedArgs = JSON.parse(tc.arguments || "{}");
-          item = {
-            type: "tool_call", id: tc.id, toolName: canonicalToolName,
-            arguments: parsedArgs, status: "failed", timestamp: Date.now(),
-          };
-          turn.items.push(item);
-          await sessionStoreAppend(turn.threadId, turn.turnId, item);
-          callbacks.onEvent({ type: "item_started", item });
-        } catch {
-          item = undefined;
-        }
-      }
-      if (item) {
-        item.status = "failed";
-        callbacks.onEvent({ type: "item_updated", item });
-      }
-      const resultItem: TurnItem = createToolResultItem({
-        toolCallId: tc.id,
-        toolName: canonicalToolName,
-        result: sandboxJustification || "命令被安全策略拒绝",
-        isError: true,
-      });
-      turn.items.push(resultItem);
-      await sessionStoreAppend(turn.threadId, turn.turnId, resultItem);
-      callbacks.onEvent({ type: "item_started", item: resultItem });
-      callbacks.onEvent({ type: "item_completed", item: resultItem });
-      await logToolExecutionSafely(appendToolExecutionLog, {
-        threadId: turn.threadId,
-        turnId: turn.turnId,
-        toolCallId: tc.id,
-        toolName: canonicalToolName,
-        status: "blocked",
-        durationMs: Date.now() - startedAt,
-        timestamp: Date.now(),
-        argumentsSummary: summarizeForLog(parseToolArguments(tc.arguments)),
-        resultSummary: summarizeForLog(resultItem.result),
-        error: sandboxJustification || "命令被安全策略拒绝",
-        metadata: {
-          permissionMode: approvalConfig.permissionMode,
-          sandboxDecision: sandboxEvaluation?.decision ?? "forbidden",
-          riskLevel: toolDef?.riskLevel ?? "moderate",
-        },
-      }, callbacks);
-      continue;
-    }
-
-    // 计算是否需要审批：策略 prompt 始终审批，覆盖 alwaysAllowedTools 与 permissionMode
-    const needsApproval = sandboxForcedApproval
-      ? true
-      : shouldRequireApproval(canonicalToolName, approvalConfig.permissionMode);
+    const needsApproval = shouldRequireApproval(canonicalToolName, approvalConfig.permissionMode);
 
     // 获取或创建 tool_call item
     let activeItem = pendingToolCallItems.get(tc.id);
@@ -245,7 +178,6 @@ export async function processToolCalls(
             arguments: approvalArgs,
             riskLevel: toolDef?.riskLevel || "moderate",
             description: toolDef?.description,
-            sandboxJustification,
           },
           approvalConfig
         );
@@ -276,7 +208,6 @@ export async function processToolCalls(
             error: "用户取消了工具执行",
             metadata: {
               permissionMode: approvalConfig.permissionMode,
-              sandboxDecision: sandboxEvaluation?.decision,
               riskLevel: toolDef?.riskLevel ?? "moderate",
             },
           }, callbacks);
@@ -315,7 +246,6 @@ export async function processToolCalls(
           error: err.message || "审批过程出错",
           metadata: {
             permissionMode: approvalConfig.permissionMode,
-            sandboxDecision: sandboxEvaluation?.decision,
             riskLevel: toolDef?.riskLevel ?? "moderate",
             phase: "approval",
           },
@@ -326,12 +256,7 @@ export async function processToolCalls(
 
     // 执行工具
     throwIfAborted?.();
-    const result = await executeTool(
-      canonicalToolName,
-      tc.arguments,
-      executors,
-      sandboxEvaluation ? { sandboxEvaluation } : undefined
-    );
+    const result = await executeTool(canonicalToolName, tc.arguments, executors);
 
     // 更新工具调用状态
     activeItem.status = result.success ? "completed" : "failed";
@@ -362,7 +287,6 @@ export async function processToolCalls(
       error: result.success ? undefined : result.error,
       metadata: {
         permissionMode: approvalConfig.permissionMode,
-        sandboxDecision: sandboxEvaluation?.decision,
         riskLevel: toolDef?.riskLevel ?? "moderate",
       },
     }, callbacks);

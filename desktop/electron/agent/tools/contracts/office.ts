@@ -50,6 +50,8 @@ export interface PresentationBridge {
  * Office Open XML 文件桥接接口
  */
 export interface OfficeFileBridge {
+  /** 使用 .NET Open XML SDK 执行统一文件级高级操作。 */
+  executeAction?(input: OfficeActionInput): Promise<OfficeActionResult>;
   /** 检查 docx/pptx/xlsx 文件结构和文本摘要 */
   inspectFile(filePath: string): Promise<unknown>;
   /** 在 docx/pptx/xlsx 文件内查找替换文本 */
@@ -86,4 +88,72 @@ export interface OfficeFileBridge {
 export interface OfficeActionBridge {
   /** 执行跨 Excel/Word/PPT 的统一高级操作 */
   executeAction(input: OfficeActionInput): Promise<OfficeActionResult>;
+}
+
+export interface OfficeDocumentInfo {
+  app: "excel" | "word" | "presentation";
+  name: string;
+  fullName?: string;
+  index: number;
+  active: boolean;
+  progId: string;
+  host: "microsoft-office" | "wps" | "unknown";
+  instanceId: string;
+  processId?: number;
+  hwnd?: number;
+  readOnly?: boolean;
+  saved?: boolean;
+}
+
+export interface OfficeObjectInfo {
+  app: OfficeActionInput["app"];
+  documentPath?: string;
+  instanceId?: string;
+  kind: string;
+  name: string;
+  locator: string;
+  parent?: string;
+  index?: number;
+  detail?: string;
+  selected?: boolean;
+}
+
+export interface OfficeDocumentManagerBridge {
+  listDocuments(app?: OfficeActionInput["app"]): Promise<OfficeDocumentInfo[]>;
+  activateDocument(input: {
+    app: OfficeActionInput["app"];
+    filePath?: string;
+    name?: string;
+    index?: number;
+    instanceId?: string;
+  }): Promise<OfficeDocumentInfo>;
+  listObjects(input: {
+    app: OfficeActionInput["app"];
+    filePath: string;
+    instanceId?: string;
+    kind?: string;
+  }): Promise<OfficeObjectInfo[]>;
+  activateObject(input: {
+    app: OfficeActionInput["app"];
+    filePath: string;
+    instanceId?: string;
+    locator: string;
+  }): Promise<OfficeObjectInfo>;
+  prepareTransaction(filePaths: string[]): Promise<Array<{
+    app: OfficeActionInput["app"];
+    filePath: string;
+    wasDirty: boolean;
+    saved: boolean;
+    instanceId?: string;
+  }>>;
+  restoreTransactionFiles(files: Array<{
+    filePath: string;
+    existed: boolean;
+    snapshotPath?: string;
+  }>): Promise<Array<{
+    app: OfficeActionInput["app"];
+    filePath: string;
+    instanceId?: string;
+    reopened: boolean;
+  }>>;
 }

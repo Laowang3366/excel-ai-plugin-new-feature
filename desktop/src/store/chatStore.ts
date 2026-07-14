@@ -107,7 +107,6 @@ export interface ChatState {
     riskLevel: "safe" | "moderate" | "dangerous";
     description?: string;
     /** 沙箱策略给出的理由（命中 prompt 规则时） */
-    sandboxJustification?: string;
   } | null;
 
   // ---- 输入框文件桥接 ----

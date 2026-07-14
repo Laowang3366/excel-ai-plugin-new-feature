@@ -14,6 +14,7 @@ import {
   Eraser,
   FileBarChart,
   LineChart,
+  Workflow,
 } from "../components/common/IconMap";
 
 /** 6 个核心意图（侧边栏快捷入口） */
@@ -24,6 +25,7 @@ export const INTENT_SHORTCUTS = [
   { key: "clean" as const, icon: Eraser },
   { key: "report" as const, icon: FileBarChart },
   { key: "chart" as const, icon: LineChart },
+  { key: "office" as const, icon: Workflow },
 ] as const;
 
 export type IntentKind = typeof INTENT_SHORTCUTS[number]["key"] | null;

@@ -4,6 +4,8 @@
  * 组合各领域执行器，保持 createToolExecutors 对外签名不变。
  */
 
+import path from "node:path";
+
 import type { ToolExecutor } from "../../shared/types";
 import type {
   ExcelConnectionBridge,
@@ -16,6 +18,7 @@ import type {
   WordDocumentBridge,
   PresentationBridge,
   OfficeActionBridge,
+  OfficeDocumentManagerBridge,
 } from "../contracts/office";
 import type { Retriever } from "../../knowledge/retriever";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
@@ -25,17 +28,13 @@ import { addKnowledgeExecutors } from "./knowledgeExecutors";
 import { addMemoryExecutors } from "./memoryExecutors";
 import { addOfficeExecutors } from "./officeExecutors";
 import { addOcrExecutors } from "./ocrExecutors";
-import { addPythonExecutors } from "./pythonExecutor";
-import { addShellExecutors, executeShellCommand } from "./shellExecutor";
 import { addWebSearchExecutors } from "./webSearchExecutors";
-import type { ShellCommandResult } from "./shellExecutor";
 import { getToolNameAliases } from "../registry/toolDefinitions";
-
-export { executeShellCommand };
-export type { ShellCommandResult };
 
 export interface ToolExecutorRuntimeDeps {
   getMineruApiToken?: () => string;
+  officeDocumentBridge?: OfficeDocumentManagerBridge;
+  officeAutomationRoot?: string;
 }
 
 /**
@@ -58,8 +57,6 @@ export function createToolExecutors(
 
   addExcelExecutors(executors, { workbookBridge, vbaBridge, jsaBridge, uiBridge });
   addFileExecutors(executors, { sessionFolderPath });
-  addShellExecutors(executors);
-  addPythonExecutors(executors);
   addKnowledgeExecutors(executors, { knowledgeRetriever });
   addWebSearchExecutors(executors);
   addOcrExecutors(executors, { getMineruApiToken: runtimeDeps.getMineruApiToken });
@@ -69,6 +66,9 @@ export function createToolExecutors(
     wordBridge,
     presentationBridge,
     officeActionBridge,
+    officeDocumentBridge: runtimeDeps.officeDocumentBridge,
+    workflowRoot: runtimeDeps.officeAutomationRoot ? path.join(runtimeDeps.officeAutomationRoot, "workflows") : undefined,
+    transactionRoot: runtimeDeps.officeAutomationRoot ? path.join(runtimeDeps.officeAutomationRoot, "transactions") : undefined,
   });
   addExecutorAliases(executors);
 

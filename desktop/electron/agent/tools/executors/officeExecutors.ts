@@ -10,9 +10,11 @@ import type {
   WordDocumentBridge,
   PresentationBridge,
   OfficeActionBridge,
+  OfficeDocumentManagerBridge,
 } from "../contracts/office";
 import { officeActionOperationError } from "../officeCore/operationPolicy";
 import type { OfficeActionApp, OfficeActionEngine, OfficeActionInput, OfficeActionKind } from "../officeCore/types";
+import { addOfficeReliabilityExecutors } from "./officeReliabilityExecutors";
 import { validateArgs } from "./validation";
 import { omitVersionMetadata, toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 
@@ -21,6 +23,9 @@ export interface OfficeExecutorDeps {
   wordBridge?: WordDocumentBridge;
   presentationBridge?: PresentationBridge;
   officeActionBridge?: OfficeActionBridge;
+  officeDocumentBridge?: OfficeDocumentManagerBridge;
+  workflowRoot?: string;
+  transactionRoot?: string;
 }
 
 function addToolAlias(target: Map<string, ToolExecutor>, alias: string, canonicalName: string): void {
@@ -30,7 +35,7 @@ function addToolAlias(target: Map<string, ToolExecutor>, alias: string, canonica
 }
 
 export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: OfficeExecutorDeps): void {
-  const { excelBridge, wordBridge, presentationBridge, officeActionBridge } = deps;
+  const { excelBridge, wordBridge, presentationBridge, officeActionBridge, officeDocumentBridge } = deps;
 
   target.set("office.connection.status", {
     name: "office.connection.status",
@@ -247,7 +252,15 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
       name: "office.action.validate",
       execute: async (args: Record<string, unknown>) => executeOfficeAction(args, officeActionBridge, "validate"),
     });
+
   }
+
+  addOfficeReliabilityExecutors(target, {
+    officeActionBridge,
+    officeDocumentBridge,
+    workflowRoot: deps.workflowRoot,
+    transactionRoot: deps.transactionRoot,
+  });
 
   addToolAlias(target, "office.connection_status", "office.connection.status");
   addToolAlias(target, "office_connection_status", "office.connection.status");

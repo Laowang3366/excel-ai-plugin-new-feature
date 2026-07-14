@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import JSZip from "jszip";
+import { strToU8, zipSync } from "fflate";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -23,9 +23,9 @@ afterEach(async () => {
 async function createArchive(files: Record<string, string>) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "wenge-patch-"));
   temporaryDirectories.push(root);
-  const zip = new JSZip();
-  for (const [name, content] of Object.entries(files)) zip.file(name, content);
-  const buffer = await zip.generateAsync({ type: "nodebuffer" });
+  const buffer = Buffer.from(zipSync(Object.fromEntries(
+    Object.entries(files).map(([name, content]) => [name, strToU8(content)]),
+  )));
   const archivePath = path.join(root, "patch.zip");
   await fs.writeFile(archivePath, buffer);
   return {

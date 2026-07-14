@@ -8,7 +8,6 @@ export interface ToolApprovalConfig {
     arguments: Record<string, unknown>;
     riskLevel: "safe" | "moderate" | "dangerous";
     description?: string;
-    sandboxJustification?: string;
   }) => Promise<{ approved: boolean; alwaysAllow?: boolean }>;
 }
 
@@ -44,7 +43,6 @@ export async function requestToolApproval(
     arguments: Record<string, unknown>;
     riskLevel: "safe" | "moderate" | "dangerous";
     description?: string;
-    sandboxJustification?: string;
   },
   config: ToolApprovalConfig
 ): Promise<{ approved: boolean; alwaysAllow?: boolean }> {

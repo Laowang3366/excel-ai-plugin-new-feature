@@ -4,7 +4,7 @@ import path from "path";
 export interface PathAuthorizerOptions {
   getDataPath: () => string;
   getPinnedFolders: () => string[];
-  getExtraRoots: () => string[];
+  getExtraRoots?: () => string[];
 }
 
 export interface PathAuthorizer {
@@ -37,7 +37,7 @@ export function createPathAuthorizer(options: PathAuthorizerOptions): PathAuthor
     options.getDataPath(),
     os.tmpdir(),
     ...options.getPinnedFolders(),
-    ...options.getExtraRoots(),
+    ...(options.getExtraRoots?.() ?? []),
   ]);
 
   return {

@@ -3,7 +3,7 @@
 > 生成日期：2026-06-24
 > 分支：`feature/new-feature`
 > 状态：**Week 1–4 全部完成 ✅**
-> 维护说明：本文是早期 code review 执行记录。当前项目规范以 `docs/development-standards.md` 为准；当前测试基线为 165 个测试文件、862 个测试。
+> 维护说明：本文是早期 code review 执行记录。当前项目规范以 `docs/development-standards.md` 为准；当前测试基线为 174 个测试文件、968 个测试。
 
 ---
 
@@ -53,7 +53,7 @@
 | #18 | agentLoop 深度拆分（1,066→6 子模块） | P0 | ✅ | `agentLoop/` 目录（6 文件） |
 | #19 | ComposerArea Props 精简（28→7） | P1 | ✅ | `ComposerArea.tsx`, `ChatPage.tsx` |
 | #20 | settingsStore 增量持久化 | P1 | ✅ | `settingsStore.ts` |
-| #21 | vitest 单元测试基础设施 | P0 | ✅ | `vitest.config.ts`，早期 2 个测试文件；当前已扩展到 165 个测试文件、862 个测试 |
+| #21 | vitest 单元测试基础设施 | P0 | ✅ | `vitest.config.ts`，早期 2 个测试文件；当前已扩展到 174 个测试文件、968 个测试 |
 | #22 | OCR Mock 标记 | P2 | ✅ | `OCRTaskComposerPanel.tsx` |
 | #23 | IPC 依赖注入抽象层 | P1 | ✅ | `services/ipcApi.ts`（新建）, 5 个核心模块迁移 |
 
@@ -123,7 +123,7 @@ setPermissionMode: (mode) => {
 
 - `vitest.config.ts`：node 环境、v8 覆盖率、globals 启用
 - 早期基线：`compaction.test.ts` 24 tests、`agentLoop.test.ts` 11 tests。
-- 当前基线：165 个测试文件、862 个测试，覆盖 agent loop、工具执行、Office action、StateRuntime、长期记忆、沙箱、知识库与桌面更新等模块。
+- 当前基线：174 个测试文件、968 个测试，覆盖 agent loop、工具执行、Office action、StateRuntime、长期记忆、沙箱、知识库与桌面更新等模块。
 - 运行命令：`npm test` / `npm run test:watch` / `npm run test:coverage`
 
 ### #22 OCR Mock 标记

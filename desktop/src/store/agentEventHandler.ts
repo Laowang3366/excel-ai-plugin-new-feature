@@ -277,7 +277,6 @@ export function handleAgentEvent(
           arguments: (event as any).arguments,
           riskLevel: (event as any).riskLevel,
           description: (event as any).description,
-          sandboxJustification: (event as any).sandboxJustification,
         },
       });
       break;

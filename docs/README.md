@@ -8,6 +8,7 @@
 - [更新与发布](update-and-release.md)
 - [产品站部署](product-site-deployment.md)
 - [系统提示词架构](codex-system-prompt-architecture.md)
+- [Office 高级自动化](office-advanced-automation.md)
 - [代码审查标准](code-review-standards.md)
 
 ## 历史文档

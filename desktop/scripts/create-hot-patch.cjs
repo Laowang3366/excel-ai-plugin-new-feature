@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const JSZip = require("jszip");
+const { zipSync } = require("fflate");
 
 const ALLOWED_ROOTS = ["dist", "public/knowledge", "public/wps-jsa-bridge"];
 
@@ -33,21 +33,21 @@ async function main() {
     if (!ALLOWED_ROOTS.includes(normalized)) throw new Error(`不允许打包热补丁目录: ${include}`);
   }
 
-  const zip = new JSZip();
+  const files = {};
   let fileCount = 0;
   for (const include of includes) {
     const root = path.resolve(include);
     if (!fs.existsSync(root)) continue;
     for (const filePath of walk(root)) {
       const relative = path.relative(process.cwd(), filePath).replace(/\\/gu, "/");
-      zip.file(relative, fs.readFileSync(filePath));
+      files[relative] = fs.readFileSync(filePath);
       fileCount += 1;
     }
   }
   if (fileCount === 0) throw new Error("热补丁没有可打包文件");
   const outputPath = path.resolve(args.output);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 9 } }));
+  fs.writeFileSync(outputPath, Buffer.from(zipSync(files, { level: 9 })));
   fs.writeFileSync(`${outputPath}.json`, `${JSON.stringify({ id: args.id, baseVersion: args["base-version"], fileCount }, null, 2)}\n`);
   console.log(JSON.stringify({ outputPath, fileCount }, null, 2));
 }

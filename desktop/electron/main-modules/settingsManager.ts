@@ -49,10 +49,6 @@ const DEFAULT_SETTINGS = {
     summaryRetryCount: 1,
     midTurnThresholdRatio: 0.9,
   },
-  // 沙箱命令策略 — 用户自定义规则与可写根目录
-  // 见 docs/sandbox-implementation-plan.md
-  sandboxUserRules: [] as unknown[],
-  sandboxExtraWritableRoots: [] as string[],
 };
 
 const MIN_WINDOW_OPACITY = 0.55;

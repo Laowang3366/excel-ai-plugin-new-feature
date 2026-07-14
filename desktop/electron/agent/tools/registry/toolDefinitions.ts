@@ -12,8 +12,6 @@ import { SHEET_TOOL_DEFINITIONS } from "./sheet";
 import { MACRO_TOOL_DEFINITIONS } from "./macro";
 import { UI_TOOL_DEFINITIONS } from "./ui";
 import { FILE_TOOL_DEFINITIONS } from "./file";
-import { SHELL_TOOL_DEFINITIONS } from "./shell";
-import { PYTHON_TOOL_DEFINITIONS } from "./python";
 import { KNOWLEDGE_TOOL_DEFINITIONS } from "./knowledge";
 import { WEB_TOOL_DEFINITIONS } from "./web";
 import { MEMORY_TOOL_DEFINITIONS } from "./memory";
@@ -30,8 +28,6 @@ export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [
   ...UI_TOOL_DEFINITIONS,
   ...FILE_TOOL_DEFINITIONS,
   ...WORKBOOK_TOOL_DEFINITIONS.slice(1, 4),
-  ...SHELL_TOOL_DEFINITIONS,
-  ...PYTHON_TOOL_DEFINITIONS,
   ...WORKBOOK_TOOL_DEFINITIONS.slice(4),
   ...KNOWLEDGE_TOOL_DEFINITIONS,
   ...WEB_TOOL_DEFINITIONS,

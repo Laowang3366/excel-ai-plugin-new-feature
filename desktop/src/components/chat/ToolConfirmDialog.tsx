@@ -11,8 +11,6 @@ import React from "react";
 import type { LucideIcon } from "lucide-react";
 import type { ToolRiskLevel } from "../../../electron/agent/shared/types";
 import { Wrench, ShieldCheck, ShieldAlert, ShieldX, Check, X } from "../common/IconMap";
-import { getAppText } from "../../i18n";
-import { useSettingsStore } from "../../store/settingsStore";
 
 export interface PendingToolCall {
   id: string;
@@ -21,8 +19,6 @@ export interface PendingToolCall {
   riskLevel: ToolRiskLevel;
   /** 工具描述 */
   description?: string;
-  /** 沙箱策略给出的理由（命中 prompt 规则时由 execpolicy 给出） */
-  sandboxJustification?: string;
 }
 
 interface ToolConfirmDialogProps {
@@ -44,9 +40,6 @@ export const ToolConfirmDialog: React.FC<ToolConfirmDialogProps> = ({
 }) => {
   const risk = RISK_CONFIG[pendingCall.riskLevel];
   const RiskIcon = risk.Icon;
-  const { language } = useSettingsStore();
-  const text = getAppText(language);
-
   // 格式化参数显示
   const argEntries = Object.entries(pendingCall.arguments);
   const formatValue = (v: unknown): string => {
@@ -76,16 +69,6 @@ export const ToolConfirmDialog: React.FC<ToolConfirmDialogProps> = ({
           <div className="tool-confirm-name">{pendingCall.toolName}</div>
           {pendingCall.description && (
             <div className="tool-confirm-desc">{pendingCall.description}</div>
-          )}
-
-          {/* 沙箱策略理由（命中 prompt 规则时由 execpolicy 给出） */}
-          {pendingCall.sandboxJustification && (
-            <div className="tool-confirm-sandbox-notice" role="note">
-              <span className="tool-confirm-sandbox-label">
-                <ShieldAlert size={13} /> {text.assistant.sandboxJustification}
-              </span>
-              <span className="tool-confirm-sandbox-text">{pendingCall.sandboxJustification}</span>
-            </div>
           )}
 
           {/* 参数列表 */}

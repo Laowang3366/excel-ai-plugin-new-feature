@@ -81,6 +81,15 @@ import {
   PanelLeft,
   PanelRight,
   Download,
+  Workflow,
+  Files,
+  History,
+  LayoutTemplate,
+  LocateFixed,
+  Undo2,
+  Redo2,
+  Save,
+  OctagonX,
 } from "lucide-react";
 
 // Re-export all icons for direct import
@@ -160,4 +169,13 @@ export {
   PanelLeft,
   PanelRight,
   Download,
+  Workflow,
+  Files,
+  History,
+  LayoutTemplate,
+  LocateFixed,
+  Undo2,
+  Redo2,
+  Save,
+  OctagonX,
 };

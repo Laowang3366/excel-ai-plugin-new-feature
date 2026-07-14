@@ -14,12 +14,11 @@ import type {
   ThreadSpawnEdge,
   ThreadSpawnStatusFilter,
   ExcelRangeExpandMode,
-  SandboxConfig,
-  SandboxPrefixRule,
   WindowDisplayMode,
   OfficeApplication,
   DesktopUpdateState,
   UpdateKind,
+  ElectronAPI,
 } from "../electronApi";
 
 // ============================================================
@@ -71,10 +70,7 @@ export interface IIpcApi {
     inspectWorkbook: () => Promise<unknown>;
     writeRange: (sheetName: string, range: string, values: unknown[][]) => Promise<{ success: boolean; error?: string }>;
   };
-  office: {
-    detectWordStatus: () => Promise<{ connected: boolean; host: string; version?: string; documentName?: string }>;
-    detectPresentationStatus: () => Promise<{ connected: boolean; host: string; version?: string; presentationName?: string }>;
-  };
+  office: ElectronAPI["office"];
   agent: {
     startTurn: (input: {
       content: string;
@@ -148,11 +144,6 @@ export interface IIpcApi {
   };
   tools: {
     list: () => Promise<unknown[]>;
-  };
-  sandbox: {
-    getConfig: () => Promise<SandboxConfig>;
-    setUserRules: (rules: SandboxPrefixRule[]) => Promise<{ success: boolean; error?: string }>;
-    setWritableRoots: (roots: string[]) => Promise<{ success: boolean; error?: string }>;
   };
   tool: {
     confirm: (toolCallId: string, alwaysAllow?: boolean) => Promise<void>;

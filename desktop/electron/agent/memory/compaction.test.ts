@@ -76,7 +76,7 @@ describe("estimateItemsTokens", () => {
 
   it("should estimate tool_call tokens", () => {
     const items: TurnItem[] = [
-      { type: "tool_call", id: "1", toolName: "shell.execute", arguments: { command: "ls" }, status: "completed", timestamp: Date.now() },
+      { type: "tool_call", id: "1", toolName: "range.read", arguments: { range: "A1" }, status: "completed", timestamp: Date.now() },
     ];
     expect(estimateItemsTokens(items)).toBeGreaterThan(20); // 20 base + args
   });
@@ -272,7 +272,7 @@ describe("historyToCompactPrompt", () => {
 
   it("should format tool calls", () => {
     const items: TurnItem[] = [
-      { type: "tool_call", id: "1", toolName: "shell.execute", arguments: { cmd: "ls" }, status: "completed", timestamp: Date.now() },
+      { type: "tool_call", id: "1", toolName: "range.read", arguments: { range: "A1" }, status: "completed", timestamp: Date.now() },
     ];
     const prompt = historyToCompactPrompt(items);
     expect(prompt).toContain("【工具调用】");
@@ -280,7 +280,7 @@ describe("historyToCompactPrompt", () => {
 
   it("should format tool results", () => {
     const items: TurnItem[] = [
-      { type: "tool_result", id: "1", toolCallId: "tc-1", toolName: "shell.execute", result: "output", isError: false, timestamp: Date.now() },
+      { type: "tool_result", id: "1", toolCallId: "tc-1", toolName: "range.read", result: "output", isError: false, timestamp: Date.now() },
     ];
     const prompt = historyToCompactPrompt(items);
     expect(prompt).toContain("【工具结果】");
