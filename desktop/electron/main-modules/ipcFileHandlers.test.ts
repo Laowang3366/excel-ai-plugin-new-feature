@@ -26,6 +26,7 @@ describe("ipcFileHandlers", () => {
       getPinnedFolders: () => [],
       getExtraRoots: () => [],
     });
+    authorizer.authorizeRoot(dir);
 
     const files = await listAuthorizedOfficeFiles(dir, authorizer);
 

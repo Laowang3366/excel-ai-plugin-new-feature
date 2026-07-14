@@ -277,6 +277,7 @@ export function handleAgentEvent(
           arguments: (event as any).arguments,
           riskLevel: (event as any).riskLevel,
           description: (event as any).description,
+          canAlwaysAllow: (event as any).canAlwaysAllow,
         },
       });
       break;

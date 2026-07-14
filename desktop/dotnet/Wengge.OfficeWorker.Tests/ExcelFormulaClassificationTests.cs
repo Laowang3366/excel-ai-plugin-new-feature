@@ -32,7 +32,6 @@ public sealed class ExcelFormulaClassificationTests
     [InlineData("=SUM(A1:A10)")]
     [InlineData("=TODAY()")]
     [InlineData("=IF(A1>0,1,0)")]
-    [InlineData("=MYFILTER(A1:A10)")]
     [InlineData("=\"FILTER(A:A)\"")]
     [InlineData("='FILTER(A)'!A1")]
     public void Classify_KeepsOrdinaryFormulaPlain(string formula) =>
@@ -41,6 +40,22 @@ public sealed class ExcelFormulaClassificationTests
     [Fact]
     public void Classify_UsesLegacyArrayOnlyWhenExplicitlyRequested() =>
         Assert.Equal(ExcelFormulaKind.LegacyArray, ExcelFormulaClassification.Classify("=SUM(A1:A10)", legacyCse: true));
+
+    [Theory]
+    [InlineData("=A1:A3")]
+    [InlineData("=A1:A3*2")]
+    [InlineData("=IF(A1:A3>0,A1:A3,\"\")")]
+    [InlineData("=TRANSPOSE(A1:A3)")]
+    [InlineData("=MYFILTER(A1:A10)")]
+    public void IsDynamicArray_RecognizesExpressionBasedSpill(string formula) =>
+        Assert.True(ExcelFormulaClassification.IsDynamicArray(formula));
+
+    [Theory]
+    [InlineData("=SUM(A1:A10)")]
+    [InlineData("=IF(A1>0,1,0)")]
+    [InlineData("=\"A1:A3\"")]
+    public void IsDynamicArray_DoesNotPromoteScalarOrQuotedRanges(string formula) =>
+        Assert.False(ExcelFormulaClassification.IsDynamicArray(formula));
 
     [Theory]
     [InlineData("=FILTER(A:A,A:A>0)", "_xlfn._xlws.FILTER(A:A,A:A>0)")]

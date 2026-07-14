@@ -15,6 +15,22 @@ internal static class ExcelFormulaClassification
         @"^\s*(?<name>[A-Za-z_][A-Za-z0-9_.]*)\s*\(",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex RangeReferenceRegex = new(
+        @"(?<![A-Za-z0-9_.])(?:\$?[A-Za-z]{1,3}\$?\d+\s*:\s*\$?[A-Za-z]{1,3}\$?\d+|\$?[A-Za-z]{1,3}\s*:\s*\$?[A-Za-z]{1,3}|\$?\d+\s*:\s*\$?\d+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly HashSet<string> LegacySpillFunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TRANSPOSE", "FREQUENCY", "MMULT", "LINEST", "LOGEST", "TREND", "GROWTH",
+    };
+
+    private static readonly HashSet<string> ScalarRangeFunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SUM", "SUMIF", "SUMIFS", "COUNT", "COUNTA", "COUNTBLANK", "COUNTIF", "COUNTIFS",
+        "AVERAGE", "AVERAGEIF", "AVERAGEIFS", "MIN", "MAX", "MEDIAN", "PRODUCT", "SUBTOTAL",
+        "AGGREGATE", "LOOKUP", "VLOOKUP", "HLOOKUP", "MATCH", "INDEX", "AND", "OR",
+    };
+
     private static readonly IReadOnlyDictionary<string, string> FunctionPrefixes =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -36,13 +52,14 @@ internal static class ExcelFormulaClassification
     {
         if (!IsFormula(formula)) throw new ArgumentException("公式必须以 '=' 开头", nameof(formula));
         if (legacyCse) return ExcelFormulaKind.LegacyArray;
-        return ContainsModernFunctionCall(formula)
+        return IsDynamicArray(formula)
             ? ExcelFormulaKind.Dynamic
             : ExcelFormulaKind.Plain;
     }
 
     public static bool IsDynamicArray(string? formula, bool forceLegacyArray = false) =>
-        !forceLegacyArray && IsFormula(formula) && Classify(formula!) == ExcelFormulaKind.Dynamic;
+        !forceLegacyArray && IsFormula(formula) &&
+        (ContainsModernFunctionCall(formula!) || ContainsLegacySpillFunction(formula!) || ContainsArrayExpression(formula!));
 
     public static string? LeadingFunction(string? formula)
     {
@@ -123,6 +140,45 @@ internal static class ExcelFormulaClassification
             if (next < body.Length && body[next] == '(' && FunctionPrefixes.ContainsKey(function)) return true;
         }
         return false;
+    }
+
+    private static bool ContainsLegacySpillFunction(string formula) =>
+        LeadingFunction(formula) is { } function && LegacySpillFunctions.Contains(function);
+
+    private static bool ContainsArrayExpression(string formula)
+    {
+        var searchable = RemoveQuotedContent(formula[1..]);
+        if (!RangeReferenceRegex.IsMatch(searchable)) return false;
+        var leadingFunction = LeadingFunction(formula);
+        return leadingFunction is null || !ScalarRangeFunctions.Contains(leadingFunction);
+    }
+
+    private static string RemoveQuotedContent(string text)
+    {
+        var output = text.ToCharArray();
+        for (var index = 0; index < output.Length;)
+        {
+            if (output[index] is not ('"' or '\''))
+            {
+                index++;
+                continue;
+            }
+            var quote = output[index];
+            output[index++] = ' ';
+            while (index < output.Length)
+            {
+                var current = output[index];
+                output[index++] = ' ';
+                if (current != quote) continue;
+                if (index < output.Length && output[index] == quote)
+                {
+                    output[index++] = ' ';
+                    continue;
+                }
+                break;
+            }
+        }
+        return new string(output);
     }
 
     private static void CopyStringLiteral(string text, System.Text.StringBuilder output, ref int index)

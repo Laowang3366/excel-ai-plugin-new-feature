@@ -181,24 +181,40 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
 
   updateProvider: (id: string, patch: Partial<AiProviderConfig>) => {
     set((s) => buildUpdatedProviderState(s, id, patch));
-    savePartial(["providers"], get);
+    void savePartial(["providers"], get).then((persisted) => {
+      if (persisted.aiProviders) {
+        set({ providers: persisted.aiProviders as Record<string, AiProviderConfig> });
+      }
+    });
   },
 
   addProvider: (config: AiProviderConfig) => {
     set((s) => buildAddedProviderState(s, config));
-    savePartial(["providers", "activeProviderId"], get);
+    void savePartial(["providers", "activeProviderId"], get).then((persisted) => {
+      if (persisted.aiProviders) {
+        set({ providers: persisted.aiProviders as Record<string, AiProviderConfig> });
+      }
+    });
   },
 
   removeProvider: (id: string) => {
     set((s) => buildRemovedProviderState(s, id));
-    savePartial(["providers", "activeProviderId"], get);
+    void savePartial(["providers", "activeProviderId"], get).then((persisted) => {
+      if (persisted.aiProviders) {
+        set({ providers: persisted.aiProviders as Record<string, AiProviderConfig> });
+      }
+    });
   },
 
   setProviderModels: (id: string, models: string[]) => {
     set((s) => ({
       providers: buildProviderModelsState(s.providers, id, models),
     }));
-    savePartial(["providers"], get);
+    void savePartial(["providers"], get).then((persisted) => {
+      if (persisted.aiProviders) {
+        set({ providers: persisted.aiProviders as Record<string, AiProviderConfig> });
+      }
+    });
   },
 
   generateId: () => {

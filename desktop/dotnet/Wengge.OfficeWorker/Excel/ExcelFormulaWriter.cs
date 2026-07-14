@@ -7,7 +7,7 @@ namespace Wengge.OfficeWorker.Excel;
 /// 适配宿主 API；写入器本身只关心分类、意图与回读校验。
 ///
 /// 关键约束：
-/// 1. 不得用 <c>Range.Formula</c> 静默回退把动态数组降级为 @；
+/// 1. 现代宿主统一使用 <c>Range.Formula2</c>，不得用 <c>Range.Formula</c> 静默回退把数组表达式降级为 @；
 /// 2. <c>FormulaArray</c> 只走显式 CSE 意图（<see cref="FormulaWriteIntent.LegacyArray"/>）；
 /// 3. 每个调用只写一个公式单元格，并做写后回读校验。
 /// </summary>
@@ -40,48 +40,34 @@ internal static class ExcelFormulaWriter
         var kind = ExcelFormulaClassification.Classify(formula, legacyCse);
         try
         {
-            switch (kind)
-            {
-                case ExcelFormulaKind.Plain:
-                    cell.SetFormula(formula);
-                    break;
-                case ExcelFormulaKind.Dynamic:
-                    cell.SetFormula2(formula);
-                    break;
-                case ExcelFormulaKind.LegacyArray:
-                    cell.SetFormulaArray(formula);
-                    break;
-            }
+            if (kind == ExcelFormulaKind.LegacyArray) cell.SetFormulaArray(formula);
+            else cell.SetFormula2(formula);
         }
         catch (Exception ex)
         {
-            var code = kind switch
-            {
-                ExcelFormulaKind.Dynamic => "dynamic_array_unsupported",
-                ExcelFormulaKind.LegacyArray => "legacy_array_unsupported",
-                _ => "formula_write_failed",
-            };
+            var code = kind == ExcelFormulaKind.LegacyArray
+                ? "legacy_array_unsupported"
+                : "unsupported_formula_api";
             throw new OfficeWorkerException(code, $"宿主无法通过 {SetterName(kind)} 写入公式", null, ex);
         }
 
         string? readBack;
         try
         {
-            readBack = kind == ExcelFormulaKind.Dynamic ? cell.ReadFormula2() : cell.ReadFormula();
+            readBack = kind == ExcelFormulaKind.LegacyArray ? cell.ReadFormula() : cell.ReadFormula2();
         }
         catch (Exception ex)
         {
             throw new OfficeWorkerException("formula_verification_failed", "公式已写入但无法读回验证", null, ex);
         }
-        if (string.IsNullOrWhiteSpace(readBack) || kind == ExcelFormulaKind.Dynamic && readBack.StartsWith("=@", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(readBack) || readBack.StartsWith("=@", StringComparison.Ordinal))
             throw new OfficeWorkerException("formula_verification_failed", $"{SetterName(kind)} 写后读回不符合预期");
         return new ExcelFormulaWriteResult(kind, readBack);
     }
 
     private static string SetterName(ExcelFormulaKind kind) => kind switch
     {
-        ExcelFormulaKind.Dynamic => "Formula2",
         ExcelFormulaKind.LegacyArray => "FormulaArray",
-        _ => "Formula",
+        _ => "Formula2",
     };
 }

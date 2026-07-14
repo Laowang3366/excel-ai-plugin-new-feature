@@ -17,8 +17,9 @@ const WEB_SEARCH_DEF: ToolDefinition = {
     },
     required: ["query"],
   },
-  riskLevel: "safe",
-  requiresApproval: false,
+  riskLevel: "moderate",
+  requiresApproval: true,
+  isDataEgress: true,
 };
 
 export const WEB_TOOL_DEFINITIONS: ToolDefinition[] = [

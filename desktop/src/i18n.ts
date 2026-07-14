@@ -126,7 +126,7 @@ export const APP_TEXT = {
       permissionLabels: {
         normal: "逐次确认",
         auto_approve_safe: "自动批准",
-        confirm_all: "全部确认",
+        confirm_all: "高权限自动（危险操作确认）",
       } satisfies Record<PermissionMode, string>,
       thinkingMode: "思考模式",
       thinkingOn: "开启",
@@ -331,7 +331,7 @@ export const APP_TEXT = {
       permissionLabels: {
         normal: "Confirm each time",
         auto_approve_safe: "Auto approve",
-        confirm_all: "Confirm all",
+        confirm_all: "High access (confirm dangerous)",
       } satisfies Record<PermissionMode, string>,
       thinkingMode: "Thinking mode",
       thinkingOn: "On",

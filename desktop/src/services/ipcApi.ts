@@ -296,15 +296,15 @@ export const ipcApi: IIpcApi = {
   },
 
   ai: {
-    listModels: async (baseUrl, apiKey, apiFormat) => {
+    listModels: async (baseUrl, apiKey, apiFormat, providerId) => {
       const raw = getRaw();
       if (!raw) return [];
-      return raw.ai.listModels(baseUrl, apiKey, apiFormat);
+      return raw.ai.listModels(baseUrl, apiKey, apiFormat, providerId);
     },
-    testConnection: async (baseUrl, apiKey, apiFormat, model) => {
+    testConnection: async (baseUrl, apiKey, apiFormat, model, providerId) => {
       const raw = getRaw();
       if (!raw) return { success: false, error: "IPC not available" };
-      return raw.ai.testConnection(baseUrl, apiKey, apiFormat, model);
+      return raw.ai.testConnection(baseUrl, apiKey, apiFormat, model, providerId);
     },
   },
 

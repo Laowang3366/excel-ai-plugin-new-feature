@@ -11,7 +11,7 @@ namespace Wengge.OfficeWorker.Runtime;
 
 public sealed class OfficeWorkerHost : IDisposable
 {
-    public const int ProtocolVersion = 1;
+    public const int ProtocolVersion = 2;
     private readonly StaDispatcher sta;
     private readonly OwnedProcessJob ownedProcesses;
     private readonly ExcelSessionService excelSessions;

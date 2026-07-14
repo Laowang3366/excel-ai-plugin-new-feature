@@ -7,14 +7,18 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
+  build-and-sign:
     runs-on: windows-latest
+    environment: windows-signing
     defaults:
       run:
         working-directory: desktop
+    env:
+      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,11 +26,34 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.422"
+      - name: Require code-signing credentials
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK) -or [string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
+            throw "Windows code-signing credentials are required"
+          }
       - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run office:audit
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run office:test
       - run: npm run electron:build
+      - name: Verify Authenticode signatures
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem release -Filter "Wengge-AI-Assistant-Setup-*.exe"
+          if ($installers.Count -eq 0) { throw "Installer was not produced" }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+            if ($signature.Status -ne "Valid") {
+              throw "Invalid Authenticode signature for $($installer.Name): $($signature.Status)"
+            }
+          }
       - name: Verify tag matches package version
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
@@ -46,13 +73,37 @@ jobs:
             desktop/release/Wengge-AI-Assistant-Setup-*.exe
             desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
             desktop/release/latest.yml
+            release-body.md
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build-and-sign
+    runs-on: windows-latest
+    environment: production-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: release-assets
+      - name: Verify downloaded Authenticode signatures
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem release-assets -Recurse -Filter "Wengge-AI-Assistant-Setup-*.exe"
+          if ($installers.Count -eq 0) { throw "Installer artifact is missing" }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $installer.FullName
+            if ($signature.Status -ne "Valid") {
+              throw "Invalid Authenticode signature for $($installer.Name): $($signature.Status)"
+            }
+          }
       - name: Publish GitHub Release assets
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: false
-          body_path: release-body.md
+          body_path: release-assets/release-body.md
           files: |
-            desktop/release/Wengge-AI-Assistant-Setup-*.exe
-            desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
-            desktop/release/latest.yml
+            release-assets/desktop/release/Wengge-AI-Assistant-Setup-*.exe
+            release-assets/desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
+            release-assets/desktop/release/latest.yml

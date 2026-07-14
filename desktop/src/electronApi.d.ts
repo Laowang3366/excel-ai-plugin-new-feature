@@ -73,6 +73,7 @@ export type AgentEvent =
       arguments: Record<string, unknown>;
       riskLevel: "safe" | "moderate" | "dangerous";
       description?: string;
+      canAlwaysAllow?: boolean;
     } & AgentEventThreadContext)
   | ({ type: "error"; message: string } & AgentEventThreadContext)
   | ({ type: "warning"; message: string } & AgentEventThreadContext);
@@ -444,7 +445,7 @@ export interface ElectronAPI {
   };
   settings: {
     get: (key: string) => Promise<unknown>;
-    set: (key: string, value: unknown) => Promise<void>;
+    set: (key: string, value: unknown) => Promise<unknown>;
     getAll: () => Promise<Record<string, unknown>>;
   };
   excel: {
@@ -638,13 +639,14 @@ export interface ElectronAPI {
   };
   ai: {
     /** 获取可用模型列表 */
-    listModels: (baseUrl: string, apiKey: string, apiFormat: string) => Promise<string[]>;
+    listModels: (baseUrl: string, apiKey: string, apiFormat: string, providerId?: string) => Promise<string[]>;
     /** 测试 API 连接 */
     testConnection: (
       baseUrl: string,
       apiKey: string,
       apiFormat: string,
       model: string,
+      providerId?: string,
     ) => Promise<{ success: boolean; error?: string; latency?: number }>;
   };
   stats: {

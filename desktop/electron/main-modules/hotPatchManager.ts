@@ -8,8 +8,12 @@ import { unzipSync } from "fflate";
 import type { HotPatchUpdate } from "./updateManifest";
 
 const PATCH_STATE_FILE = "hot-patch-state.json";
+const PATCH_SECURITY_STATE_FILE = "hot-patch-security-state.json";
 const MAX_PATCH_ENTRIES = 2_000;
-const MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024;
+const MAX_ARCHIVE_BYTES = 50 * 1024 * 1024;
+const MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
+const MAX_ENTRY_BYTES = 25 * 1024 * 1024;
+const MAX_COMPRESSION_RATIO = 100;
 const ALLOWED_PATCH_ROOTS = [
   "dist/",
   "public/knowledge/",
@@ -19,8 +23,16 @@ const ALLOWED_PATCH_ROOTS = [
 interface HotPatchState {
   id: string;
   baseVersion: string;
+  sequence: number;
+  publishedAt: string;
+  expiresAt: string;
   installedAt: string;
   rootPath: string;
+  files: Array<{ path: string; sha256: string; size: number }>;
+}
+
+interface HotPatchSecurityState {
+  highestSequenceByBaseVersion: Record<string, number>;
 }
 
 function updatesRoot(userDataPath: string): string {
@@ -33,6 +45,10 @@ function statePath(userDataPath: string): string {
 
 function patchRoot(userDataPath: string): string {
   return path.join(updatesRoot(userDataPath), "hot-patches");
+}
+
+function securityStatePath(userDataPath: string): string {
+  return path.join(updatesRoot(userDataPath), PATCH_SECURITY_STATE_FILE);
 }
 
 function isPathInside(parent: string, candidate: string): boolean {
@@ -83,6 +99,42 @@ async function writeStateAtomically(userDataPath: string, state: HotPatchState):
   await fsp.rename(temporary, target);
 }
 
+function readSecurityState(userDataPath: string): HotPatchSecurityState {
+  try {
+    return JSON.parse(fs.readFileSync(securityStatePath(userDataPath), "utf8")) as HotPatchSecurityState;
+  } catch {
+    return { highestSequenceByBaseVersion: {} };
+  }
+}
+
+async function recordPatchSequence(userDataPath: string, baseVersion: string, sequence: number): Promise<void> {
+  const state = readSecurityState(userDataPath);
+  state.highestSequenceByBaseVersion[baseVersion] = Math.max(
+    state.highestSequenceByBaseVersion[baseVersion] ?? 0,
+    sequence,
+  );
+  const target = securityStatePath(userDataPath);
+  await fsp.mkdir(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${randomUUID()}.tmp`;
+  await fsp.writeFile(temporary, JSON.stringify(state, null, 2), "utf8");
+  await fsp.rename(temporary, target);
+}
+
+function sha256FileSync(filePath: string): string {
+  const hash = createHash("sha256");
+  const descriptor = fs.openSync(filePath, "r");
+  const buffer = Buffer.allocUnsafe(64 * 1024);
+  try {
+    let bytesRead = 0;
+    while ((bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0) {
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  return hash.digest("hex");
+}
+
 export async function installHotPatchArchive(input: {
   archivePath: string;
   descriptor: HotPatchUpdate;
@@ -92,6 +144,22 @@ export async function installHotPatchArchive(input: {
   const { archivePath, descriptor, currentVersion, userDataPath } = input;
   if (descriptor.baseVersion !== currentVersion) {
     throw new Error(`热补丁要求基础版本 ${descriptor.baseVersion}，当前版本为 ${currentVersion}`);
+  }
+  const now = Date.now();
+  if (Date.parse(descriptor.publishedAt) > now + 5 * 60 * 1000) throw new Error("热补丁发布时间无效");
+  if (Date.parse(descriptor.expiresAt) <= now) throw new Error("热补丁已过期");
+  const highestSequence = readSecurityState(userDataPath).highestSequenceByBaseVersion[currentVersion] ?? 0;
+  if (descriptor.sequence <= highestSequence) throw new Error("热补丁序列已安装或低于安全基线");
+  const archiveStat = await fsp.stat(archivePath);
+  if (archiveStat.size !== descriptor.size || archiveStat.size > MAX_ARCHIVE_BYTES) {
+    throw new Error("热补丁归档大小无效");
+  }
+  const declaredTotal = descriptor.files.reduce((total, file) => total + file.size, 0);
+  if (declaredTotal > MAX_UNCOMPRESSED_BYTES || descriptor.files.some((file) => file.size > MAX_ENTRY_BYTES)) {
+    throw new Error("热补丁声明的解压体积超过限制");
+  }
+  if (declaredTotal / Math.max(1, archiveStat.size) > MAX_COMPRESSION_RATIO) {
+    throw new Error("热补丁压缩比超过限制");
   }
   const actualHash = await sha256File(archivePath);
   if (actualHash.toLowerCase() !== descriptor.sha256.toLowerCase()) {
@@ -108,6 +176,10 @@ export async function installHotPatchArchive(input: {
     }
   }
   validatePatchEntrySet(entries.map(([entryName]) => entryName));
+  const expectedFiles = new Map(descriptor.files.map((file) => [file.path.replace(/\\/gu, "/"), file]));
+  if (expectedFiles.size !== descriptor.files.length || entries.length !== expectedFiles.size) {
+    throw new Error("热补丁文件清单与归档不一致");
+  }
 
   const root = patchRoot(userDataPath);
   const staging = path.join(root, `.staging-${randomUUID()}`);
@@ -118,6 +190,11 @@ export async function installHotPatchArchive(input: {
   try {
     for (const [entryName, data] of entries) {
       const normalized = entryName.replace(/\\/gu, "/");
+      const expected = expectedFiles.get(normalized);
+      if (!expected || expected.size !== data.byteLength ||
+        createHash("sha256").update(data).digest("hex") !== expected.sha256.toLowerCase()) {
+        throw new Error(`热补丁文件校验失败: ${entryName}`);
+      }
       const destination = path.resolve(staging, normalized);
       if (!isPathInside(staging, destination)) throw new Error(`热补丁路径越界: ${entryName}`);
       totalBytes += data.byteLength;
@@ -136,9 +213,14 @@ export async function installHotPatchArchive(input: {
   const state: HotPatchState = {
     id: descriptor.id,
     baseVersion: descriptor.baseVersion,
+    sequence: descriptor.sequence,
+    publishedAt: descriptor.publishedAt,
+    expiresAt: descriptor.expiresAt,
     installedAt: new Date().toISOString(),
     rootPath: target,
+    files: descriptor.files,
   };
+  await recordPatchSequence(userDataPath, descriptor.baseVersion, descriptor.sequence);
   await writeStateAtomically(userDataPath, state);
   return state;
 }
@@ -150,8 +232,15 @@ export function activateInstalledHotPatch(currentVersion: string, userDataPath: 
     const expectedRoot = patchRoot(userDataPath);
     if (
       state.baseVersion !== currentVersion ||
+      Date.parse(state.expiresAt) <= Date.now() ||
       !isPathInside(expectedRoot, path.resolve(state.rootPath)) ||
-      !fs.existsSync(state.rootPath)
+      !fs.existsSync(state.rootPath) ||
+      !Array.isArray(state.files) ||
+      state.files.some((file) => {
+        const candidate = path.resolve(state.rootPath, file.path);
+        return !isPathInside(state.rootPath, candidate) || !fs.existsSync(candidate) ||
+          fs.statSync(candidate).size !== file.size || sha256FileSync(candidate) !== file.sha256.toLowerCase();
+      })
     ) {
       return null;
     }

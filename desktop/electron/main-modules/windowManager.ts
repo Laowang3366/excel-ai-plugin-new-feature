@@ -10,8 +10,10 @@
 import { BrowserWindow, Tray, Menu, app, screen } from "electron";
 import * as path from "path";
 import * as fs from "fs";
+import { pathToFileURL } from "url";
 import { getSettingsStore, applyWindowOpacity, applyWindowTheme } from "./settingsManager";
 import { disableActiveHotPatch, resolveHotPatchPath } from "./hotPatchManager";
+import { isAllowedWindowNavigation } from "./windowNavigationPolicy";
 
 let tray: Tray | null = null;
 let isQuitting = false;
@@ -73,7 +75,7 @@ export function createWindow(
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
     backgroundColor: initialTheme === "dark" ? "#0f172a" : "#ffffff",
     titleBarStyle: "hidden",
@@ -87,11 +89,22 @@ export function createWindow(
     resizable: true,
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    void mw.loadURL(process.env.VITE_DEV_SERVER_URL);
+  const developmentUrl = process.env.VITE_DEV_SERVER_URL;
+  const bundledIndex = path.join(__dirname, "../dist/index.html");
+  const patchedIndex = resolveHotPatchPath("dist/index.html");
+  const appUrl = developmentUrl ?? pathToFileURL(patchedIndex ?? bundledIndex).toString();
+
+  mw.webContents.on("will-navigate", (event, targetUrl) => {
+    if (!isAllowedWindowNavigation(targetUrl, appUrl)) event.preventDefault();
+  });
+  mw.webContents.on("will-redirect", (event, targetUrl) => {
+    if (!isAllowedWindowNavigation(targetUrl, appUrl)) event.preventDefault();
+  });
+  mw.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
+  if (developmentUrl) {
+    void mw.loadURL(developmentUrl);
   } else {
-    const bundledIndex = path.join(__dirname, "../dist/index.html");
-    const patchedIndex = resolveHotPatchPath("dist/index.html");
     void mw.loadFile(patchedIndex ?? bundledIndex).catch(async () => {
       if (!patchedIndex) return;
       await disableActiveHotPatch(app.getPath("userData"));

@@ -13,8 +13,12 @@ import { createReleaseStore } from "./releaseStore.mjs";
 
 export async function buildServer(overrides = {}) {
   const config = loadConfig(overrides);
-  const app = Fastify({ logger: overrides.logger ?? true, trustProxy: true, bodyLimit: 64 * 1024 });
-  const analytics = createAnalyticsDatabase(config.databasePath, config.analyticsSalt);
+  const app = Fastify({
+    logger: overrides.logger ?? true,
+    trustProxy: overrides.trustProxy ?? "127.0.0.1",
+    bodyLimit: 64 * 1024,
+  });
+  const analytics = overrides.analytics ?? createAnalyticsDatabase(config.databasePath, config.analyticsSalt);
   const releases = createReleaseStore(config.releasesDir);
 
   await app.register(cookie, { secret: config.cookieSecret });
@@ -64,13 +68,19 @@ export async function buildServer(overrides = {}) {
   app.get("/download/windows", async (request, reply) => {
     try {
       const installer = await releases.getInstaller();
-      analytics.recordDownload({
-        version: installer.release.version,
-        artifact: installer.fileName,
-        ip: request.ip,
-        userAgent: request.headers["user-agent"],
-        referer: request.headers.referer,
-      });
+      if (request.method === "GET") {
+        try {
+          analytics.recordDownload({
+            version: installer.release.version,
+            artifact: installer.fileName,
+            ip: request.ip,
+            userAgent: request.headers["user-agent"],
+            referer: request.headers.referer,
+          });
+        } catch (error) {
+          request.log.warn({ error }, "download analytics write failed");
+        }
+      }
       reply.header("Content-Type", "application/vnd.microsoft.portable-executable");
       reply.header("Content-Disposition", `attachment; filename="${installer.fileName}"`);
       reply.header("Content-Length", installer.size);
@@ -85,7 +95,7 @@ export async function buildServer(overrides = {}) {
     }
   });
 
-  app.post("/api/admin/login", { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } }, async (request, reply) => {
+  app.post("/api/admin/login", { config: { rateLimit: { max: 8, timeWindow: "15 minutes", keyGenerator: (request) => `admin:${request.ip}` } } }, async (request, reply) => {
     const password = typeof request.body?.password === "string" ? request.body.password : "";
     if (!(await verifyPassword(password, config.adminPasswordHash))) {
       return reply.code(401).send({ error: "账号或密码错误" });

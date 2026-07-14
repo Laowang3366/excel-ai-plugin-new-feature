@@ -8,7 +8,8 @@
  * - knowledge/knowledgeRegistry: RAG 知识库查询与索引入口。
  */
 
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow } from "electron";
+import { trustedIpcMain as ipcMain } from "../../shared/trustedIpc";
 import type { AgentLoop } from "../core/agentLoop";
 import type { AgentLoopManager } from "../runtime/agentRuntime";
 import {
@@ -42,6 +43,8 @@ import {
   validateInput,
 } from "../../shared/ipcSchemas";
 import { createEventForwarder, registerToolApprovalHandlers } from "./eventForwarder";
+import { assertAuthorizedPath, type PathAuthorizer } from "../../main-modules/ipcPathSecurity";
+import type { IndexResult } from "../knowledge/types";
 
 export interface AgentIpcHandlerDeps {
   mainWindowRef: () => BrowserWindow | null;
@@ -51,6 +54,7 @@ export interface AgentIpcHandlerDeps {
   getAgentGraphStoreInstance: () => AgentGraphStore;
   ensureKnowledgeRuntime?: () => Promise<KnowledgeRuntimeState>;
   isDataMigrationInProgress?: () => boolean;
+  pathAuthorizer: PathAuthorizer;
 }
 
 const PARALLEL_TURN_ERROR = "当前已有会话正在执行，请等待完成或停止后再开始其他会话";
@@ -199,6 +203,28 @@ async function ensureKnowledgeRuntimeForIpc(deps: AgentIpcHandlerDeps): Promise<
 
 function formatKnowledgeUnavailableError(error?: string | null): string {
   return error ? `知识库未初始化：${error}` : "知识库未初始化";
+}
+
+export async function reindexAuthorizedKnowledgeSources(
+  indexer: Pick<ReturnType<typeof getKnowledgeIndexer> & object, "listSources" | "indexFile">,
+  pathAuthorizer: PathAuthorizer,
+): Promise<IndexResult[]> {
+  const results: IndexResult[] = [];
+  for (const source of indexer.listSources()) {
+    try {
+      const sourcePath = assertAuthorizedPath(pathAuthorizer, source.sourcePath);
+      results.push(await indexer.indexFile(sourcePath, { skipUnchanged: false }));
+    } catch (error) {
+      results.push({
+        sourcePath: source.sourcePath,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        entryCount: 0,
+        durationMs: 0,
+      });
+    }
+  }
+  return results;
 }
 
 export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
@@ -399,7 +425,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
       return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
-      const result = await indexer.indexFile(validated.filePath);
+      const sourcePath = assertAuthorizedPath(deps.pathAuthorizer, validated.filePath);
+      const result = await indexer.indexFile(sourcePath);
       return result;
     } catch (err: any) {
       return {
@@ -423,7 +450,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
       return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
-      const results = await indexer.indexFolder(validated.folderPath);
+      const folderPath = assertAuthorizedPath(deps.pathAuthorizer, validated.folderPath);
+      const results = await indexer.indexFolder(folderPath);
       return results;
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -441,7 +469,8 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
       return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
-      await indexer.deleteSource(validated.sourcePath);
+      const sourcePath = assertAuthorizedPath(deps.pathAuthorizer, validated.sourcePath);
+      await indexer.deleteSource(sourcePath);
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -458,7 +487,7 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
       return { success: false, error: formatKnowledgeUnavailableError(initError) };
     }
     try {
-      const results = await indexer.reindexAll();
+      const results = await reindexAuthorizedKnowledgeSources(indexer, deps.pathAuthorizer);
       return { success: true, results };
     } catch (err: any) {
       return { success: false, error: err.message };

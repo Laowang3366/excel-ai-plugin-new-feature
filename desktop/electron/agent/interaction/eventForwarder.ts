@@ -7,7 +7,8 @@
  * - interaction/ipcAgentHandlers: 注册工具审批确认/取消 IPC。
  */
 
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow } from "electron";
+import { trustedIpcMain as ipcMain } from "../../shared/trustedIpc";
 import {
   ToolCancelInput,
   ToolConfirmInput,
@@ -106,6 +107,7 @@ export function requestToolApproval(
     arguments: Record<string, unknown>;
     riskLevel: "safe" | "moderate" | "dangerous";
     description?: string;
+    canAlwaysAllow?: boolean;
   }
 ): Promise<{ approved: boolean; alwaysAllow?: boolean }> {
   return new Promise((resolve, reject) => {

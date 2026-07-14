@@ -1,7 +1,11 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { MarkdownContent, normalizeVisibleMarkdown } from "./MarkdownContent";
+import {
+  MarkdownContent,
+  normalizeExternalHttpUrl,
+  normalizeVisibleMarkdown,
+} from "./MarkdownContent";
 
 describe("MarkdownContent", () => {
   test("renders markdown tables and strong text instead of raw markers", () => {
@@ -49,5 +53,19 @@ describe("MarkdownContent", () => {
     expect(normalized).toContain("总逻辑");
     expect(normalized).not.toContain("### 总逻辑");
     expect(normalized).toContain("# keep this comment");
+  });
+
+  test("renders external links for system-browser handling only", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(MarkdownContent, {
+        content: "[安全链接](https://example.com/path)",
+      })
+    );
+
+    expect(html).toContain('href="https://example.com/path"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noreferrer noopener"');
+    expect(normalizeExternalHttpUrl("javascript:alert(1)")).toBeNull();
+    expect(normalizeExternalHttpUrl("file:///C:/secret.txt")).toBeNull();
   });
 });

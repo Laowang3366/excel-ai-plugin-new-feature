@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "DocumentFormat.OpenXml": {
+        "type": "Direct",
+        "requested": "[3.3.0, )",
+        "resolved": "3.3.0",
+        "contentHash": "JogRPJNiE6kKvbuCqVRX691pPWeGMqdQgjrUwRYkdpfkMmtElfqAgcRR73geYj7OtBeEpstldZXXzJw27LUI9w==",
+        "dependencies": {
+          "DocumentFormat.OpenXml.Framework": "3.3.0"
+        }
+      },
+      "Microsoft.Office.Interop.PowerPoint": {
+        "type": "Direct",
+        "requested": "[15.0.4420.1018, )",
+        "resolved": "15.0.4420.1018",
+        "contentHash": "3XkJAqbYq93MqqSOPusNE+6Tve5yBkbE92n9W8f+k8Z9AzXeoTMqMYqhZMrzVOp4saHhMMbOD78JkCjvk+qIzw=="
+      },
+      "MicrosoftOfficeCore15": {
+        "type": "Direct",
+        "requested": "[15.0.4420.1017, )",
+        "resolved": "15.0.4420.1017",
+        "contentHash": "DGJWnY3B5741NijKse+GzLrwZaTqSOEm0KLTLed4BSBhxAkKdqI+JRSUnlwVFqOEdbenk3+n2iTL9WXAUqQ9mw=="
+      },
+      "DocumentFormat.OpenXml.Framework": {
+        "type": "Transitive",
+        "resolved": "3.3.0",
+        "contentHash": "R5CLzEoeyr7XDB7g3NTxRobcU19agaxVAhGZm+fZUShJGiU4bw8oUgnA2BNFepigJckfFMayOBMAbV3kDXNInA==",
+        "dependencies": {
+          "System.IO.Packaging": "8.0.1"
+        }
+      },
+      "System.IO.Packaging": {
+        "type": "Transitive",
+        "resolved": "8.0.1",
+        "contentHash": "KYkIOAvPexQOLDxPO2g0BVoWInnQhPpkFzRqvNrNrMhVT6kqhVr0zEb6KCHlptLFukxnZrjuMVAnxK7pOGUYrw=="
+      }
+    },
+    "net8.0-windows7.0/win-x64": {}
+  }
+}

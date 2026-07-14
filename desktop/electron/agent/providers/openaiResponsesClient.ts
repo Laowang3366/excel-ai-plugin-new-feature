@@ -8,6 +8,7 @@ import type {
 } from "./aiClientTypes";
 import type { TokenUsage } from "../shared/types";
 import { formatProviderHttpError } from "./providerErrors";
+import { secureFetch } from "../../shared/outboundUrlPolicy";
 import {
   appendResponseTextPart,
   createResponseParserState,
@@ -146,7 +147,7 @@ export class OpenAIResponsesClient extends OpenAICompatibleClient {
     const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000);
     const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
-    return fetch(`${this.config.baseUrl.replace(/\/+$/, "")}/responses`, {
+    return secureFetch(`${this.config.baseUrl.replace(/\/+$/, "")}/responses`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

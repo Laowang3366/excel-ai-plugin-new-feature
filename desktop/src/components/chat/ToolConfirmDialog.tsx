@@ -19,6 +19,7 @@ export interface PendingToolCall {
   riskLevel: ToolRiskLevel;
   /** 工具描述 */
   description?: string;
+  canAlwaysAllow?: boolean;
 }
 
 interface ToolConfirmDialogProps {
@@ -90,7 +91,7 @@ export const ToolConfirmDialog: React.FC<ToolConfirmDialogProps> = ({
           <button className="tool-confirm-cancel" onClick={onCancel}>
             <X size={13} /> 取消
           </button>
-          {pendingCall.riskLevel !== "dangerous" && (
+          {pendingCall.canAlwaysAllow === true && (
             <button
               className="tool-confirm-always"
               onClick={() => onConfirm(true)}

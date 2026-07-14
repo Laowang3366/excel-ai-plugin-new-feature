@@ -27,8 +27,6 @@ import { ThreadWatchManager } from "./threadWatchManager";
 import {
   shouldRequireApproval,
   clearAlwaysAllowedTools,
-  markToolAlwaysAllowed,
-  getAlwaysAllowedTools,
   executeTool,
   processToolCalls,
 } from "./toolExecutor";
@@ -1206,22 +1204,13 @@ describe("shouldRequireApproval", () => {
     clearAlwaysAllowedTools();
   });
 
-  // ---- normal 模式：所有工具都需要审批（但 alwaysAllowedTools 可跳过） ----
-  it("normal: all tools require approval unless alwaysAllowedTools", () => {
-    expect(shouldRequireApproval("office.action.execute", "normal")).toBe(true);
+  it("normal: all tools require approval without a matching scoped grant", () => {
+    expect(shouldRequireApproval("office.action.apply", "normal")).toBe(true);
     expect(shouldRequireApproval("range.read", "normal")).toBe(true);
     expect(shouldRequireApproval("range.write", "normal")).toBe(true);
     expect(shouldRequireApproval("range.clear", "normal")).toBe(true);
     expect(shouldRequireApproval("workbook.inspect", "normal")).toBe(true);
     expect(shouldRequireApproval("unknown_tool", "normal")).toBe(true);
-  });
-
-  it("normal: alwaysAllowedTools overrides approval", () => {
-    markToolAlwaysAllowed("office.action.execute");
-    expect(shouldRequireApproval("office.action.execute", "normal")).toBe(false);
-    clearAlwaysAllowedTools();
-    markToolAlwaysAllowed("range.write");
-    expect(shouldRequireApproval("range.write", "normal")).toBe(false);
   });
 
   // ---- auto_approve_safe：safe 级别自动批准 ----
@@ -1234,7 +1223,7 @@ describe("shouldRequireApproval", () => {
   it("auto_approve_safe: moderate and dangerous tools require approval", () => {
     expect(shouldRequireApproval("range.write", "auto_approve_safe")).toBe(true);
     expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(true);
-    expect(shouldRequireApproval("office.action.execute", "auto_approve_safe")).toBe(true);
+    expect(shouldRequireApproval("office.action.apply", "auto_approve_safe")).toBe(true);
     expect(shouldRequireApproval("macro.write", "auto_approve_safe")).toBe(true);
   });
 
@@ -1242,54 +1231,22 @@ describe("shouldRequireApproval", () => {
     expect(shouldRequireApproval("unknown_tool", "auto_approve_safe")).toBe(true);
   });
 
-  // ---- confirm_all：全部确认，所有工具自动批准 ----
-  it("confirm_all: all tools including file deletions are auto-approved", () => {
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("sheet.operation", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("ui.removeControl", "confirm_all")).toBe(false);
-  });
-
-  it("confirm_all: non-deletion tools are auto-approved", () => {
+  it("confirm_all: known non-dangerous tools can be auto-approved", () => {
     expect(shouldRequireApproval("range.read", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("range.write", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("office.action.execute", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(false);
-    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("office.action.apply", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("workbook.save", "confirm_all")).toBe(false);
   });
 
-  it("confirm_all: unknown tools default to auto-approved", () => {
-    expect(shouldRequireApproval("unknown_tool", "confirm_all")).toBe(false);
-  });
-
-  // ---- alwaysAllowedTools 行为 ----
-  it("alwaysAllowedTools: overrides auto_approve_safe and confirm_all", () => {
-    markToolAlwaysAllowed("range.clear");
-    expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(false);
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
-  });
-});
-
-// ============================================================
-// markToolAlwaysAllowed / getAlwaysAllowedTools
-// ============================================================
-
-describe("alwaysAllowedTools", () => {
-  beforeEach(() => {
-    clearAlwaysAllowedTools();
-  });
-
-  it("should track always-allowed tools", () => {
-    markToolAlwaysAllowed("tool_a");
-    markToolAlwaysAllowed("tool_b");
-    const tools = getAlwaysAllowedTools();
-    expect(tools.has("tool_a")).toBe(true);
-    expect(tools.has("tool_b")).toBe(true);
-  });
-
-  it("should clear all", () => {
-    markToolAlwaysAllowed("tool_a");
-    clearAlwaysAllowedTools();
-    expect(getAlwaysAllowedTools().size).toBe(0);
+  it("confirm_all: dangerous, destructive, egress and unknown tools still require approval", () => {
+    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("sheet.operation", "confirm_all", {
+      threadId: "thread-1",
+      arguments: { operation: "delete", sheetName: "Sheet1" },
+    })).toBe(true);
+    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("web.search", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("unknown_tool", "confirm_all")).toBe(true);
   });
 });

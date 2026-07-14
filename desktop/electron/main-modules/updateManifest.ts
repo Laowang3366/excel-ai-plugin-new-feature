@@ -14,11 +14,19 @@ export const InstallerUpdateSchema = z.object({
 export const HotPatchUpdateSchema = z.object({
   id: z.string().min(1).max(128).regex(/^[0-9A-Za-z._-]+$/u),
   baseVersion: z.string().regex(VERSION_PATTERN),
+  sequence: z.number().int().positive(),
+  publishedAt: z.string().datetime({ offset: true }),
+  expiresAt: z.string().datetime({ offset: true }),
   url: z.string().url(),
   sha256: z.string().regex(SHA256_PATTERN),
   size: z.number().int().positive(),
+  files: z.array(z.object({
+    path: z.string().min(1).max(300),
+    sha256: z.string().regex(SHA256_PATTERN),
+    size: z.number().int().nonnegative(),
+  }).strict()).min(1).max(2_000),
   restartRequired: z.literal(true),
-});
+}).strict();
 
 export const RemoteUpdateManifestSchema = z.object({
   schemaVersion: z.literal(1),

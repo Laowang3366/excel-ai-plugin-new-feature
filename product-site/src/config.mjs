@@ -8,10 +8,18 @@ function requiredInProduction(name, fallback) {
   return value;
 }
 
+function validateProductionSecret(name, value, minimumLength) {
+  if (process.env.NODE_ENV !== "production") return value;
+  if (typeof value !== "string" || value.length < minimumLength || new Set(value).size < 8) {
+    throw new Error(`生产环境 ${name} 强度不足`);
+  }
+  return value;
+}
+
 export function loadConfig(overrides = {}) {
   const root = path.resolve(import.meta.dirname, "..");
   const dataDir = path.resolve(overrides.dataDir || process.env.DATA_DIR || path.join(root, ".local", "data"));
-  return {
+  const config = {
     host: overrides.host || process.env.HOST || "127.0.0.1",
     port: Number(overrides.port || process.env.PORT || 18120),
     publicDir: path.resolve(overrides.publicDir || process.env.PUBLIC_DIR || path.join(root, "public")),
@@ -23,4 +31,10 @@ export function loadConfig(overrides = {}) {
     analyticsSalt: overrides.analyticsSalt || requiredInProduction("ANALYTICS_SALT", "development-analytics-salt"),
     useAccelRedirect: overrides.useAccelRedirect ?? process.env.USE_ACCEL_REDIRECT === "true",
   };
+  validateProductionSecret("COOKIE_SECRET", config.cookieSecret, 32);
+  validateProductionSecret("ANALYTICS_SALT", config.analyticsSalt, 16);
+  if (process.env.NODE_ENV === "production" && !/^scrypt\$[^$]+\$[^$]+$/.test(config.adminPasswordHash)) {
+    throw new Error("生产环境 ADMIN_PASSWORD_HASH 格式无效");
+  }
+  return config;
 }

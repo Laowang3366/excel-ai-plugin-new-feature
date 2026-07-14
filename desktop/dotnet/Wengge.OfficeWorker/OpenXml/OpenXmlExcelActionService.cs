@@ -184,7 +184,6 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
             {
                 var reference = $"{ColumnName(start.Column + columnOffset)}{rowIndex}";
                 var existing = row.Elements<S.Cell>().FirstOrDefault(cell => string.Equals(cell.CellReference?.Value, reference, StringComparison.OrdinalIgnoreCase));
-                existing?.Remove();
                 var value = values[rowOffset][columnOffset];
                 if (hasDynamicFormula && value.ValueKind == JsonValueKind.String && value.GetString() == string.Empty)
                     continue;
@@ -195,7 +194,8 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
                     metadataIndex = registry.RegisterDynamicArray(workbookPart);
                     dynamicAnchors++;
                 }
-                var cell = BuildCell(reference, value, metadataIndex);
+                var cell = BuildCell(reference, value, metadataIndex, existing);
+                existing?.Remove();
                 var nextCell = row.Elements<S.Cell>().FirstOrDefault(candidate => ColumnIndex(candidate.CellReference?.Value) > start.Column + columnOffset);
                 if (nextCell is null) row.Append(cell); else row.InsertBefore(cell, nextCell);
             }
@@ -204,9 +204,15 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
         return dynamicAnchors;
     }
 
-    private static S.Cell BuildCell(string reference, JsonElement value, int? dynamicArrayCmIndex)
+    private static S.Cell BuildCell(string reference, JsonElement value, int? dynamicArrayCmIndex, S.Cell? existing = null)
     {
-        var cell = new S.Cell { CellReference = reference };
+        var cell = existing is null ? new S.Cell() : (S.Cell)existing.CloneNode(true);
+        cell.CellReference = reference;
+        cell.CellFormula?.Remove();
+        cell.CellValue?.Remove();
+        cell.InlineString?.Remove();
+        cell.DataType = null;
+        cell.CellMetaIndex = null;
         switch (value.ValueKind)
         {
             case JsonValueKind.Number:

@@ -54,6 +54,7 @@ const OCR_PARSE_DOCUMENT_DEF: ToolDefinition = {
   },
   riskLevel: "moderate",
   requiresApproval: true,
+  isDataEgress: true,
 };
 
 export const OCR_TOOL_DEFINITIONS: ToolDefinition[] = [

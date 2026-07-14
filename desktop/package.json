@@ -10,6 +10,7 @@
     "electron:build": "npm run office:publish && node scripts/clean-build-output.cjs && vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
     "office:build": "node scripts/run-dotnet.cjs build dotnet/Wengge.OfficeAutomation.sln --configuration Release",
     "office:test": "node scripts/run-dotnet.cjs test dotnet/Wengge.OfficeAutomation.sln --configuration Release",
+    "office:audit": "node scripts/check-nuget-vulnerabilities.cjs",
     "office:publish": "node scripts/run-dotnet.cjs publish dotnet/Wengge.OfficeWorker/Wengge.OfficeWorker.csproj --configuration Release --runtime win-x64 --self-contained true --output dotnet/publish/win-x64",
     "patch:build": "node scripts/create-hot-patch.cjs",
     "release:verify": "vite-node scripts/verify-release-manifest.ts",

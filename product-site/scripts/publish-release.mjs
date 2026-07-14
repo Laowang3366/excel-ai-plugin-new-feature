@@ -69,13 +69,19 @@ const unsignedManifest = {
 };
 
 if (args["hot-patch"]) {
-  const patch = await copyArtifact(path.resolve(args["hot-patch"]), outputDir);
+  const sourcePatchPath = path.resolve(args["hot-patch"]);
+  const patch = await copyArtifact(sourcePatchPath, outputDir);
+  const patchMetadata = JSON.parse(await fs.readFile(`${sourcePatchPath}.json`, "utf8"));
   unsignedManifest.hotPatch = {
-    id: requireArg(args, "patch-id"),
-    baseVersion: requireArg(args, "patch-base-version"),
+    id: patchMetadata.id,
+    baseVersion: patchMetadata.baseVersion,
+    sequence: patchMetadata.sequence,
+    publishedAt: patchMetadata.publishedAt,
+    expiresAt: patchMetadata.expiresAt,
     url: `${baseUrl}/releases/windows/${encodeURIComponent(patch.fileName)}`,
     sha256: patch.sha256,
     size: patch.size,
+    files: patchMetadata.files,
     restartRequired: true,
   };
 }

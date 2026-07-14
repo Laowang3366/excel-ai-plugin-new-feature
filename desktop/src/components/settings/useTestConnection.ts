@@ -25,7 +25,7 @@ export function useTestConnection({ testFailedText }: UseTestConnectionOptions) 
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const testConnection = useCallback(
-    async (baseUrl: string, apiKey: string, apiFormat: string, model: string) => {
+    async (baseUrl: string, apiKey: string, apiFormat: string, model: string, providerId?: string) => {
       setTesting(true);
       setTestResult(null);
       try {
@@ -33,7 +33,8 @@ export function useTestConnection({ testFailedText }: UseTestConnectionOptions) 
           baseUrl,
           apiKey,
           apiFormat,
-          model
+          model,
+          providerId
         );
         setTestResult(result);
       } catch (err: any) {

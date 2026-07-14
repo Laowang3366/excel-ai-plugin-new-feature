@@ -248,11 +248,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // ---- AI 模型列表 + 连接测试 ----
   ai: {
     /** 获取可用模型列表 */
-    listModels: (baseUrl: string, apiKey: string, apiFormat: string) =>
-      ipcRenderer.invoke("ai:listModels", baseUrl, apiKey, apiFormat),
+    listModels: (baseUrl: string, apiKey: string, apiFormat: string, providerId?: string) =>
+      ipcRenderer.invoke("ai:listModels", baseUrl, apiKey, apiFormat, providerId),
     /** 测试 API 连接 */
-    testConnection: (baseUrl: string, apiKey: string, apiFormat: string, model: string) =>
-      ipcRenderer.invoke("ai:testConnection", baseUrl, apiKey, apiFormat, model),
+    testConnection: (baseUrl: string, apiKey: string, apiFormat: string, model: string, providerId?: string) =>
+      ipcRenderer.invoke("ai:testConnection", baseUrl, apiKey, apiFormat, model, providerId),
   },
 
   // ---- 使用统计 ----

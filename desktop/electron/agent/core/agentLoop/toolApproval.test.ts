@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ALL_TOOL_DEFINITIONS } from "../../tools/registry/toolDefinitions";
 
 import {
+  canAlwaysAllowTool,
   clearAlwaysAllowedTools,
   getAlwaysAllowedTools,
   markToolAlwaysAllowed,
@@ -13,43 +15,104 @@ describe("toolApproval", () => {
     clearAlwaysAllowedTools();
   });
 
-  it("honors permission modes and always-allowed overrides", () => {
-    expect(shouldRequireApproval("range.read", "normal")).toBe(true);
-    expect(shouldRequireApproval("range.read", "auto_approve_safe")).toBe(false);
-    expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(true);
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
-
-    markToolAlwaysAllowed("range.clear");
-    expect(getAlwaysAllowedTools().has("range.clear")).toBe(true);
-    expect(shouldRequireApproval("range.clear", "normal")).toBe(false);
+  it("keeps dangerous, destructive, egress and unknown tools fail-closed", () => {
+    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("web.search", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("ocr.parseDocument", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("memory.write", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("unknown.tool", "confirm_all")).toBe(true);
   });
 
-  it("approves by default when no approval callback is configured", async () => {
+  it("enforces mandatory approval metadata for every model-visible tool", () => {
+    for (const tool of ALL_TOOL_DEFINITIONS) {
+      if (
+        tool.riskLevel !== "dangerous" &&
+        !tool.isFileDeletion &&
+        !tool.isDataEgress &&
+        !tool.requiresExplicitApproval
+      ) continue;
+
+      expect(
+        shouldRequireApproval(tool.name, "confirm_all"),
+        `${tool.name} must stay fail-closed`
+      ).toBe(true);
+    }
+  });
+
+  it("distinguishes destructive and non-destructive operations on a shared tool", () => {
+    const addScope = {
+      threadId: "thread-1",
+      arguments: { operation: "add", sheetName: "Sheet2" },
+    };
+    const deleteScope = {
+      threadId: "thread-1",
+      arguments: { operation: "delete", sheetName: "Sheet2" },
+    };
+
+    expect(shouldRequireApproval("sheet.operation", "confirm_all", addScope)).toBe(false);
+    expect(shouldRequireApproval("sheet.operation", "confirm_all", deleteScope)).toBe(true);
+  });
+
+  it("denies approval when no callback is configured", async () => {
     await expect(requestToolApproval({
       toolCallId: "call-1",
       toolName: "range.write",
       arguments: { range: "A1" },
       riskLevel: "moderate",
-    }, { permissionMode: "normal" })).resolves.toEqual({ approved: true });
+    }, { permissionMode: "normal" })).resolves.toEqual({ approved: false });
+  });
+
+  it("scopes temporary grants by thread, operation and target file", () => {
+    const scope = {
+      threadId: "thread-1",
+      arguments: { operation: "format", filePath: "C:\\books\\a.xlsx" },
+    };
+
+    expect(canAlwaysAllowTool("office.action.apply", scope)).toBe(true);
+    expect(markToolAlwaysAllowed("office.action.apply", scope)).toBe(true);
+    expect(getAlwaysAllowedTools().has("office.action.apply")).toBe(true);
+    expect(shouldRequireApproval("office.action.apply", "normal", scope)).toBe(false);
+    expect(shouldRequireApproval("office.action.apply", "normal", {
+      ...scope,
+      threadId: "thread-2",
+    })).toBe(true);
+    expect(shouldRequireApproval("office.action.apply", "normal", {
+      threadId: "thread-1",
+      arguments: { operation: "format", filePath: "C:\\books\\b.xlsx" },
+    })).toBe(true);
+    expect(shouldRequireApproval("office.action.apply", "normal", {
+      threadId: "thread-1",
+      arguments: { operation: "delete", filePath: "C:\\books\\a.xlsx" },
+    })).toBe(true);
+  });
+
+  it("does not persist grants without a stable workbook or file identity", () => {
+    const scope = {
+      threadId: "thread-1",
+      arguments: { sheetName: "Sheet1", range: "A1", values: [[1]] },
+    };
+
+    expect(canAlwaysAllowTool("range.write", scope)).toBe(false);
+    expect(markToolAlwaysAllowed("range.write", scope)).toBe(false);
+    expect(shouldRequireApproval("range.write", "normal", scope)).toBe(true);
   });
 
   it("delegates approval requests to the configured callback", async () => {
-    const requestToolApprovalCallback = vi.fn(async () => ({ approved: true, alwaysAllow: true }));
-
-    const result = await requestToolApproval({
+    const callback = vi.fn(async () => ({ approved: true, alwaysAllow: true }));
+    const request = {
       toolCallId: "call-2",
-      toolName: "office.action.execute",
-      arguments: { operation: "createWorkbook" },
-      riskLevel: "moderate",
-    }, {
-      permissionMode: "confirm_all",
-      requestToolApproval: requestToolApprovalCallback,
-    });
+      toolName: "office.action.apply",
+      arguments: { operation: "format", filePath: "C:\\books\\a.xlsx" },
+      riskLevel: "moderate" as const,
+      canAlwaysAllow: true,
+    };
 
-    expect(result).toEqual({ approved: true, alwaysAllow: true });
-    expect(requestToolApprovalCallback).toHaveBeenCalledWith(expect.objectContaining({
-      toolCallId: "call-2",
-      toolName: "office.action.execute",
-    }));
+    await expect(requestToolApproval(request, {
+      permissionMode: "normal",
+      requestToolApproval: callback,
+    })).resolves.toEqual({ approved: true, alwaysAllow: true });
+    expect(callback).toHaveBeenCalledWith(request);
   });
 });

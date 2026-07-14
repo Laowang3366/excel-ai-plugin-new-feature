@@ -6,12 +6,12 @@ namespace Wengge.OfficeWorker.Tests;
 public sealed class ExcelFormulaWriterTests
 {
     [Fact]
-    public void Write_UsesFormulaForOrdinaryFormula()
+    public void Write_UsesFormula2ForOrdinaryFormula()
     {
         var cell = new FakeFormulaCell();
         var result = ExcelFormulaWriter.Write(cell, "=SUM(A1:A10)");
-        Assert.Equal("=SUM(A1:A10)", cell.Formula);
-        Assert.Null(cell.Formula2);
+        Assert.Equal("=SUM(A1:A10)", cell.Formula2);
+        Assert.Null(cell.Formula);
         Assert.Equal(ExcelFormulaKind.Plain, result.Kind);
     }
 
@@ -42,9 +42,22 @@ public sealed class ExcelFormulaWriterTests
         var cell = new FakeFormulaCell { ThrowOnFormula2 = true };
         var error = Assert.Throws<OfficeWorkerException>(() =>
             ExcelFormulaWriter.Write(cell, "=FILTER(A:A,A:A>0)"));
-        Assert.Equal("dynamic_array_unsupported", error.Code);
+        Assert.Equal("unsupported_formula_api", error.Code);
         Assert.Null(cell.Formula);
         Assert.Null(cell.FormulaArray);
+    }
+
+    [Theory]
+    [InlineData("=A1:A3")]
+    [InlineData("=A1:A3*2")]
+    [InlineData("=IF(A1:A3>0,A1:A3,\"\")")]
+    [InlineData("=TRANSPOSE(A1:A3)")]
+    public void Write_UsesFormula2ForArrayExpressions(string formula)
+    {
+        var cell = new FakeFormulaCell();
+        ExcelFormulaWriter.Write(cell, formula);
+        Assert.Equal(formula, cell.Formula2);
+        Assert.Null(cell.Formula);
     }
 
     [Fact]

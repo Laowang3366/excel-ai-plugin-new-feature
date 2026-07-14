@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "../common/IconMap";
 import { MODEL_TEXT } from "./modelSettingsI18n";
+import { SETTINGS_SECRET_MASK } from "../../../electron/shared/settingsSecretContract";
 
 // ============================================================
 // 类型定义
@@ -47,7 +48,9 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   const text = MODEL_TEXT[language];
 
   // 遮蔽 API Key 显示
-  const maskedKey = provider.apiKey
+  const maskedKey = provider.apiKey === SETTINGS_SECRET_MASK
+    ? SETTINGS_SECRET_MASK
+    : provider.apiKey
     ? provider.apiKey.slice(0, 6) + "••••" + provider.apiKey.slice(-4)
     : text.unset;
 

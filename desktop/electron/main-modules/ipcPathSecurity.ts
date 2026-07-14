@@ -1,4 +1,4 @@
-import os from "os";
+import fs from "fs";
 import path from "path";
 
 export interface PathAuthorizerOptions {
@@ -13,8 +13,23 @@ export interface PathAuthorizer {
   isAuthorizedPath: (targetPath: string) => boolean;
 }
 
+function resolveCanonicalPath(targetPath: string): string {
+  let current = path.resolve(targetPath);
+  const missingSegments: string[] = [];
+
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    missingSegments.unshift(path.basename(current));
+    current = parent;
+  }
+
+  const canonicalParent = fs.existsSync(current) ? fs.realpathSync.native(current) : current;
+  return path.resolve(canonicalParent, ...missingSegments).replace(/[\\/]+$/, "");
+}
+
 function normalizePathForCompare(targetPath: string): string {
-  return path.resolve(targetPath).replace(/[\\/]+$/, "").toLowerCase();
+  return resolveCanonicalPath(targetPath).toLowerCase();
 }
 
 function isPathInside(parentPath: string, childPath: string): boolean {
@@ -35,7 +50,6 @@ export function createPathAuthorizer(options: PathAuthorizerOptions): PathAuthor
 
   const getRuntimeRoots = () => compactPaths([
     options.getDataPath(),
-    os.tmpdir(),
     ...options.getPinnedFolders(),
     ...(options.getExtraRoots?.() ?? []),
   ]);
@@ -63,5 +77,5 @@ export function assertAuthorizedPath(authorizer: PathAuthorizer, targetPath: str
   if (!authorizer.isAuthorizedPath(targetPath)) {
     throw new Error(`未授权访问路径：${targetPath}`);
   }
-  return targetPath;
+  return resolveCanonicalPath(targetPath);
 }

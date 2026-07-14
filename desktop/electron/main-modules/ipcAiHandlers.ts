@@ -1,32 +1,43 @@
-import { ipcMain } from "electron";
+import { trustedIpcMain as ipcMain } from "../shared/trustedIpc";
 import {
   validateInput,
   AiListModelsInput,
   AiTestConnectionInput,
 } from "../shared/ipcSchemas";
 import { createLogger } from "../shared/logger";
+import { getProviderApiKey } from "./settingsManager";
+import { SETTINGS_SECRET_MASK } from "./settingsSecrets";
+import { secureFetch } from "../shared/outboundUrlPolicy";
 
 const logger = createLogger("IPC");
 
+function resolveApiKey(apiKey: string, providerId?: string): string {
+  if (apiKey !== SETTINGS_SECRET_MASK) return apiKey;
+  if (!providerId) throw new Error("provider_secret_reference_required");
+  const storedApiKey = getProviderApiKey(providerId);
+  if (!storedApiKey) throw new Error("provider_secret_not_found");
+  return storedApiKey;
+}
+
 export function registerAiIpcHandlers(): void {
-  ipcMain.handle("ai:listModels", async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown) => {
-    const validated = validateInput(AiListModelsInput, { baseUrl, apiKey, apiFormat });
+  ipcMain.handle("ai:listModels", async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, providerId?: unknown) => {
+    const validated = validateInput(AiListModelsInput, { baseUrl, apiKey, apiFormat, providerId });
     try {
+      const resolvedApiKey = resolveApiKey(validated.apiKey, validated.providerId);
       if (validated.apiFormat === "anthropic") return [];
       const url = validated.baseUrl.endsWith("/models")
         ? validated.baseUrl
         : `${validated.baseUrl.replace(/\/+$/, "")}/models`;
-      const response = await fetch(url, {
+      const response = await secureFetch(url, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${validated.apiKey}`,
+          "Authorization": `Bearer ${resolvedApiKey}`,
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        logger.error(`[ai:listModels] HTTP ${response.status}: ${errorText}`);
+        logger.error(`[ai:listModels] HTTP ${response.status}`);
         return [];
       }
       const data = (await response.json()) as any;
@@ -49,10 +60,11 @@ export function registerAiIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("ai:testConnection", async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, model: unknown) => {
-    const validated = validateInput(AiTestConnectionInput, { baseUrl, apiKey, apiFormat, model });
+  ipcMain.handle("ai:testConnection", async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, model: unknown, providerId?: unknown) => {
+    const validated = validateInput(AiTestConnectionInput, { baseUrl, apiKey, apiFormat, model, providerId });
     const startTime = Date.now();
     try {
+      const resolvedApiKey = resolveApiKey(validated.apiKey, validated.providerId);
       let url: string;
       let body: any;
       let headers: Record<string, string>;
@@ -60,7 +72,7 @@ export function registerAiIpcHandlers(): void {
       if (validated.apiFormat === "anthropic") {
         url = `${validated.baseUrl.replace(/\/+$/, "")}/messages`;
         headers = {
-          "x-api-key": validated.apiKey,
+          "x-api-key": resolvedApiKey,
           "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         };
@@ -68,20 +80,20 @@ export function registerAiIpcHandlers(): void {
       } else if (validated.apiFormat === "responses") {
         url = `${validated.baseUrl.replace(/\/+$/, "")}/responses`;
         headers = {
-          "Authorization": `Bearer ${validated.apiKey}`,
+          "Authorization": `Bearer ${resolvedApiKey}`,
           "Content-Type": "application/json",
         };
         body = { model: validated.model || "gpt-4o", input: "Hi", max_output_tokens: 1 };
       } else {
         url = `${validated.baseUrl.replace(/\/+$/, "")}/chat/completions`;
         headers = {
-          "Authorization": `Bearer ${validated.apiKey}`,
+          "Authorization": `Bearer ${resolvedApiKey}`,
           "Content-Type": "application/json",
         };
         body = { model: validated.model || "gpt-4o", max_tokens: 1, messages: [{ role: "user", content: "Hi" }] };
       }
 
-      const response = await fetch(url, {
+      const response = await secureFetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),

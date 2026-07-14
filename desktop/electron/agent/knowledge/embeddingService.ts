@@ -11,6 +11,7 @@
  */
 
 import { createHash } from "crypto";
+import { secureFetch } from "../../shared/outboundUrlPolicy";
 
 // ============================================================
 // 各厂商默认 embedding 模型配置
@@ -239,7 +240,7 @@ export class EmbeddingService {
       model: this.modelConfig.model,
     });
 
-    const response = await fetch(url, {
+    const response = await secureFetch(url, {
       method: "POST",
       headers,
       body,

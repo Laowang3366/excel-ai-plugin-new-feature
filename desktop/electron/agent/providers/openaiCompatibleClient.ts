@@ -16,6 +16,7 @@ import type {
 import type { TokenUsage } from "../shared/types";
 import { formatProviderHttpError } from "./providerErrors";
 import { desanitizeToolName, sanitizeToolName } from "./openaiToolNames";
+import { secureFetch } from "../../shared/outboundUrlPolicy";
 
 export { desanitizeToolName, sanitizeToolName } from "./openaiToolNames";
 
@@ -94,7 +95,7 @@ export class OpenAICompatibleClient {
     const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000);
     const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
-    const response = await fetch(url, {
+    const response = await secureFetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),

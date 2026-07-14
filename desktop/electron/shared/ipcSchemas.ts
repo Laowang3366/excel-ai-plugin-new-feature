@@ -50,8 +50,26 @@ export const WindowDisplayModeInput = z.enum(["normal", "compact"]);
 // Settings
 // ============================================================
 
-export const SettingsGetInput = z.string();
-export const SettingsSetInput = z.tuple([z.string(), z.unknown()]);
+export const SettingsKeyInput = z.enum([
+  "activeProvider",
+  "aiProviders",
+  "closeToTray",
+  "compactionConfig",
+  "dataStoragePath",
+  "dynamicArrayFunctionsEnabled",
+  "knowledgeEnabled",
+  "language",
+  "mineruApiToken",
+  "ocrMineruApiToken",
+  "officeAutoCompactEnabled",
+  "permissionMode",
+  "pinnedFolders",
+  "showReasoning",
+  "theme",
+  "windowOpacity",
+]);
+export const SettingsGetInput = SettingsKeyInput;
+export const SettingsSetInput = z.tuple([SettingsKeyInput, z.unknown()]);
 
 // ============================================================
 // Excel
@@ -185,6 +203,7 @@ export const AiListModelsInput = z.object({
   baseUrl: z.string(),
   apiKey: z.string(),
   apiFormat: z.string(),
+  providerId: z.string().min(1).optional(),
 });
 
 export const AiTestConnectionInput = z.object({
@@ -192,6 +211,7 @@ export const AiTestConnectionInput = z.object({
   apiKey: z.string(),
   apiFormat: z.string(),
   model: z.string(),
+  providerId: z.string().min(1).optional(),
 });
 
 // ============================================================

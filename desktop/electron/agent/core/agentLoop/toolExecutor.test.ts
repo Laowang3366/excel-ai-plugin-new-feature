@@ -12,7 +12,6 @@ import {
   clearAlwaysAllowedTools,
   executeTool,
   getAlwaysAllowedTools,
-  markToolAlwaysAllowed,
   processToolCalls,
   shouldRequireApproval,
 } from "./toolExecutor";
@@ -80,11 +79,9 @@ describe("shouldRequireApproval", () => {
     expect(shouldRequireApproval("range.read", "normal")).toBe(true);
     expect(shouldRequireApproval("range.read", "auto_approve_safe")).toBe(false);
     expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(true);
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
-
-    markToolAlwaysAllowed("range.clear");
-    expect(getAlwaysAllowedTools().has("range.clear")).toBe(true);
-    expect(shouldRequireApproval("range.clear", "normal")).toBe(false);
+    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("unknown.tool", "confirm_all")).toBe(true);
   });
 });
 
@@ -169,10 +166,10 @@ describe("processToolCalls", () => {
     const execute = vi.fn(async () => ({ success: true, data: false }));
 
     await processToolCalls(
-      [{ id: "call-falsy", name: "ui.check", arguments: "{}" }],
+      [{ id: "call-falsy", name: "selection.get", arguments: "{}" }],
       new Map(),
       turn,
-      new Map([["ui.check", { name: "ui.check", execute }]]),
+      new Map([["selection.get", { name: "selection.get", execute }]]),
       { permissionMode: "confirm_all" },
       createCallbacks(),
       vi.fn(async () => {})
@@ -220,16 +217,16 @@ describe("processToolCalls", () => {
     const activeItem: ToolCallItem = {
       type: "tool_call",
       id: "call-3",
-      toolName: "range.write",
-      arguments: { sheetName: "Sheet1", range: "A1", values: [[1]] },
+      toolName: "office.action.apply",
+      arguments: { operation: "format", filePath: "C:\\books\\a.xlsx" },
       status: "pending",
       timestamp: 1000,
     };
     const toolCalls: ToolCallInfo[] = [
       {
         id: "call-3",
-        name: "range.write",
-        arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\",\"values\":[[1]]}",
+        name: "office.action.apply",
+        arguments: "{\"operation\":\"format\",\"filePath\":\"C:\\\\books\\\\a.xlsx\"}",
       },
     ];
 
@@ -237,7 +234,7 @@ describe("processToolCalls", () => {
       toolCalls,
       new Map([["call-3", activeItem]]),
       createTurn(activeItem),
-      new Map([["range.write", { name: "range.write", execute: vi.fn(async () => ({ success: true, data: "ok" })) }]]),
+      new Map([["office.action.apply", { name: "office.action.apply", execute: vi.fn(async () => ({ success: true, data: "ok" })) }]]),
       {
         permissionMode: "normal",
         requestToolApproval: vi.fn(async () => ({ approved: true, alwaysAllow: true })),
@@ -246,7 +243,7 @@ describe("processToolCalls", () => {
       vi.fn(async () => {})
     );
 
-    expect(getAlwaysAllowedTools().has("range.write")).toBe(true);
+    expect(getAlwaysAllowedTools().has("office.action.apply")).toBe(true);
   });
 
   it("canonicalizes OCR tool aliases before execution and event storage", async () => {
@@ -264,7 +261,10 @@ describe("processToolCalls", () => {
       new Map(),
       turn,
       new Map([["ocr.parseDocument", { name: "ocr.parseDocument", execute }]]),
-      { permissionMode: "confirm_all" },
+      {
+        permissionMode: "confirm_all",
+        requestToolApproval: vi.fn(async () => ({ approved: true })),
+      },
       createCallbacks(),
       vi.fn(async () => {})
     );
@@ -302,14 +302,14 @@ describe("processToolCalls", () => {
 
     await expect(processToolCalls(
       [
-        { id: "call-first", name: "tool.first", arguments: "{}" },
-        { id: "call-second", name: "tool.second", arguments: "{}" },
+        { id: "call-first", name: "range.read", arguments: "{}" },
+        { id: "call-second", name: "selection.get", arguments: "{}" },
       ],
       new Map(),
       turn,
       new Map([
-        ["tool.first", { name: "tool.first", execute: firstExecute }],
-        ["tool.second", { name: "tool.second", execute: secondExecute }],
+        ["range.read", { name: "range.read", execute: firstExecute }],
+        ["selection.get", { name: "selection.get", execute: secondExecute }],
       ]),
       { permissionMode: "confirm_all" },
       createCallbacks(),

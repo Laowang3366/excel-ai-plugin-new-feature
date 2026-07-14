@@ -4,7 +4,7 @@ import path from "node:path";
 import { createLogger } from "../../shared/logger";
 
 const log = createLogger("OfficeWorkerClient");
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_STDOUT_BUFFER = 64 * 1024 * 1024;
 
@@ -199,7 +199,11 @@ export class OfficeWorkerClient {
       pending.reject(new OfficeWorkerError(response.error.code, response.error.message, response.error.data));
     } else {
       traceSmoke(`invoke.done:${pending.method}`);
-      pending.resolve(response.result);
+      try {
+        pending.resolve(validateWorkerResult(pending.method, response.result));
+      } catch (error) {
+        pending.reject(error instanceof Error ? error : new Error(String(error)));
+      }
     }
   }
 
@@ -225,6 +229,24 @@ export class OfficeWorkerClient {
     }
     this.pending.clear();
   }
+}
+
+export function validateWorkerResult(method: string, result: unknown): unknown {
+  if (method !== "excel.range.write") return result;
+  if (!result || typeof result !== "object") {
+    throw new OfficeWorkerError("protocol_invalid_result", "Office Worker 返回了无效的范围写入结果");
+  }
+  const record = result as Record<string, unknown>;
+  for (const field of ["written", "dynamicCells", "arrayCells", "plainCells"] as const) {
+    const value = record[field];
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+      throw new OfficeWorkerError(
+        "protocol_invalid_result",
+        `Office Worker 范围写入结果缺少有效字段: ${field}`,
+      );
+    }
+  }
+  return result;
 }
 
 function traceSmoke(message: string): void {

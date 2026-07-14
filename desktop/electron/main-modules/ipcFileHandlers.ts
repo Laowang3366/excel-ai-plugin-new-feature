@@ -1,4 +1,5 @@
-import { BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
+import { BrowserWindow, clipboard, dialog, shell } from "electron";
+import { trustedIpcMain as ipcMain } from "../shared/trustedIpc";
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -22,6 +23,7 @@ const OFFICE_FILE_EXTENSIONS = new Set([".xlsx", ".xls", ".csv", ".doc", ".docx"
 interface RegisterFileIpcHandlersOptions {
   mainWindowRef: () => BrowserWindow | null;
   pathAuthorizer: PathAuthorizer;
+  getDataPath: () => string;
 }
 
 export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthorizer: PathAuthorizer): Promise<FolderFileInfo[]> {
@@ -49,7 +51,7 @@ export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthoriz
 }
 
 export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions): void {
-  const { mainWindowRef, pathAuthorizer } = options;
+  const { mainWindowRef, pathAuthorizer, getDataPath } = options;
 
   ipcMain.handle("dialog:openFile", async () => {
     const mw = mainWindowRef();
@@ -156,7 +158,8 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
       const input = validateInput(FileWriteTempFileInput, data);
       const prefix = input.prefix?.replace(/[^a-zA-Z0-9_-]/g, "") || "clipboard";
       const suffix = input.suffix?.replace(/[^a-zA-Z0-9.]/g, "") || ".png";
-      const tmpDir = await import("os").then((os) => os.tmpdir());
+      const tmpDir = path.join(getDataPath(), "temp");
+      await fs.promises.mkdir(tmpDir, { recursive: true });
       const fileName = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${suffix}`;
       const filePath = path.join(tmpDir, fileName);
       const buffer = Buffer.from(input.data, "base64");

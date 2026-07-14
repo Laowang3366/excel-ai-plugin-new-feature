@@ -6,6 +6,7 @@ import {
   FileWriteTempFileInput,
   LaunchOfficeApplicationInput,
   OcrRecognizeInput,
+  SettingsGetInput,
   validateInput,
 } from "./ipcSchemas";
 
@@ -28,5 +29,6 @@ describe("ipcSchemas", () => {
     expect(() => validateInput(FileWriteTempFileInput, { data: "" })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(LaunchOfficeApplicationInput, "cmd")).toThrow("IPC 参数校验失败");
+    expect(() => validateInput(SettingsGetInput, "arbitrary-secret-key")).toThrow("IPC 参数校验失败");
   });
 });

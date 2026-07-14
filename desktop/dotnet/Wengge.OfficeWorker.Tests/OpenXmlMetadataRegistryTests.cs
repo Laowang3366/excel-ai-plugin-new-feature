@@ -70,8 +70,9 @@ public sealed class OpenXmlMetadataRegistryTests : IDisposable
 
         new OpenXmlMetadataRegistry().RegisterDynamicArray(workbookPart);
 
-        Assert.Empty(worksheetPart.Worksheet.Descendants()
-            .Where(element => element.LocalName == "dynamicArrayProperties"));
+        Assert.DoesNotContain(
+            worksheetPart.Worksheet.Descendants(),
+            element => element.LocalName == "dynamicArrayProperties");
     }
 
     [Fact]

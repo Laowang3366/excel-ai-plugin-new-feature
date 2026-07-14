@@ -106,6 +106,7 @@ export interface ChatState {
     arguments: Record<string, unknown>;
     riskLevel: "safe" | "moderate" | "dangerous";
     description?: string;
+    canAlwaysAllow?: boolean;
     /** 沙箱策略给出的理由（命中 prompt 规则时） */
   } | null;
 

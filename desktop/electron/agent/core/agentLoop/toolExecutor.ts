@@ -34,6 +34,7 @@ import {
 import { resolveExecutableToolName } from "./toolNameResolution";
 import { createToolResultItem } from "./toolResultItems";
 import {
+  canAlwaysAllowTool,
   markToolAlwaysAllowed,
   requestToolApproval,
   shouldRequireApproval,
@@ -129,7 +130,15 @@ export async function processToolCalls(
     const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedToolName) ?? TOOL_DEFINITIONS_MAP.get(tc.name);
     const canonicalToolName = toolDef?.name ?? resolvedToolName;
 
-    const needsApproval = shouldRequireApproval(canonicalToolName, approvalConfig.permissionMode);
+    const approvalScope = {
+      threadId: turn.threadId,
+      arguments: parseToolArguments(tc.arguments),
+    };
+    const needsApproval = shouldRequireApproval(
+      canonicalToolName,
+      approvalConfig.permissionMode,
+      approvalScope
+    );
 
     // 获取或创建 tool_call item
     let activeItem = pendingToolCallItems.get(tc.id);
@@ -178,6 +187,10 @@ export async function processToolCalls(
             arguments: approvalArgs,
             riskLevel: toolDef?.riskLevel || "moderate",
             description: toolDef?.description,
+            canAlwaysAllow: canAlwaysAllowTool(canonicalToolName, {
+              threadId: turn.threadId,
+              arguments: approvalArgs,
+            }),
           },
           approvalConfig
         );
@@ -215,7 +228,10 @@ export async function processToolCalls(
         }
 
         if (approval.alwaysAllow) {
-          markToolAlwaysAllowed(canonicalToolName);
+          markToolAlwaysAllowed(canonicalToolName, {
+            threadId: turn.threadId,
+            arguments: approvalArgs,
+          });
         }
 
         activeItem.status = "running";

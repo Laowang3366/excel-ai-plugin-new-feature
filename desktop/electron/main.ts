@@ -22,13 +22,14 @@ import {
   getPresentationBridge,
 } from "./agent/runtime/bridgeRegistry";
 import {
-  getSettingsStore,
+  getRuntimeSettingValue,
   getActiveDataPath,
   getActiveAIConfig,
   getSessionStoreInstance,
   getStateRuntimeStoreInstance,
   closeStateRuntimeStore,
   setAgentLoopsGetter,
+  initializeSettingsSecrets,
 } from "./main-modules/settingsManager";
 import { createWindow, setIsQuitting } from "./main-modules/windowManager";
 import {
@@ -103,11 +104,12 @@ app
   .then(async () => {
     const userDataPath = app.getPath("userData");
     activatePendingHotPatch(userDataPath);
+    initializeSettingsSecrets();
     getSessionStoreInstance(); // 提前初始化 SessionStore
     await getOrCreateAgentRuntime({
       getActiveAIConfig,
       getActiveDataPath,
-      getSettingsValue: (key) => getSettingsStore().get(key as any),
+      getSettingsValue: getRuntimeSettingValue,
       getSessionStoreInstance,
       getStateRuntimeStoreInstance,
       requestToolApproval: (params) => requestToolApproval(() => mainWindow, params),

@@ -33,6 +33,26 @@ async function createArchive(files: Record<string, string>) {
     archivePath,
     size: buffer.byteLength,
     sha256: createHash("sha256").update(buffer).digest("hex"),
+    files: Object.entries(files).map(([filePath, content]) => ({
+      path: filePath,
+      size: Buffer.byteLength(content),
+      sha256: createHash("sha256").update(content).digest("hex"),
+    })),
+  };
+}
+
+function descriptor(archive: Awaited<ReturnType<typeof createArchive>>, id = "patch-001", sequence = 1) {
+  return {
+    id,
+    baseVersion: "0.1.79",
+    sequence,
+    publishedAt: new Date(Date.now() - 60_000).toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    url: `https://plugin.shelelove.top/releases/patches/${id}.zip`,
+    sha256: archive.sha256,
+    size: archive.size,
+    files: archive.files,
+    restartRequired: true as const,
   };
 }
 
@@ -56,14 +76,7 @@ describe("installHotPatchArchive", () => {
       archivePath: archive.archivePath,
       currentVersion: "0.1.79",
       userDataPath,
-      descriptor: {
-        id: "patch-001",
-        baseVersion: "0.1.79",
-        url: "https://plugin.shelelove.top/releases/patches/patch-001.zip",
-        sha256: archive.sha256,
-        size: archive.size,
-        restartRequired: true,
-      },
+      descriptor: descriptor(archive),
     });
 
     expect(await fs.readFile(path.join(state.rootPath, "dist/index.html"), "utf8"))
@@ -78,14 +91,39 @@ describe("installHotPatchArchive", () => {
       archivePath: archive.archivePath,
       currentVersion: "0.1.79",
       userDataPath: path.join(archive.root, "user-data"),
-      descriptor: {
-        id: "patch-unsafe",
-        baseVersion: "0.1.79",
-        url: "https://plugin.shelelove.top/releases/patches/patch-unsafe.zip",
-        sha256: archive.sha256,
-        size: archive.size,
-        restartRequired: true,
-      },
+      descriptor: descriptor(archive, "patch-unsafe"),
     })).rejects.toThrow("不允许的文件");
+  });
+
+  it("rejects replayed or lower patch sequences", async () => {
+    const first = await createArchive({ "dist/index.html": "first" });
+    const userDataPath = path.join(first.root, "user-data");
+    await installHotPatchArchive({
+      archivePath: first.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(first, "patch-002", 2),
+    });
+    const replay = await createArchive({ "dist/index.html": "replay" });
+    await expect(installHotPatchArchive({
+      archivePath: replay.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(replay, "patch-001", 1),
+    })).rejects.toThrow("低于安全基线");
+  });
+
+  it("refuses to activate a patch whose installed files were modified", async () => {
+    const archive = await createArchive({ "dist/index.html": "verified" });
+    const userDataPath = path.join(archive.root, "user-data");
+    const state = await installHotPatchArchive({
+      archivePath: archive.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(archive),
+    });
+    await fs.writeFile(path.join(state.rootPath, "dist/index.html"), "tampered");
+
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBeNull();
   });
 });

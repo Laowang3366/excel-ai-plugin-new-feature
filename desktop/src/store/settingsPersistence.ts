@@ -21,7 +21,7 @@ const COMPACTION_FIELDS: (keyof SettingsState)[] = ["compactionEnabled", "autoCo
 export async function savePartial(
   keys: (keyof SettingsState)[],
   get: () => SettingsState & SettingsActions
-): Promise<void> {
+): Promise<Record<string, unknown>> {
   const state = get();
   const toWrite: Array<[string, unknown]> = [];
   let needCompaction = false;
@@ -46,5 +46,8 @@ export async function savePartial(
     }]);
   }
 
-  await Promise.all(toWrite.map(([key, value]) => ipcApi.settings.set(key, value)));
+  const persisted = await Promise.all(
+    toWrite.map(async ([key, value]) => [key, await ipcApi.settings.set(key, value)] as const)
+  );
+  return Object.fromEntries(persisted);
 }

@@ -20,8 +20,9 @@ export const MEMORY_TOOL_DEFINITIONS: ToolDefinition[] = [
       },
       required: ["kind", "content"],
     },
-    riskLevel: "safe",
-    requiresApproval: false,
+    riskLevel: "moderate",
+    requiresApproval: true,
+    requiresExplicitApproval: true,
   },
   {
     name: "memory.search",
@@ -63,7 +64,8 @@ export const MEMORY_TOOL_DEFINITIONS: ToolDefinition[] = [
       },
       required: ["memoryId"],
     },
-    riskLevel: "safe",
-    requiresApproval: false,
+    riskLevel: "moderate",
+    requiresApproval: true,
+    requiresExplicitApproval: true,
   },
 ];

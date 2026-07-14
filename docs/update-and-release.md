@@ -23,7 +23,7 @@ public/knowledge/**
 public/wps-jsa-bridge/**
 ```
 
-界面补丁必须包含 `dist/index.html`；知识库补丁必须包含 `builtin-knowledge.json`；WPS 桥接补丁必须包含 `index.html`。补丁声明精确基础版本，下载后校验签名、文件大小和 SHA-256，再写入临时目录并原子切换。加载失败会删除激活状态并回退安装包内置界面。
+界面补丁必须包含 `dist/index.html`；知识库补丁必须包含 `builtin-knowledge.json`；WPS 桥接补丁必须包含 `index.html`。补丁声明精确基础版本、单调递增序列、发布时间、过期时间和逐文件 SHA-256/size 清单。客户端在解压前检查归档、声明总量、单文件大小和压缩比，安装后原子切换；每次启动会重新校验已安装文件，篡改、过期或低序列补丁不会激活。
 
 热补丁不能更新 `dist-electron/`、preload、Node 依赖、原生模块或 `.NET Office Worker`。只要 `desktop/dotnet/`、`desktop/electron/agent/officeWorker/` 的协议或主进程执行逻辑发生变化，就必须发布完整安装包。
 
@@ -35,6 +35,8 @@ public/wps-jsa-bridge/**
 - Git：`.secrets/` 已忽略，禁止提交私钥
 
 更新清单格式由 `electron/main-modules/updateManifest.ts` 校验，产品站 `publish-release.mjs` 使用相同的稳定 JSON 排序规则签名。
+
+Windows 安装包还必须使用企业 Authenticode 证书签名并带 RFC3161 时间戳。Release workflow 分离构建签名与发布权限，两个阶段都会用 `Get-AuthenticodeSignature` 验证状态为 `Valid`；未配置受保护的签名凭据时禁止生成可发布资产。
 
 ## 发布步骤
 

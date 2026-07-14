@@ -52,7 +52,7 @@ export interface IIpcApi {
   };
   settings: {
     get: (key: string) => Promise<unknown>;
-    set: (key: string, value: unknown) => Promise<void>;
+    set: (key: string, value: unknown) => Promise<unknown>;
     getAll: () => Promise<Record<string, unknown>>;
   };
   excel: {
@@ -150,8 +150,8 @@ export interface IIpcApi {
     cancel: (toolCallId: string) => Promise<void>;
   };
   ai: {
-    listModels: (baseUrl: string, apiKey: string, apiFormat: string) => Promise<string[]>;
-    testConnection: (baseUrl: string, apiKey: string, apiFormat: string, model: string) => Promise<{ success: boolean; error?: string; latency?: number }>;
+    listModels: (baseUrl: string, apiKey: string, apiFormat: string, providerId?: string) => Promise<string[]>;
+    testConnection: (baseUrl: string, apiKey: string, apiFormat: string, model: string, providerId?: string) => Promise<{ success: boolean; error?: string; latency?: number }>;
   };
   stats: {
     getSummary: () => Promise<Array<{

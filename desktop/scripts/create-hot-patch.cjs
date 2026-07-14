@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { createHash } = require("node:crypto");
 
 const { zipSync } = require("fflate");
 
@@ -24,8 +25,8 @@ function walk(directory) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.id || !args["base-version"] || !args.output) {
-    throw new Error("用法: node scripts/create-hot-patch.cjs --id <id> --base-version <version> --output <zip> [--include dist]");
+  if (!args.id || !args["base-version"] || !args.sequence || !args["expires-at"] || !args.output) {
+    throw new Error("用法: node scripts/create-hot-patch.cjs --id <id> --base-version <version> --sequence <n> --expires-at <ISO> --output <zip> [--include dist]");
   }
   const includes = args.include.length > 0 ? args.include : ALLOWED_ROOTS;
   for (const include of includes) {
@@ -34,13 +35,20 @@ async function main() {
   }
 
   const files = {};
+  const fileManifest = [];
   let fileCount = 0;
   for (const include of includes) {
     const root = path.resolve(include);
     if (!fs.existsSync(root)) continue;
     for (const filePath of walk(root)) {
       const relative = path.relative(process.cwd(), filePath).replace(/\\/gu, "/");
-      files[relative] = fs.readFileSync(filePath);
+      const content = fs.readFileSync(filePath);
+      files[relative] = content;
+      fileManifest.push({
+        path: relative,
+        size: content.byteLength,
+        sha256: createHash("sha256").update(content).digest("hex"),
+      });
       fileCount += 1;
     }
   }
@@ -48,7 +56,15 @@ async function main() {
   const outputPath = path.resolve(args.output);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, Buffer.from(zipSync(files, { level: 9 })));
-  fs.writeFileSync(`${outputPath}.json`, `${JSON.stringify({ id: args.id, baseVersion: args["base-version"], fileCount }, null, 2)}\n`);
+  fs.writeFileSync(`${outputPath}.json`, `${JSON.stringify({
+    id: args.id,
+    baseVersion: args["base-version"],
+    sequence: Number(args.sequence),
+    publishedAt: new Date().toISOString(),
+    expiresAt: new Date(args["expires-at"]).toISOString(),
+    fileCount,
+    files: fileManifest,
+  }, null, 2)}\n`);
   console.log(JSON.stringify({ outputPath, fileCount }, null, 2));
 }
 

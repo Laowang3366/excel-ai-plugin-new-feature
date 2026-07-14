@@ -5,6 +5,8 @@ namespace Wengge.OfficeWorker.Excel;
 
 internal sealed class ExcelRangeService(ExcelSessionService sessions)
 {
+    private sealed record RangeSnapshot(bool UsesFormula2, object? Content);
+
     public object Read(string sheetName, string address, string expand)
     {
         using var handle = sessions.GetActiveRequired();
@@ -65,20 +67,26 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
             dynamic targetApi = targetRange;
 
             var plan = ExcelRangeWritePlan.Create(matrix, legacyCse);
-            targetApi.Value2 = plan.BulkValues;
-            foreach (var formula in plan.Formulas)
-            {
-                object? cell = null;
-                try
+            ExcelRangeWriteTransaction.Execute(
+                () => CaptureSnapshot(targetApi),
+                () =>
                 {
-                    cell = targetApi.Cells.Item(formula.Row + 1, formula.Column + 1);
-                    ExcelFormulaWriter.Write(new ComExcelFormulaCell(cell), formula.Formula, legacyCse);
-                }
-                finally
-                {
-                    ComInterop.Release(cell);
-                }
-            }
+                    targetApi.Value2 = plan.BulkValues;
+                    foreach (var formula in plan.Formulas)
+                    {
+                        object? cell = null;
+                        try
+                        {
+                            cell = targetApi.Cells.Item(formula.Row + 1, formula.Column + 1);
+                            ExcelFormulaWriter.Write(new ComExcelFormulaCell(cell), formula.Formula, legacyCse);
+                        }
+                        finally
+                        {
+                            ComInterop.Release(cell);
+                        }
+                    }
+                },
+                snapshot => RestoreSnapshot(targetApi, snapshot));
 
             return new
             {
@@ -95,6 +103,24 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
             ComInterop.Release(sheet);
             ComInterop.Release(workbook);
         }
+    }
+
+    private static RangeSnapshot CaptureSnapshot(dynamic target)
+    {
+        try
+        {
+            return new RangeSnapshot(true, target.Formula2);
+        }
+        catch
+        {
+            return new RangeSnapshot(false, target.Formula);
+        }
+    }
+
+    private static void RestoreSnapshot(dynamic target, RangeSnapshot snapshot)
+    {
+        if (snapshot.UsesFormula2) target.Formula2 = snapshot.Content;
+        else target.Formula = snapshot.Content;
     }
 
     public object Clear(string sheetName, string address)

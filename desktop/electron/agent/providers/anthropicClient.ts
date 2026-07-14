@@ -26,6 +26,7 @@ import {
   type StreamChatParams,
 } from "./aiClientTypes";
 import { formatProviderHttpError } from "./providerErrors";
+import { secureFetch } from "../../shared/outboundUrlPolicy";
 
 // ============================================================
 // Anthropic 客户端
@@ -184,7 +185,7 @@ export class AnthropicClient extends OpenAICompatibleClient {
     const timeoutSignal = AbortSignal.timeout(5 * 60 * 1000);
     const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
-    const response = await fetch(url, {
+    const response = await secureFetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),

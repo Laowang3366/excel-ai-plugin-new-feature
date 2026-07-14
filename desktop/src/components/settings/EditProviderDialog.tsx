@@ -101,7 +101,7 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
         setFetchingModels(false);
         return;
       }
-      const models = await ipcApi.ai.listModels(baseUrl, apiKey, apiFormat);
+      const models = await ipcApi.ai.listModels(baseUrl, apiKey, apiFormat, provider.id);
       if (models.length > 0) {
         // 更新本地草稿中的模型列表
       }
@@ -110,12 +110,12 @@ export const EditProviderDialog: React.FC<EditProviderDialogProps> = ({
     } finally {
       setFetchingModels(false);
     }
-  }, [baseUrl, apiKey, apiFormat, template]);
+  }, [baseUrl, apiKey, apiFormat, provider.id, template]);
 
   const handleTestConnection = useCallback(() => {
     if (!apiKey || !baseUrl) return;
-    testConnection(baseUrl, apiKey, apiFormat, model);
-  }, [baseUrl, apiKey, apiFormat, model, testConnection]);
+    testConnection(baseUrl, apiKey, apiFormat, model, provider.id);
+  }, [baseUrl, apiKey, apiFormat, model, provider.id, testConnection]);
 
   /**
    * 切换模型时自动应用 per-model 配置

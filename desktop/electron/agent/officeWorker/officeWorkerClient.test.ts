@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
-import { OfficeWorkerClient } from "./officeWorkerClient";
+import { OfficeWorkerClient, OfficeWorkerError, validateWorkerResult } from "./officeWorkerClient";
 
 describe("OfficeWorkerClient process generations", () => {
   it("ignores a late exit event from a replaced worker", () => {
@@ -26,5 +26,18 @@ describe("OfficeWorkerClient process generations", () => {
     expect(client.pending.has("2")).toBe(true);
     expect(reject).not.toHaveBeenCalled();
     clearTimeout(timer);
+  });
+});
+
+describe("validateWorkerResult", () => {
+  it("accepts the protocol v2 range write result", () => {
+    const result = { written: 2, dynamicCells: 1, arrayCells: 0, plainCells: 1 };
+    expect(validateWorkerResult("excel.range.write", result)).toBe(result);
+  });
+
+  it("rejects an old Worker range write result", () => {
+    expect(() => validateWorkerResult("excel.range.write", { written: 2 })).toThrowError(
+      expect.objectContaining<Partial<OfficeWorkerError>>({ code: "protocol_invalid_result" }),
+    );
   });
 });

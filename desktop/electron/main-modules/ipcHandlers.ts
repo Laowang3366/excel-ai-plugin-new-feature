@@ -15,7 +15,7 @@
  * Agent 会话、线程、工具定义和知识库 IPC 已迁入 agent/interaction。
  */
 
-import { ipcMain, dialog, shell, BrowserWindow } from "electron";
+import { dialog, shell, BrowserWindow } from "electron";
 import type { AgentLoop } from "../agent/core/agentLoop";
 import {
   ensureKnowledgeRuntime,
@@ -34,6 +34,9 @@ import { setDynamicArrayFunctionsEnabled } from "../agent/runtime/agentGlobalSet
 import { registerAgentIpcHandlers } from "../agent/interaction/ipcAgentHandlers";
 import {
   getSettingsStore,
+  getSettingForRenderer,
+  getSettingsForRenderer,
+  setSettingFromRenderer,
   getActiveDataPath,
   getActiveAIConfig,
   getSessionStoreInstance,
@@ -63,6 +66,10 @@ import {
 import { launchOfficeApplication } from "./officeProcessLauncher";
 import { createLogger } from "../shared/logger";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
+import {
+  configureTrustedIpcSender,
+  trustedIpcMain as ipcMain,
+} from "../shared/trustedIpc";
 import { registerOcrIpcHandler } from "./ipcOcrHandlers";
 import { registerAiIpcHandlers } from "./ipcAiHandlers";
 import { registerFileIpcHandlers } from "./ipcFileHandlers";
@@ -119,6 +126,7 @@ export function setOfficeBridgesRefs(word: () => any, presentation: () => any): 
 // ============================================================
 
 export function registerIpcHandlers(): void {
+  configureTrustedIpcSender(mainWindowRef);
   setDynamicArrayFunctionsEnabled(getSettingsStore().get("dynamicArrayFunctionsEnabled"));
   const pathAuthorizer = createPathAuthorizer({
     getDataPath: getActiveDataPath,
@@ -141,12 +149,13 @@ export function registerIpcHandlers(): void {
     getAgentGraphStoreInstance,
     ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath()),
     isDataMigrationInProgress,
+    pathAuthorizer,
   });
 
   // ---- 应用信息 ----
   registerOcrIpcHandler(pathAuthorizer);
   registerAiIpcHandlers();
-  registerFileIpcHandlers({ mainWindowRef, pathAuthorizer });
+  registerFileIpcHandlers({ mainWindowRef, pathAuthorizer, getDataPath: getActiveDataPath });
   registerOfficeAutomationIpcHandlers({ getDataPath: getActiveDataPath });
 
   ipcMain.handle("app:getDataPath", () => getActiveDataPath());
@@ -239,13 +248,13 @@ export function registerIpcHandlers(): void {
   // ---- 设置相关 ----
   ipcMain.handle("settings:get", (_event, key: unknown) => {
     const validated = validateInput(SettingsGetInput, key);
-    return getSettingsStore().get(validated);
+    return getSettingForRenderer(validated);
   });
 
   ipcMain.handle("settings:set", async (_event, keyInput: unknown, valueInput: unknown) => {
     const [key, value] = validateInput(SettingsSetInput, [keyInput, valueInput]);
     const store = getSettingsStore();
-    store.set(key, value);
+    const rendererValue = setSettingFromRenderer(key, value);
 
     if (key === "activeProvider" || key === "aiProviders") {
       for (const agent of agentLoopsRef()) {
@@ -297,10 +306,11 @@ export function registerIpcHandlers(): void {
     if (key === "dynamicArrayFunctionsEnabled") {
       setDynamicArrayFunctionsEnabled(value);
     }
+    return rendererValue;
   });
 
   ipcMain.handle("settings:getAll", () => {
-    return getSettingsStore().store;
+    return getSettingsForRenderer();
   });
 
   // ---- Excel 连接状态 ----

@@ -7,6 +7,7 @@
 
 import * as path from "path";
 import * as fs from "fs";
+import { safeStorage } from "electron";
 import Store from "electron-store";
 import { AgentLoop } from "../agent/core/agentLoop";
 import { AgentGraphStore } from "../agent/memory/agentGraphStore";
@@ -26,6 +27,14 @@ import {
   SETTINGS_STORE_NAME,
 } from "./settingsDataPath";
 import { AsyncResource } from "./asyncResource";
+import {
+  decryptProviderForRuntime,
+  decryptSettingValueForRuntime,
+  migrateSettingsSecrets,
+  protectSettingValueForStorage,
+  sanitizeSettingsForRenderer,
+  type SettingsSecretCipher,
+} from "./settingsSecrets";
 
 export { getActiveDataPath };
 
@@ -63,8 +72,56 @@ export function normalizeWindowOpacity(value: unknown): number {
 
 let settingsStore = new Store(getSettingsStoreOptions(getActiveDataPath()));
 
+const settingsSecretCipher: SettingsSecretCipher = {
+  isAvailable: () => safeStorage?.isEncryptionAvailable() === true,
+  encrypt: (value) => safeStorage.encryptString(value).toString("base64"),
+  decrypt: (value) => safeStorage.decryptString(Buffer.from(value, "base64")),
+};
+
 export function getSettingsStore(): Store<typeof DEFAULT_SETTINGS> {
   return settingsStore;
+}
+
+export function initializeSettingsSecrets(): void {
+  const current = settingsStore.store as Record<string, unknown>;
+  const migrated = migrateSettingsSecrets(current, settingsSecretCipher);
+  if (JSON.stringify(migrated) !== JSON.stringify(current)) {
+    settingsStore.store = migrated as typeof DEFAULT_SETTINGS;
+  }
+}
+
+export function getSettingsForRenderer(): Record<string, unknown> {
+  return sanitizeSettingsForRenderer(settingsStore.store as Record<string, unknown>);
+}
+
+export function getSettingForRenderer(key: string): unknown {
+  return getSettingsForRenderer()[key];
+}
+
+export function setSettingFromRenderer(key: string, value: unknown): unknown {
+  const protectedValue = protectSettingValueForStorage(
+    key,
+    value,
+    settingsStore.get(key as keyof typeof DEFAULT_SETTINGS),
+    settingsSecretCipher
+  );
+  settingsStore.set(key as keyof typeof DEFAULT_SETTINGS, protectedValue as never);
+  return getSettingForRenderer(key);
+}
+
+export function getRuntimeSettingValue(key: string): unknown {
+  return decryptSettingValueForRuntime(
+    key,
+    settingsStore.get(key as keyof typeof DEFAULT_SETTINGS),
+    settingsSecretCipher
+  );
+}
+
+export function getProviderApiKey(providerId: string): string {
+  const providers = (settingsStore.get("aiProviders") as Record<string, Record<string, unknown>>) || {};
+  const provider = providers[providerId];
+  if (!provider) return "";
+  return String(decryptProviderForRuntime(provider, settingsSecretCipher).apiKey || "");
 }
 
 function getSettingsStoreOptions(dataPath?: string) {
@@ -291,7 +348,7 @@ export function getActiveAIConfig(): AIClientConfig {
     };
   }
 
-  const p = providers[activeProviderId];
+  const p = decryptProviderForRuntime(providers[activeProviderId], settingsSecretCipher) as any;
   const activeModelConfig = p.modelConfigs?.find((m: any) => m.name === p.model);
   return {
     provider: p.provider,

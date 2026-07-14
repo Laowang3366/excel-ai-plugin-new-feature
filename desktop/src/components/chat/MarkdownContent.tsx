@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { Check, Copy } from "../common/IconMap";
 import { useSettingsStore } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
+import { ipcApi } from "../../services/ipcApi";
 
 interface MarkdownContentProps {
   content: string;
@@ -15,6 +16,23 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
   const text = getAppText(language);
   const displayContent = normalizeVisibleMarkdown(content);
   const markdownComponents: Components = {
+    a({ href, children, ...props }) {
+      const externalUrl = normalizeExternalHttpUrl(href);
+      return (
+        <a
+          {...props}
+          href={externalUrl ?? undefined}
+          rel="noreferrer noopener"
+          target="_blank"
+          onClick={(event) => {
+            event.preventDefault();
+            if (externalUrl) void ipcApi.app.openExternal(externalUrl);
+          }}
+        >
+          {children}
+        </a>
+      );
+    },
     pre({ children }) {
       const codeText = extractText(children).replace(/\n$/, "");
 
@@ -44,6 +62,16 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
       {displayContent}
     </ReactMarkdown>
   );
+}
+
+export function normalizeExternalHttpUrl(href: string | undefined): string | null {
+  if (!href) return null;
+  try {
+    const url = new URL(href);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function normalizeVisibleMarkdown(content: string): string {

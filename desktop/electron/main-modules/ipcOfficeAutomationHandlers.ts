@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { ipcMain } from "electron";
+import { trustedIpcMain as ipcMain } from "../shared/trustedIpc";
 
 import { getOrCreateOfficeBridges } from "../agent/runtime/bridgeRegistry";
 import type { OfficeActionBridge, OfficeDocumentManagerBridge } from "../agent/tools/contracts/office";

@@ -223,9 +223,16 @@ internal sealed class ExcelWorkbookService(ExcelSessionService sessions)
                     sheetApi.Name = options.GetProperty("newName").GetString();
                     break;
                 case "delete":
-                    app.DisplayAlerts = false;
-                    sheetApi.Delete();
-                    app.DisplayAlerts = true;
+                    var displayAlerts = app.DisplayAlerts;
+                    try
+                    {
+                        app.DisplayAlerts = false;
+                        sheetApi.Delete();
+                    }
+                    finally
+                    {
+                        app.DisplayAlerts = displayAlerts;
+                    }
                     break;
                 case "copy":
                     sheetApi.Copy(After: sheetsApi.Item(sheetsApi.Count));

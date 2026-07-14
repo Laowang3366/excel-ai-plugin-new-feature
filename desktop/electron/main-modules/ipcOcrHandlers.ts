@@ -1,9 +1,9 @@
-import { ipcMain } from "electron";
+import { trustedIpcMain as ipcMain } from "../shared/trustedIpc";
 import { createAIClient } from "../agent/providers/aiClient";
 import { parseFilesLocally } from "../agent/tools/executors/localDocumentParser";
 import { validateInput, OcrRecognizeInput } from "../shared/ipcSchemas";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
-import { getActiveAIConfig, getSettingsStore } from "./settingsManager";
+import { getActiveAIConfig, getRuntimeSettingValue } from "./settingsManager";
 import { parseFilesWithMineru, parseFilesWithMineruAgent, type MineruParsedDocument } from "./mineruOcr";
 import {
   buildInvoiceFieldFallback,
@@ -163,8 +163,9 @@ function isLikelyInvoiceDocuments(documents: MineruParsedDocument[]): boolean {
 }
 
 function getConfiguredMineruToken(): string {
-  const store = getSettingsStore();
-  const configured = store.get("mineruApiToken") || store.get("ocrMineruApiToken");
+  const configured =
+    getRuntimeSettingValue("mineruApiToken") ||
+    getRuntimeSettingValue("ocrMineruApiToken");
   const tokenFromSettings = typeof configured === "string" ? configured.trim() : "";
   return tokenFromSettings || (process.env.MINERU_API_TOKEN || "").trim();
 }

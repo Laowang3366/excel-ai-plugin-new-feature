@@ -82,6 +82,46 @@ public sealed class OpenXmlExcelArrayFormulaTests : IDisposable
         Assert.Null(cell.CellMetaIndex);
     }
 
+    [Theory]
+    [InlineData("=A1:A3")]
+    [InlineData("=A1:A3*2")]
+    [InlineData("=IF(A1:A3>0,A1:A3,\"\")")]
+    [InlineData("=TRANSPOSE(A1:A3)")]
+    public async Task ExpressionBasedSpill_WritesDynamicMetadata(string formula)
+    {
+        var path = Path.Combine(root, $"expression-{Guid.NewGuid():N}.xlsx");
+        await CreateWorkbook(path, "range:Data!J20", [[formula]]);
+
+        using var document = SpreadsheetDocument.Open(path, false);
+        var cell = document.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<S.Cell>().Single();
+        Assert.Equal(S.CellFormulaValues.Array, cell.CellFormula!.FormulaType!.Value);
+        Assert.Equal("J20", cell.CellFormula.Reference!.Value);
+        Assert.Equal(1U, cell.CellMetaIndex!.Value);
+    }
+
+    [Fact]
+    public async Task DynamicWrite_PreservesExistingPlaceholderCellsAndStyle()
+    {
+        var path = Path.Combine(root, "preserve-existing.xlsx");
+        await CreateWorkbook(path, "range:Data!A1:C1", [["old", "keep", "tail"]]);
+        using (var document = SpreadsheetDocument.Open(path, true))
+        {
+            var cell = document.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<S.Cell>()
+                .Single(candidate => candidate.CellReference == "B1");
+            cell.StyleIndex = 7U;
+            document.WorkbookPart.WorksheetParts.Single().Worksheet.Save();
+        }
+
+        await WriteRange(path, "range:Data!A1:C1", [["=FILTER(D:D,D:D>0)", "", ""]]);
+
+        using var reopened = SpreadsheetDocument.Open(path, false);
+        var cells = reopened.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<S.Cell>()
+            .ToDictionary(cell => cell.CellReference!.Value!);
+        Assert.Equal("keep", cells["B1"].InnerText);
+        Assert.Equal(7U, cells["B1"].StyleIndex!.Value);
+        Assert.Equal("tail", cells["C1"].InnerText);
+    }
+
     private static async Task<JsonElement> CreateWorkbook(string path, string target, object[][] values)
     {
         using var worker = OfficeWorkerHost.Create();
@@ -99,6 +139,24 @@ public sealed class OpenXmlExcelArrayFormulaTests : IDisposable
         var result = JsonSerializer.SerializeToElement(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.Equal("done", result.GetProperty("status").GetString());
         return result;
+    }
+
+    private static async Task WriteRange(string path, string target, object[][] values)
+    {
+        using var worker = OfficeWorkerHost.Create();
+        var parameters = JsonSerializer.SerializeToElement(new
+        {
+            app = "excel",
+            action = "edit",
+            operation = "writeRange",
+            filePath = path,
+            target,
+            @params = new { values },
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var response = await worker.DispatchAsync(
+            new RpcRequest("test", "openxml.action.execute", parameters), CancellationToken.None);
+        var result = JsonSerializer.SerializeToElement(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal("done", result.GetProperty("status").GetString());
     }
 
     public void Dispose()
