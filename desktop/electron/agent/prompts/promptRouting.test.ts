@@ -33,7 +33,7 @@ describe("resolvePromptScenarios", () => {
   });
 
   it("loads the macro workflow only for persistent macro tasks", () => {
-    expect(resolvePromptScenarios({ content: "创建 VBA 宏并绑定按钮" })).toContain("macro");
+    expect(resolvePromptScenarios({ content: "在 Excel 工作表创建 VBA 宏并绑定按钮" })).toEqual(new Set(["macro"]));
     expect(resolvePromptScenarios({ content: "运行现有宏" })).toContain("macro");
     expect(resolvePromptScenarios({ content: "把几个单元格作为控制按钮，点击按钮切换基础数据" })).toContain("macro");
     expect(resolvePromptScenarios({ content: "用脚本临时整理文件" })).not.toContain("macro");

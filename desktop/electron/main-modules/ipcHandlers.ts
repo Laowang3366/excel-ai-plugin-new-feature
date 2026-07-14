@@ -369,8 +369,8 @@ export function registerIpcHandlers(): void {
       const bridge = excelBridgeRef();
       if (!bridge) return { success: false, error: "Excel 未连接" };
       try {
-        await bridge.writeRange(validated.sheetName, validated.range, validated.values);
-        return { success: true };
+        const data = await bridge.writeRange(validated.sheetName, validated.range, validated.values);
+        return { success: true, data };
       } catch (err: any) {
         return { success: false, error: err.message };
       }

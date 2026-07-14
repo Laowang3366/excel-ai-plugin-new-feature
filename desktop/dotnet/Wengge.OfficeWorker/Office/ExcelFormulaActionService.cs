@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Wengge.OfficeWorker.Com;
+using Wengge.OfficeWorker.Excel;
 using Wengge.OfficeWorker.Protocol;
 
 namespace Wengge.OfficeWorker.Office;
@@ -459,7 +460,8 @@ internal sealed partial class ExcelFormulaActionService(OfficeApplicationProvide
 
     private static string Formula(dynamic cell) { try { return Convert.ToString(cell.Formula2) ?? string.Empty; } catch { return Convert.ToString(cell.Formula) ?? string.Empty; } }
     private static string FormulaR1C1(dynamic cell) { try { return Convert.ToString(cell.Formula2R1C1) ?? string.Empty; } catch { return Convert.ToString(cell.FormulaR1C1) ?? string.Empty; } }
-    private static void SetFormula(dynamic cell, string formula) { try { cell.Formula2 = formula; } catch { cell.Formula = formula; } }
+    private static void SetFormula(object cell, string formula) =>
+        ExcelFormulaWriter.Write(new ComExcelFormulaCell(cell), formula);
     private static string RemoveStringLiterals(string formula) => StringLiteralRegex().Replace(formula, "\"\"");
     private static string FormulaSummary(string operation) => operation switch { "repairFormulaReferences" => "已修复错误公式引用", "convertFormulasToValues" => "已备份公式并转换为值", "restoreFormulas" => "已恢复公式", "manageFormulaProtection" => "已更新公式保护", _ => "已检查公式依赖" };
 

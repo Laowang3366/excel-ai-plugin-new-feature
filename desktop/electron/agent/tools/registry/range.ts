@@ -41,6 +41,10 @@ const RANGE_WRITE_DEF: ToolDefinition = {
         description: "二维数组数据，外层对应行、内层对应列",
         items: { type: "array", items: {} },
       },
+      legacyCse: {
+        type: "boolean",
+        description: "仅当用户明确要求传统 Ctrl+Shift+Enter 数组公式时设为 true；现代动态数组不得使用",
+      },
     },
     required: ["sheetName", "range", "values"],
   },

@@ -162,8 +162,16 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       if (formulaTypographyError) {
         return { success: false, error: formulaTypographyError };
       }
-      await workbookBridge.writeRange(args.sheetName as string, args.range as string, args.values as unknown[][]);
-      return { success: true, data: "写入成功" };
+      if (args.legacyCse !== undefined && typeof args.legacyCse !== "boolean") {
+        return { success: false, error: "参数 legacyCse 必须为布尔值" };
+      }
+      const result = await workbookBridge.writeRange(
+        args.sheetName as string,
+        args.range as string,
+        args.values as unknown[][],
+        { legacyCse: args.legacyCse === true },
+      );
+      return { success: true, data: result };
     },
   });
 

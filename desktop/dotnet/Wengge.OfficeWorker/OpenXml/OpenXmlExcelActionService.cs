@@ -2,6 +2,7 @@ using System.Text.Json;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using S = DocumentFormat.OpenXml.Spreadsheet;
+using Wengge.OfficeWorker.Excel;
 using Wengge.OfficeWorker.Office;
 using Wengge.OfficeWorker.Protocol;
 
@@ -43,6 +44,8 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
         workbookPart.Workbook = new S.Workbook();
         var sheets = workbookPart.Workbook.AppendChild(new S.Sheets());
         AddBaseStyles(workbookPart);
+        var dynamicAnchors = 0;
+        var metadataRegistry = new OpenXmlMetadataRegistry();
         for (var index = 0; index < sheetNames.Count; index++)
         {
             var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
@@ -54,13 +57,13 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
                 Name = sheetNames[index],
             });
             if (string.Equals(sheetNames[index], targetSheet, StringComparison.OrdinalIgnoreCase) && values.Count > 0)
-                WriteMatrix(worksheetPart.Worksheet.GetFirstChild<S.SheetData>()!, start, values, address);
+                dynamicAnchors += WriteMatrix(worksheetPart.Worksheet.GetFirstChild<S.SheetData>()!, start, values, workbookPart, metadataRegistry);
             worksheetPart.Worksheet.Save();
         }
         workbookPart.Workbook.Save();
         return Done(request, "已使用 .NET Open XML 创建 Excel 工作簿", output,
             ["xl/workbook.xml", .. sheetNames.Select((_, index) => $"xl/worksheets/sheet{index + 1}.xml")],
-            new { sheetNames, initialRange = values.Count > 0 ? request.Target : null, rowsWritten = values.Count });
+            new { sheetNames, initialRange = values.Count > 0 ? request.Target : null, rowsWritten = values.Count, dynamicAnchors });
     }
 
     private static object WriteRange(OfficeActionRequest request)
@@ -70,11 +73,14 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
         var output = PrepareCopy(request, "advanced");
         using var document = SpreadsheetDocument.Open(output, true);
         var worksheet = ResolveWorksheet(document, request, out var partName);
-        var (_, address) = request.ExcelTarget();
-        WriteMatrix(worksheet.Worksheet.GetFirstChild<S.SheetData>() ?? worksheet.Worksheet.AppendChild(new S.SheetData()), ParseCell(FirstCell(address)), values, address);
+        var workbookPart = document.WorkbookPart ?? throw new OfficeWorkerException("invalid_file", "Excel 工作簿缺少 workbook 部件");
+        var (sheetName, address) = request.ExcelTarget();
+        var metadataRegistry = new OpenXmlMetadataRegistry();
+        var dynamicAnchors = WriteMatrix(worksheet.Worksheet.GetFirstChild<S.SheetData>() ?? worksheet.Worksheet.AppendChild(new S.SheetData()),
+            ParseCell(FirstCell(address)), values, workbookPart, metadataRegistry);
         worksheet.Worksheet.Save();
         return Done(request, "已使用 .NET Open XML 写入 Excel 单元格", output, [partName],
-            new { rowsWritten = values.Count, columnsWritten = values.Max(row => row.Count) });
+            new { rowsWritten = values.Count, columnsWritten = values.Max(row => row.Count), dynamicAnchors });
     }
 
     private static object SetDataValidation(OfficeActionRequest request)
@@ -158,10 +164,12 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
         return part;
     }
 
-    private static void WriteMatrix(S.SheetData sheetData, CellAddress start, IReadOnlyList<IReadOnlyList<JsonElement>> values, string targetAddress)
+    private static int WriteMatrix(S.SheetData sheetData, CellAddress start, IReadOnlyList<IReadOnlyList<JsonElement>> values, WorkbookPart workbookPart, OpenXmlMetadataRegistry registry)
     {
-        var hasDynamic = values.SelectMany(row => row).Any(IsDynamicFormula);
-        var targetRef = hasDynamic && targetAddress.Contains(':') ? targetAddress : null;
+        var dynamicAnchors = 0;
+        var hasDynamicFormula = values.SelectMany(row => row).Any(value =>
+            value.ValueKind == JsonValueKind.String &&
+            ExcelFormulaClassification.IsDynamicArray(value.GetString(), forceLegacyArray: false));
         for (var rowOffset = 0; rowOffset < values.Count; rowOffset++)
         {
             var rowIndex = (uint)(start.Row + rowOffset);
@@ -178,16 +186,25 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
                 var existing = row.Elements<S.Cell>().FirstOrDefault(cell => string.Equals(cell.CellReference?.Value, reference, StringComparison.OrdinalIgnoreCase));
                 existing?.Remove();
                 var value = values[rowOffset][columnOffset];
-                if (value.ValueKind == JsonValueKind.String && value.GetString() == string.Empty && hasDynamic) continue;
-                var cell = BuildCell(reference, value, targetRef);
+                if (hasDynamicFormula && value.ValueKind == JsonValueKind.String && value.GetString() == string.Empty)
+                    continue;
+                int? metadataIndex = null;
+                if (value.ValueKind == JsonValueKind.String &&
+                    ExcelFormulaClassification.IsDynamicArray(value.GetString(), forceLegacyArray: false))
+                {
+                    metadataIndex = registry.RegisterDynamicArray(workbookPart);
+                    dynamicAnchors++;
+                }
+                var cell = BuildCell(reference, value, metadataIndex);
                 var nextCell = row.Elements<S.Cell>().FirstOrDefault(candidate => ColumnIndex(candidate.CellReference?.Value) > start.Column + columnOffset);
                 if (nextCell is null) row.Append(cell); else row.InsertBefore(cell, nextCell);
             }
             if (!row.Elements<S.Cell>().Any() && !row.ChildElements.Any(child => child is not S.Cell)) row.Remove();
         }
+        return dynamicAnchors;
     }
 
-    private static S.Cell BuildCell(string reference, JsonElement value, string? targetRef)
+    private static S.Cell BuildCell(string reference, JsonElement value, int? dynamicArrayCmIndex)
     {
         var cell = new S.Cell { CellReference = reference };
         switch (value.ValueKind)
@@ -205,12 +222,19 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
                 var text = value.GetString() ?? string.Empty;
                 if (text.StartsWith('=') && text.Length > 1)
                 {
-                    var formula = NormalizeFormula(text[1..]);
-                    cell.CellFormula = new S.CellFormula(formula);
-                    if (IsDynamicFormula(value) && !string.IsNullOrWhiteSpace(targetRef))
+                    var normalizedFormula = ExcelFormulaClassification.NormalizeForOpenXml(text);
+                    if (dynamicArrayCmIndex is int cm)
                     {
-                        cell.CellFormula.FormulaType = S.CellFormulaValues.Array;
-                        cell.CellFormula.Reference = targetRef;
+                        cell.CellMetaIndex = (uint)cm;
+                        cell.CellFormula = new S.CellFormula(normalizedFormula)
+                        {
+                            FormulaType = S.CellFormulaValues.Array,
+                            Reference = reference,
+                        };
+                    }
+                    else
+                    {
+                        cell.CellFormula = new S.CellFormula(normalizedFormula);
                     }
                 }
                 else
@@ -225,22 +249,6 @@ internal sealed class OpenXmlExcelActionService(OpenXmlTableService tables)
                 break;
         }
         return cell;
-    }
-
-    private static bool IsDynamicFormula(JsonElement value)
-    {
-        if (value.ValueKind != JsonValueKind.String) return false;
-        var formula = value.GetString() ?? string.Empty;
-        return formula.StartsWith('=') && new[] { "FILTER(", "SORT(", "SORTBY(", "UNIQUE(", "SEQUENCE(", "RANDARRAY(", "TOCOL(", "TOROW(", "WRAPROWS(", "WRAPCOLS(" }
-            .Any(name => formula.Contains(name, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string NormalizeFormula(string formula)
-    {
-        var dynamicFunctions = new[] { "FILTER", "SORT", "SORTBY", "UNIQUE", "SEQUENCE", "RANDARRAY", "TOCOL", "TOROW", "WRAPROWS", "WRAPCOLS" };
-        foreach (var function in dynamicFunctions)
-            if (formula.StartsWith($"{function}(", StringComparison.OrdinalIgnoreCase)) return $"_xlfn._xlws.{formula}";
-        return formula;
     }
 
     private static List<IReadOnlyList<JsonElement>> Matrix(JsonElement value)

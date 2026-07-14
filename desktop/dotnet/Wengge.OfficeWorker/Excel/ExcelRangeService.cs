@@ -39,12 +39,12 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
         }
     }
 
-    public object Write(string sheetName, string address, JsonElement values)
+    public object Write(string sheetName, string address, JsonElement values, bool legacyCse = false)
     {
         var matrix = ExcelValueConverter.FromJsonRows(values);
         if (matrix.Length == 0)
         {
-            return new { written = 0 };
+            return new { written = 0, dynamicCells = 0, arrayCells = 0, plainCells = 0 };
         }
 
         using var handle = sessions.GetActiveRequired();
@@ -63,8 +63,30 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
             dynamic startApi = startRange;
             targetRange = startApi.Resize[matrix.GetLength(0), matrix.GetLength(1)];
             dynamic targetApi = targetRange;
-            targetApi.Value2 = matrix;
-            return new { written = matrix.Length };
+
+            var plan = ExcelRangeWritePlan.Create(matrix, legacyCse);
+            targetApi.Value2 = plan.BulkValues;
+            foreach (var formula in plan.Formulas)
+            {
+                object? cell = null;
+                try
+                {
+                    cell = targetApi.Cells.Item(formula.Row + 1, formula.Column + 1);
+                    ExcelFormulaWriter.Write(new ComExcelFormulaCell(cell), formula.Formula, legacyCse);
+                }
+                finally
+                {
+                    ComInterop.Release(cell);
+                }
+            }
+
+            return new
+            {
+                written = matrix.Length,
+                dynamicCells = plan.DynamicCells,
+                arrayCells = plan.ArrayCells,
+                plainCells = plan.PlainCells,
+            };
         }
         finally
         {

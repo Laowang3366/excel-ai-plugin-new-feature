@@ -3,6 +3,7 @@ import type {
   ExcelConnectionStatus,
   RangeReadExpandMode,
   RangeReadResult,
+  RangeWriteResult,
 } from "../tools/contracts/excel";
 import { getOfficeWorkerClient, type OfficeWorkerClient } from "./officeWorkerClient";
 
@@ -53,8 +54,18 @@ export class DotNetExcelBridge implements ExcelConnectionBridge {
     return this.client.invoke("excel.range.read", { sheetName, range, expand });
   }
 
-  async writeRange(sheetName: string, range: string, values: unknown[][]): Promise<void> {
-    await this.client.invoke("excel.range.write", { sheetName, range, values });
+  writeRange(
+    sheetName: string,
+    range: string,
+    values: unknown[][],
+    options?: { legacyCse?: boolean },
+  ): Promise<RangeWriteResult> {
+    return this.client.invoke("excel.range.write", {
+      sheetName,
+      range,
+      values,
+      legacyCse: options?.legacyCse === true,
+    });
   }
 
   async clearRange(sheetName: string, range: string): Promise<void> {

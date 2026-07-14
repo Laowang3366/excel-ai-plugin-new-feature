@@ -119,7 +119,11 @@ public sealed class OfficeWorkerHost : IDisposable
             "excel.workbook.save" => OnSta(() => excelWorkbooks.Save(parameters.OptionalString("saveAsPath")), cancellationToken),
             "excel.workbook.switch" => OnSta(() => excelWorkbooks.Switch(parameters.RequiredString("workbookName")), cancellationToken),
             "excel.range.read" => OnSta(() => excelRanges.Read(parameters.RequiredString("sheetName"), parameters.RequiredString("range"), parameters.OptionalString("expand") ?? "none"), cancellationToken),
-            "excel.range.write" => OnSta(() => excelRanges.Write(parameters.RequiredString("sheetName"), parameters.RequiredString("range"), parameters.PropertyOrEmpty("values")), cancellationToken),
+            "excel.range.write" => OnSta(() => excelRanges.Write(
+                parameters.RequiredString("sheetName"),
+                parameters.RequiredString("range"),
+                parameters.PropertyOrEmpty("values"),
+                parameters.OptionalBoolean("legacyCse")), cancellationToken),
             "excel.range.clear" => OnSta(() => excelRanges.Clear(parameters.RequiredString("sheetName"), parameters.RequiredString("range")), cancellationToken),
             "excel.selection.read" => OnSta(() => excelRanges.GetSelection(includeValues: true), cancellationToken),
             "excel.selection.address" => OnSta(() => excelRanges.GetSelection(includeValues: false), cancellationToken),

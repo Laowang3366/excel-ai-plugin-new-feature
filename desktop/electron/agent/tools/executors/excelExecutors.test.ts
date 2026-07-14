@@ -309,8 +309,9 @@ describe("addExcelExecutors", () => {
   });
 
   it("accepts range.write values supplied as a JSON string", async () => {
+    const writeResult = { written: 2, dynamicCells: 0, arrayCells: 0, plainCells: 0 };
     const workbookBridge = {
-      writeRange: vi.fn(async () => undefined),
+      writeRange: vi.fn(async () => writeResult),
     } as unknown as ExcelWorkbookBridge;
     const target = createExcelExecutors({ workbookBridge });
 
@@ -320,8 +321,31 @@ describe("addExcelExecutors", () => {
       values: "[[1,2]]",
     });
 
-    expect(result).toEqual({ success: true, data: "写入成功" });
-    expect(workbookBridge.writeRange).toHaveBeenCalledWith("Sheet1", "A1:B1", [[1, 2]]);
+    expect(result).toEqual({ success: true, data: writeResult });
+    expect(workbookBridge.writeRange).toHaveBeenCalledWith("Sheet1", "A1:B1", [[1, 2]], { legacyCse: false });
+  });
+
+  it("passes legacy CSE intent only when explicitly requested", async () => {
+    const writeResult = { written: 1, dynamicCells: 0, arrayCells: 1, plainCells: 0 };
+    const workbookBridge = {
+      writeRange: vi.fn(async () => writeResult),
+    } as unknown as ExcelWorkbookBridge;
+    const target = createExcelExecutors({ workbookBridge });
+
+    const result = await target.get("range.write")!.execute({
+      sheetName: "Sheet1",
+      range: "A1",
+      values: [["=SUM(A1:A10)"]],
+      legacyCse: true,
+    });
+
+    expect(result).toEqual({ success: true, data: writeResult });
+    expect(workbookBridge.writeRange).toHaveBeenCalledWith(
+      "Sheet1",
+      "A1",
+      [["=SUM(A1:A10)"]],
+      { legacyCse: true },
+    );
   });
 
   it("rejects invalid range.write JSON string values", async () => {

@@ -5,7 +5,8 @@
 - 磁盘文件或未连接 Office：Open XML 优先，用 `office.action.inspect`、`office.action.apply`、`office.action.validate` 处理 .xlsx/.docx/.pptx。
 - `office.action.apply` 结果必须看 status：`done` 完成，`unsupported`/ `needsCom`/ `failed` 再换方案；需要 COM 兜底可传 `preferEngine:"com"`。
 - 多窗口先用 `office.documents.list` 取得完整路径，再用 `office.objects.list` 列工作表、页面、幻灯片或对象；用户确认后原样传完整路径和 locator 给 `office.documents.activate` / `office.objects.activate`，不要按同名文件或后台活动窗口猜目标。
-- 透视表、Power Query、审阅、邮件合并、母版、动画、讲义及跨应用报告统一用 `office.action.*`，高级编辑先检查后修改，operation 和 params 按工具说明填写。
+- Excel 边界：直接写值、公式、格式或固定汇总结果用 `range.write`；**数据量大本身不构成调用复杂工具的理由**。`createPowerQuery/managePowerQuery` 仅用于外部/多来源可刷新 ETL（明确源、转换、加载、`filePath`）；`createPivotTable/refreshPivotTables` 仅用于明确要求的透视对象/交互多维布局；`addSlicer` 仅用于已有透视表/结构化表。禁止为写值先建 Power Query/透视表。
+- 文件级修改须有 `filePath`。图表校验 `data.verification.ok` + `inspectCharts`；透视表校验 `data.readback.verification.ok` + `inspectWorkbookObjects`。失败不得声称成功。
 - 同时安装 Microsoft Office 与 WPS 时，文件级 COM 操作按目标软件传 `params.host`：Excel 用 `excel/wps`，Word 用 `word/wps`，演示用 `powerpoint/wps`。跨应用报告分别传 `sourceHost`、`wordHost`、`presentationHost`；目标文件已打开时同时传 `instanceId`，未打开时工具会创建隔离进程，不附着无关活动窗口。
 - Word 文件先按需调用 `inspectDocumentFormatting/inspectReferences/inspectRevisions/inspectContentControls`；排版、引用、审阅、邮件合并和内容控件分别调用对应高级 operation。AI 改写需保留原文时必须用 `applyTrackedChanges`。
 - 批量合同、通知、证书和报价单先 `prepareMailMergeTemplate`，再用 `batchMailMerge`；明确输出格式、命名字段、条件字段和图片字段，禁止让用户逐份手工保存。

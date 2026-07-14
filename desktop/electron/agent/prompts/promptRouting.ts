@@ -43,16 +43,17 @@ export function resolvePromptScenarios(context: PromptRoutingContext): Set<Promp
     scenarios.add("ocr-invoice");
   }
 
-  if (MACRO_INTENT_PATTERN.test(content)) {
+  const isMacro = MACRO_INTENT_PATTERN.test(content);
+  if (isMacro) {
     scenarios.add("macro");
   }
 
   if (!isFormula) {
     if (
-      moduleName.includes("代码") ||
+      !isMacro && (moduleName.includes("代码") ||
       moduleName.includes("报告") ||
       OFFICE_INTENT_PATTERN.test(content) ||
-      context.attachments?.some(isOfficeAttachment)
+      context.attachments?.some(isOfficeAttachment))
     ) {
       scenarios.add("office-tools");
     }

@@ -9,6 +9,13 @@
 - 同一应用打开多个文件时，先调用 `office.documents.list` 取得完整路径，再用 `office.objects.list` 获取工作表、页面、幻灯片或对象的稳定 locator；激活时原样传入完整路径与 locator。
 - 同时安装 Microsoft Office 与 WPS 时，文件级 COM 操作用 `params.host` 明确宿主：表格传 `excel/wps`，文字传 `word/wps`，演示传 `powerpoint/wps`。跨应用报告可分别传 `sourceHost`、`wordHost`、`presentationHost`。目标文件未打开时使用隔离进程，不附着无关活动窗口。
 
+### Excel 基础与高级工具边界
+
+- 直接写值、公式、格式或固定汇总结果始终优先 `range.read/write`；数据量本身不触发 Power Query、透视表或切片器。
+- Power Query 仅用于外部/多来源的可刷新 ETL、联接与加载生命周期，并要求明确源、转换、加载位置和文件路径。
+- 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
+- 切片器只用于已有透视表或结构化表的交互筛选。
+
 ## 高级 operation
 
 ### Excel/WPS 表格
@@ -41,6 +48,12 @@
 
 `formatChart` 支持更换数据源、类型、标题、图例、位置尺寸、图表区/绘图区；`series` 支持新增、更新、删除、数据范围、组合图类型、主次坐标轴、标记、线条、填充、数据标签、趋势线和误差线；`axes` 支持标题、最小/最大值、主次单位、数字格式、逆序、交叉值、对数轴和网格线。
 
+`insertChart` 在保存前回读图表对象、工作表可见性、系列数、位置尺寸和 `TopLeftCell/BottomRightCell`。任一关键检查失败会返回 `chart_verification_failed`，不会以成功 summary 掩盖。模型随后应使用 `office.action.validate` + `inspectCharts` 再次确认文件中的图表对象。
+
+#### 数据透视表创建与验证
+
+`createPivotTable` 未传 `destination` 时创建或复用专用 `Pivots` 工作表，并把新透视表放到已有透视表下方，避免覆盖源数据。创建后会回读缓存、行/列/筛选/数据字段及 `TableRange1/2`；缓存、字段或目标范围缺失时返回 `pivot_verification_failed`。文件级验收使用 `inspectWorkbookObjects` 并筛选 `pivotTable`。
+
 #### 工作簿对象
 
 `inspectWorkbookObjects` 可按 `types` 筛选工作表、名称、结构化表、图表、形状、连接、查询、透视表和切片器。`manageWorkbookObject.objectType` 支持 `worksheet`、`name`、`table`、`connection`、`shape`、`chart`、`image`、`pivotTable`、`slicer`，各类型提供创建、重命名、移动、缩放、显隐、刷新、样式或删除等适用命令。
@@ -54,6 +67,10 @@
 `configurePrint` 可同时处理多个 `sheetNames`。纸张支持 A3/A4/A5/B4/B5/Letter/Legal/Tabloid；`marginUnit` 支持 `centimeters`、`inches`、`points`。使用 `repeatRows`/`repeatColumns` 设置打印标题，`horizontalPageBreaks`/`verticalPageBreaks` 设置手动分页；`fitToOnePageWide:true` 固定一页宽，默认不强制一页高。`exportSheetsToPdf.mode` 为 `combined` 时按工作表顺序生成一个 PDF，为 `separate` 时输出到 `outputDirectory`。
 
 #### 公式治理
+
+`range.write` 对 Excel/WPS 共用同一公式分类与写入策略：普通公式走 `Formula`，现代/动态公式走 `Formula2`，只有显式 `legacyCse:true` 才走 `FormulaArray`。现代公式缺少 `Formula2` 时明确失败，不回退 `Formula`，避免重新引入 `@`。返回值包含 `written`、`dynamicCells`、`arrayCells`、`plainCells`。
+
+文件级 Open XML 写入使用同一函数分类和前缀规范化；动态锚点写入数组公式引用与 `c@cm`，工作簿通过 `CellMetadataPart` 保存 `XLDAPR` 动态数组 metadata。多个动态锚点复用同一 metadata 描述，不写工作表 `extLst`，也不使用 `aca=false` 冒充动态数组能力。
 
 依赖检查会返回 `nodes`、`edges`、`cycles[{path}]`、`brokenReferences` 和 Excel 当前循环引用位置。大范围引用超过 `maxExpandedRangeCells` 时保留为范围边，避免无界展开。
 

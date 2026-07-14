@@ -14,6 +14,13 @@ export interface RangeReadResult {
   expandMode?: RangeReadExpandMode;
 }
 
+export interface RangeWriteResult {
+  written: number;
+  dynamicCells: number;
+  arrayCells: number;
+  plainCells: number;
+}
+
 export interface ExcelConnectionStatus {
   connected: boolean;
   host: string;
@@ -40,7 +47,12 @@ export interface ExcelWorkbookBridge {
   /** 读取范围 */
   readRange(sheetName: string, range: string, expand?: RangeReadExpandMode): Promise<RangeReadResult>;
   /** 写入范围 */
-  writeRange(sheetName: string, range: string, values: unknown[][]): Promise<void>;
+  writeRange(
+    sheetName: string,
+    range: string,
+    values: unknown[][],
+    options?: { legacyCse?: boolean },
+  ): Promise<RangeWriteResult>;
   /** 清除范围 */
   clearRange(sheetName: string, range: string): Promise<void>;
   /** 获取选区 */
