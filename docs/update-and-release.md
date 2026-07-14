@@ -4,7 +4,7 @@
 
 ### 完整安装包
 
-完整版本使用 electron-builder 生成 NSIS x64 安装包、blockmap 和 `latest.yml`。桌面端通过 `electron-updater` 下载，校验签名清单中的 SHA-256 后调用 NSIS 覆盖安装。
+完整版本使用 electron-builder 生成 NSIS x64 安装包、blockmap 和 `latest.yml`。`npm run electron:build` 会先执行 `office:publish`，把 win-x64 self-contained .NET Worker 一并打入安装包。桌面端通过 `electron-updater` 下载，校验签名清单中的 SHA-256 后调用 NSIS 覆盖安装。
 
 适用范围：
 
@@ -25,6 +25,8 @@ public/wps-jsa-bridge/**
 
 界面补丁必须包含 `dist/index.html`；知识库补丁必须包含 `builtin-knowledge.json`；WPS 桥接补丁必须包含 `index.html`。补丁声明精确基础版本，下载后校验签名、文件大小和 SHA-256，再写入临时目录并原子切换。加载失败会删除激活状态并回退安装包内置界面。
 
+热补丁不能更新 `dist-electron/`、preload、Node 依赖、原生模块或 `.NET Office Worker`。只要 `desktop/dotnet/`、`desktop/electron/agent/officeWorker/` 的协议或主进程执行逻辑发生变化，就必须发布完整安装包。
+
 ## 签名
 
 - 算法：Ed25519
@@ -38,7 +40,7 @@ public/wps-jsa-bridge/**
 
 1. 更新 `release-notes/<version>.json`，只填写用户可感知变化。
 2. 更新 `CHANGELOG.md`、README 和当前架构文档。
-3. 在 `desktop` 执行完整测试、类型检查和 Lint。
+3. 在 `desktop` 执行类型检查、Lint、TypeScript 测试和 `.NET Worker` 测试；真实 Office 冒烟只按变更范围定向执行。
 4. 递增 `desktop/package.json` 与锁文件版本。
 5. 执行 `npm run electron:build`。
 6. 使用产品站 `publish-release` 生成 `release.json` 和签名 `manifest.json`。

@@ -227,16 +227,24 @@ await Promise.all(
 
 ### 4.1 测试框架
 
-- **框架**：vitest（v4.1.8）+ @vitest/coverage-v8
-- **配置**：`desktop/vitest.config.ts`
-- **当前基线**：测试数量以命令实际输出为准；提交前必须保持 `npm run typecheck`、`npm run lint`、`npm test` 和 `npm run office:test` 通过。产品站测试在 `product-site/` 独立执行。
+- **框架**：Vitest 3 + .NET 8 测试项目
+- **配置**：`desktop/vitest.config.ts`、`desktop/dotnet/Wengge.OfficeWorker.Tests/`
+- **当前基线**：最近盘点为 TypeScript 147 个测试文件、751 项测试，.NET Worker 21 项测试；数量以命令实际输出为准。提交前必须保持 `npm run typecheck`、`npm run lint`、`npm test` 和 `npm run office:test` 通过。产品站测试在 `product-site/` 独立执行。
 - **运行命令**：
 
 ```bash
 npm test              # 单次运行
 npm run test:watch    # 监听模式
 npm run test:coverage # 覆盖率报告
+npm run office:test   # .NET Worker 测试
 ```
+
+### 4.1.1 Office 冒烟时限
+
+- 常规单元测试和 Worker 测试不得启动真实 Office 进程。
+- 真实 Office 冒烟只按本次修改涉及的应用和 operation 定向运行，不把所有脚本串成默认提交门禁。
+- 生产 Office action 默认超时 120 秒；冒烟环境默认单动作超时 30 秒，可通过 `WENGGE_OFFICE_SMOKE_TIMEOUT_MS` 在 5-600 秒范围内调整。
+- 冒烟等待期间每 10 秒输出一次探测信息；超时后必须终止当前检查并报告 operation、宿主和文件，不允许无反馈挂起数小时。
 
 ### 4.2 必须有测试的模块
 
@@ -480,4 +488,4 @@ const allUsage = await ipcApi.settings.getAll();
 | 8 | 无 `console.log`，使用 `logger` | 五、IPC 解耦 |
 | 9 | `npm run typecheck` 通过 | 六、Bug 防御 |
 | 10 | `npm test` 全部通过 | 六、Bug 防御 |
-| 11 | `CHANGELOG.md` 和 `docs/dev-log.md` 已更新 | 文档维护 |
+| 11 | 用户可感知变化已更新 `CHANGELOG.md`；架构或流程变化已更新对应当前文档 | 文档维护 |

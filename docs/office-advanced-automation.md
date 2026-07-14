@@ -2,6 +2,7 @@
 
 ## 调用边界
 
+- 生产链路固定为模型工具 -> TypeScript 类型化薄桥 -> .NET 8 Worker -> COM/WPS JSA 或 C# Open XML，不允许绕过 Worker 拼接外部脚本。
 - 当前 Excel/WPS 窗口或选区使用 `workbook.*`、`range.*`、`formula.*`、`sheet.*`。
 - 当前 Word/PPT 窗口使用 `word.*`、`presentation.*`。
 - 磁盘 `.xlsx/.docx/.pptx` 文件使用 `office.action.inspect/apply/validate`。Open XML 可完成时不启动 Office；动态对象、导出和应用对象模型使用 COM/WPS 兜底。
@@ -174,11 +175,15 @@
 
 ## 兼容性
 
-- 文件级基础编辑优先 Open XML，不要求 Office 进程运行。
+- 文件级基础编辑优先使用 .NET Worker 内的 C# `DocumentFormat.OpenXml`，不要求 Office 进程运行；旧 TypeScript Open XML 实现已移除。
 - 高级对象操作需要本机安装对应 Microsoft Office 或 WPS，并提供兼容 COM 对象模型。
 - COM 清理按进程归属执行：本次新建的 Office 进程会完整退出；复用用户已有 WPS 进程时只关闭本次打开的文件并释放 COM 对象，不遍历关闭其他文件，也不调用应用级 `Quit()`。
 - WPS 12.0 的主题色 COM 属性只读，且多页备注可能只持久化第一页。工具会在 WPS 保存并释放文件后使用 XML 解析器更新主题包或补齐备注部件及关系，再通过后续检查回读真实结果。
 - Power Query、切片器、动画和讲义等能力在不同 Office/WPS 版本中的对象模型覆盖不同；不支持时工具会返回 `failed`，不会伪报成功。
 - 工具不暴露任意 Shell、Python、PowerShell 或 JScript 执行入口；Office 自动化统一由类型化的 .NET Worker 协议执行。
 
-安装了 Microsoft Office 的开发机可运行 `npm run test:office-smoke`、`npm run test:word-smoke` 和 `npm run test:presentation-smoke`，分别验证 Excel 深度能力、Word 排版/引用/修订/邮件合并/内容控件，以及 PPT 母版品牌、元素诊断、四类动画、放映、备注和讲义导出。`npm run test:office-reliability` 额外实测 Excel 链接 Word/PPT、原位刷新、流水线暂停续跑、跨文件撤销重做及多窗口对象选择。PowerShell 中先设置 `$env:PRESENTATION_SMOKE_HOST="wps"` 再运行演示冒烟，可强制验收 WPS；设为 `powerpoint` 可强制验收 Microsoft PowerPoint。WPS 冒烟必须先在磁盘创建测试文件，再用 WPS 打开该现有文件；不得从 WPS 新建界面创建测试文件。运行前后应清理确认属于测试的残留 WPS 进程，避免连接到错误实例。`npm run test:excel-lifecycle` 与 `npm run test:word-lifecycle` 会验证同一文件连续打开和锁释放。
+安装了 Microsoft Office 的开发机可运行 `npm run test:office-smoke`、`npm run test:word-smoke` 和 `npm run test:presentation-smoke`，分别验证 Excel 深度能力、Word 排版/引用/修订/邮件合并/内容控件，以及 PPT 母版品牌、元素诊断、四类动画、放映、备注和讲义导出。`npm run test:office-reliability` 额外实测 Excel 链接 Word/PPT、原位刷新、流水线暂停续跑、跨文件撤销重做及多窗口对象选择。`npm run test:excel-lifecycle` 与 `npm run test:word-lifecycle` 验证同一文件连续打开和锁释放。
+
+这些脚本只按变更范围定向执行，禁止把全套真实 Office 冒烟作为默认门禁长时间串行运行。生产 action 默认超时 120 秒；冒烟默认单动作 30 秒，并每 10 秒输出等待探测。可在 PowerShell 中设置 `$env:WENGGE_OFFICE_SMOKE_TIMEOUT_MS="45000"` 临时调整单动作时限。设置 `$env:PRESENTATION_SMOKE_HOST="wps"` 或 `"powerpoint"` 可明确演示宿主。
+
+WPS 冒烟必须先在磁盘创建测试文件，再用 WPS 打开该现有文件；不得从 WPS 新建界面创建测试文件。运行前后只清理确认属于测试的残留进程，避免连接到错误实例或关闭用户正在编辑的文件。

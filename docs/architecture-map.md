@@ -40,6 +40,12 @@ flowchart TB
     Memory["memory/*"]
   end
 
+  subgraph Worker["Office 执行层: desktop/dotnet"]
+    WorkerHost["Wengge.OfficeWorker (.NET 8)"]
+    ComServices["COM / WPS JSA 服务"]
+    OpenXmlServices["C# Open XML 服务"]
+  end
+
   subgraph External["外部能力与本地资源"]
     Office["Excel / WPS / Word / PowerPoint COM"]
     OpenXml["Open XML 文件包: xlsx/docx/pptx"]
@@ -73,8 +79,11 @@ flowchart TB
   Loop --> Prompts
   Loop --> Tools
   Tools --> OfficeWorkerBridge
-  OfficeWorkerBridge --> Office
-  OfficeWorkerBridge --> OpenXml
+  OfficeWorkerBridge --> WorkerHost
+  WorkerHost --> ComServices
+  WorkerHost --> OpenXmlServices
+  ComServices --> Office
+  OpenXmlServices --> OpenXml
   Tools --> FS
   Knowledge --> Data
   Memory --> Data
@@ -93,7 +102,7 @@ flowchart TB
 - `agent/interaction/ipcAgentHandlers.ts` 负责 Agent、Thread、Knowledge、Stats、工具审批相关 IPC。
 - `agent/runtime/agentRuntime.ts` 负责把 AI 配置、Office bridge、知识库、记忆、工具执行器、AgentLoop 装配到一起。
 - `agent/core/agentLoop/*` 只做对话轮次、模型流、工具调用、压缩、中断/恢复编排，不直接依赖 COM 具体实现。
-- `agent/tools/registry` 是模型可见工具定义；`agent/tools/executors` 是工具路由；`agent/officeWorker` 是到 .NET 8 Worker 的类型化薄桥，COM 与 Open XML 的实际实现位于 `desktop/dotnet/Wengge.OfficeWorker`。
+- `agent/tools/registry` 是模型可见工具定义；`agent/tools/executors` 是工具路由；`agent/officeWorker` 是到 .NET 8 Worker 的类型化薄桥，COM、WPS JSA 与 C# Open XML 的实际实现位于 `desktop/dotnet/Wengge.OfficeWorker`。
 
 ## 2. 启动与运行时装配链路
 
@@ -129,9 +138,9 @@ sequenceDiagram
 | `desktop/electron/main.ts` | Electron 生命周期入口 | `getOrCreateAgentRuntime`、`registerIpcHandlers`、`createWindow`、退出时 flush/close | 主窗口、Agent runtime、IPC 注册 |
 | `desktop/electron/main-modules/settingsManager.ts` | electron-store、数据目录、Session/StateRuntime 生命周期 | `getActiveAIConfig`、`getSessionStoreInstance`、`getStateRuntimeStoreInstance` | 设置、数据路径、SQLite/JSONL 存储实例 |
 | `desktop/electron/main-modules/windowManager.ts` | BrowserWindow、托盘、普通/紧凑模式、透明度/主题 | Electron `BrowserWindow`、设置值 | 主窗口状态、托盘行为 |
-| `desktop/electron/main-modules/ipcHandlers.ts` | 通用 IPC 注册入口 | `registerAgentIpcHandlers`、Office bridge refs、settings/file/ocr/sandbox 子 handler | 所有主进程 IPC handler |
+| `desktop/electron/main-modules/ipcHandlers.ts` | 通用 IPC 注册入口 | `registerAgentIpcHandlers`、Office bridge refs、settings/file/ocr/office automation 子 handler | 所有主进程 IPC handler |
 | `desktop/electron/agent/runtime/agentRuntime.ts` | Agent 依赖装配 | `bridgeRegistry`、`knowledgeRuntime`、`createToolExecutors`、`AgentLoop` | `AgentRuntime`、`AgentLoopManager` |
-| `desktop/electron/agent/runtime/bridgeRegistry.ts` | Office/WPS bridge 单例 | Excel/Word/PPT/OpenXML bridge 构造 | `OfficeBridgeRegistry` |
+| `desktop/electron/agent/runtime/bridgeRegistry.ts` | Office/WPS bridge 单例 | Excel/Word/PPT、宏和 .NET Open XML 薄桥构造 | `OfficeBridgeRegistry` |
 | `desktop/electron/agent/runtime/knowledgeRuntime.ts` | RAG runtime 初始化/刷新 | `SqliteStore`、`EmbeddingService`、`KnowledgeIndexer`、`Retriever` | 知识库 store/indexer/retriever |
 
 ## 3. Renderer 到主进程 IPC

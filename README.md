@@ -1,6 +1,6 @@
 # 文格 AI 助手
 
-面向 Excel、Word、PowerPoint 与 WPS Office 的 Windows 桌面 AI 助手。应用通过模型工具调用读取、编辑和验证办公内容；文件级处理优先使用 Open XML，当前窗口交互使用 Office/WPS 桥接。
+面向 Excel、Word、PowerPoint 与 WPS Office 的 Windows 桌面 AI 助手。应用通过模型工具调用读取、编辑和验证办公内容；Office 操作统一经过 TypeScript 类型化薄桥和 .NET 8 Worker，文件级处理优先使用 Worker 内的 C# Open XML 实现，当前窗口交互使用 COM 或 WPS JSA。
 
 ## 主要功能
 
@@ -18,11 +18,12 @@
 
 ## 快速开始
 
-环境要求：Windows、Node.js 20+。当前窗口自动化需要安装对应的 Microsoft Office 或 WPS Office；仅处理 Open XML 文件时不要求 Office 进程运行。
+开发环境要求：Windows、Node.js 20+、.NET 8 SDK。当前窗口自动化需要安装对应的 Microsoft Office 或 WPS Office；仅处理 Open XML 文件时不要求 Office 进程运行。正式安装包已携带 self-contained .NET Worker，普通用户不需要单独安装 .NET SDK 或 Runtime。
 
 ```powershell
 cd desktop
 npm install
+npm run office:publish
 npm run dev
 ```
 
@@ -33,8 +34,11 @@ npm run dev
 | `npm run typecheck` | 检查渲染进程和 Electron 主进程类型 |
 | `npm run lint` | 执行 ESLint |
 | `npm test` | 执行桌面端单元测试 |
+| `npm run office:build` | 编译 .NET Office Worker |
+| `npm run office:test` | 执行 .NET Worker 测试 |
+| `npm run office:publish` | 发布 win-x64 self-contained Worker |
 | `npm run build` | 构建渲染进程 |
-| `npm run electron:build` | 生成 Windows NSIS 安装包 |
+| `npm run electron:build` | 先发布 Worker，再生成 Windows NSIS 安装包 |
 | `npm run patch:build -- --id <id> --base-version <version>` | 创建受限热补丁 |
 
 ## 项目结构
@@ -44,6 +48,7 @@ npm run dev
 |- desktop/                         Electron + React 桌面应用
 |  |- electron/main-modules/        窗口、IPC、更新和热补丁管理
 |  |- electron/agent/               Agent、工具、知识、记忆与安全策略
+|  |- dotnet/                       .NET 8 Office Worker、COM/Open XML 实现与测试
 |  |- src/                          React 界面与状态管理
 |  |- public/                       内置知识、WPS 桥接和更新公钥
 |  `- scripts/                      构建与热补丁脚本
@@ -57,11 +62,11 @@ npm run dev
 ## 工具边界
 
 - 当前 Excel/WPS 窗口：`range.*`、`formula.*`、`sheet.*`、`workbook.*`。
-- Office 磁盘文件：`office.action.inspect/apply/validate`，优先 Open XML，必要时使用 COM。
+- Office 磁盘文件：`office.action.inspect/apply/validate`，优先调用 .NET Worker 内的 C# Open XML 路径，必要时使用 COM。
 - 多窗口与批处理：`office.documents.*` + `office.objects.*` 按完整路径和稳定 locator 选择文件、工作表、页面、幻灯片与对象；`office.workflow.*` 执行可暂停续跑的多步任务。
 - 跨软件联动：Excel 区域或图表可作为链接对象写入 Word/PPT，数据变化后原位刷新；工作流事务支持修改清单、整体撤销和重做。
 - Word/PPT 当前窗口：`word.*`、`presentation.*`。
-- Office 与文件处理只通过类型化工具和 .NET Office Worker 执行。
+- Office 与文件处理只通过类型化工具和 .NET Office Worker 执行；项目仍使用 C# `DocumentFormat.OpenXml`，已移除的是旧 TypeScript Open XML 实现。
 - `python.execute`、`shell.execute`、外部 `script.execute`、任意 PowerShell Office 脚本和 JScript 写入入口均已移除。
 
 ## 更新与发布
@@ -79,7 +84,7 @@ npm run dev
 
 ## 验证基线
 
-测试数量随实现变化，以命令实际输出为准；产品站另有接口与下载统计测试。发布前必须通过：
+测试数量随实现变化，以命令实际输出为准；产品站另有接口与下载统计测试。常规发布门禁为：
 
 ```powershell
 cd desktop
@@ -88,9 +93,10 @@ npm run lint
 npm test
 npm run build
 npm run office:test
-npm run office:publish
 npm run electron:build
 ```
+
+真实 Office 冒烟按本次变更涉及的应用和 operation 定向执行，不默认串行跑完整套件。生产工具调用默认超时 120 秒；冒烟环境默认单动作 30 秒，并每 10 秒输出一次等待探测，避免无反馈地长时间挂起。完整命令和适用范围见 [Office 高级自动化](docs/office-advanced-automation.md)。
 
 安装包输出为 `desktop/release/Wengge-AI-Assistant-Setup-<version>.exe`，安装包、blockmap 和 `latest.yml` 作为 GitHub Release 资产发布，不提交为 Git 大文件。
 
