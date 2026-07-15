@@ -336,6 +336,7 @@ flowchart TB
     OpenXmlBridge["officeWorker/dotNetOpenXmlBridge.ts"]
     Client["officeWorker/officeWorkerClient.ts"]
     Transactions["officeCore/transactions.ts + transactionJournal.ts + workflow.ts"]
+    Retention["main-modules/localDataMaintenance.ts"]
   end
 
   subgraph Worker[".NET 8 Office Worker"]
@@ -352,6 +353,7 @@ flowchart TB
   AgentTools --> Documents
   AgentTools --> OpenXmlBridge
   ActionBridge --> Transactions
+  Retention --> Transactions
   ExcelBridge --> Client
   DocumentBridges --> Client
   ActionBridge --> Client

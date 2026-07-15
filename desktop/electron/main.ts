@@ -44,6 +44,11 @@ import { requestToolApproval } from "./agent/interaction/eventForwarder";
 import { configureLogDirectory, createLogger, setupGlobalErrorHandlers } from "./shared/logger";
 import { createAppShutdownController, runCleanupSteps } from "./main-modules/appShutdown";
 import {
+  runLocalDataMaintenance,
+  startLocalDataMaintenance,
+  type LocalDataMaintenanceReport,
+} from "./main-modules/localDataMaintenance";
+import {
   activatePendingHotPatch,
   disposeUpdateManager,
   initializeUpdateManager,
@@ -63,6 +68,7 @@ setupGlobalErrorHandlers();
 // ============================================================
 
 let mainWindow: BrowserWindow | null = null;
+let stopLocalDataMaintenance = () => {};
 
 // ==== Getter closures for module references ====
 // IPC handlers are registered before Agent Runtime and Window are fully
@@ -105,6 +111,11 @@ app
     const userDataPath = app.getPath("userData");
     activatePendingHotPatch(userDataPath);
     initializeSettingsSecrets();
+    logLocalDataMaintenance(await runLocalDataMaintenance(getActiveDataPath()));
+    stopLocalDataMaintenance = startLocalDataMaintenance({
+      getDataPath: getActiveDataPath,
+      onReport: logLocalDataMaintenance,
+    });
     getSessionStoreInstance(); // 提前初始化 SessionStore
     await getOrCreateAgentRuntime({
       getActiveAIConfig,
@@ -198,9 +209,26 @@ app.on("before-quit", (event) => {
 
 async function cleanupApplication(): Promise<void> {
   disposeUpdateManager();
+  stopLocalDataMaintenance();
   await runCleanupSteps([
     () => getSessionStoreInstance().flushRolloutWrites(),
     () => closeStateRuntimeStore(),
     () => disconnectOfficeBridges(),
   ]);
+}
+
+function logLocalDataMaintenance(report: LocalDataMaintenanceReport): void {
+  if (report.deletedFiles > 0 || report.deletedDirectories > 0) {
+    mainLogger.info("本地数据生命周期清理完成", {
+      deletedFiles: report.deletedFiles,
+      deletedDirectories: report.deletedDirectories,
+      reclaimedBytes: report.reclaimedBytes,
+    });
+  }
+  if (report.errors.length > 0) {
+    mainLogger.warn("本地数据生命周期清理存在失败", {
+      errorCount: report.errors.length,
+      errors: report.errors,
+    });
+  }
 }

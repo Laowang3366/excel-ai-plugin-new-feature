@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -87,6 +87,57 @@ describe("Office file transactions", () => {
       const records = await listOfficeBackups(backupRoot, sourcePath);
       expect(records).toHaveLength(2);
       expect(records.map((record) => record.operation)).toEqual(["edit3", "edit2"]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prunes expired backups using the record timestamp", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-transactions-"));
+    try {
+      const backupRoot = path.join(tempDir, "backups");
+      const sourcePath = path.join(tempDir, "book.xlsx");
+      await writeFile(sourcePath, "before", "utf8");
+      const record = await createOfficeBackup({
+        backupRoot,
+        app: "excel",
+        operation: "styleTable",
+        sourcePath,
+      });
+
+      const result = await pruneOfficeBackups(backupRoot, {
+        maxAgeDays: 30,
+        now: Date.parse(record.createdAt) + 31 * 24 * 60 * 60 * 1000,
+      });
+
+      expect(result.deletedRecords).toBe(1);
+      await expect(access(record.backupPath)).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await listOfficeBackups(backupRoot)).toEqual([]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not follow forged backup metadata outside the managed directory", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-transactions-"));
+    try {
+      const backupRoot = path.join(tempDir, "backups");
+      const outsidePath = path.join(tempDir, "outside.xlsx");
+      await mkdir(backupRoot, { recursive: true });
+      await writeFile(outsidePath, "outside");
+      await writeFile(path.join(backupRoot, "forged.json"), `${JSON.stringify({
+        id: "forged",
+        app: "excel",
+        operation: "writeRange",
+        sourcePath: path.join(tempDir, "source.xlsx"),
+        backupPath: outsidePath,
+        createdAt: "2020-01-01T00:00:00.000Z",
+        size: 7,
+      })}\n`);
+
+      expect(await listOfficeBackups(backupRoot)).toEqual([]);
+      await pruneOfficeBackups(backupRoot, { maxAgeDays: 1, now: Date.now() });
+      await expect(access(outsidePath)).resolves.toBeUndefined();
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
