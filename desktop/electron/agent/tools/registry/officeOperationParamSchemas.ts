@@ -20,6 +20,21 @@ const CHART_TYPE: JsonSchema = {
   type: "string",
   enum: ["line", "pie", "bar", "area", "scatter", "column"],
 };
+const DEEP_CHART_TYPE: JsonSchema = {
+  type: "string",
+  enum: [
+    "column",
+    "line",
+    "linemarkers",
+    "pie",
+    "doughnut",
+    "bar",
+    "area",
+    "scatter",
+    "bubble",
+    "radar",
+  ],
+};
 const TABLE_STYLE: JsonSchema = {
   type: "string",
   enum: ["professional", "compact", "financial"],
@@ -60,11 +75,70 @@ const POSITION_PROPERTIES: Record<string, JsonSchema> = {
   name: { type: "string" },
 };
 
+const CHART_DATA_LABELS = strictNestedObject({
+  enabled: { type: "boolean" },
+  showValue: { type: "boolean" },
+  showCategoryName: { type: "boolean" },
+  showSeriesName: { type: "boolean" },
+  numberFormat: { type: "string" },
+});
+
+const CHART_SERIES_VALUE: JsonSchema = {
+  oneOf: [
+    NON_EMPTY_STRING,
+    {
+      type: "array",
+      maxItems: 10_000,
+      items: {
+        oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+      },
+    },
+  ],
+};
+
+const CHART_SERIES = strictNestedObject({
+  command: { type: "string", enum: ["add", "update", "delete"] },
+  index: { type: "integer", minimum: 1 },
+  matchName: NON_EMPTY_STRING,
+  formula: NON_EMPTY_STRING,
+  name: { type: "string" },
+  values: CHART_SERIES_VALUE,
+  categories: CHART_SERIES_VALUE,
+  xValues: CHART_SERIES_VALUE,
+  chartType: DEEP_CHART_TYPE,
+  axisGroup: { type: "string", enum: ["primary", "secondary"] },
+  smooth: { type: "boolean" },
+  dataLabels: CHART_DATA_LABELS,
+});
+
+const CHART_AXIS = strictNestedObject({
+  kind: { type: "string", enum: ["category", "value"] },
+  group: { type: "string", enum: ["primary", "secondary"] },
+  title: { type: "string" },
+  minimum: { type: "number" },
+  maximum: { type: "number" },
+  majorUnit: { type: "number", minimum: 0 },
+  numberFormat: { type: "string" },
+  reverse: { type: "boolean" },
+});
+
 function strictObject(properties: Record<string, JsonSchema>, required: string[] = []): JsonSchema {
   return {
     type: "object",
     additionalProperties: false,
     properties: { ...properties, actionTimeoutMs: ACTION_TIMEOUT },
+    ...(required.length > 0 ? { required } : {}),
+  };
+}
+
+function strictNestedObject(
+  properties: Record<string, JsonSchema>,
+  required: string[] = [],
+): JsonSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties,
     ...(required.length > 0 ? { required } : {}),
   };
 }
@@ -93,6 +167,31 @@ export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
     app: "excel",
     operation: "insertChart",
     schema: strictAppObject("excel", { chartType: CHART_TYPE }),
+  },
+  {
+    app: "excel",
+    operation: "inspectCharts",
+    schema: strictAppObject("excel", { chartName: { type: "string" } }),
+  },
+  {
+    app: "excel",
+    operation: "formatChart",
+    schema: strictAppObject("excel", {
+      chartName: { type: "string" },
+      chartIndex: { type: "integer", minimum: 1 },
+      sourceRange: NON_EMPTY_STRING,
+      chartType: DEEP_CHART_TYPE,
+      name: { type: "string" },
+      showTitle: { type: "boolean" },
+      title: { type: "string" },
+      style: { type: "integer", minimum: 1 },
+      showLegend: { type: "boolean" },
+      replaceSeries: { type: "boolean" },
+      series: { type: "array", maxItems: 256, items: CHART_SERIES },
+      axes: { type: "array", maxItems: 4, items: CHART_AXIS },
+      exportPath: NON_EMPTY_STRING,
+      ...POSITION_PROPERTIES,
+    }),
   },
   {
     app: "excel",

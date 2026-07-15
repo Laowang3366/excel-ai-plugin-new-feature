@@ -27,7 +27,7 @@
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | Release 显式依赖可复用完整 CI；第三方 Actions 固定完整 SHA；Syft 版本固定并发布 SPDX SBOM；构建/发布权限隔离；两阶段 Authenticode 校验；产品站 release 目录只读；工作流静态防回归测试 | 配置受保护证书/HSM 与 Environment approval；隔离发布账户执行产品站 Ed25519 最终清单生成和端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
-| M-01 | 部分完成 | 模型与运行时共用严格 Schema；支持 `const/oneOf/allOf`、正则、对象键数/键名及字典值校验；Power Query、透视表、切片器和一组常用 Excel/Word/PPT 文件级操作按 app + operation 严格限制参数；工作流变量限制顶层数量与安全键名；审批前与执行前双重校验及 malformed 测试 | 继续为尚未建模的 COM 深度 operation 和模板嵌套业务对象补齐判别 Schema |
+| M-01 | 部分完成 | 模型与运行时共用严格 Schema；支持 `const/oneOf/allOf`、正则、对象键数/键名及字典值校验；Power Query、透视表、切片器、Excel 图表深度编辑和一组常用 Excel/Word/PPT 文件级操作按 app + operation 严格限制参数，图表系列/坐标轴/标签也逐层拒绝未知字段；工作流变量限制顶层数量与安全键名；审批前与执行前双重校验及 malformed 测试 | 继续为尚未建模的其他 COM 深度 operation 和模板嵌套业务对象补齐判别 Schema |
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
 | M-03 | 部分完成 | 统一脱敏与最小化审计；FTS 移除重复 `item_json`；单会话删除覆盖 JSONL、冷归档、SQLite/FTS/工具日志；日志与 Office 备份/事务/工作流具备周期 TTL 和容量上限；设置页提供排除凭据的校验导出，以及精确确认、白名单和部分失败报告保护的当前活动数据根擦除 | 会话/SQLite 应用层加密与密钥轮换；旧数据根、导出和外部副本的身份级删除编排及删除证明 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
@@ -480,7 +480,7 @@
 
 ### M-01 模型可见工具 Schema 已统一执行，复杂扩展对象仍待细化
 
-> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。校验器现支持标准 `const/oneOf/allOf`、字符串正则、对象键数/键名和 schema 型 `additionalProperties`。`office.action.*` 与工作流步骤已按 app + operation 对 Power Query、透视表、切片器，以及基础检查/验证、快照、Excel 图表/条件格式/数据验证/表格样式、Word 标题/目录/表格/页眉页脚/图片、PPT 幻灯片/内容/主题/图表/表格/图片和布局操作建立严格分支；未知参数在审批与 Worker 调用前拒绝。模板变量最多 128 个顶层键，键名不得包含点号、花括号或原型污染保留形式，嵌套对象仍可通过 `{{vars.customer.name}}` 使用并受统一资源预算限制。全量工具测试会生成合法样例，并注入缺字段、错类型、错枚举和未知字段。尚未建模的 COM 深度 operation 暂保留兼容分支，模板嵌套值仍是开放 JSON，因此本项仍为部分完成。
+> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。校验器现支持标准 `const/oneOf/allOf`、字符串正则、对象键数/键名和 schema 型 `additionalProperties`。`office.action.*` 与工作流步骤已按 app + operation 对 Power Query、透视表、切片器，以及基础检查/验证、快照、Excel 图表/条件格式/数据验证/表格样式、Word 标题/目录/表格/页眉页脚/图片、PPT 幻灯片/内容/主题/图表/表格/图片和布局操作建立严格分支；其中 `inspectCharts`/`formatChart` 的宿主、图表类型、系列、坐标轴和数据标签均按 Worker 实际读取字段建模，嵌套未知字段也会在进入 Worker 前拒绝。模板变量最多 128 个顶层键，键名不得包含点号、花括号或原型污染保留形式，嵌套对象仍可通过 `{{vars.customer.name}}` 使用并受统一资源预算限制。全量工具测试会生成合法样例，并注入缺字段、错类型、错枚举和未知字段。尚未建模的其他 COM 深度 operation 暂保留兼容分支，模板嵌套值仍是开放 JSON，因此本项仍为部分完成。
 
 - 初始实现只把 `ToolDefinition.parameters` 用作模型提示，未形成执行信任边界。
 - 初始 `toolExecutor.ts` 只做 JSON parse，executor 依赖零散的必填基础类型检查。
