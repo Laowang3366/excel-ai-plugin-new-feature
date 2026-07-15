@@ -39,7 +39,7 @@
 | M-10 | 未完成 | 现有 fake COM、Open XML 和单元测试门禁 | 隔离 Windows Runner 的 Excel/WPS 实机矩阵与 Electron E2E |
 | M-11 | 部分完成 | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与活动数据根擦除边界清单及防回归测试 | 在 GitHub ruleset 强制审批；法律负责人确定许可、主体信息、法律依据、处理者/跨境/权利请求条款及身份级删除流程 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除当前活动数据根内的应用副本 | 生产负责人确认 RPO/RTO并完成恢复演练；异机副本、旧/外部副本清理、删除证明和全链路告警 |
-| L-01 | 部分完成 | CI 哈希棘轮冻结存量债务；任务面板、聊天 Store、i18n 已按模型/类型化资源解耦；`App` 将窗口运行时、标题栏展示和热补丁确认分离后从 365 行降至 191 行；`ChatPage` 将任务侧栏渲染、侧栏焦点状态和当前文件夹加载分离后从 374 行降至 225 行；热补丁归档安全与补丁生命周期已分层；OCR IPC fallback、文档结果构建、模型工具结果整形已分层；Web 搜索工具入口与搜索源适配、超时及响应读取已分层；Agent/线程 IPC 与知识库初始化、路径授权及索引 IPC 已分层；设置 IPC 持久化与 Agent/知识库/窗口运行时同步已分层；知识库 SQLite 生命周期/CRUD 与向量、关键词搜索算法已分层；Office action 单动作事务、引擎路由和验证解释已分层；`excelExecutors` 已把宏运行时与 UI 控件注册提取为能力域子注册器 | 继续分批格式化未触碰存量文件，并按职责审查仍在基线中的 7 个超限模块 |
+| L-01 | 部分完成 | CI 哈希棘轮冻结存量债务；任务面板、聊天 Store、i18n 已按模型/类型化资源解耦；`App` 将窗口运行时、标题栏展示和热补丁确认分离后从 365 行降至 191 行；`ChatPage` 将任务侧栏渲染、侧栏焦点状态和当前文件夹加载分离后从 374 行降至 225 行；热补丁归档安全与补丁生命周期已分层；OCR IPC fallback、文档结果构建、模型工具结果整形已分层；Web 搜索工具入口与搜索源适配、超时及响应读取已分层；Agent/线程 IPC 与知识库初始化、路径授权及索引 IPC 已分层；设置 IPC 持久化与 Agent/知识库/窗口运行时同步已分层；知识库 SQLite 生命周期/CRUD 与向量、关键词搜索算法已分层；Office action 单动作事务、引擎路由和验证解释已分层；`excelExecutors` 已把宏运行时与 UI 控件注册提取为能力域子注册器；`workflow` 领域类型已抽到 `workflowTypes.ts`，记录存储不再依赖编排器 | 继续分批格式化未触碰存量文件，并按职责审查仍在基线中的 6 个超限模块 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
 | L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；当前首屏入口 447.17 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
 
@@ -99,9 +99,9 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 201 个测试文件、1070 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 201 个测试文件、1071 项测试全部通过 |
 | Desktop Vite build | 通过 | Renderer 首屏入口 447.17 KB（436.70 KiB），9 个异步 chunk；480 KiB entry budget 通过 |
-| Desktop `format:check` | **失败** | 限定源码检查仍有 486 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
+| Desktop `format:check` | **失败** | 限定源码检查仍有 481 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
 | .NET Worker test | 通过 | 最近一次 Worker 门禁 100 项 xUnit 测试全部通过；本批未修改 Worker |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
@@ -606,8 +606,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 > 部分整改：新增 `scripts/check-source-governance.cjs` 与换行归一化 SHA-256 基线。CI 对桌面源码执行 Prettier 漂移棘轮，并扫描桌面、Electron、产品站和脚本生产文件的 300/400/500 行分类上限；只有启用门禁时字节等价的存量债务可暂时放行。新文件、被修改的漂移文件或被修改后仍超限的生产文件会立即失败。自动化测试覆盖格式文件变更、超限增长、拆分达标和 CRLF/LF 一致性。
 
-- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 486 个存量文件不匹配。
-- 当前基线包含 5 个超限生产模块和 2 个超限真实 Office 冒烟脚本。`CodeTaskComposerPanel` 已把草稿类型与选项常量提取到独立模型模块，组件从 303 行降至 277 行；`chatStore` 已把公共状态和动作类型提取到独立模块，Store 从 405 行降至 287 行；`i18n` 已把功能、权限、简单任务与时间文案提取为类型化叶子资源，入口从 421 行降至 376 行；`App` 已把窗口 IPC/resize/blur 生命周期集中到 `useWindowDisplayState`，标题栏变为纯展示组件，热补丁健康确认保持独立生命周期，根组件从 365 行降至 191 行；`ChatPage` 已把任务侧栏的懒加载与面板选择集中到 `ChatFeatureSidebar`，把侧栏焦点状态和当前文件夹加载分别交给专用 hook，主页面从 374 行降至 225 行，简单任务草稿更新也回收到 `useTaskDrafts`；`hotPatchManager` 已把 ZIP allowlist、压缩炸弹限制、流式解压与逐文件哈希集中到 `hotPatchArchive`，管理器保留安装事务、反回滚状态、激活/回退和健康确认，从 444 行降至 323 行；`ipcOcrHandlers` 已把本地解析、MinerU 和 Agent fallback 编排与发票识别、模型抽取、字段合并及结果归一化分离，IPC 编排器从 513 行降至 245 行，结果构建模块为 306 行；`ocrExecutors` 已把 provider fallback 执行与模型可见结果裁剪、远程摘要、告警和后续工具建议分离，执行器从 485 行降至 333 行，结果模块为 241 行，并修复单文档已裁剪但顶层截断标志仍为 false 的误报；`webSearchExecutors` 已把参数校验、远程数据策略和工具结果封装与搜索源 fallback、超时、错误归一化及响应读取分离，执行器从 423 行降至 94 行，provider 模块为 389 行，并新增解压后 2 MiB 响应上限；`ipcAgentHandlers` 已把 Agent/线程/统计 IPC 与知识库运行时初始化、路径授权、检索和索引 IPC 分离，主注册器从 496 行降至 336 行，知识库模块为 179 行，重建测试覆盖未授权来源跳过与单来源失败后继续处理；`ipcHandlers` 已把设置校验/持久化与 Agent、知识库、窗口运行时同步分离，主聚合器从 441 行降至 358 行，设置 IPC 模块为 58 行，纯运行时同步模块为 83 行，并覆盖 Provider、压缩、权限、窗口和动态数组副作用；`sqliteStore` 已把连接生命周期、事务、CRUD、来源摘要和维护与向量/关键词查询算法分离，存储类从 423 行降至 356 行，查询模块为 97 行，组合 source/path 过滤与损坏 embedding JSON 隔离均有定向测试；`officeActionAdapter` 已把单动作备份/恢复和独立跨 Office 事务、Open XML/COM 能力路由、validate 结果解释分成三个单向依赖模块，路由适配器从 550 行降至 359 行，并补充工作流上下文禁止嵌套事务及缺少协调器时执行前拒绝测试；`excelExecutors` 已把宏运行时（VBA/JSA/宿主能力）和 Excel UI 控件注册提取为 `excelMacroExecutors` 与 `excelUiExecutors` 两个能力域子注册器，组合入口仍为 `addExcelExecutors` 且保持原注册顺序，WPS 公式字符校验仍属于 `range.write`，组合器从 448 行降至 304 行，`excelMacroExecutors` 126 行、`excelUiExecutors` 107 行。相关源码通过 Prettier、定向测试、类型检查、Lint、完整 Vitest、生产构建和治理门禁。
+- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 481 个存量文件不匹配。
+- 当前基线包含 4 个超限生产模块和 2 个超限真实 Office 冒烟脚本。`CodeTaskComposerPanel` 已把草稿类型与选项常量提取到独立模型模块，组件从 303 行降至 277 行；`chatStore` 已把公共状态和动作类型提取到独立模块，Store 从 405 行降至 287 行；`i18n` 已把功能、权限、简单任务与时间文案提取为类型化叶子资源，入口从 421 行降至 376 行；`App` 已把窗口 IPC/resize/blur 生命周期集中到 `useWindowDisplayState`，标题栏变为纯展示组件，热补丁健康确认保持独立生命周期，根组件从 365 行降至 191 行；`ChatPage` 已把任务侧栏的懒加载与面板选择集中到 `ChatFeatureSidebar`，把侧栏焦点状态和当前文件夹加载分别交给专用 hook，主页面从 374 行降至 225 行，简单任务草稿更新也回收到 `useTaskDrafts`；`hotPatchManager` 已把 ZIP allowlist、压缩炸弹限制、流式解压与逐文件哈希集中到 `hotPatchArchive`，管理器保留安装事务、反回滚状态、激活/回退和健康确认，从 444 行降至 323 行；`ipcOcrHandlers` 已把本地解析、MinerU 和 Agent fallback 编排与发票识别、模型抽取、字段合并及结果归一化分离，IPC 编排器从 513 行降至 245 行，结果构建模块为 306 行；`ocrExecutors` 已把 provider fallback 执行与模型可见结果裁剪、远程摘要、告警和后续工具建议分离，执行器从 485 行降至 333 行，结果模块为 241 行，并修复单文档已裁剪但顶层截断标志仍为 false 的误报；`webSearchExecutors` 已把参数校验、远程数据策略和工具结果封装与搜索源 fallback、超时、错误归一化及响应读取分离，执行器从 423 行降至 94 行，provider 模块为 389 行，并新增解压后 2 MiB 响应上限；`ipcAgentHandlers` 已把 Agent/线程/统计 IPC 与知识库运行时初始化、路径授权、检索和索引 IPC 分离，主注册器从 496 行降至 336 行，知识库模块为 179 行，重建测试覆盖未授权来源跳过与单来源失败后继续处理；`ipcHandlers` 已把设置校验/持久化与 Agent、知识库、窗口运行时同步分离，主聚合器从 441 行降至 358 行，设置 IPC 模块为 58 行，纯运行时同步模块为 83 行，并覆盖 Provider、压缩、权限、窗口和动态数组副作用；`sqliteStore` 已把连接生命周期、事务、CRUD、来源摘要和维护与向量/关键词查询算法分离，存储类从 423 行降至 356 行，查询模块为 97 行，组合 source/path 过滤与损坏 embedding JSON 隔离均有定向测试；`officeActionAdapter` 已把单动作备份/恢复和独立跨 Office 事务、Open XML/COM 能力路由、validate 结果解释分成三个单向依赖模块，路由适配器从 550 行降至 359 行，并补充工作流上下文禁止嵌套事务及缺少协调器时执行前拒绝测试；`excelExecutors` 已把宏运行时（VBA/JSA/宿主能力）和 Excel UI 控件注册提取为 `excelMacroExecutors` 与 `excelUiExecutors` 两个能力域子注册器，组合入口仍为 `addExcelExecutors` 且保持原注册顺序，WPS 公式字符校验仍属于 `range.write`，组合器从 448 行降至 304 行，`excelMacroExecutors` 126 行、`excelUiExecutors` 107 行；`workflow` 已把 `OfficeWorkflowStatus`/`StepRecord`/`Record`/`Result`/`RunOptions` 抽到 `workflowTypes.ts`，并把校验/结果映射等纯辅助函数抽到 `workflowHelpers.ts` 以在 Prettier 展开后仍满足 400 行上限；`workflowRecordStore` 直接依赖领域类型而不再反向导入编排器。相关源码通过 Prettier、定向测试、类型检查、Lint、完整 Vitest、生产构建和治理门禁。
 
 建议先固定换行/Prettier 基线，再分批机械格式化；按运行时职责拆分大型生产文件，避免把格式噪声与安全修复混在同一个 PR。
 
@@ -700,6 +700,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销和模型可见 Office 参数边界等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 201 个 Vitest 文件、1070 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销和模型可见 Office 参数边界等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 201 个 Vitest 文件、1071 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

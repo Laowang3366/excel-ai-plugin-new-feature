@@ -199,8 +199,6 @@
     "desktop/electron/agent/tools/officeCore/transactions.ts": "d0746643612a385e53bba240c240948d82785bb616dc6df47543b44f0abf774b",
     "desktop/electron/agent/tools/officeCore/types.ts": "8949d23e011216838dcc4b5a0401486669783458be27f228e5ef8becda6e876c",
     "desktop/electron/agent/tools/officeCore/workflow.test.ts": "7f53064a36fe1a70db6ceb1ed7686094a0aa1b4577dcebce1cfc8e9642ec2d95",
-    "desktop/electron/agent/tools/officeCore/workflow.ts": "af5ed22cbce31b4ff8896fefc2f85c4df9ea107302f3eaf69015704cd449b224",
-    "desktop/electron/agent/tools/officeCore/workflowRecordStore.ts": "ae17c16e8233f33c5169129d0d68539c29b9ac549ba5b0d93a35003e6948395c",
     "desktop/electron/agent/tools/officeCore/workflowRollback.ts": "e94d5debb28202ae7b1609999843db79427b98cfea2a3f8da8581d3c7915bbe7",
     "desktop/electron/agent/tools/officeCore/workflowStepExecution.ts": "c83114c03e144931c910358905d1adfdcef99d286c4d219c0704e4a7babccce2",
     "desktop/electron/agent/tools/officeCore/workflowTemplates.test.ts": "b861baaf8270d43f2b41bd863b5a485961718eee0867094a23bd8bcd7fc44ab7",
@@ -493,7 +491,6 @@
   "oversizedSources": {
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
     "desktop/electron/agent/tools/officeCore/transactionJournal.ts": "051ca69a8a32c02d58cf18e1b5c65e5c40a4e7ab751684bdfc751edcb2eef247",
-    "desktop/electron/agent/tools/officeCore/workflow.ts": "af5ed22cbce31b4ff8896fefc2f85c4df9ea107302f3eaf69015704cd449b224",
     "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",

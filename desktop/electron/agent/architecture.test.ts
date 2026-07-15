@@ -45,6 +45,10 @@ describe("agent folder architecture", () => {
       "tools/executors/webSearchExecutors.ts",
       "tools/executors/ocrExecutors.ts",
       "tools/executors/officeExecutors.ts",
+      "tools/officeCore/workflow.ts",
+      "tools/officeCore/workflowTypes.ts",
+      "tools/officeCore/workflowHelpers.ts",
+      "tools/officeCore/workflowRecordStore.ts",
       "tools/registry/toolDefinitions.ts",
       "tools/registry/workbook.ts",
       "tools/registry/range.ts",
@@ -149,5 +153,23 @@ describe("agent folder architecture", () => {
 
     expect(ipcHandlers).not.toContain("tools/implementations/excel");
     expect(ipcHandlers).not.toContain("new ExcelComBridge");
+  });
+
+  it("keeps workflow record store free of orchestrator type imports", () => {
+    const store = readFileSync(
+      path.join(agentRoot, "tools/officeCore/workflowRecordStore.ts"),
+      "utf8",
+    );
+    const orchestrator = readFileSync(path.join(agentRoot, "tools/officeCore/workflow.ts"), "utf8");
+    const helpers = readFileSync(
+      path.join(agentRoot, "tools/officeCore/workflowHelpers.ts"),
+      "utf8",
+    );
+
+    expect(store).toContain('from "./workflowTypes"');
+    expect(store).not.toContain('from "./workflow"');
+    expect(orchestrator).toContain('from "./workflowTypes"');
+    expect(helpers).not.toContain('from "./workflowRecordStore"');
+    expect(helpers).not.toContain('from "./transactionJournal"');
   });
 });

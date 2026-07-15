@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { OfficeWorkflowRecord } from "./workflow";
+import type { OfficeWorkflowRecord } from "./workflowTypes";
 
 interface WorkflowLockRecord {
   workflowId: string;
@@ -21,7 +21,10 @@ export interface OfficeWorkflowLock {
 const ACTIVE_WORKFLOW_LOCKS = new Set<string>();
 const WORKFLOW_LOCK_LEASE_MS = 120_000;
 
-export async function getOfficeWorkflowRecord(root: string, id: string): Promise<OfficeWorkflowRecord> {
+export async function getOfficeWorkflowRecord(
+  root: string,
+  id: string,
+): Promise<OfficeWorkflowRecord> {
   validateWorkflowId(id);
   const record = JSON.parse(await readFile(workflowPath(root, id), "utf8")) as OfficeWorkflowRecord;
   if (record.id !== id || !Array.isArray(record.steps) || !Array.isArray(record.stepRecords)) {
@@ -32,16 +35,31 @@ export async function getOfficeWorkflowRecord(root: string, id: string): Promise
 
 export async function listOfficeWorkflowRecords(root: string): Promise<OfficeWorkflowRecord[]> {
   let names: string[];
-  try { names = await readdir(path.resolve(root)); } catch { return []; }
-  const records = await Promise.all(names.filter((name) => name.endsWith(".json")).map(async (name) => {
-    try { return await getOfficeWorkflowRecord(root, path.basename(name, ".json")); } catch { return undefined; }
-  }));
+  try {
+    names = await readdir(path.resolve(root));
+  } catch {
+    return [];
+  }
+  const records = await Promise.all(
+    names
+      .filter((name) => name.endsWith(".json"))
+      .map(async (name) => {
+        try {
+          return await getOfficeWorkflowRecord(root, path.basename(name, ".json"));
+        } catch {
+          return undefined;
+        }
+      }),
+  );
   return records
     .filter((record): record is OfficeWorkflowRecord => Boolean(record))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
-export async function saveOfficeWorkflowRecord(root: string, record: OfficeWorkflowRecord): Promise<void> {
+export async function saveOfficeWorkflowRecord(
+  root: string,
+  record: OfficeWorkflowRecord,
+): Promise<void> {
   record.updatedAt = new Date().toISOString();
   await mkdir(path.resolve(root), { recursive: true });
   const destination = workflowPath(root, record.id);
@@ -51,7 +69,10 @@ export async function saveOfficeWorkflowRecord(root: string, record: OfficeWorkf
   await rename(temporary, destination);
 }
 
-export async function requestOfficeWorkflowCancellation(root: string, id: string): Promise<OfficeWorkflowRecord> {
+export async function requestOfficeWorkflowCancellation(
+  root: string,
+  id: string,
+): Promise<OfficeWorkflowRecord> {
   const record = await getOfficeWorkflowRecord(root, id);
   if (["done", "failed", "cancelled"].includes(record.status)) return record;
   record.cancelRequested = true;
@@ -65,11 +86,17 @@ export async function isOfficeWorkflowCancellationRequested(
 ): Promise<boolean> {
   if (inMemoryRecord.cancelRequested) return true;
   if (!root) return false;
-  try { return (await getOfficeWorkflowRecord(root, inMemoryRecord.id)).cancelRequested === true; }
-  catch { return false; }
+  try {
+    return (await getOfficeWorkflowRecord(root, inMemoryRecord.id)).cancelRequested === true;
+  } catch {
+    return false;
+  }
 }
 
-export async function acquireOfficeWorkflowLock(root: string, workflowId: string): Promise<OfficeWorkflowLock> {
+export async function acquireOfficeWorkflowLock(
+  root: string,
+  workflowId: string,
+): Promise<OfficeWorkflowLock> {
   validateWorkflowId(workflowId);
   const key = `${path.resolve(root).toLowerCase()}|${workflowId}`;
   if (ACTIVE_WORKFLOW_LOCKS.has(key)) throw new Error(`Office 工作流 ${workflowId} 正在运行`);
@@ -82,13 +109,17 @@ export async function acquireOfficeWorkflowLock(root: string, workflowId: string
     const record = newLockRecord(workflowId, token);
     try {
       const handle = await open(lockPath, "wx");
-      try { await handle.writeFile(`${JSON.stringify(record)}\n`, "utf8"); }
-      finally { await handle.close(); }
+      try {
+        await handle.writeFile(`${JSON.stringify(record)}\n`, "utf8");
+      } finally {
+        await handle.close();
+      }
       ACTIVE_WORKFLOW_LOCKS.add(key);
       return createWorkflowLock(lockPath, key, record);
     } catch (error) {
       if (!isAlreadyExists(error)) throw error;
-      if (!(await existingLockIsStale(lockPath))) throw new Error(`Office 工作流 ${workflowId} 正在运行`);
+      if (!(await existingLockIsStale(lockPath)))
+        throw new Error(`Office 工作流 ${workflowId} 正在运行`);
       await rm(lockPath, { force: true });
     }
   }
@@ -96,12 +127,18 @@ export async function acquireOfficeWorkflowLock(root: string, workflowId: string
 }
 
 export function startOfficeWorkflowLockHeartbeat(lock: OfficeWorkflowLock): () => void {
-  const timer = setInterval(() => { void lock.renew().catch(() => undefined); }, 20_000);
+  const timer = setInterval(() => {
+    void lock.renew().catch(() => undefined);
+  }, 20_000);
   timer.unref?.();
   return () => clearInterval(timer);
 }
 
-function createWorkflowLock(lockPath: string, key: string, initial: WorkflowLockRecord): OfficeWorkflowLock {
+function createWorkflowLock(
+  lockPath: string,
+  key: string,
+  initial: WorkflowLockRecord,
+): OfficeWorkflowLock {
   let record = initial;
   let released = false;
   const assertOwned = async () => {
@@ -144,22 +181,36 @@ function newLockRecord(workflowId: string, token: string): WorkflowLockRecord {
 async function existingLockIsStale(lockPath: string): Promise<boolean> {
   const record = await readWorkflowLock(lockPath);
   if (record) return !isProcessRunning(record.processId);
-  try { return Date.now() - (await stat(lockPath)).mtimeMs > WORKFLOW_LOCK_LEASE_MS; }
-  catch { return true; }
+  try {
+    return Date.now() - (await stat(lockPath)).mtimeMs > WORKFLOW_LOCK_LEASE_MS;
+  } catch {
+    return true;
+  }
 }
 
 async function readWorkflowLock(lockPath: string): Promise<WorkflowLockRecord | undefined> {
   try {
     const value = JSON.parse(await readFile(lockPath, "utf8")) as Partial<WorkflowLockRecord>;
-    if (typeof value.workflowId !== "string" || typeof value.token !== "string" || !Number.isSafeInteger(value.processId)) return undefined;
+    if (
+      typeof value.workflowId !== "string" ||
+      typeof value.token !== "string" ||
+      !Number.isSafeInteger(value.processId)
+    )
+      return undefined;
     return value as WorkflowLockRecord;
-  } catch { return undefined; }
+  } catch {
+    return undefined;
+  }
 }
 
 function isProcessRunning(processId: number): boolean {
   if (!Number.isSafeInteger(processId) || processId <= 0) return false;
-  try { process.kill(processId, 0); return true; }
-  catch { return false; }
+  try {
+    process.kill(processId, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isAlreadyExists(error: unknown): boolean {
