@@ -18,6 +18,23 @@ describe("runOfficeWorkflow", () => {
     await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
+  it("rejects advanced Excel steps without explicit semantic boundaries before execution", async () => {
+    const bridge: OfficeActionBridge = { executeAction: vi.fn() };
+
+    const result = await runOfficeWorkflow(bridge, [{
+      app: "excel",
+      action: "insert",
+      operation: "createPivotTable",
+      filePath: "C:/book.xlsx",
+      target: "range:Sheet1!A1:B10",
+      params: { rowFields: ["Department"] },
+    }]);
+
+    expect(result).toMatchObject({ status: "failed" });
+    expect(result.error).toContain("interactive-pivot");
+    expect(bridge.executeAction).not.toHaveBeenCalled();
+  });
+
   it("rolls back in-place changes in reverse order when a later step fails", async () => {
     const executeAction = vi.fn(async (input) => {
       if (input.operation === "restoreBackup") {

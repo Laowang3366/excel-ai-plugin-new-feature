@@ -15,6 +15,7 @@ import {
   saveOfficeWorkflowTemplate,
 } from "../officeCore/workflowTemplates";
 import type { OfficeActionApp, OfficeActionEngine, OfficeActionKind } from "../officeCore/types";
+import { officeAdvancedOperationError } from "../officeCore/operationPolicy";
 
 export interface OfficeReliabilityExecutorDeps {
   officeActionBridge?: OfficeActionBridge;
@@ -270,6 +271,8 @@ function parseWorkflowSteps(value: unknown): OfficeWorkflowStepInput[] | string 
     if (typeof item.target === "string") step.target = item.target;
     if (isOfficeActionEngine(item.preferEngine)) step.preferEngine = item.preferEngine;
     if (item.params && typeof item.params === "object" && !Array.isArray(item.params)) step.params = item.params as Record<string, unknown>;
+    const advancedOperationError = officeAdvancedOperationError(step);
+    if (advancedOperationError) return `工作流第 ${index + 1} 步: ${advancedOperationError}`;
     if (typeof item.id === "string") step.id = item.id;
     if (typeof item.parallelGroup === "string") step.parallelGroup = item.parallelGroup;
     if (typeof item.timeoutMs === "number") step.timeoutMs = item.timeoutMs;

@@ -1,11 +1,11 @@
 ## Office 工具调用硬性边界
-- 任何 Excel/Word/PPT 读取、创建、编辑、保存、验证、视觉设计、样式美化任务，先调 `office.connection.status`，再选当前窗口工具或文件级工具。
+- Excel/Word/PPT 读写、创建、保存、验证或美化先调 `office.connection.status`，再选当前窗口或文件级工具。
 - 已连接且目标是当前窗口/选区：Excel 用 `workbook.inspect`、`selection.get`、`range.read/write/clear`、`sheet.operation`；Word/PPT 用对应 `word.*` / `presentation.*`。
 - Word 文档、报告、方案、总结、说明书等写作任务，先读取当前文档/附件/用户资料并判断写作难度；简单改写或短文本补全不搜库，涉及项目背景、业务口径、模板规范、历史规则或用户明确要求“根据知识库/资料”时，再用场景摘要调用 `knowledge.search`。
 - 磁盘文件或未连接 Office：Open XML 优先，用 `office.action.inspect`、`office.action.apply`、`office.action.validate` 处理 .xlsx/.docx/.pptx。
 - `office.action.apply` 结果必须看 status：`done` 完成，`unsupported`/ `needsCom`/ `failed` 再换方案；需要 COM 兜底可传 `preferEngine:"com"`。
 - 多窗口先用 `office.documents.list` 取得完整路径，再用 `office.objects.list` 列工作表、页面、幻灯片或对象；用户确认后原样传完整路径和 locator 给 `office.documents.activate` / `office.objects.activate`，不要按同名文件或后台活动窗口猜目标。
-- Excel 边界：直接写值、公式、格式或固定汇总结果用 `range.write`；**数据量大本身不构成调用复杂工具的理由**。`createPowerQuery/managePowerQuery` 仅用于外部/多来源可刷新 ETL（明确源、转换、加载、`filePath`）；`createPivotTable/refreshPivotTables` 仅用于明确要求的透视对象/交互多维布局；`addSlicer` 仅用于已有透视表/结构化表。禁止为写值先建 Power Query/透视表。
+- Excel：值、公式、格式、固定汇总用 `range.write`，数据量不是升级理由。`createPowerQuery/managePowerQuery` 仅做外部/多来源可刷新 ETL，须 `filePath`、`params.advancedIntent:"refreshable-etl"`；创建/更新传 `sourceKind:"external"|"multi-source"`。`createPivotTable/refreshPivotTables` 仅做明确交互透视，`addSlicer` 仅用于已有透视表/结构化表，均须 `params.advancedIntent:"interactive-pivot"`。禁止为写值先建 Power Query/透视表；缺标记拒绝。
 - 文件级修改须有 `filePath`。图表校验 `data.verification.ok` + `inspectCharts`；透视表校验 `data.readback.verification.ok` + `inspectWorkbookObjects`。失败不得声称成功。
 - 同时安装 Microsoft Office 与 WPS 时，文件级 COM 操作按目标软件传 `params.host`：Excel 用 `excel/wps`，Word 用 `word/wps`，演示用 `powerpoint/wps`。跨应用报告分别传 `sourceHost`、`wordHost`、`presentationHost`；目标文件已打开时同时传 `instanceId`，未打开时工具会创建隔离进程，不附着无关活动窗口。
 - Word 文件先按需调用 `inspectDocumentFormatting/inspectReferences/inspectRevisions/inspectContentControls`；排版、引用、审阅、邮件合并和内容控件分别调用对应高级 operation。AI 改写需保留原文时必须用 `applyTrackedChanges`。

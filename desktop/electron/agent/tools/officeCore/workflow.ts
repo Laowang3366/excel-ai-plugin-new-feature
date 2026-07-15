@@ -29,6 +29,7 @@ import {
   startOfficeWorkflowLockHeartbeat,
 } from "./workflowRecordStore";
 import { rollbackOfficeResults } from "./workflowRollback";
+import { officeAdvancedOperationError } from "./operationPolicy";
 
 export { requestOfficeWorkflowCancellation } from "./workflowRecordStore";
 
@@ -311,6 +312,8 @@ function validateWorkflow(steps: OfficeWorkflowStepInput[]): string | undefined 
     const step = steps[index];
     if (!step.filePath) return `工作流第 ${index + 1} 步缺少 filePath`;
     if (["restoreBackup", "listBackups"].includes(step.operation)) return `工作流步骤不能直接调用 ${step.operation}`;
+    const advancedOperationError = officeAdvancedOperationError(step);
+    if (advancedOperationError) return `工作流第 ${index + 1} 步: ${advancedOperationError}`;
     if (step.id && steps.some((candidate, candidateIndex) => candidateIndex !== index && candidate.id === step.id)) {
       return `工作流步骤 id 重复: ${step.id}`;
     }

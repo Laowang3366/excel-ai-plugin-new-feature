@@ -27,6 +27,7 @@
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | CI 增加 .NET test/NuGet audit；Release 拆分构建签名与受审批发布；两阶段 Authenticode 校验；产品站 release 目录只读 | 配置受保护证书/HSM、Environment approval；固定第三方 Action SHA；SBOM/最终清单端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
+| M-05 | 部分完成 | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；直接 action、工作流及模板均在 Worker 前拒绝越界请求 | 依据任务分类动态裁剪模型可见高级 operation；真实 Excel/WPS 回归 |
 | M-06 | 已实现 | 下载统计改为 best-effort，数据库故障时安装包仍返回 200；故障注入测试 | 留存清理与周期盐轮换 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
@@ -88,7 +89,7 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 156 个测试文件、805 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 157 个测试文件、822 项测试全部通过 |
 | Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 566.92 KB，超过 500 KB 建议值 |
 | Desktop `format:check` | **失败** | 限定源码检查仍约有 482 个格式不匹配文件 |
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
@@ -494,7 +495,9 @@
 
 **整改**：首次可见事件后禁止透明重试，或增加 `attemptId + stream_reset` 原子回滚。测试“首轮 partial 后断线、第二轮成功”，UI 和历史只能保留一份结果。
 
-### M-05 Power Query/透视表的简单任务边界主要依赖提示词
+### M-05 高级 Excel 工具已有执行层边界，模型侧动态裁剪仍待完成
+
+> 整改进展：已增加执行层硬边界。Power Query 创建/更新必须声明 `advancedIntent:"refreshable-etl"` 和外部/多来源 `sourceKind`；透视表/切片器必须声明 `advancedIntent:"interactive-pivot"`，创建透视表还必须给出明确源区域和字段。直接 action、工作流和模板解析均在 Worker 调用前拒绝不满足条件的请求。动态按任务裁剪模型可见高级 operation 仍待完成。
 
 - `office-tools.zh-CN.md:8-9` 的文本边界清楚，这是正向改进。
 - 但高级工具仍常驻注册并向模型暴露；现有测试主要断言提示词包含指定字符串。
@@ -644,6 +647,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口；当前自动化门禁为 156 个 Vitest 文件、805 项测试和 97 项 .NET 测试全部通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口；当前自动化门禁为 157 个 Vitest 文件、822 项测试和 97 项 .NET 测试全部通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

@@ -5,23 +5,26 @@ import officeToolsPrompt from "./templates/scenarios/office-tools.zh-CN.md?raw";
 
 describe("Office tool semantic boundaries", () => {
   it("keeps direct cell edits on range tools regardless of data size", () => {
-    expect(officeToolsPrompt).toContain("直接写值、公式、格式或固定汇总结果");
+    expect(officeToolsPrompt).toContain("值、公式、格式、固定汇总");
     expect(officeToolsPrompt).toContain("range.write");
-    expect(officeToolsPrompt).toContain("数据量大本身不构成调用复杂工具的理由");
+    expect(officeToolsPrompt).toContain("数据量不是升级理由");
     expect(officeToolsPrompt).toContain("禁止为写值先建 Power Query/透视表");
   });
 
   it("requires ETL semantics before using Power Query", () => {
     expect(officeToolsPrompt).toContain("createPowerQuery/managePowerQuery");
     expect(officeToolsPrompt).toContain("多来源可刷新 ETL");
-    expect(officeToolsPrompt).toMatch(/明确源、转换、加载.*filePath/);
+    expect(officeToolsPrompt).toContain("filePath");
+    expect(officeToolsPrompt).toContain('advancedIntent:"refreshable-etl"');
+    expect(officeToolsPrompt).toContain('sourceKind:"external"|"multi-source"');
   });
 
   it("reserves pivot tables and slicers for interactive object behavior", () => {
     expect(officeToolsPrompt).toContain("createPivotTable/refreshPivotTables");
-    expect(officeToolsPrompt).toContain("交互多维布局");
+    expect(officeToolsPrompt).toContain("明确交互透视");
     expect(officeToolsPrompt).toContain("addSlicer");
     expect(officeToolsPrompt).toContain("已有透视表/结构化表");
+    expect(officeToolsPrompt).toContain('advancedIntent:"interactive-pivot"');
   });
 
   it("requires chart and pivot readback instead of trusting summaries", () => {

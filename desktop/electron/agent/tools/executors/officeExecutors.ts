@@ -12,7 +12,10 @@ import type {
   OfficeActionBridge,
   OfficeDocumentManagerBridge,
 } from "../contracts/office";
-import { officeActionOperationError } from "../officeCore/operationPolicy";
+import {
+  officeActionOperationError,
+  officeAdvancedOperationError,
+} from "../officeCore/operationPolicy";
 import type { OfficeActionApp, OfficeActionEngine, OfficeActionInput, OfficeActionKind } from "../officeCore/types";
 import { addOfficeReliabilityExecutors } from "./officeReliabilityExecutors";
 import { validateArgs } from "./validation";
@@ -350,6 +353,8 @@ async function executeOfficeAction(
   if (args.params && typeof args.params === "object" && !Array.isArray(args.params)) {
     input.params = args.params as Record<string, unknown>;
   }
+  const advancedOperationError = officeAdvancedOperationError(input);
+  if (advancedOperationError) return { success: false, error: advancedOperationError };
 
   const result = await officeActionBridge.executeAction(input);
   const success = result.status === "done";
