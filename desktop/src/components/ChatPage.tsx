@@ -1,7 +1,7 @@
 /**
  * 聊天页面 — 主对话界面（壳组件）
  *
- * 负责组合各子模块，保持自身行数在 400 以内。
+ * 负责组合消息区、输入区和任务面板，不持有侧栏焦点或文件夹加载生命周期。
  *
  * 已拆分模块：
  * - utils/chatHelpers.tsx: 纯函数 + 小组件（分组、时长、标题、格式化等）
@@ -11,65 +11,28 @@
  * - components/chat/ComposerArea.tsx: 输入框区域
  * - hooks/useComposer.ts: 输入框状态与交互
  * - hooks/useTaskDrafts.ts: 任务面板草稿管理
+ * - hooks/useFeatureSidebarController.ts: 功能侧栏状态与焦点生命周期
+ * - hooks/useCurrentChatFolder.ts: 当前会话文件夹与文件加载
  */
 
-import React, { useEffect, useState, useCallback, useReducer, useRef } from "react";
+import { useCallback } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
-import type { FolderFileInfo, WindowDisplayMode } from "../electronApi";
+import type { WindowDisplayMode } from "../electronApi";
 import { ChatMessageList } from "./chat/ChatMessageList";
 import { ComposerArea } from "./chat/ComposerArea";
 import { ChatFolderBadge } from "./chat/ChatFolderBadge";
+import { ChatFeatureSidebar } from "./chat/ChatFeatureSidebar";
 import { OfficeLauncher } from "./chat/OfficeLauncher";
-import { FeatureSidebarPanel } from "./common/FeatureSidebarPanel";
 import { ToolConfirmDialog } from "./chat/ToolConfirmDialog";
-import type { SimpleTaskIntent } from "./task/SimpleTaskComposerPanel";
 import { getChatTitleSummary, MessageBubbleIcon } from "../utils/chatHelpers";
 import { useComposer } from "../hooks/useComposer";
+import { useCurrentChatFolder } from "../hooks/useCurrentChatFolder";
+import { useFeatureSidebarController } from "../hooks/useFeatureSidebarController";
 import { useTaskDrafts } from "../hooks/useTaskDrafts";
-import type { IntentKind } from "./Sidebar";
 import { getAppText } from "../i18n";
-import { ipcApi } from "../services/ipcApi";
-import {
-  INITIAL_FEATURE_SIDEBAR_STATE,
-  reduceFeatureSidebarState,
-  shouldFocusFeatureSidebarOnToggle,
-  shouldRestoreFeatureSidebarFocus,
-  type FeatureSidebarCloseReason,
-} from "../utils/featureSidebarState";
 import { Maximize2, Minimize2, PanelRight } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
-
-const FormulaTaskComposerPanel = React.lazy(() =>
-  import("./task/FormulaTaskComposerPanel").then((module) => ({
-    default: module.FormulaTaskComposerPanel,
-  })),
-);
-const CodeTaskComposerPanel = React.lazy(() =>
-  import("./task/CodeTaskComposerPanel").then((module) => ({
-    default: module.CodeTaskComposerPanel,
-  })),
-);
-const OCRTaskComposerPanel = React.lazy(() =>
-  import("./task/OCRTaskComposerPanel").then((module) => ({
-    default: module.OCRTaskComposerPanel,
-  })),
-);
-const ReportTaskComposerPanel = React.lazy(() =>
-  import("./task/ReportTaskComposerPanel").then((module) => ({
-    default: module.ReportTaskComposerPanel,
-  })),
-);
-const SimpleTaskComposerPanel = React.lazy(() =>
-  import("./task/SimpleTaskComposerPanel").then((module) => ({
-    default: module.SimpleTaskComposerPanel,
-  })),
-);
-const OfficeAutomationPanel = React.lazy(() =>
-  import("./office/OfficeAutomationPanel").then((module) => ({
-    default: module.OfficeAutomationPanel,
-  })),
-);
 
 interface ChatPageProps {
   displayMode: WindowDisplayMode;
@@ -98,80 +61,30 @@ export const ChatPage: React.FC<ChatPageProps> = ({
 
   const { language, pinnedFolders } = useSettingsStore();
   const text = getAppText(language);
-  const [featureSidebar, dispatchFeatureSidebar] = useReducer(
-    reduceFeatureSidebarState,
-    INITIAL_FEATURE_SIDEBAR_STATE,
-  );
-  const { isOpen: featureSidebarOpen, activeIntent } = featureSidebar;
-  const featureSidebarToggleRef = useRef<HTMLButtonElement>(null);
-
-  const closeFeatureSidebar = useCallback((reason: FeatureSidebarCloseReason) => {
-    if (!featureSidebarOpen) return;
-    dispatchFeatureSidebar({ type: "close" });
-    if (shouldRestoreFeatureSidebarFocus(reason)) {
-      window.requestAnimationFrame(() => featureSidebarToggleRef.current?.focus());
-    }
-  }, [featureSidebarOpen]);
-
-  const closeFeatureSidebarManually = useCallback(() => {
-    closeFeatureSidebar("manual");
-  }, [closeFeatureSidebar]);
-
-  const closeFeatureSidebarAfterSend = useCallback(() => {
-    closeFeatureSidebar("send");
-  }, [closeFeatureSidebar]);
-
-  const toggleFeatureSidebar = useCallback(() => {
-    const focusFirstShortcut = shouldFocusFeatureSidebarOnToggle(featureSidebarOpen);
-    dispatchFeatureSidebar({ type: "toggle" });
-    if (focusFirstShortcut) {
-      window.requestAnimationFrame(() => {
-        featureSidebarToggleRef.current
-          ?.closest(".chat-page")
-          ?.querySelector<HTMLButtonElement>(".feature-sidebar-shortcut")
-          ?.focus();
-      });
-    }
-  }, [featureSidebarOpen]);
-
-  const selectFeature = useCallback((intent: NonNullable<IntentKind>) => {
-    dispatchFeatureSidebar({ type: "select", intent });
-  }, []);
+  const {
+    activeIntent,
+    closeAfterSend: closeFeatureSidebarAfterSend,
+    closeManually: closeFeatureSidebarManually,
+    isOpen: featureSidebarOpen,
+    select: selectFeature,
+    toggle: toggleFeatureSidebar,
+    toggleRef: featureSidebarToggleRef,
+  } = useFeatureSidebarController();
 
   // 当前会话所属文件夹信息
   const activeThread = threads.find((t) => t.threadId === activeThreadId);
   const currentFolderId = activeThread?.folderId || pendingFolderId;
-  const [folderBadgeHidden, setFolderBadgeHidden] = useState(false);
-  const currentFolder = currentFolderId ? pinnedFolders.find((f) => f.path === currentFolderId) : undefined;
-  useEffect(() => { setFolderBadgeHidden(false); }, [currentFolderId]);
-  const [currentFolderFiles, setCurrentFolderFiles] = useState<FolderFileInfo[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    if (currentFolderId) {
-      ipcApi.folder.listFiles(currentFolderId).then((files) => {
-        if (!cancelled) setCurrentFolderFiles(files);
-      }).catch(() => {
-        if (!cancelled) setCurrentFolderFiles([]);
-      });
-    } else {
-      setCurrentFolderFiles([]);
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [currentFolderId]);
+  const currentFolder = useCurrentChatFolder(currentFolderId, pinnedFolders);
 
   // Composer hook
   const composerDraftKey = activeThreadId ?? (pendingFolderId ? `new:${pendingFolderId}` : "new");
   const composer = useComposer(composerDraftKey);
-  const { setInputText, handleSend, hasInput, showFolderFileList, setShowFolderFileList } = composer;
+  const { setInputText, handleSend, hasInput, showFolderFileList, setShowFolderFileList } =
+    composer;
 
   // TaskDrafts hook
-  const {
-    taskDrafts, setTaskDrafts,
-    updateFormulaDraft, resetFormulaDraft, updateCodeDraft, updateOCRDraft, updateReportDraft,
-    handleSimplePickRange, moveTaskDrafts,
-  } = useTaskDrafts(composerDraftKey);
+  const taskDraftsController = useTaskDrafts(composerDraftKey);
+  const { moveTaskDrafts } = taskDraftsController;
 
   const composerHandleSend = useCallback(() => {
     const sourceDraftKey = !activeThreadId && hasInput ? composerDraftKey : null;
@@ -182,46 +95,38 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         if (threadId) moveTaskDrafts(sourceDraftKey, threadId);
       });
     }
-  }, [activeThreadId, hasInput, composerDraftKey, handleSend, closeFeatureSidebarAfterSend, moveTaskDrafts]);
+  }, [
+    activeThreadId,
+    hasInput,
+    composerDraftKey,
+    handleSend,
+    closeFeatureSidebarAfterSend,
+    moveTaskDrafts,
+  ]);
 
   // 从 TaskComposerPanel 提交
-  const handleTaskSubmit = useCallback((payload: string) => {
-    const sourceDraftKey = !activeThreadId ? composerDraftKey : null;
-    setInputText(payload);
-    const send = sendMessage(payload);
-    window.setTimeout(() => setInputText(""), 0);
-    closeFeatureSidebarAfterSend();
-    if (sourceDraftKey) {
-      void send.then((threadId) => {
-        if (threadId) moveTaskDrafts(sourceDraftKey, threadId);
-      });
-    }
-  }, [activeThreadId, composerDraftKey, sendMessage, setInputText, closeFeatureSidebarAfterSend, moveTaskDrafts]);
-
-  const handleFormulaTaskSubmit = useCallback((payload: string) => {
-    resetFormulaDraft();
-    handleTaskSubmit(payload);
-  }, [handleTaskSubmit, resetFormulaDraft]);
-
-  const updateSimpleRange = useCallback((intent: SimpleTaskIntent, range: string) => {
-    setTaskDrafts((prev) => ({
-      ...prev,
-      [intent]: {
-        range,
-        task: prev[intent]?.task ?? "",
-      },
-    }));
-  }, [setTaskDrafts]);
-
-  const updateSimpleTask = useCallback((intent: SimpleTaskIntent, task: string) => {
-    setTaskDrafts((prev) => ({
-      ...prev,
-      [intent]: {
-        range: prev[intent]?.range ?? "",
-        task,
-      },
-    }));
-  }, [setTaskDrafts]);
+  const handleTaskSubmit = useCallback(
+    (payload: string) => {
+      const sourceDraftKey = !activeThreadId ? composerDraftKey : null;
+      setInputText(payload);
+      const send = sendMessage(payload);
+      window.setTimeout(() => setInputText(""), 0);
+      closeFeatureSidebarAfterSend();
+      if (sourceDraftKey) {
+        void send.then((threadId) => {
+          if (threadId) moveTaskDrafts(sourceDraftKey, threadId);
+        });
+      }
+    },
+    [
+      activeThreadId,
+      composerDraftKey,
+      sendMessage,
+      setInputText,
+      closeFeatureSidebarAfterSend,
+      moveTaskDrafts,
+    ],
+  );
 
   const isEmpty = messages.length === 0 && !isStreaming;
   const showWelcomeComposer = isEmpty && !activeIntent;
@@ -233,20 +138,19 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         {/* 顶部栏 */}
         <div className="chat-header">
           <h2 title={chatTitle}>
-            <MessageBubbleIcon />{" "}
-            <span>{chatTitle}</span>
+            <MessageBubbleIcon /> <span>{chatTitle}</span>
           </h2>
           <div className="chat-header-actions">
-            {currentFolder && !folderBadgeHidden && (
+            {currentFolder.folder && !currentFolder.badgeHidden && (
               <ChatFolderBadge
-                folder={currentFolder}
-                files={currentFolderFiles}
+                folder={currentFolder.folder}
+                files={currentFolder.files}
                 open={showFolderFileList}
                 text={text.chat}
                 onToggleOpen={() => setShowFolderFileList((visible) => !visible)}
                 onClose={() => setShowFolderFileList(false)}
                 onAddFilesToComposer={addFilesToComposer}
-                onHideBadge={() => setFolderBadgeHidden(true)}
+                onHideBadge={currentFolder.hideBadge}
               />
             )}
             <OfficeLauncher text={text.app.officeLauncher} />
@@ -257,7 +161,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({
               type="button"
               onClick={onToggleCompactMode}
               title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
-              aria-label={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
+              aria-label={
+                displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow
+              }
               aria-pressed={displayMode === "compact"}
             >
               {displayMode === "normal" ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -267,8 +173,12 @@ export const ChatPage: React.FC<ChatPageProps> = ({
               className={`feature-sidebar-toggle ${featureSidebarOpen ? "active" : ""}`}
               type="button"
               onClick={toggleFeatureSidebar}
-              title={featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open}
-              aria-label={featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open}
+              title={
+                featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open
+              }
+              aria-label={
+                featureSidebarOpen ? text.chat.featureSidebar.close : text.chat.featureSidebar.open
+              }
               aria-pressed={featureSidebarOpen}
             >
               <PanelRight size={17} />
@@ -276,99 +186,40 @@ export const ChatPage: React.FC<ChatPageProps> = ({
           </div>
         </div>
 
-      {/* 消息列表 */}
-      <ChatMessageList onFillInput={(t) => setInputText(t)} />
+        {/* 消息列表 */}
+        <ChatMessageList onFillInput={(t) => setInputText(t)} />
 
-      {/* Pill Composer 输入框 */}
-      <ComposerArea
-        composer={composer}
-        currentFolder={currentFolder}
-        currentFolderFiles={currentFolderFiles}
-        showWelcomeComposer={showWelcomeComposer}
-        onSend={composerHandleSend}
-        onInterrupt={interruptTurn}
-        onOpenSettings={onOpenSettings}
-      />
-
-      {/* 工具确认弹窗 */}
-      {pendingToolCall && (
-        <ToolConfirmDialog
-          pendingCall={pendingToolCall}
-          onConfirm={(alwaysAllow) => confirmToolCall(pendingToolCall.id, alwaysAllow)}
-          onCancel={() => cancelToolCall(pendingToolCall.id)}
+        {/* Pill Composer 输入框 */}
+        <ComposerArea
+          composer={composer}
+          currentFolder={currentFolder.folder}
+          currentFolderFiles={currentFolder.files}
+          showWelcomeComposer={showWelcomeComposer}
+          onSend={composerHandleSend}
+          onInterrupt={interruptTurn}
+          onOpenSettings={onOpenSettings}
         />
-      )}
+
+        {/* 工具确认弹窗 */}
+        {pendingToolCall && (
+          <ToolConfirmDialog
+            pendingCall={pendingToolCall}
+            onConfirm={(alwaysAllow) => confirmToolCall(pendingToolCall.id, alwaysAllow)}
+            onCancel={() => cancelToolCall(pendingToolCall.id)}
+          />
+        )}
       </div>
 
-      <FeatureSidebarPanel
+      <ChatFeatureSidebar
         isOpen={featureSidebarOpen}
         activeIntent={activeIntent}
+        composerDraftKey={composerDraftKey}
+        controller={taskDraftsController}
         language={language}
         onIntentClick={selectFeature}
         onClose={closeFeatureSidebarManually}
-      >
-        <React.Suspense
-          fallback={(
-            <div className="feature-sidebar-loading" role="status">
-              {language === "zh-CN" ? "正在加载功能面板..." : "Loading feature panel..."}
-            </div>
-          )}
-        >
-          {activeIntent === "formula" && (
-            <FormulaTaskComposerPanel
-              key={`${composerDraftKey}:formula`}
-              embedded
-              draft={taskDrafts.formula}
-              onDraftChange={updateFormulaDraft}
-              onSubmit={handleFormulaTaskSubmit}
-              onClose={closeFeatureSidebarManually}
-            />
-          )}
-          {activeIntent === "code" && (
-            <CodeTaskComposerPanel
-              key={`${composerDraftKey}:code`}
-              embedded
-              draft={taskDrafts.code}
-              onDraftChange={updateCodeDraft}
-              onSubmit={handleTaskSubmit}
-              onClose={closeFeatureSidebarManually}
-            />
-          )}
-          {activeIntent === "ocr" && (
-            <OCRTaskComposerPanel
-              key={`${composerDraftKey}:ocr`}
-              embedded
-              draft={taskDrafts.ocr}
-              onDraftChange={updateOCRDraft}
-              onClose={closeFeatureSidebarManually}
-            />
-          )}
-          {activeIntent === "report" && (
-            <ReportTaskComposerPanel
-              key={`${composerDraftKey}:report`}
-              embedded
-              draft={taskDrafts.report}
-              onDraftChange={updateReportDraft}
-              onSubmit={handleTaskSubmit}
-              onClose={closeFeatureSidebarManually}
-            />
-          )}
-          {(activeIntent === "clean" || activeIntent === "chart") && (
-            <SimpleTaskComposerPanel
-              key={`${composerDraftKey}:${activeIntent}`}
-              intent={activeIntent}
-              range={taskDrafts[activeIntent]?.range ?? ""}
-              task={taskDrafts[activeIntent]?.task ?? ""}
-              text={text.chat}
-              onRangeChange={(range) => updateSimpleRange(activeIntent, range)}
-              onTaskChange={(task) => updateSimpleTask(activeIntent, task)}
-              onPickRange={handleSimplePickRange}
-              onSubmit={handleTaskSubmit}
-            />
-          )}
-          {activeIntent === "office" && <OfficeAutomationPanel />}
-        </React.Suspense>
-      </FeatureSidebarPanel>
+        onTaskSubmit={handleTaskSubmit}
+      />
     </div>
   );
 };

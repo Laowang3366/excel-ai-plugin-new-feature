@@ -333,7 +333,6 @@
     "desktop/src/components/chat/StreamingOutput.tsx": "7191b88dcf854cd2eae5bf19dc2a953ed82297cb9e7b138e9fded8ee66289bbb",
     "desktop/src/components/chat/ToolCallBubble.tsx": "3101e0718c6dfd180f916715ec85a2182ade88a8e754210de1a0b6c86bfab8cd",
     "desktop/src/components/chat/ToolConfirmDialog.tsx": "43527789f4be08ded28c1cd39b49ce26908f72fb67b7f606988bf48c2407d8bf",
-    "desktop/src/components/ChatPage.tsx": "b7a106cdf1938b3ab784428cea84a28e4a93f9242477d6901081325126e1d3b3",
     "desktop/src/components/common/ErrorBoundary.tsx": "6da97812fdb59fd0f0602b3463570a149dab8c81129711b777fef8d8200583c1",
     "desktop/src/components/common/FeatureSidebarPanel.test.ts": "596fe1c616a7930f904ab43783ccef7381c546299064cae05d06671715359abc",
     "desktop/src/components/common/FeatureSidebarPanel.tsx": "cd1374d9b11dcdaf44748ac90eb4c7bdfffe5af42ac8a86d46e81f1db603277c",
@@ -416,8 +415,6 @@
     "desktop/src/hooks/useSidebarThreadContextMenu.ts": "8d3b6b33562165dc90f51920e25fc1461071b050aaaa91112a5042cb2f8a6793",
     "desktop/src/hooks/useSidebarThreadCreation.ts": "69e51d844a51cfd85506d2a6f8592b6c47c8546fd4a35df9e77c00e48f305b84",
     "desktop/src/hooks/useSidebarViewedThreads.ts": "972d1e9bcf6fcf5d9be04b23d0f548f1c8da528e8e35cef3cc4b573df3eb2002",
-    "desktop/src/hooks/useTaskDrafts.test.ts": "01fedfd7e2d64cac229a69cf03674d3f2f9f4e79b12c373dd6d95444407d7143",
-    "desktop/src/hooks/useTaskDrafts.ts": "b623cd216787d8508e62015252a6501b19c130bf882004e73f6bd44c17040885",
     "desktop/src/services/ipcApi.test.ts": "0552833a48f5eb9da4b0babd22f94c1cdb2c73e0095309478578b006df715da0",
     "desktop/src/services/ipcApi.ts": "5294e7b4c4d8ff55b0479d7236ff613af126a036739bb3b0e12fb72750b06a1e",
     "desktop/src/services/ipcApiMock.ts": "cc20248b2ce0192f5e0c464a7680c18e09c736d9a1b916de68075f4166d20398",
@@ -522,7 +519,6 @@
     "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",
-    "desktop/src/components/ChatPage.tsx": "b7a106cdf1938b3ab784428cea84a28e4a93f9242477d6901081325126e1d3b3",
     "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c"
   }
 }

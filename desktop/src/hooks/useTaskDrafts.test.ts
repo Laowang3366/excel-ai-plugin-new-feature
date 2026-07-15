@@ -4,21 +4,24 @@ import {
   createEmptyFormulaDraft,
   getTaskDraftsForKey,
   moveTaskDraftStore,
+  updateSimpleTaskDraft,
   updateTaskDraftStore,
   type TaskDraftStore,
 } from "./useTaskDrafts";
 
 describe("task draft store helpers", () => {
   it("clears formula task data while preserving the detected host", () => {
-    expect(createEmptyFormulaDraft({
-      dataSourceRanges: ["Sheet1!A1:B10"],
-      dataSourceInput: "Sheet1!C1:C10",
-      referenceSampleRange: "Sheet1!D1:D3",
-      referenceSampleMode: "complete",
-      outputRange: "Sheet1!F1",
-      hostEnvironment: "wps",
-      task: "提取规格",
-    })).toEqual({
+    expect(
+      createEmptyFormulaDraft({
+        dataSourceRanges: ["Sheet1!A1:B10"],
+        dataSourceInput: "Sheet1!C1:C10",
+        referenceSampleRange: "Sheet1!D1:D3",
+        referenceSampleMode: "complete",
+        outputRange: "Sheet1!F1",
+        hostEnvironment: "wps",
+        task: "提取规格",
+      }),
+    ).toEqual({
       dataSourceRanges: [],
       dataSourceInput: "",
       referenceSampleRange: "",
@@ -85,7 +88,7 @@ describe("task draft store helpers", () => {
           range: prev.chart?.range ?? "",
           task: "饼图",
         },
-      })
+      }),
     );
 
     expect(getTaskDraftsForKey(store, "thread-1").chart).toEqual({
@@ -118,5 +121,16 @@ describe("task draft store helpers", () => {
     };
 
     expect(moveTaskDraftStore(store, "new", "thread-1")).toBe(store);
+  });
+
+  it("updates one simple-task field without losing the other", () => {
+    const drafts = { chart: { range: "A1:B8", task: "柱状图" } };
+
+    expect(updateSimpleTaskDraft(drafts, "chart", { range: "C1:D8" })).toEqual({
+      chart: { range: "C1:D8", task: "柱状图" },
+    });
+    expect(updateSimpleTaskDraft(drafts, "chart", { task: "折线图" })).toEqual({
+      chart: { range: "A1:B8", task: "折线图" },
+    });
   });
 });

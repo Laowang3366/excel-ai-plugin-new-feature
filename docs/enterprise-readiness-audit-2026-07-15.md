@@ -39,9 +39,9 @@
 | M-10 | 未完成 | 现有 fake COM、Open XML 和单元测试门禁 | 隔离 Windows Runner 的 Excel/WPS 实机矩阵与 Electron E2E |
 | M-11 | 部分完成 | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与活动数据根擦除边界清单及防回归测试 | 在 GitHub ruleset 强制审批；法律负责人确定许可、主体信息、法律依据、处理者/跨境/权利请求条款及身份级删除流程 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除当前活动数据根内的应用副本 | 生产负责人确认 RPO/RTO并完成恢复演练；异机副本、旧/外部副本清理、删除证明和全链路告警 |
-| L-01 | 部分完成 | CI 哈希棘轮冻结存量债务；任务面板、聊天 Store、i18n 已按模型/类型化资源解耦；`App` 将窗口运行时、标题栏展示和热补丁确认分离后从 365 行降至 191 行 | 继续分批格式化未触碰存量文件，并按职责拆分仍在基线中的 17 个超限模块 |
+| L-01 | 部分完成 | CI 哈希棘轮冻结存量债务；任务面板、聊天 Store、i18n 已按模型/类型化资源解耦；`App` 将窗口运行时、标题栏展示和热补丁确认分离后从 365 行降至 191 行；`ChatPage` 将任务侧栏渲染、侧栏焦点状态和当前文件夹加载分离后从 374 行降至 225 行 | 继续分批格式化未触碰存量文件，并按职责拆分仍在基线中的 16 个超限模块 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
-| L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；当前首屏入口 446.52 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
+| L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；当前首屏入口 447.17 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
 
 ## 1. 执行摘要
 
@@ -99,9 +99,9 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 191 个测试文件、1046 项测试全部通过 |
-| Desktop Vite build | 通过 | Renderer 首屏入口 446.52 KB，9 个异步 chunk；480 KiB entry budget 通过 |
-| Desktop `format:check` | **失败** | 限定源码检查仍有 498 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
+| Desktop Vitest | 通过 | 整改后 191 个测试文件、1047 项测试全部通过 |
+| Desktop Vite build | 通过 | Renderer 首屏入口 447.17 KB（436.70 KiB），9 个异步 chunk；480 KiB entry budget 通过 |
+| Desktop `format:check` | **失败** | 限定源码检查仍有 496 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
 | .NET Worker test | 通过 | 最近一次 Worker 门禁 100 项 xUnit 测试全部通过；本批未修改 Worker |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
@@ -604,8 +604,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 > 部分整改：新增 `scripts/check-source-governance.cjs` 与换行归一化 SHA-256 基线。CI 对桌面源码执行 Prettier 漂移棘轮，并扫描桌面、Electron、产品站和脚本生产文件的 300/400/500 行分类上限；只有启用门禁时字节等价的存量债务可暂时放行。新文件、被修改的漂移文件或被修改后仍超限的生产文件会立即失败。自动化测试覆盖格式文件变更、超限增长、拆分达标和 CRLF/LF 一致性。
 
-- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 498 个存量文件不匹配。
-- 当前基线包含 15 个超限生产模块和 2 个超限真实 Office 冒烟脚本；此前报告的 11 个已过时。`CodeTaskComposerPanel` 已把草稿类型与选项常量提取到独立模型模块，组件从 303 行降至 277 行；`chatStore` 已把公共状态和动作类型提取到独立模块，Store 从 405 行降至 287 行；`i18n` 已把功能、权限、简单任务与时间文案提取为类型化叶子资源，入口从 421 行降至 376 行；`App` 已把窗口 IPC/resize/blur 生命周期集中到 `useWindowDisplayState`，标题栏变为纯展示组件，热补丁健康确认保持独立生命周期，根组件从 365 行降至 191 行。相关源码通过 Prettier、定向测试、类型检查、Lint 和治理门禁。
+- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 496 个存量文件不匹配。
+- 当前基线包含 14 个超限生产模块和 2 个超限真实 Office 冒烟脚本；此前报告的 11 个已过时。`CodeTaskComposerPanel` 已把草稿类型与选项常量提取到独立模型模块，组件从 303 行降至 277 行；`chatStore` 已把公共状态和动作类型提取到独立模块，Store 从 405 行降至 287 行；`i18n` 已把功能、权限、简单任务与时间文案提取为类型化叶子资源，入口从 421 行降至 376 行；`App` 已把窗口 IPC/resize/blur 生命周期集中到 `useWindowDisplayState`，标题栏变为纯展示组件，热补丁健康确认保持独立生命周期，根组件从 365 行降至 191 行；`ChatPage` 已把任务侧栏的懒加载与面板选择集中到 `ChatFeatureSidebar`，把侧栏焦点状态和当前文件夹加载分别交给专用 hook，主页面从 374 行降至 225 行，简单任务草稿更新也回收到 `useTaskDrafts`。相关源码通过 Prettier、定向测试、类型检查、Lint、完整 Vitest、生产构建和治理门禁。
 
 建议先固定换行/Prettier 基线，再分批机械格式化；按运行时职责拆分大型生产文件，避免把格式噪声与安全修复混在同一个 PR。
 
@@ -625,7 +625,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### L-03 Renderer 主包偏大
 
-> 整改完成：`SettingsPage` 整体以及 Office 自动化、公式、代码、OCR、报告和简单任务面板改为 `React.lazy` 按需加载；首屏入口首次由 566.92 KB 降至 445.02 KB，当前构建为 446.52 KB，设置页形成独立异步块，其余功能形成更小异步块。热补丁健康确认从“应用壳出现”调整为当前首屏路由真实挂载后确认，避免设置页异步块尚未加载就提前 ACK。新增 bundle budget 脚本与边界测试，限制首屏 480 KiB、任一 chunk 500 KiB，并要求至少两个异步块；`electron:build` 复用同一 build 门禁。
+> 整改完成：`SettingsPage` 整体以及 Office 自动化、公式、代码、OCR、报告和简单任务面板改为 `React.lazy` 按需加载；首屏入口首次由 566.92 KB 降至 445.02 KB，当前构建为 447.17 KB，设置页形成独立异步块，其余功能形成更小异步块。热补丁健康确认从“应用壳出现”调整为当前首屏路由真实挂载后确认，避免设置页异步块尚未加载就提前 ACK。新增 bundle budget 脚本与边界测试，限制首屏 480 KiB、任一 chunk 500 KiB，并要求至少两个异步块；`electron:build` 复用同一 build 门禁。
 
 生产构建主 Renderer chunk 约 566.92 KB，超过 Vite 500 KB 建议值。建议对设置、Office 自动化、知识库和统计面板做路由/组件级 lazy loading，并建立 bundle budget。
 
@@ -698,6 +698,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销和模型可见 Office 参数边界等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 191 个 Vitest 文件、1046 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销和模型可见 Office 参数边界等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 191 个 Vitest 文件、1047 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

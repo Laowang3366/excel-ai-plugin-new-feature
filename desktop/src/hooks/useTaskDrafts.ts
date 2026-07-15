@@ -17,7 +17,7 @@ import type { ReportTaskDraft } from "../components/task/ReportTaskComposerPanel
 import { pickExcelRange } from "../utils/chatHelpers";
 import type { IntentKind } from "../utils/sidebarHelpers";
 
-type SimpleTaskIntent = Extract<NonNullable<IntentKind>, "clean" | "chart">;
+export type SimpleTaskIntent = Extract<NonNullable<IntentKind>, "clean" | "chart">;
 
 interface SimpleTaskDraft {
   range: string;
@@ -74,6 +74,21 @@ export function createEmptyFormulaDraft(current?: FormulaTaskDraft): FormulaTask
   };
 }
 
+export function updateSimpleTaskDraft(
+  drafts: TaskDrafts,
+  intent: SimpleTaskIntent,
+  patch: Partial<SimpleTaskDraft>,
+): TaskDrafts {
+  return {
+    ...drafts,
+    [intent]: {
+      range: drafts[intent]?.range ?? "",
+      task: drafts[intent]?.task ?? "",
+      ...patch,
+    },
+  };
+}
+
 export function useTaskDrafts(draftKey = "default") {
   const [taskDraftStore, setTaskDraftStore] = useState<TaskDraftStore>({});
   const activeDraftKey = draftKey || "default";
@@ -124,6 +139,20 @@ export function useTaskDrafts(draftKey = "default") {
     [setTaskDrafts],
   );
 
+  const updateSimpleRange = useCallback(
+    (intent: SimpleTaskIntent, range: string) => {
+      setTaskDrafts((prev) => updateSimpleTaskDraft(prev, intent, { range }));
+    },
+    [setTaskDrafts],
+  );
+
+  const updateSimpleTask = useCallback(
+    (intent: SimpleTaskIntent, task: string) => {
+      setTaskDrafts((prev) => updateSimpleTaskDraft(prev, intent, { task }));
+    },
+    [setTaskDrafts],
+  );
+
   // 简易功能面板选区按钮
   const handleSimplePickRange = useCallback(
     async (intent: SimpleTaskIntent) => {
@@ -153,6 +182,8 @@ export function useTaskDrafts(draftKey = "default") {
     updateCodeDraft,
     updateOCRDraft,
     updateReportDraft,
+    updateSimpleRange,
+    updateSimpleTask,
     handleSimplePickRange,
     moveTaskDrafts,
   };
