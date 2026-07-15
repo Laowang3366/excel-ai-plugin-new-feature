@@ -19,40 +19,20 @@ import { clampNumber } from "../../shared/numberLimits";
 import {
   assertRemoteDataProcessingAllowed,
   toRemoteDataPolicyResult,
-  type RemoteDataTransferSummary,
 } from "../../../shared/egressPolicy";
 import { parseFilesLocally, type LocalParsedDocument } from "./localDocumentParser";
+import {
+  buildOcrToolResult,
+  type OcrFallbackAttempt,
+  type OcrMode,
+  type OcrProvider,
+  type SelectedOcrDocument,
+} from "./ocrExecutorResult";
 import { validateArgs } from "./validation";
 
 export interface OcrExecutorDeps {
   getMineruApiToken?: () => string;
   isRemoteDataProcessingEnabled?: () => boolean;
-}
-
-type OcrMode = "ocr" | "invoice" | "layout" | "style";
-type OcrProvider = "mineru" | "mineru-agent" | "local";
-type OverallOcrProvider = OcrProvider | "mixed";
-
-interface FallbackAttempt {
-  provider: OcrProvider;
-  success: boolean;
-  skipped?: boolean;
-  parsedFiles?: number;
-  totalFiles?: number;
-  reason?: string;
-  error?: string;
-  quotaLikely?: boolean;
-}
-
-interface OutputDocument {
-  filename: string;
-  text: string;
-  textTruncated: boolean;
-  rows: string[][];
-  provider: OcrProvider;
-  sourceType?: string;
-  warnings?: string[];
-  error?: string;
 }
 
 const SUPPORTED_EXTENSIONS = new Set([
@@ -76,7 +56,10 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".txt",
 ]);
 
-export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExecutorDeps = {}): void {
+export function addOcrExecutors(
+  target: Map<string, ToolExecutor>,
+  deps: OcrExecutorDeps = {},
+): void {
   target.set("ocr.parseDocument", {
     name: "ocr.parseDocument",
     execute: async (args: Record<string, unknown>) => {
@@ -92,7 +75,11 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
       if (pathError) return { success: false, error: pathError };
 
       const mode = normalizeOcrToolMode(args.mode);
-      const maxTextChars = clampNumber(args.maxTextChars, { fallback: 60_000, min: 1_000, max: 120_000 });
+      const maxTextChars = clampNumber(args.maxTextChars, {
+        fallback: 60_000,
+        min: 1_000,
+        max: 120_000,
+      });
       const maxTableRows = clampNumber(args.maxTableRows, { fallback: 200, min: 0, max: 1_000 });
       const allowTokenMineru = args.allowTokenMineru !== false;
       const allowFreeMineru = args.allowFreeMineru !== false;
@@ -100,12 +87,9 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
       const token = getConfiguredMineruToken(deps);
       const remoteDataProcessingEnabled = deps.isRemoteDataProcessingEnabled?.() === true;
 
-      const fallbacks: FallbackAttempt[] = [];
+      const fallbacks: OcrFallbackAttempt[] = [];
       const warnings: string[] = [];
-      const selected: Array<{
-        document: MineruParsedDocument | LocalParsedDocument;
-        provider: OcrProvider;
-      } | undefined> = new Array(filePaths.length);
+      const selected: Array<SelectedOcrDocument | undefined> = new Array(filePaths.length);
       let unresolved = filePaths.map((_, index) => index);
       let localDocuments: LocalParsedDocument[] | null = null;
 
@@ -166,18 +150,27 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
         });
       } else if (unresolved.length > 0 && remoteDataProcessingEnabled) {
         const pendingIndices = unresolved;
-        const standardAttempt = await tryParseWithProvider(
-          "mineru",
-          () => parseFilesWithMineru(pendingIndices.map((index) => filePaths[index]), token),
+        const standardAttempt = await tryParseWithProvider("mineru", () =>
+          parseFilesWithMineru(
+            pendingIndices.map((index) => filePaths[index]),
+            token,
+          ),
         );
         fallbacks.push(standardAttempt.fallback);
         if (standardAttempt.documents) {
-          unresolved = mergeUsefulOcrDocuments(selected, pendingIndices, standardAttempt.documents, "mineru");
+          unresolved = mergeUsefulOcrDocuments(
+            selected,
+            pendingIndices,
+            standardAttempt.documents,
+            "mineru",
+          );
         }
         if (unresolved.length > 0) {
-          warnings.push(standardAttempt.fallback.error
-            ? `MinerU 标准解析不可用，已进入免费 Agent 补齐: ${standardAttempt.fallback.error}`
-            : `MinerU 标准解析仍有 ${unresolved.length} 个文件未完成，已进入免费 Agent 补齐`);
+          warnings.push(
+            standardAttempt.fallback.error
+              ? `MinerU 标准解析不可用，已进入免费 Agent 补齐: ${standardAttempt.fallback.error}`
+              : `MinerU 标准解析仍有 ${unresolved.length} 个文件未完成，已进入免费 Agent 补齐`,
+          );
         }
       }
 
@@ -191,18 +184,24 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
           });
         } else {
           const pendingIndices = unresolved;
-          const agentAttempt = await tryParseWithProvider(
-            "mineru-agent",
-            () => parseFilesWithMineruAgent(pendingIndices.map((index) => filePaths[index])),
+          const agentAttempt = await tryParseWithProvider("mineru-agent", () =>
+            parseFilesWithMineruAgent(pendingIndices.map((index) => filePaths[index])),
           );
           fallbacks.push(agentAttempt.fallback);
           if (agentAttempt.documents) {
-            unresolved = mergeUsefulOcrDocuments(selected, pendingIndices, agentAttempt.documents, "mineru-agent");
+            unresolved = mergeUsefulOcrDocuments(
+              selected,
+              pendingIndices,
+              agentAttempt.documents,
+              "mineru-agent",
+            );
           }
           if (unresolved.length > 0) {
-            warnings.push(agentAttempt.fallback.error
-              ? `MinerU 免费 Agent 解析不可用，已进入本地补齐: ${agentAttempt.fallback.error}`
-              : `MinerU 免费 Agent 仍有 ${unresolved.length} 个文件未完成，已进入本地补齐`);
+            warnings.push(
+              agentAttempt.fallback.error
+                ? `MinerU 免费 Agent 解析不可用，已进入本地补齐: ${agentAttempt.fallback.error}`
+                : `MinerU 免费 Agent 仍有 ${unresolved.length} 个文件未完成，已进入本地补齐`,
+            );
           }
         }
       }
@@ -221,73 +220,23 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
         }
       }
 
-      const outputDocuments = selected.flatMap((entry, index) => entry
-        ? [formatOutputDocument(entry.document, entry.provider, filePaths[index], maxTextChars, maxTableRows)]
-        : []);
-      const selectedProviders = new Set(outputDocuments.map((document) => document.provider));
-      const selectedProvider: OverallOcrProvider = selectedProviders.size === 1
-        ? Array.from(selectedProviders)[0]
-        : "mixed";
-      const combinedText = buildCombinedText(outputDocuments, maxTextChars);
-      const allRows = outputDocuments.flatMap((document) => document.rows);
-      const rows = allRows.slice(0, maxTableRows);
-      const errors = outputDocuments
-        .filter((document) => document.error)
-        .map((document) => `${document.filename}: ${document.error}`);
-      const complete = outputDocuments.length === filePaths.length && outputDocuments.every((document) =>
-        document.text.trim().length > 0 || document.rows.length > 0
-      );
-
-      return {
-        success: complete,
-        ...(complete ? {} : { error: `OCR 仅完成 ${outputDocuments.filter((document) => document.text.trim() || document.rows.length > 0).length}/${filePaths.length} 个文件` }),
-        data: {
-          provider: selectedProvider,
-          status: complete ? "complete" : "partial",
-          mode,
-          fileCount: filePaths.length,
-          text: combinedText.text,
-          textTruncated: combinedText.truncated,
-          rows,
-          rowsTruncated: allRows.length > rows.length,
-          documents: outputDocuments,
-          errors,
-          warnings: normalizeWarnings(warnings, selectedProvider, mode, filePaths),
-          fallbacks,
-          remoteProcessing: buildOcrRemoteProcessing(outputDocuments),
-          nextTools: buildSelfFallbackTools(filePaths, mode),
-        },
-      };
+      return buildOcrToolResult({
+        fallbacks,
+        filePaths,
+        maxTableRows,
+        maxTextChars,
+        mode,
+        selected,
+        warnings,
+      });
     },
   });
 }
 
-function buildOcrRemoteProcessing(documents: OutputDocument[]): RemoteDataTransferSummary[] {
-  const providers = new Set(documents.map((document) => document.provider));
-  const transfers: RemoteDataTransferSummary[] = [];
-  if (providers.has("mineru")) {
-    transfers.push({
-      operation: "ocr",
-      service: "MinerU",
-      destination: "mineru.net",
-      dataSummary: `${documents.filter((document) => document.provider === "mineru").length} 个文件`,
-    });
-  }
-  if (providers.has("mineru-agent")) {
-    transfers.push({
-      operation: "ocr",
-      service: "MinerU Agent",
-      destination: "mineru.net",
-      dataSummary: `${documents.filter((document) => document.provider === "mineru-agent").length} 个文件`,
-    });
-  }
-  return transfers;
-}
-
 async function tryParseWithProvider(
   provider: OcrProvider,
-  parse: () => Promise<MineruParsedDocument[]>
-): Promise<{ fallback: FallbackAttempt; documents?: MineruParsedDocument[] }> {
+  parse: () => Promise<MineruParsedDocument[]>,
+): Promise<{ fallback: OcrFallbackAttempt; documents?: MineruParsedDocument[] }> {
   try {
     const documents = await parse();
     return {
@@ -358,7 +307,9 @@ function hasAnyUsefulDocument(documents: Array<{ text: string; rows: string[][] 
 }
 
 function mergeUsefulOcrDocuments(
-  selected: Array<{ document: MineruParsedDocument | LocalParsedDocument; provider: OcrProvider } | undefined>,
+  selected: Array<
+    { document: MineruParsedDocument | LocalParsedDocument; provider: OcrProvider } | undefined
+  >,
   targetIndices: number[],
   documents: Array<MineruParsedDocument | LocalParsedDocument>,
   provider: OcrProvider,
@@ -375,111 +326,8 @@ function mergeUsefulOcrDocuments(
   return unresolved;
 }
 
-function formatOutputDocument(
-  document: MineruParsedDocument | LocalParsedDocument,
-  provider: OcrProvider,
-  filePath: string,
-  maxTextChars: number,
-  maxTableRows: number
-): OutputDocument {
-  const perDocumentMaxChars = Math.min(12_000, maxTextChars);
-  const clipped = clipText(document.text, perDocumentMaxChars);
-  return {
-    filename: document.filename,
-    text: clipped.text,
-    textTruncated: clipped.truncated,
-    rows: document.rows.slice(0, Math.min(50, maxTableRows)),
-    provider,
-    sourceType: "sourceType" in document && typeof document.sourceType === "string"
-      ? document.sourceType
-      : path.extname(filePath).replace(/^\./, "").toLowerCase(),
-    warnings: "warnings" in document ? document.warnings : undefined,
-    error: document.error,
-  };
-}
-
-function buildCombinedText(
-  documents: Array<{ filename: string; text: string }>,
-  maxChars: number,
-): { text: string; truncated: boolean } {
-  return clipText(
-    documents
-      .filter((document) => document.text.trim())
-      .map((document) => `## ${document.filename}\n${document.text.trim()}`)
-      .join("\n\n"),
-    maxChars,
-  );
-}
-
-function normalizeWarnings(
-  warnings: string[],
-  provider: OverallOcrProvider,
-  mode: OcrMode,
-  filePaths: string[]
-): string[] {
-  const normalized = Array.from(new Set(warnings.filter(Boolean)));
-  if (provider === "mineru-agent") {
-    normalized.push("当前结果来自 MinerU 免费 Agent 轻量解析，受单文件大小、页数和 IP 限频限制；如信息不足，可稍后重试标准 MinerU 或继续用本地工具兜底。");
-  }
-  if (provider === "local") {
-    normalized.push("当前结果来自本地免费兜底解析，图片/PDF 扫描件不会获得真正 OCR 文本；可结合 Office/文件工具继续检查结构或请求用户提供可复制文本。");
-  }
-  if (mode === "layout" || mode === "style") {
-    const hasOfficeFile = filePaths.some((filePath) =>
-      [".docx", ".pptx", ".xlsx", ".xlsm"].includes(path.extname(filePath).toLowerCase())
-    );
-    if (hasOfficeFile) {
-      normalized.push("文件可见内容解析主要提供文本、表格和结构线索；版面或样式验收可继续调用 office.action.inspect / office.action.validate / snapshot 等内置工具。");
-    }
-  }
-  return normalized;
-}
-
-function buildSelfFallbackTools(
-  filePaths: string[],
-  mode: OcrMode
-): Array<Record<string, string>> {
-  const extensions = new Set(filePaths.map((filePath) => path.extname(filePath).toLowerCase()));
-  const tools: Array<Record<string, string>> = [];
-
-  if ([...extensions].some((ext) => [".xlsx", ".xlsm", ".docx", ".pptx"].includes(ext))) {
-    tools.push({
-      tool: "office.action.inspect",
-      useWhen: "需要继续读取 Office 文件结构、文本部件、表格、布局对象或修改后的文件状态",
-    });
-    tools.push({
-      tool: "office.action.validate",
-      useWhen: "完成文件级修改后验证数量、结构、样式或对象变化",
-    });
-  }
-  if (mode === "layout" || mode === "style") {
-    tools.push({
-      tool: "office.action.inspect",
-      useWhen: "需要从 Office 文件自身结构继续判断版面、表格和样式状态",
-    });
-  }
-  tools.push({
-    tool: "file.getPaths",
-    useWhen: "用户只给出桌面、下载、文档等模糊位置时，先解析成本机绝对路径",
-  });
-  return dedupeToolSuggestions(tools);
-}
-
-function dedupeToolSuggestions(tools: Array<Record<string, string>>): Array<Record<string, string>> {
-  const seen = new Set<string>();
-  return tools.filter((item) => {
-    const key = `${item.tool}:${item.useWhen}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 function isQuotaLikeError(error: string): boolean {
-  return /quota|limit|limited|rate|credit|balance|insufficient|次数|额度|余额|限额|频率|too many|429/i.test(error);
-}
-
-function clipText(value: string, maxChars: number): { text: string; truncated: boolean } {
-  if (value.length <= maxChars) return { text: value, truncated: false };
-  return { text: value.slice(0, maxChars), truncated: true };
+  return /quota|limit|limited|rate|credit|balance|insufficient|次数|额度|余额|限额|频率|too many|429/i.test(
+    error,
+  );
 }
