@@ -29,6 +29,11 @@ export interface WorkflowResultReference {
   result?: OfficeActionResult;
 }
 
+const MAX_PATH_SEGMENTS = 32;
+const SAFE_OBJECT_PATH_SEGMENT = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
+const ARRAY_INDEX_PATH_SEGMENT = /^(0|[1-9][0-9]*)$/;
+const BLOCKED_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
+
 export function shouldRunWorkflowStep(
   condition: OfficeWorkflowCondition | undefined,
   records: WorkflowResultReference[],
@@ -80,7 +85,11 @@ export async function executeWorkflowStepWithRetry(
   let result = failedStepResult(step, "Office 操作未执行");
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     result = await executeOnce(bridge, step);
-    if (result.status === "done" || result.status === "unsupported" || result.status === "needsCom") {
+    if (
+      result.status === "done" ||
+      result.status === "unsupported" ||
+      result.status === "needsCom"
+    ) {
       return { result, attempts: attempt };
     }
     if (attempt < maxAttempts && delayMs > 0) await delay(delayMs * attempt);
@@ -88,19 +97,29 @@ export async function executeWorkflowStepWithRetry(
   return { result, attempts: maxAttempts };
 }
 
-function resolveValue(value: unknown, records: WorkflowResultReference[], variables: Record<string, unknown>): unknown {
+function resolveValue(
+  value: unknown,
+  records: WorkflowResultReference[],
+  variables: Record<string, unknown>,
+): unknown {
   if (typeof value === "string") {
     const withVariables = replaceVariables(value, variables);
-    return withVariables.replace(/\{\{steps\.([^.}]+)\.([^}]+)\}\}/g, (_match, selector: string, dataPath: string) => {
-      const record = findRecord(/^\d+$/.test(selector) ? Number(selector) : selector, records);
-      const resolved = readPath(record?.result, dataPath);
-      if (resolved === undefined || resolved === null) throw new Error(`工作流占位符没有值: steps.${selector}.${dataPath}`);
-      return typeof resolved === "string" ? resolved : JSON.stringify(resolved);
-    });
+    return withVariables.replace(
+      /\{\{steps\.([^.}]+)\.([^}]+)\}\}/g,
+      (_match, selector: string, dataPath: string) => {
+        const record = findRecord(/^\d+$/.test(selector) ? Number(selector) : selector, records);
+        const resolved = readPath(record?.result, dataPath);
+        if (resolved === undefined || resolved === null)
+          throw new Error(`工作流占位符没有值: steps.${selector}.${dataPath}`);
+        return typeof resolved === "string" ? resolved : JSON.stringify(resolved);
+      },
+    );
   }
   if (Array.isArray(value)) return value.map((item) => resolveValue(item, records, variables));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, resolveValue(item, records, variables)]));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, resolveValue(item, records, variables)]),
+    );
   }
   return value;
 }
@@ -109,7 +128,9 @@ function resolveVariablesOnly(value: unknown, variables: Record<string, unknown>
   if (typeof value === "string") return replaceVariables(value, variables);
   if (Array.isArray(value)) return value.map((item) => resolveVariablesOnly(item, variables));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, resolveVariablesOnly(item, variables)]));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, resolveVariablesOnly(item, variables)]),
+    );
   }
   return value;
 }
@@ -117,26 +138,56 @@ function resolveVariablesOnly(value: unknown, variables: Record<string, unknown>
 function replaceVariables(value: string, variables: Record<string, unknown>): string {
   return value.replace(/\{\{vars\.([^}]+)\}\}/g, (_match, dataPath: string) => {
     const resolved = readPath(variables, dataPath);
-    if (resolved === undefined || resolved === null) throw new Error(`工作流变量没有值: vars.${dataPath}`);
+    if (resolved === undefined || resolved === null)
+      throw new Error(`工作流变量没有值: vars.${dataPath}`);
     return typeof resolved === "string" ? resolved : JSON.stringify(resolved);
   });
 }
 
-function findRecord(step: number | string, records: WorkflowResultReference[]): WorkflowResultReference | undefined {
+function findRecord(
+  step: number | string,
+  records: WorkflowResultReference[],
+): WorkflowResultReference | undefined {
   return typeof step === "number"
     ? records.find((record) => record.step === step)
     : records.find((record) => record.id === step);
 }
 
 function readPath(value: unknown, dataPath: string): unknown {
-  return dataPath.split(".").filter(Boolean).reduce<unknown>((current, key) => {
+  const segments = dataPath.split(".");
+  if (
+    segments.length === 0 ||
+    segments.length > MAX_PATH_SEGMENTS ||
+    segments.some((segment) => segment.length === 0)
+  ) {
+    return undefined;
+  }
+  let current = value;
+  for (const segment of segments) {
     if (!current || typeof current !== "object") return undefined;
-    if (Array.isArray(current) && /^\d+$/.test(key)) return current[Number(key)];
-    return (current as Record<string, unknown>)[key];
-  }, value);
+    if (Array.isArray(current)) {
+      if (!ARRAY_INDEX_PATH_SEGMENT.test(segment)) return undefined;
+      const index = Number(segment);
+      if (!Object.prototype.hasOwnProperty.call(current, index)) return undefined;
+      current = current[index];
+      continue;
+    }
+    if (
+      !SAFE_OBJECT_PATH_SEGMENT.test(segment) ||
+      BLOCKED_PATH_SEGMENTS.has(segment) ||
+      !Object.prototype.hasOwnProperty.call(current, segment)
+    ) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
 }
 
-async function executeOnce(bridge: OfficeActionBridge, step: OfficeActionInput): Promise<OfficeActionResult> {
+async function executeOnce(
+  bridge: OfficeActionBridge,
+  step: OfficeActionInput,
+): Promise<OfficeActionResult> {
   try {
     const result = await bridge.executeAction(step);
     return result || failedStepResult(step, "Office 操作未返回执行结果");
@@ -161,7 +212,12 @@ function failedStepResult(step: OfficeActionInput, message: string): OfficeActio
   };
 }
 
-function clampInteger(value: number | undefined, min: number, max: number, fallback: number): number {
+function clampInteger(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
   return Number.isInteger(value) ? Math.min(max, Math.max(min, value!)) : fallback;
 }
 
