@@ -14,10 +14,11 @@
  */
 
 import { create } from "zustand";
-import type { TurnItem, AgentEvent, TokenUsage, ThreadMetadata, FileAttachment } from "../electronApi";
+import type { AgentEvent, FileAttachment } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { handleAgentEvent } from "./agentEventHandler";
 import { createClearedMessagesPatch, createInitialChatState } from "./chatInitialState";
+import type { ChatActions, ChatState } from "./chatStoreTypes";
 import {
   mergeBufferedStreamDeltas,
   setupChatStreamListeners,
@@ -40,126 +41,7 @@ import {
 
 export { mergeBufferedStreamDeltas, STREAM_DELTA_STORE_FLUSH_MS };
 export type { StreamDeltaInput };
-
-// ============================================================
-// 状态类型
-// ============================================================
-
-export interface ChatState {
-  /** 当前 Turn 的消息列表（只从 Agent 事件产出） */
-  messages: TurnItem[];
-  /** 是否正在流式输出 */
-  isStreaming: boolean;
-  /** 流式输出的增量内容（助手消息，仅用于实时展示） */
-  streamingContent: string;
-  /** 流式输出的推理增量（仅用于实时展示） */
-  streamingReasoning: string;
-  /**
-   * 当前流式轮次 ID。
-   * 当新 round 的 streamDelta 到达时，与上一轮不同就会清空
-   * streamingContent/streamingReasoning，防止跨轮内容泄漏。
-   */
-  activeStreamingRound: number | null;
-  /** 是否显示推理过程 */
-  showReasoning: boolean;
-  /** 推理面板的展开状态（按消息 ID） */
-  reasoningExpanded: Record<string, boolean>;
-  /** 当前 Turn ID */
-  activeTurnId: string | null;
-  /** 当前活跃的会话 ID */
-  activeThreadId: string | null;
-  /** 当前前端发起但尚未绑定 threadId 的请求 ID */
-  activeClientId: string | null;
-  /** 正在执行中的会话 ID 映射，用于切换会话后仍展示运行态 */
-  runningThreadIds: Record<string, boolean>;
-  /** 已发送停止请求、等待主进程确认的会话 ID 映射 */
-  pendingInterruptThreadIds: Record<string, boolean>;
-  /** 用户明确点击停止的会话 ID，用于屏蔽旧快照里的 in_progress 状态 */
-  stoppedThreadIds: Record<string, boolean>;
-  /** Turn 状态 */
-  turnStatus: "idle" | "in_progress" | "completed" | "interrupted" | "failed";
-  /** 上次中断的上下文提示 */
-  lastInterruptContext: string | null;
-  /** Token 使用量 */
-  tokenUsage: TokenUsage | null;
-  /** 上下文使用情况 */
-  contextUsage: {
-    estimatedTokens: number;
-    threshold: number;
-    percentage: number;
-    contextWindowSize: number;
-  } | null;
-  /** 压缩提示 */
-  compactionNotice: string | null;
-  /** 错误信息 */
-  error: string | null;
-
-  // ---- 会话管理 ----
-  /** 所有会话列表 */
-  threads: ThreadMetadata[];
-
-  // ---- 工具审批 ----
-  /** 挂起等待审批的工具调用 */
-  pendingToolCall: {
-    id: string;
-    toolName: string;
-    arguments: Record<string, unknown>;
-    riskLevel: "safe" | "moderate" | "dangerous";
-    description?: string;
-    canAlwaysAllow?: boolean;
-    /** 沙箱策略给出的理由（命中 prompt 规则时） */
-  } | null;
-
-  // ---- 输入框文件桥接 ----
-  /** 待添加到输入框的文件列表 */
-  pendingComposerFiles: FileAttachment[];
-
-  /** 新建会话时暂存的文件夹 ID */
-  pendingFolderId: string | null;
-}
-
-export interface ChatActions {
-  /** 发送消息 */
-  sendMessage: (content: string, attachments?: FileAttachment[]) => Promise<string | null>;
-  /** 从中断处继续 */
-  resumeFromInterruption: (content: string, attachments?: FileAttachment[]) => Promise<void>;
-  /** 中断当前 Turn */
-  interruptTurn: () => Promise<void>;
-  /** 切换推理显示 */
-  toggleReasoning: (itemId?: string) => void;
-  /** 清除错误 */
-  clearError: () => void;
-  /** 清空消息 */
-  clearMessages: () => void;
-  /** 处理 Agent 事件 */
-  handleAgentEvent: (event: AgentEvent) => void;
-  /** 处理流式增量 */
-  handleStreamDelta: (data: StreamDeltaInput) => void;
-
-  // ---- 会话管理 ----
-  /** 加载会话列表 */
-  loadThreads: () => Promise<void>;
-  /** 切换到某个会话 */
-  switchThread: (threadId: string) => Promise<void>;
-  /** 新建会话 */
-  createNewThread: (folderId?: string) => Promise<void>;
-  /** 删除会话 */
-  deleteThread: (threadId: string) => Promise<void>;
-  /** 移动会话到文件夹 */
-  moveThreadToFolder: (threadId: string, folderId?: string) => Promise<void>;
-
-  // ---- 工具审批 ----
-  /** 确认执行挂起的工具调用 */
-  confirmToolCall: (toolCallId: string, alwaysAllow?: boolean) => void;
-  /** 取消挂起的工具调用 */
-  cancelToolCall: (toolCallId: string) => void;
-
-  // ---- 输入框文件桥接 ----
-  /** 将文件推入输入框 */
-  addFilesToComposer: (files: FileAttachment[]) => void;
-  /** 消费并清空待添加文件 */
-  consumePendingFiles: () => FileAttachment[];
-}
+export type { ChatActions, ChatState } from "./chatStoreTypes";
 
 // ============================================================
 // 事件监听器清理
@@ -242,7 +124,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     const isPendingInterruptEvent = Boolean(
       event.type === "turn_interrupted" &&
       event.threadId &&
-      current.pendingInterruptThreadIds[event.threadId]
+      current.pendingInterruptThreadIds[event.threadId],
     );
     const patches = handleAgentEvent(event, current, []);
     const merged = applyPatches(patches);
@@ -337,8 +219,8 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   deleteThread: async (threadId: string) => {
     const current = get();
-    const changesActiveThread = current.activeThreadId === threadId ||
-      pendingThreadSwitchTargetId === threadId;
+    const changesActiveThread =
+      current.activeThreadId === threadId || pendingThreadSwitchTargetId === threadId;
     const requestId = changesActiveThread ? beginThreadNavigation(null) : null;
     const result = await deleteThreadAction(threadId, current);
     if (result.error) {

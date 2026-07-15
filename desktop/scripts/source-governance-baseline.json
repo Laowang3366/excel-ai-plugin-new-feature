@@ -432,7 +432,6 @@
     "desktop/src/store/agentEventHandler.ts": "0f9595947c30079417572bcd2dc0dd5d067f48e45c3f4d5a8d663af04a506a5e",
     "desktop/src/store/chatInitialState.ts": "1446b3eb954c92da8c89978aac7c3188db57a8a706ece703a94cbacbeddc4ffd",
     "desktop/src/store/chatStore.test.ts": "0c7566799b7a5ca2c273ad484163d0e64a81ddb4a74a183f92e0c048264bd808",
-    "desktop/src/store/chatStore.ts": "856d45dbfe1161b0b3d3d73d6b122b72903eeb53e5e91e1c24297de601ed959e",
     "desktop/src/store/chatThreadRuntimeState.test.ts": "7bc4f5194827f53725b3841d31a11bcf2cb2e204ff4b99acb4885b35d892dde2",
     "desktop/src/store/chatThreadRuntimeState.ts": "856afde69898301de70804a27f81ed1655648026ef452fca538887ea6f5bb3d9",
     "desktop/src/store/chatTurnActions.ts": "d3e8cdffb0e84cce5103ae23100eb89c9493088f0b843b66e91b52a28f5b188f",
@@ -528,7 +527,6 @@
     "desktop/src/App.tsx": "5862d98f3f1d33f2b8cc15e93c53cde6c664f42eaa85debb29d15241c28aa967",
     "desktop/src/components/ChatPage.tsx": "b7a106cdf1938b3ab784428cea84a28e4a93f9242477d6901081325126e1d3b3",
     "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c",
-    "desktop/src/i18n.ts": "122dadb4e30812fd90f9cf43a1a47263526c4d25f31d89686be48972110d854b",
-    "desktop/src/store/chatStore.ts": "856d45dbfe1161b0b3d3d73d6b122b72903eeb53e5e91e1c24297de601ed959e"
+    "desktop/src/i18n.ts": "122dadb4e30812fd90f9cf43a1a47263526c4d25f31d89686be48972110d854b"
   }
 }

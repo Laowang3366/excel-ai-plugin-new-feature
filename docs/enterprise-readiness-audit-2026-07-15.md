@@ -39,7 +39,7 @@
 | M-10 | 未完成 | 现有 fake COM、Open XML 和单元测试门禁 | 隔离 Windows Runner 的 Excel/WPS 实机矩阵与 Electron E2E |
 | M-11 | 部分完成 | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与活动数据根擦除边界清单及防回归测试 | 在 GitHub ruleset 强制审批；法律负责人确定许可、主体信息、法律依据、处理者/跨境/权利请求条款及身份级删除流程 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除当前活动数据根内的应用副本 | 生产负责人确认 RPO/RTO并完成恢复演练；异机副本、旧/外部副本清理、删除证明和全链路告警 |
-| L-01 | 部分完成 | CI 哈希棘轮冻结存量 Prettier 漂移和超限生产文件；`CodeTaskComposerPanel` 已提取独立模型定义并从 303 行降至 277 行，首个存量超限组件及两个格式漂移文件退出基线；新文件或被修改文件必须立即合规 | 继续分批格式化未触碰存量文件，并按职责拆分仍在基线中的 20 个超限模块 |
+| L-01 | 部分完成 | CI 哈希棘轮冻结存量 Prettier 漂移和超限生产文件；`CodeTaskComposerPanel` 从 303 行降至 277 行，`chatStore` 把公共状态类型独立后从 405 行降至 287 行；相关文件退出格式与超限基线 | 继续分批格式化未触碰存量文件，并按职责拆分仍在基线中的 19 个超限模块 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
 | L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；首屏入口 445.02 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
 
@@ -101,7 +101,7 @@
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
 | Desktop Vitest | 通过 | 整改后 189 个测试文件、1042 项测试全部通过 |
 | Desktop Vite build | 通过 | Renderer 首屏入口 445.36 KB，9 个异步 chunk；480 KiB entry budget 通过 |
-| Desktop `format:check` | **失败** | 限定源码检查仍有 501 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
+| Desktop `format:check` | **失败** | 限定源码检查仍有 500 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
 | .NET Worker test | 通过 | 最近一次 Worker 门禁 100 项 xUnit 测试全部通过；本批未修改 Worker |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
@@ -604,8 +604,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 > 部分整改：新增 `scripts/check-source-governance.cjs` 与换行归一化 SHA-256 基线。CI 对桌面源码执行 Prettier 漂移棘轮，并扫描桌面、Electron、产品站和脚本生产文件的 300/400/500 行分类上限；只有启用门禁时字节等价的存量债务可暂时放行。新文件、被修改的漂移文件或被修改后仍超限的生产文件会立即失败。自动化测试覆盖格式文件变更、超限增长、拆分达标和 CRLF/LF 一致性。
 
-- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 501 个存量文件不匹配。
-- 当前基线包含 18 个超限生产模块和 2 个超限真实 Office 冒烟脚本；此前报告的 11 个已过时。`CodeTaskComposerPanel` 已把草稿类型与选项常量提取到独立模型模块，组件从 303 行降至 277 行，相关源码通过 Prettier、定向测试、类型检查、Lint 和治理门禁。
+- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 500 个存量文件不匹配。
+- 当前基线包含 17 个超限生产模块和 2 个超限真实 Office 冒烟脚本；此前报告的 11 个已过时。`CodeTaskComposerPanel` 已把草稿类型与选项常量提取到独立模型模块，组件从 303 行降至 277 行；`chatStore` 已把公共状态和动作类型提取到独立模块，Store 从 405 行降至 287 行。相关源码通过 Prettier、定向测试、类型检查、Lint 和治理门禁。
 
 建议先固定换行/Prettier 基线，再分批机械格式化；按运行时职责拆分大型生产文件，避免把格式噪声与安全修复混在同一个 PR。
 
