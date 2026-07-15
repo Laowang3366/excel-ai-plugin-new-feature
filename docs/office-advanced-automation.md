@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片/引用/修订/文档比较/邮件合并/内容控件及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换、对象类型、Word 审阅命令和模板嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片/长文档排版/引用/修订/文档比较/邮件合并/内容控件及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换、对象类型、Word 排版/审阅命令和模板嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -89,7 +89,7 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 | operation | 用途 | 关键 params |
 | --- | --- | --- |
-| `inspectDocumentFormatting` / `formatLongDocument` | 检查并统一九级标题、正文、引用、题注、表格和页面结构 | `headingRules/styles`、`normalStyle`、`quotePatterns`、`margins`、`sectionBreaks`、`headerFooter`、`toc` |
+| `inspectDocumentFormatting` / `formatLongDocument` | 统计段落样式，并统一正文基础字体、标题、表格和页面基础设置 | `autoDetectHeadings` 或 `startsWith/pattern`、`fontName/fontSize`、`headerColor`、`margins`、`headerFooter`、`pageNumbers`、`toc` |
 | `inspectReferences` / `manageReferences` | 检查并管理书签、脚注、尾注、题注、交叉引用和图表目录 | `command`、`name/text/label/referenceType/item`；范围用 `bookmark/start/end` |
 | `inspectRevisions` / `manageRevisions` | 读取修订，并整体或按作者/类型接受、拒绝及切换修订跟踪 | `command`、`author`、`revisionType`、`enabled` |
 | `compareDocuments` | 使用 Word 原生比较生成独立的带修订文档 | `comparePath`（兼容 `revisedFilePath`）；输出用顶层 `outputPath` |
@@ -102,9 +102,11 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 #### 样式与长文档排版
 
-`formatLongDocument` 可按 `headingRules[{pattern,level}]` 或内置中英文编号模式自动设置 1-9 级标题；正文、引用和“图/表/公式”题注分别套用对应样式。`normalStyle`、`headingStyles` 支持字体、字号、粗斜体、间距、缩进、行距和段落保持；`clearDirectFormatting:true` 可清除正文直接格式后重新套用样式。
+`inspectDocumentFormatting` 当前返回宿主 ProgID、段落总数及各 Word 样式的使用次数，不回读字体、页边距、页眉页脚或表格的完整格式。
 
-页面结构通过 `margins`、`orientation`、`sectionBreaks[{position,type}]`、`headerFooter` 和 `pageNumbers` 控制；`toc:create/update` 创建或刷新目录。操作结束会更新正文、页眉页脚、目录和图表目录中的域。
+`formatLongDocument` 先把全文设置为 `fontName/fontSize`，再给所有表格启用边框、首行加粗和 `headerColor` 底色并自动适应窗口。标题策略必须显式选择：`autoDetectHeadings:true` 只按内置中英文编号模式识别一级或二级标题；设为 `false` 时必须提供非空 `startsWith`、`pattern` 或两者，并可用 `level` 设置 1-9 级标题。模型提供的正则最长 512 字符，Worker 使用 100 毫秒匹配超时；语法错误或灾难性回溯会返回 `invalid_params`，不会长期占用 COM STA。
+
+页面设置仅实现厘米单位的 `margins.top/bottom/left/right`、各节主 `header/footer` 文本和页脚页码。`toc:create/update` 会更新现有目录；不存在时按 `position:start/end` 和 `upperHeadingLevel/lowerHeadingLevel` 创建。操作结束还会尝试刷新文档域。自定义 `normalStyle/headingStyles`、引用或题注样式、直接格式清理、方向、分节符、首页/奇偶页页眉以及复杂页码设置尚未实现，发送这些字段会提前拒绝。
 
 #### 书签与交叉引用
 

@@ -7,6 +7,7 @@ namespace Wengge.OfficeWorker.Office;
 
 internal sealed class WordFormattingActionService(OfficeApplicationProvider applications)
 {
+    private static readonly TimeSpan HeadingPatternTimeout = TimeSpan.FromMilliseconds(100);
     private static readonly HashSet<string> Operations =
     [
         "applyHeadingStyles", "insertOrUpdateToc", "styleTables", "setHeaderFooter", "insertOrReplaceImage",
@@ -59,7 +60,9 @@ internal sealed class WordFormattingActionService(OfficeApplicationProvider appl
                 {
                     paragraph = paragraphsApi.Item(index); range = ((dynamic)paragraph).Range; dynamic rangeApi = range;
                     var text = (Convert.ToString(rangeApi.Text) ?? string.Empty).Trim();
-                    var matches = prefix.Length == 0 && pattern.Length == 0 || prefix.Length > 0 && text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || pattern.Length > 0 && Regex.IsMatch(text, pattern);
+                    var matches = prefix.Length == 0 && pattern.Length == 0
+                        || prefix.Length > 0 && text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                        || MatchesHeadingPattern(text, pattern);
                     if (!matches) continue;
                     rangeApi.Style = -1 - level;
                     applied++;
@@ -319,6 +322,23 @@ internal sealed class WordFormattingActionService(OfficeApplicationProvider appl
             return new { progId = context.ProgId, paragraphCount = Convert.ToInt32(paragraphsApi.Count), styles = styles.Select(pair => new { name = pair.Key, count = pair.Value }) };
         }
         finally { ComInterop.Release(paragraphs); }
+    }
+
+    internal static bool MatchesHeadingPattern(string text, string pattern)
+    {
+        if (pattern.Length == 0) return false;
+        try
+        {
+            return Regex.IsMatch(text, pattern, RegexOptions.CultureInvariant, HeadingPatternTimeout);
+        }
+        catch (RegexMatchTimeoutException exception)
+        {
+            throw new OfficeWorkerException("invalid_params", "Word 标题匹配正则执行超时", inner: exception);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new OfficeWorkerException("invalid_params", "Word 标题匹配正则无效", inner: exception);
+        }
     }
 
     private static string OutputPath(OfficeActionRequest request, string fallback)

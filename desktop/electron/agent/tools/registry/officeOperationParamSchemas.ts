@@ -3,6 +3,7 @@ import { EXCEL_OBJECT_PARAM_SCHEMAS } from "./officeExcelObjectParamSchemas";
 import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
 import { EXCEL_TEMPLATE_PARAM_SCHEMAS } from "./officeExcelTemplateParamSchemas";
 import { OFFICE_EXPORT_PARAM_SCHEMAS } from "./officeExportParamSchemas";
+import { WORD_FORMATTING_PARAM_SCHEMAS } from "./officeWordFormattingParamSchemas";
 import { WORD_REVIEW_PARAM_SCHEMAS } from "./officeWordReviewParamSchemas";
 import { WORD_TEMPLATE_PARAM_SCHEMAS } from "./officeWordTemplateParamSchemas";
 
@@ -167,6 +168,7 @@ export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
   ...EXCEL_PRINT_PARAM_SCHEMAS,
   ...EXCEL_TEMPLATE_PARAM_SCHEMAS,
   ...OFFICE_EXPORT_PARAM_SCHEMAS,
+  ...WORD_FORMATTING_PARAM_SCHEMAS,
   ...WORD_REVIEW_PARAM_SCHEMAS,
   ...WORD_TEMPLATE_PARAM_SCHEMAS,
   ...COMMON_INSPECTION_OPERATIONS.map((operation) => ({
@@ -232,8 +234,8 @@ export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
     app: "word",
     operation: "applyHeadingStyles",
     schema: strictAppObject("word", {
-      startsWith: { type: "string" },
-      pattern: { type: "string" },
+      startsWith: { type: "string", maxLength: 512 },
+      pattern: { type: "string", maxLength: 512 },
       level: { type: "integer", minimum: 1, maximum: 9 },
     }),
   },
