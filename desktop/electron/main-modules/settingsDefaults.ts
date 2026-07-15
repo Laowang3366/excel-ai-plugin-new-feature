@@ -1,0 +1,22 @@
+export const DEFAULT_SETTINGS = {
+  aiProviders: {},
+  activeProvider: "",
+  permissionMode: "normal",
+  showReasoning: true,
+  language: "zh-CN",
+  theme: "light",
+  closeToTray: false,
+  officeAutoCompactEnabled: false,
+  dynamicArrayFunctionsEnabled: true,
+  remoteDataProcessingEnabled: false,
+  windowOpacity: 1,
+  dataStoragePath: "",
+  mineruApiToken: "",
+  compactionConfig: {
+    enabled: true,
+    autoCompactThresholdPercent: 80,
+    retainedUserMessageMaxTokens: 20000,
+    summaryRetryCount: 1,
+    midTurnThresholdRatio: 0.9,
+  },
+};

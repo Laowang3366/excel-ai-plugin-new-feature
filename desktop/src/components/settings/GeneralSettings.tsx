@@ -37,6 +37,8 @@ export const GeneralSettings: React.FC = () => {
   const [pathError, setPathError] = useState("");
   const [copied, setCopied] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const [mineruApiToken, setMineruApiToken] = useState("");
   const [mineruSaved, setMineruSaved] = useState(false);
   const text = GENERAL_TEXT[language];
@@ -104,6 +106,25 @@ export const GeneralSettings: React.FC = () => {
       await loadSettings();
     } finally {
       setIsMigrating(false);
+    }
+  };
+
+  const handleExportUserData = async () => {
+    setExportMessage("");
+    const selection = await ipcApi.app.selectExportPath();
+    const selectedPath = selection?.filePaths?.[0];
+    if (!selectedPath) return;
+
+    setIsExporting(true);
+    try {
+      const result = await ipcApi.app.exportUserData(selectedPath);
+      setExportMessage(
+        result.success
+          ? `${text.exportSuccess}: ${result.exportPath || selectedPath}`
+          : result.error || text.exportFailed,
+      );
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -237,9 +258,12 @@ export const GeneralSettings: React.FC = () => {
         pathError={pathError}
         copied={copied}
         isMigrating={isMigrating}
+        isExporting={isExporting}
+        exportMessage={exportMessage}
         onOpenDataPath={handleOpenDataPath}
         onCopyDataPath={handleCopyDataPath}
         onChangeDataPath={handleChangeDataPath}
+        onExportUserData={handleExportUserData}
       />
 
       <div className="settings-card">

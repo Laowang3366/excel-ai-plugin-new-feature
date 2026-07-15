@@ -38,31 +38,10 @@ import {
   prepareDataPathMigration,
   type PreparedDataPathMigration,
 } from "./dataPathMigration";
+import { runUserDataExport } from "./userDataExportCoordinator";
+import { DEFAULT_SETTINGS } from "./settingsDefaults";
 
 export { getActiveDataPath };
-
-const DEFAULT_SETTINGS = {
-  aiProviders: {},
-  activeProvider: "",
-  permissionMode: "normal",
-  showReasoning: true,
-  language: "zh-CN",
-  theme: "light",
-  closeToTray: false,
-  officeAutoCompactEnabled: false,
-  dynamicArrayFunctionsEnabled: true,
-  remoteDataProcessingEnabled: false,
-  windowOpacity: 1,
-  dataStoragePath: "",
-  mineruApiToken: "",
-  compactionConfig: {
-    enabled: true,
-    autoCompactThresholdPercent: 80,
-    retainedUserMessageMaxTokens: 20000,
-    summaryRetryCount: 1,
-    midTurnThresholdRatio: 0.9,
-  },
-};
 
 const MIN_WINDOW_OPACITY = 0.55;
 const MAX_WINDOW_OPACITY = 1;
@@ -206,6 +185,29 @@ async function resetSessionStore(): Promise<void> {
 
 /** 迁移互斥锁 — 防止并发调用 migrateDataPath */
 let migrationInProgress = false;
+
+export async function exportUserData(
+  targetPath: string,
+): ReturnType<typeof runUserDataExport> {
+  return runUserDataExport(targetPath, {
+    isBusy: () => migrationInProgress,
+    setBusy: (busy) => { migrationInProgress = busy; },
+    hasRunningAgent: () => (agentLoopsGetter?.() ?? []).some((agent) => agent.getIsRunning()),
+    getDataPath: getActiveDataPath,
+    getSanitizedSettings: getSettingsForRenderer,
+    getSessionStore: getSessionStoreInstance,
+    closeStateRuntime: closeStateRuntimeStore,
+    resetKnowledgeRuntime,
+    restoreRuntimes: async () => {
+      await resetSessionStore();
+      await reloadKnowledgeRuntime(
+        getActiveAIConfig(),
+        getActiveDataPath(),
+        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+      );
+    },
+  });
+}
 
 export async function migrateDataPath(
   targetDataPath: string,

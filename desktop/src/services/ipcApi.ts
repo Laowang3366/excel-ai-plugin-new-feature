@@ -46,10 +46,20 @@ export const ipcApi: IIpcApi = {
       if (!raw) return { canceled: true, filePaths: [] };
       return raw.app.selectDataPath();
     },
+    selectExportPath: async () => {
+      const raw = getRaw();
+      if (!raw) return { canceled: true, filePaths: [] };
+      return raw.app.selectExportPath();
+    },
     migrateDataPath: async (targetPath) => {
       const raw = getRaw();
       if (!raw) return { success: false, error: "IPC not available" };
       return raw.app.migrateDataPath(targetPath);
+    },
+    exportUserData: async (targetPath) => {
+      const raw = getRaw();
+      if (!raw) return { success: false, error: "IPC not available" };
+      return raw.app.exportUserData(targetPath);
     },
     openPath: async (targetPath) => {
       const raw = getRaw();

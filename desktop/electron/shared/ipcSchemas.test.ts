@@ -6,6 +6,7 @@ import {
   AppLogInput,
   ExcelWriteRangeInput,
   ExcelReadRangeInput,
+  ExportUserDataInput,
   FileWriteTempFileInput,
   IPC_MAX_ATTACHMENTS,
   IPC_MAX_CHAT_CONTENT_CHARS,
@@ -34,12 +35,15 @@ describe("ipcSchemas", () => {
       filePaths: ["C:\\tmp\\invoice.pdf"],
     })).toMatchObject({ mode: "invoice" });
     expect(validateInput(LaunchOfficeApplicationInput, "powerpoint")).toBe("powerpoint");
+    expect(validateInput(ExportUserDataInput, "C:\\exports\\wengge-data"))
+      .toBe("C:\\exports\\wengge-data");
   });
 
   it("rejects malformed structured IPC inputs", () => {
     expect(() => validateInput(FileWriteTempFileInput, { data: "" })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(LaunchOfficeApplicationInput, "cmd")).toThrow("IPC 参数校验失败");
+    expect(() => validateInput(ExportUserDataInput, "")).toThrow("IPC 参数校验失败");
     expect(() => validateInput(SettingsGetInput, "arbitrary-secret-key")).toThrow("IPC 参数校验失败");
     expect(() => validateInput(AppLogInput, {
       level: "info",

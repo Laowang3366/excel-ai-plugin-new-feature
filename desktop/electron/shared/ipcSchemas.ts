@@ -63,6 +63,8 @@ export function validateInput<T>(schema: z.ZodType<T>, data: unknown): T {
 
 export const MigrateDataPathInput = IpcPath;
 export type MigrateDataPathInput = z.infer<typeof MigrateDataPathInput>;
+export const ExportUserDataInput = IpcPath;
+export type ExportUserDataInput = z.infer<typeof ExportUserDataInput>;
 
 export const AppOpenPathInput = IpcPath;
 export const AppOpenExternalInput = z.string().max(8_192).url("URL 格式不正确");

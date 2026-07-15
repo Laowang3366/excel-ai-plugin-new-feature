@@ -20,7 +20,9 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
     app: {
       getDataPath: async () => "/mock/data",
       selectDataPath: async () => ({ canceled: true, filePaths: [] }),
+      selectExportPath: async () => ({ canceled: true, filePaths: [] }),
       migrateDataPath: async () => ({ success: true }),
+      exportUserData: async () => ({ success: true, exportPath: "/mock/export" }),
       openPath: async () => "",
       openExternal: async () => "",
       launchOffice: async () => ({ success: true }),

@@ -9,9 +9,12 @@ interface GeneralSettingsStorageCardProps {
   pathError: string;
   copied: boolean;
   isMigrating: boolean;
+  isExporting: boolean;
+  exportMessage: string;
   onOpenDataPath: () => void;
   onCopyDataPath: () => void;
   onChangeDataPath: () => void;
+  onExportUserData: () => void;
 }
 
 export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProps> = ({
@@ -20,9 +23,12 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
   pathError,
   copied,
   isMigrating,
+  isExporting,
+  exportMessage,
   onOpenDataPath,
   onCopyDataPath,
   onChangeDataPath,
+  onExportUserData,
 }) => {
   const text = GENERAL_TEXT[language];
 
@@ -72,6 +78,19 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
           </button>
         </div>
         <span className="form-hint">{text.storageHint}</span>
+      </div>
+
+      <div className="form-group">
+        <label>{text.exportData}</label>
+        <button
+          className="settings-action-btn"
+          onClick={onExportUserData}
+          disabled={isMigrating || isExporting}
+          title={text.exportTitle}
+        >
+          {isExporting ? text.exporting : text.exportData}
+        </button>
+        <span className="form-hint">{exportMessage || text.exportHint}</span>
       </div>
     </div>
   );

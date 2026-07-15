@@ -12,8 +12,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   app: {
     getDataPath: () => ipcRenderer.invoke("app:getDataPath"),
     selectDataPath: () => ipcRenderer.invoke("app:selectDataPath"),
+    selectExportPath: () => ipcRenderer.invoke("app:selectExportPath"),
     migrateDataPath: (targetPath: string) =>
       ipcRenderer.invoke("app:migrateDataPath", targetPath),
+    exportUserData: (targetPath: string) =>
+      ipcRenderer.invoke("app:exportUserData", targetPath),
     openPath: (targetPath: string) => ipcRenderer.invoke("app:openPath", targetPath),
     openExternal: (targetUrl: string) => ipcRenderer.invoke("app:openExternal", targetUrl),
     launchOffice: (application: "wps" | "excel" | "word" | "powerpoint") =>

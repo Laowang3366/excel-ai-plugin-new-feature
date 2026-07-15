@@ -35,6 +35,23 @@ describe("ipcApi wrapper", () => {
     expect(launchOffice).toHaveBeenCalledWith("word");
   });
 
+  it("forwards privacy export selection and execution through the wrapper", async () => {
+    const selectExportPath = vi.fn().mockResolvedValue({
+      canceled: false,
+      filePaths: ["C:\\exports\\wengge"],
+    });
+    const exportUserData = vi.fn().mockResolvedValue({
+      success: true,
+      exportPath: "C:\\exports\\wengge",
+    });
+    setElectronApi({ app: { selectExportPath, exportUserData } });
+
+    await expect(ipcApi.app.selectExportPath()).resolves.toMatchObject({ canceled: false });
+    await expect(ipcApi.app.exportUserData("C:\\exports\\wengge"))
+      .resolves.toMatchObject({ success: true });
+    expect(exportUserData).toHaveBeenCalledWith("C:\\exports\\wengge");
+  });
+
   it("forwards Excel readRange expand mode through the wrapper", async () => {
     const readRange = vi.fn().mockResolvedValue({
       values: [[1], [2]],

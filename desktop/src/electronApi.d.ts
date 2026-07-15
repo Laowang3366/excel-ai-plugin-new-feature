@@ -419,9 +419,19 @@ export interface ElectronAPI {
   app: {
     getDataPath: () => Promise<string>;
     selectDataPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
+    selectExportPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
     migrateDataPath: (
       targetPath: string,
     ) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
+    exportUserData: (
+      targetPath: string,
+    ) => Promise<{
+      success: boolean;
+      exportPath?: string;
+      exportedAt?: string;
+      categories?: string[];
+      error?: string;
+    }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
     launchOffice: (

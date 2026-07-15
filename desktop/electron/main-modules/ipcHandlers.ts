@@ -44,6 +44,7 @@ import {
   getStateRuntimeStoreInstance,
   isDataMigrationInProgress,
   getAgentGraphStoreInstance,
+  exportUserData,
   migrateDataPath,
   applyWindowOpacity,
   applyWindowTheme,
@@ -59,6 +60,7 @@ import {
   ExcelReadRangeInput,
   ExcelSelectHostInput,
   ExcelWriteRangeInput,
+  ExportUserDataInput,
   MigrateDataPathInput,
   SettingsGetInput,
   SettingsSetInput,
@@ -233,6 +235,20 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("app:migrateDataPath", async (_event, targetPath: unknown) => {
     const validated = validateInput(MigrateDataPathInput, targetPath);
     return await migrateDataPath(validated);
+  });
+
+  ipcMain.handle("app:selectExportPath", async () => {
+    const mw = mainWindowRef();
+    if (!mw) return { canceled: true, filePaths: [] };
+    return await dialog.showOpenDialog(mw, {
+      title: "选择空目录导出本地数据",
+      properties: ["openDirectory", "createDirectory"],
+    });
+  });
+
+  ipcMain.handle("app:exportUserData", async (_event, targetPath: unknown) => {
+    const validated = validateInput(ExportUserDataInput, targetPath);
+    return await exportUserData(validated);
   });
 
   // ---- 窗口行为 ----
