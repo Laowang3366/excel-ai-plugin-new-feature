@@ -25,7 +25,7 @@ flowchart TB
     WindowMgr["main-modules/windowManager.ts"]
     SettingsMgr["main-modules/settingsManager.ts"]
     IpcHandlers["main-modules/ipcHandlers.ts + ipc*Handlers.ts"]
-    AgentIpc["agent/interaction/ipcAgentHandlers.ts"]
+    AgentIpc["agent/interaction/ipcAgentHandlers.ts + ipcKnowledgeHandlers.ts"]
     EventForwarder["agent/interaction/eventForwarder.ts"]
   end
 
@@ -100,7 +100,7 @@ flowchart TB
 - Renderer 首屏只同步加载应用壳、聊天主链路和侧栏；`SettingsPage`、Office 自动化及任务功能面板使用 `React.lazy` 按需加载。`npm run build` 会执行 `scripts/check-renderer-bundle-budget.cjs`，限制首屏入口为 480 KiB、任一 chunk 为 500 KiB，并要求至少两个异步 chunk。
 - `desktop/electron/preload.ts` 是唯一暴露到 Renderer 的隔离桥。
 - `main-modules/ipcHandlers.ts` 负责通用 IPC、Office 当前窗口 IPC、设置、文件、OCR 子 handler 汇总。
-- `agent/interaction/ipcAgentHandlers.ts` 负责 Agent、Thread、Knowledge、Stats、工具审批相关 IPC。
+- `agent/interaction/ipcAgentHandlers.ts` 负责 Agent、Thread、Stats 和工具审批相关 IPC；`ipcKnowledgeHandlers.ts` 独立负责知识库运行时初始化、路径授权、检索与索引 IPC。
 - `agent/runtime/agentRuntime.ts` 负责把 AI 配置、Office bridge、知识库、记忆、工具执行器、AgentLoop 装配到一起。
 - `agent/core/agentLoop/*` 只做对话轮次、模型流、工具调用、压缩、中断/恢复编排，不直接依赖 COM 具体实现。
 - `agent/tools/registry` 是模型可见工具定义；`agent/tools/executors` 是工具路由；`agent/officeWorker` 是到 .NET 8 Worker 的类型化薄桥，COM、WPS JSA 与 C# Open XML 的实际实现位于 `desktop/dotnet/Wengge.OfficeWorker`。
@@ -179,7 +179,7 @@ flowchart LR
 | Excel 当前窗口 | `components/excel/HostSelectionDialog.tsx`、任务面板 | `hooks/useExcelConnection.ts`、`services/ipcOfficeApi.ts` | `electronAPI.excel.*` | `main-modules/ipcHandlers.ts` |
 | Word/PPT 当前窗口 | `components/office/OfficePreviewPanel.tsx` | `hooks/useOfficeConnection.ts` | `electronAPI.office.*` | `main-modules/ipcHandlers.ts` |
 | OCR 面板 | `components/task/OCRTaskComposerPanel.tsx` + OCR 子组件 | `utils/fileBase64.ts`、`ocrTaskFileHelpers.ts` | `electronAPI.ocr.recognize` | `main-modules/ipcOcrHandlers.ts`、`mineruOcr.ts` |
-| 知识库设置页 | `components/settings/KnowledgeSettings.tsx` | `services/ipcKnowledgeApi.ts` | `electronAPI.knowledge.*` | `agent/interaction/ipcAgentHandlers.ts` |
+| 知识库设置页 | `components/settings/KnowledgeSettings.tsx` | `services/ipcKnowledgeApi.ts` | `electronAPI.knowledge.*` | `agent/interaction/ipcKnowledgeHandlers.ts` |
 | 使用统计 | `components/settings/UsageStats.tsx` | `usageStatsData.ts` | `electronAPI.stats.getSummary` | `agent/interaction/ipcAgentHandlers.ts` |
 
 ## 4. 用户发消息与流式回显链路
@@ -221,7 +221,7 @@ sequenceDiagram
 | 功能模块提示词组装 | `src/utils/taskComposerPayloads.ts`、`components/task/*` | `ChatPage.tsx`、`FloatingTaskPanel.tsx` | `chatStore.sendMessage` |
 | Turn 启动 | `src/store/chatTurnActions.ts` | `chatStore.ts` | `ipcApi.agent.startTurn` / `continueTurn` / `enqueueTurn` |
 | IPC 请求 | `src/services/ipcApi.ts` | Store/Hooks/Components | `window.electronAPI.agent.*` |
-| IPC 注册 | `electron/agent/interaction/ipcAgentHandlers.ts` | `main-modules/ipcHandlers.ts` | `AgentLoopManager.getLoopForThread`、SessionStore、Knowledge runtime |
+| IPC 注册 | `electron/agent/interaction/ipcAgentHandlers.ts` | `main-modules/ipcHandlers.ts` | `AgentLoopManager.getLoopForThread`、SessionStore |
 | Agent 编排 | `electron/agent/core/agentLoop/turnRunner.ts`、`turnExecution.ts`、`streamRound.ts`、`toolRound.ts` | `AgentLoop` | Provider、ToolExecutor、Memory/Session |
 | 模型请求 | `electron/agent/core/agentLoop/buildStreamParams.ts`、`roundStreamParams.ts` | AgentLoop round | system prompt、history、tool definitions、knowledge/date/memory context |
 | 事件转发 | `electron/agent/interaction/eventForwarder.ts` | AgentLoop callbacks | `BrowserWindow.webContents.send("agent:event", ...)` |
@@ -389,7 +389,7 @@ flowchart TB
   end
 
   subgraph IPC["主进程知识库 IPC"]
-    KHandlers["agent/interaction/ipcAgentHandlers.ts knowledge:*"]
+    KHandlers["agent/interaction/ipcKnowledgeHandlers.ts knowledge:*"]
   end
 
   subgraph Runtime["知识库运行时"]
@@ -426,7 +426,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | `components/settings/KnowledgeSettings.tsx` | 展示已索引来源、索引文件/文件夹、删除/重建 | 设置页 | `ipcKnowledgeApi.ts` |
 | `services/ipcKnowledgeApi.ts` | 前端知识库 IPC wrapper | KnowledgeSettings、其他前端 | `window.electronAPI.knowledge.*` |
-| `agent/interaction/ipcAgentHandlers.ts` | `knowledge:listSources/search/indexFile/indexFolder/deleteFile/reindexAll` | preload | `knowledgeRuntime`、path authorizer |
+| `agent/interaction/ipcKnowledgeHandlers.ts` | `knowledge:listSources/search/indexFile/indexFolder/deleteFile/reindexAll`；逐来源重新校验路径授权 | preload、`ipcAgentHandlers.ts` 组合注册 | `knowledgeRuntime`、path authorizer |
 | `runtime/knowledgeRuntime.ts` | 创建/刷新 RAG runtime；provider/model 变化时重载 | Agent runtime、settings:set | `SqliteStore`、`EmbeddingService`、`KnowledgeIndexer`、`Retriever` |
 | `knowledge/documentParser.ts` | 解析 txt/md/csv/json/docx/pptx/pdf 等文档文本 | `KnowledgeIndexer` | 纯文本段落 |
 | `knowledge/excelWorkbookParser.ts` | Excel 工作簿解析为文本/表格语义 | `documentParser.ts` | sheet/table 文本 |

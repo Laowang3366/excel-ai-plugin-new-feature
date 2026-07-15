@@ -73,8 +73,6 @@
     "desktop/electron/agent/core/agentLoop/turnRunner.test.ts": "8d46a3475a71fe847644a9598a12fd4bc4e5d7d3bd8c9bbb8c163f49607ddf3a",
     "desktop/electron/agent/interaction/eventForwarder.test.ts": "0768aeeb95248952e73549e6028cd37b340f2479f91ee4f53cd01f8640381a13",
     "desktop/electron/agent/interaction/eventForwarder.ts": "a5bc420c38bfede0a528ede0d598966182184481d417b65d14a2aa72c8264ace",
-    "desktop/electron/agent/interaction/ipcAgentHandlers.test.ts": "98e41caa61b5acfdcdd05d3453774e7e2b32c03e39566a8acb4b0dd1a88c6433",
-    "desktop/electron/agent/interaction/ipcAgentHandlers.ts": "bda96941d8f100193ce5452fe10b2aec754917b3eba644dd537023f8503f3bd0",
     "desktop/electron/agent/knowledge/builtinKnowledge.test.ts": "fb20f167b0491f5e543341a58288eb0c9e57f70dd58a49ef898b5c4b7da843ae",
     "desktop/electron/agent/knowledge/builtinKnowledge.ts": "6f9440f4c6846c933b97a1bc9d51008e7ce09520cf805c7c7c3dc237625893b4",
     "desktop/electron/agent/knowledge/documentParser.ts": "80a100eb2d68291b938abba4e685e2303bcc91f05941eb2301950b325e2b1f8c",
@@ -499,7 +497,6 @@
     "product-site/test/server.test.mjs": "c6e1f043c51d61dfa44689ba6289342b3a5adc71ac69ad01c2528e9e5bae96a0"
   },
   "oversizedSources": {
-    "desktop/electron/agent/interaction/ipcAgentHandlers.ts": "bda96941d8f100193ce5452fe10b2aec754917b3eba644dd537023f8503f3bd0",
     "desktop/electron/agent/knowledge/sqliteStore.ts": "1bc15745dd6b96b04c4b7651f859efb612549a0dc6b5a06773b91bd06697ee51",
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
     "desktop/electron/agent/tools/executors/excelExecutors.ts": "b28003be70654e6779f23d4cf570399f491164bca1995bbbe428c5d717a8dd54",

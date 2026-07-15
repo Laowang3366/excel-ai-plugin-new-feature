@@ -3,21 +3,15 @@
  *
  * 关联模块：
  * - interaction/eventForwarder: Agent 事件和工具审批 IPC。
+ * - interaction/ipcKnowledgeHandlers: 知识库查询与索引 IPC。
  * - core/agentLoop: 启动、继续、中断、恢复线程。
  * - memory/sessionStore: 线程列表、元数据和统计。
- * - knowledge/knowledgeRegistry: RAG 知识库查询与索引入口。
  */
 
 import { BrowserWindow } from "electron";
 import { trustedIpcMain as ipcMain } from "../../shared/trustedIpc";
 import type { AgentLoop } from "../core/agentLoop";
 import type { AgentLoopManager } from "../runtime/agentRuntime";
-import {
-  getKnowledgeIndexer,
-  getKnowledgeRetriever,
-  getKnowledgeStore,
-} from "../knowledge/knowledgeRegistry";
-import type { KnowledgeRuntimeState } from "../runtime/knowledgeRuntime";
 import type { SessionStore } from "../memory/sessionStore";
 import type { AgentGraphStore } from "../memory/agentGraphStore";
 import type { StateRuntimeStore } from "../memory/stateRuntimeStore";
@@ -29,10 +23,6 @@ import {
   AgentInterruptInput,
   AgentContinueTurnInput,
   AgentStartTurnInput,
-  KnowledgeDeleteInput,
-  KnowledgeIndexFileInput,
-  KnowledgeIndexFolderInput,
-  KnowledgeSearchInput,
   StatsGetSummaryInput,
   ThreadIdInput,
   ThreadGraphCloseEdgeInput,
@@ -43,18 +33,14 @@ import {
   validateInput,
 } from "../../shared/ipcSchemas";
 import { createEventForwarder, registerToolApprovalHandlers } from "./eventForwarder";
-import { assertAuthorizedPath, type PathAuthorizer } from "../../main-modules/ipcPathSecurity";
-import type { IndexResult } from "../knowledge/types";
+import { registerKnowledgeIpcHandlers, type KnowledgeIpcHandlerDeps } from "./ipcKnowledgeHandlers";
 
-export interface AgentIpcHandlerDeps {
+export interface AgentIpcHandlerDeps extends KnowledgeIpcHandlerDeps {
   mainWindowRef: () => BrowserWindow | null;
   agentLoopManagerRef: () => AgentLoopManager | null;
   getSessionStoreInstance: () => SessionStore;
   getStateRuntimeStoreInstance?: () => Promise<StateRuntimeStore>;
   getAgentGraphStoreInstance: () => AgentGraphStore;
-  ensureKnowledgeRuntime?: () => Promise<KnowledgeRuntimeState>;
-  isDataMigrationInProgress?: () => boolean;
-  pathAuthorizer: PathAuthorizer;
 }
 
 const PARALLEL_TURN_ERROR = "当前已有会话正在执行，请等待完成或停止后再开始其他会话";
@@ -191,44 +177,9 @@ export async function prepareNewThreadForIpc(
   return { success: true };
 }
 
-async function ensureKnowledgeRuntimeForIpc(deps: AgentIpcHandlerDeps): Promise<string | null> {
-  if (deps.isDataMigrationInProgress?.()) return "数据存储正在迁移，请稍后重试";
-  try {
-    const runtime = await deps.ensureKnowledgeRuntime?.();
-    return runtime?.error || null;
-  } catch (error: any) {
-    return error?.message || String(error || "未知错误");
-  }
-}
-
-function formatKnowledgeUnavailableError(error?: string | null): string {
-  return error ? `知识库未初始化：${error}` : "知识库未初始化";
-}
-
-export async function reindexAuthorizedKnowledgeSources(
-  indexer: Pick<ReturnType<typeof getKnowledgeIndexer> & object, "listSources" | "indexFile">,
-  pathAuthorizer: PathAuthorizer,
-): Promise<IndexResult[]> {
-  const results: IndexResult[] = [];
-  for (const source of indexer.listSources()) {
-    try {
-      const sourcePath = assertAuthorizedPath(pathAuthorizer, source.sourcePath);
-      results.push(await indexer.indexFile(sourcePath, { skipUnchanged: false }));
-    } catch (error) {
-      results.push({
-        sourcePath: source.sourcePath,
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        entryCount: 0,
-        durationMs: 0,
-      });
-    }
-  }
-  return results;
-}
-
 export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   registerToolApprovalHandlers();
+  registerKnowledgeIpcHandlers(deps);
 
   ipcMain.handle("agent:startTurn", async (_event, request: unknown) => {
     const validated = validateInput(AgentStartTurnInput, request);
@@ -381,116 +332,5 @@ export function registerAgentIpcHandlers(deps: AgentIpcHandlerDeps): void {
   ipcMain.handle("stats:getSummary", async (_event, options?: unknown) => {
     validateInput(StatsGetSummaryInput, options);
     return deps.getSessionStoreInstance().getUsageSummary();
-  });
-
-  ipcMain.handle("knowledge:listSources", async () => {
-    if (deps.isDataMigrationInProgress?.()) throw new Error("数据存储正在迁移，请稍后重试");
-    let store = getKnowledgeStore();
-    const initError = !store ? await ensureKnowledgeRuntimeForIpc(deps) : null;
-    store = getKnowledgeStore();
-    if (!store) throw new Error(formatKnowledgeUnavailableError(initError));
-    return store.listSources();
-  });
-
-  ipcMain.handle("knowledge:search", async (_event, query: unknown, topK: unknown) => {
-    if (deps.isDataMigrationInProgress?.()) {
-      return { success: false, error: "数据存储正在迁移，请稍后重试" };
-    }
-    const validated = validateInput(KnowledgeSearchInput, { query, topK });
-    let retriever = getKnowledgeRetriever();
-    const initError = !retriever ? await ensureKnowledgeRuntimeForIpc(deps) : null;
-    retriever = getKnowledgeRetriever();
-    if (!retriever) {
-      return { success: false, error: formatKnowledgeUnavailableError(initError) };
-    }
-    try {
-      const results = await retriever.search({
-        text: validated.query,
-        topK: validated.topK || 5,
-      });
-      return { success: true, data: results };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle("knowledge:indexFile", async (_event, filePath: unknown) => {
-    if (deps.isDataMigrationInProgress?.())
-      return { success: false, error: "数据存储正在迁移，请稍后重试" };
-    const validated = validateInput(KnowledgeIndexFileInput, { filePath });
-    let indexer = getKnowledgeIndexer();
-    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
-    indexer = getKnowledgeIndexer();
-    if (!indexer) {
-      return { success: false, error: formatKnowledgeUnavailableError(initError) };
-    }
-    try {
-      const sourcePath = assertAuthorizedPath(deps.pathAuthorizer, validated.filePath);
-      const result = await indexer.indexFile(sourcePath);
-      return result;
-    } catch (err: any) {
-      return {
-        success: false,
-        error: err.message,
-        sourcePath: validated.filePath,
-        entryCount: 0,
-        durationMs: 0,
-      };
-    }
-  });
-
-  ipcMain.handle("knowledge:indexFolder", async (_event, folderPath: unknown) => {
-    if (deps.isDataMigrationInProgress?.())
-      return { success: false, error: "数据存储正在迁移，请稍后重试" };
-    const validated = validateInput(KnowledgeIndexFolderInput, { folderPath });
-    let indexer = getKnowledgeIndexer();
-    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
-    indexer = getKnowledgeIndexer();
-    if (!indexer) {
-      return { success: false, error: formatKnowledgeUnavailableError(initError) };
-    }
-    try {
-      const folderPath = assertAuthorizedPath(deps.pathAuthorizer, validated.folderPath);
-      const results = await indexer.indexFolder(folderPath);
-      return results;
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle("knowledge:deleteFile", async (_event, sourcePath: unknown) => {
-    if (deps.isDataMigrationInProgress?.())
-      return { success: false, error: "数据存储正在迁移，请稍后重试" };
-    const validated = validateInput(KnowledgeDeleteInput, { sourcePath });
-    let indexer = getKnowledgeIndexer();
-    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
-    indexer = getKnowledgeIndexer();
-    if (!indexer) {
-      return { success: false, error: formatKnowledgeUnavailableError(initError) };
-    }
-    try {
-      const sourcePath = assertAuthorizedPath(deps.pathAuthorizer, validated.sourcePath);
-      await indexer.deleteSource(sourcePath);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle("knowledge:reindexAll", async () => {
-    if (deps.isDataMigrationInProgress?.())
-      return { success: false, error: "数据存储正在迁移，请稍后重试" };
-    let indexer = getKnowledgeIndexer();
-    const initError = !indexer ? await ensureKnowledgeRuntimeForIpc(deps) : null;
-    indexer = getKnowledgeIndexer();
-    if (!indexer) {
-      return { success: false, error: formatKnowledgeUnavailableError(initError) };
-    }
-    try {
-      const results = await reindexAuthorizedKnowledgeSources(indexer, deps.pathAuthorizer);
-      return { success: true, results };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
   });
 }

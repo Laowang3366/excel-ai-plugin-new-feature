@@ -5,9 +5,7 @@ import {
   listThreadsForIpc,
   prepareAgentForStartTurn,
   prepareNewThreadForIpc,
-  reindexAuthorizedKnowledgeSources,
 } from "./ipcAgentHandlers";
-import { createPathAuthorizer } from "../../main-modules/ipcPathSecurity";
 
 describe("listThreadsForIpc", () => {
   it("uses sqlite thread snapshots before falling back to JSONL session scanning", async () => {
@@ -241,40 +239,5 @@ describe("prepareNewThreadForIpc", () => {
     ).resolves.toEqual({ success: true });
 
     expect(manager.prepareNewThread).toHaveBeenCalledWith("D:\\work");
-  });
-});
-
-describe("reindexAuthorizedKnowledgeSources", () => {
-  it("rechecks historical sources and skips paths outside current authorization", async () => {
-    const authorizer = createPathAuthorizer({
-      getDataPath: () => "C:\\app\\data",
-      getPinnedFolders: () => [],
-      getExtraRoots: () => [],
-    });
-    authorizer.authorizePath("C:\\picked\\allowed.pdf");
-    const indexFile = vi.fn(async (sourcePath: string) => ({
-      sourcePath,
-      success: true,
-      entryCount: 1,
-      durationMs: 1,
-    }));
-    const indexer = {
-      listSources: () => [
-        { sourcePath: "C:\\picked\\allowed.pdf", sourceName: "allowed.pdf" },
-        { sourcePath: "C:\\secret\\denied.pdf", sourceName: "denied.pdf" },
-      ],
-      indexFile,
-    };
-
-    const results = await reindexAuthorizedKnowledgeSources(indexer as any, authorizer);
-
-    expect(results).toHaveLength(2);
-    expect(results[0].success).toBe(true);
-    expect(results[1]).toMatchObject({
-      sourcePath: "C:\\secret\\denied.pdf",
-      success: false,
-      entryCount: 0,
-    });
-    expect(indexFile).toHaveBeenCalledTimes(1);
   });
 });
