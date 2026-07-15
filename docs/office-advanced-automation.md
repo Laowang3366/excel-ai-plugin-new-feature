@@ -143,8 +143,8 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 | `inspectPresentationTheme` | 读取设计、母版、版式、主题色、页脚和页面尺寸 | 无 |
 | `inspectSlideElements` | 读取文本框、图片、形状、表格、图表及坐标，并检测文字溢出、遮挡和越界 | `allSlides` |
 | `insertTable` | 创建表格并一次写入二维数据 | `name`、`values`、`rows/columns`、`left/top/width/height` |
-| `applyMasterBranding` | 应用模板并统一母版、版式、字体、Logo、页脚、页码和主题色 | `templatePath`、`fontName/fontMap`、`logoPath`、`footerText`、`themeColors`、`layoutMap` |
-| `layoutElements` | 精确编辑、网格排版、对齐、等距分布、保持比例、裁剪和越界修复 | `edits`、`mode`、`shapeNames`、`align`、`distribute`、`fitToSlide` |
+| `applyMasterBranding` | 应用模板并统一母版、版式、字体、Logo、页脚、页码和主题色 | 必填 `showSlideNumber`；可选 `templatePath`、`fontName/fontMap`、`logoPath`、`footerText`、`themeColors`、`layoutMap` |
+| `layoutElements` | 精确编辑、网格排版、对齐、等距分布、保持比例、裁剪和越界修复 | 必填 `mode`；按策略使用 `edits` 或 `shapeNames`、`align`、`distribute`、`fitToSlide` |
 | `inspectAnimations` | 读取动画顺序、类型、触发、时长、延迟和页面切换 | `allSlides` |
 | `configureAnimations` | 为显式选择的形状添加进入、强调、退出和路径动画 | `effects[].category/effect/shapeName/shapeNames/trigger/order/duration/delay/pathX/pathY` |
 | `configureSlideShow` | 配置自动播放、循环放映、放映类型、页面切换和翻页时间 | 必填 `showType`；可选 `autoPlay`、`loop`、`transition`、`advanceAfter` |
@@ -153,6 +153,8 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 | `exportHandouts` | 导出备注页、提纲或每页 1/2/3/4/6/9 张的 PDF 讲义 | 必填 `layout`；可选 `includeNotes`；输出用顶层 `outputPath` |
 
 动画规则必须使用非空 `shapeName` 或 `shapeNames` 定位已经检查到的形状；省略选择器、同时传两种选择器、使用未知效果或加入未实现的缓动字段会在进入 Worker 前拒绝，避免默认给整页全部形状添加淡入。放映配置必须显式传 `showType:"speaker"|"window"|"kiosk"`，不会用空参数把全部页面改为默认切换。单页备注使用 `text`，批量备注使用非空 `notesBySlide[{slideIndex,text,append}]`，两种结构互斥。
+
+品牌操作必须显式决定 `showSlideNumber:true|false`，避免空参数默认打开页码。主题色只接受 1-12 的索引与十六进制颜色，版式映射必须按 `slideIndex` 或 `slideName` 唯一定位。布局操作不再使用隐式 `grid` 默认值：`precise` 逐项编辑确定性形状，`grid/auto` 需要非空 `shapeNames`，`align/distribute/fit` 分别只接受对应策略字段；未知透明度、阴影、缓动或混合策略字段会提前拒绝。
 
 ### 跨应用
 

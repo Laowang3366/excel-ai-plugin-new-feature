@@ -3,6 +3,7 @@ import { EXCEL_OBJECT_PARAM_SCHEMAS } from "./officeExcelObjectParamSchemas";
 import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
 import { EXCEL_TEMPLATE_PARAM_SCHEMAS } from "./officeExcelTemplateParamSchemas";
 import { OFFICE_EXPORT_PARAM_SCHEMAS } from "./officeExportParamSchemas";
+import { PRESENTATION_BRANDING_PARAM_SCHEMAS } from "./officePresentationBrandingParamSchemas";
 import { PRESENTATION_PLAYBACK_PARAM_SCHEMAS } from "./officePresentationPlaybackParamSchemas";
 import { WORD_FORMATTING_PARAM_SCHEMAS } from "./officeWordFormattingParamSchemas";
 import { WORD_REVIEW_PARAM_SCHEMAS } from "./officeWordReviewParamSchemas";
@@ -169,6 +170,7 @@ export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
   ...EXCEL_PRINT_PARAM_SCHEMAS,
   ...EXCEL_TEMPLATE_PARAM_SCHEMAS,
   ...OFFICE_EXPORT_PARAM_SCHEMAS,
+  ...PRESENTATION_BRANDING_PARAM_SCHEMAS,
   ...PRESENTATION_PLAYBACK_PARAM_SCHEMAS,
   ...WORD_FORMATTING_PARAM_SCHEMAS,
   ...WORD_REVIEW_PARAM_SCHEMAS,

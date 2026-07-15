@@ -11,7 +11,7 @@
 - Word 文件先按需调用 `inspectDocumentFormatting/inspectReferences/inspectRevisions/inspectContentControls`；排版、引用、审阅、邮件合并和内容控件分别调用对应高级 operation。AI 改写需保留原文时必须用 `applyTrackedChanges`。
 - Word 引用与审阅只使用 Worker 已实现字段：`manageReferences/manageRevisions` 传显式 `command`，修订编辑传 `changes[]`，文档比较传 `comparePath`。不要生成 `rule`、`updateAll`、批注删除或 `granularity`；`replaceContentControl` 必须提供 `tag` 或 `title`。
 - 批量合并用含“双花括号 Excel 列名”的模板直接调用 `batchMailMerge`；`prepareMailMergeTemplate` 只生成原生 MERGEFIELD，不能作为其前置步骤。
-- PPT 高级操作先检查主题、元素、动画或备注；数据表、品牌、排版分别用 `insertTable/applyMasterBranding/layoutElements`。动画前用 `inspectSlideElements` 取得真实 shape name，`effects[]` 每项必传选择器、category、effect；`configureSlideShow` 必传 `showType`。写备注后用 `inspectSpeakerNotes` 验证；`exportHandouts` 必传 layout，输出路径仅用顶层 `outputPath`。
+- PPT 高级操作先检查主题、元素、动画或备注；数据表、品牌、排版分别用 `insertTable/applyMasterBranding/layoutElements`。品牌必传 `showSlideNumber`，排版必传 mode 和目标 shape；动画 `effects[]` 每项必传选择器、category、effect。放映必传 `showType`；写备注后回读验证；讲义必传 layout，输出路径仅用顶层 `outputPath`。
 - Excel 表格或图表联动 Word/PPT：调用 `exportRangeToWord` / `exportRangeToPresentation`，传 `params.linked:true`；图表另传 `sourceType:"chart"` 和 `chartName`。先用目标文件的 `inspectLinkedOfficeContent` 核对来源，数据变化后用 `refreshLinkedOfficeContent` 原位刷新，不删除重建链接对象。
 - Excel 汇总、图表、Word 报告、PPT 汇报等多步任务必须用 `office.workflow.run`，每步明确输入和输出路径。失败后保留 `workflowId`，修正条件后传 `resume:true, workflowId` 从失败步骤继续，不重复成功步骤。
 - 工作流成功返回 `transactionId`。整体撤销或重做前先用 `office.transaction.inspect` 查看文件快照、产物和修改清单，再调用 `office.transaction.undo` / `office.transaction.redo`；单文件原地修改仍可用 `data.transaction.backupPath` 和 `restoreBackup`。
