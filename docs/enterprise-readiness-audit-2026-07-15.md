@@ -25,7 +25,7 @@
 | H-09 | 已实现 | Open XML 不再先删除后跳过占位；覆盖写入克隆原单元格属性并保留样式；样式/非 spill 数据测试 | 大型真实工作簿兼容性回归 |
 | H-10 | 已实现 | Worker 协议升至 v2；`excel.range.write` 结果运行时字段校验；旧结果负向测试 | 安装覆盖失败/旧 Worker 实机握手测试 |
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
-| H-12 | 部分完成 | CI 增加 .NET test/NuGet audit；Release 拆分构建签名与受审批发布；两阶段 Authenticode 校验；产品站 release 目录只读 | 配置受保护证书/HSM、Environment approval；固定第三方 Action SHA；SBOM/最终清单端到端验签 |
+| H-12 | 部分完成 | Release 显式依赖可复用完整 CI；第三方 Actions 固定完整 SHA；Syft 版本固定并发布 SPDX SBOM；构建/发布权限隔离；两阶段 Authenticode 校验；产品站 release 目录只读；工作流静态防回归测试 | 配置受保护证书/HSM 与 Environment approval；隔离发布账户执行产品站 Ed25519 最终清单生成和端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
 | M-01 | 部分完成 | `ToolDefinition.parameters` 统一规范化为模型与运行时共用 Schema；已声明对象默认拒绝未知字段，审批前与执行前双重校验；枚举、整数/数值范围、深度、节点数和 JSON 大小统一限制；全量工具 malformed 测试 | 将 `office.action.*.params`、模板变量等有意开放的扩展对象继续拆成 operation 级判别 Schema |
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
@@ -423,6 +423,8 @@
 
 ### H-12 桌面 Release 与下载资产的供应链隔离不足
 
+> 整改结果：仓库侧已完成 CI 显式依赖、第三方 Action/Syft 不可变版本、SPDX SBOM、构建发布权限隔离、两阶段 Authenticode 校验及产品站 release 目录只读。生产证书/HSM、Environment approval 和产品站 Ed25519 最终清单端到端验签仍需外部环境验收，因此保持“部分完成”。以下“证据”为整改前基线。
+
 **证据**
 
 - `desktop/package.json:89-100` 的 Windows 构建没有 Authenticode 证书和验签配置。
@@ -441,6 +443,7 @@
 - Actions 固定完整 commit SHA；Release 必须依赖通过的 CI，并运行 npm/NuGet audit、.NET tests、SBOM、最终清单验签。
 - 产品站运行账户对 release 目录只读；发布由独立账户原子切换版本目录。
 - `Get-AuthenticodeSignature` 必须为 `Valid`，失败 CI 不得上传 Release。
+- 自动化测试必须拒绝工作流中新出现的可变第三方 Action 引用，并确认 Release artifact 与 GitHub Release 均包含版本化 SPDX SBOM。
 
 ### H-13 热补丁缺少防重放、启动复验和有界解压
 

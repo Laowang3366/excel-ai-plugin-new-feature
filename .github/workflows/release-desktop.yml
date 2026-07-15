@@ -10,7 +10,13 @@ permissions:
   contents: read
 
 jobs:
+  quality-gates:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build-and-sign:
+    needs: quality-gates
     runs-on: windows-latest
     environment: windows-signing
     defaults:
@@ -20,13 +26,13 @@ jobs:
       CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "8.0.422"
       - name: Require code-signing credentials
@@ -43,6 +49,21 @@ jobs:
       - run: npm test
       - run: npm run office:test
       - run: npm run electron:build
+      - name: Read package version
+        id: package-version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: desktop
+          format: spdx-json
+          output-file: desktop/release/Wengge-AI-Assistant-${{ steps.package-version.outputs.version }}.spdx.json
+          syft-version: v1.46.0
+          upload-artifact: false
+          upload-release-assets: false
       - name: Verify Authenticode signatures
         shell: pwsh
         run: |
@@ -58,7 +79,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $version = "${{ steps.package-version.outputs.version }}"
           if ("v$version" -ne "${{ github.ref_name }}") {
             throw "Tag ${{ github.ref_name }} does not match package version $version"
           }
@@ -66,13 +87,15 @@ jobs:
           @("## 功能更新", "") + ($notes | ForEach-Object { "- $_" }) |
             Set-Content "../release-body.md" -Encoding utf8
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-release
+          if-no-files-found: error
           path: |
             desktop/release/Wengge-AI-Assistant-Setup-*.exe
             desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
             desktop/release/latest.yml
+            desktop/release/Wengge-AI-Assistant-*.spdx.json
             release-body.md
 
   publish:
@@ -83,7 +106,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: windows-release
           path: release-assets
@@ -98,8 +121,20 @@ jobs:
               throw "Invalid Authenticode signature for $($installer.Name): $($signature.Status)"
             }
           }
+      - name: Verify release artifact inventory
+        shell: pwsh
+        run: |
+          $sboms = @(Get-ChildItem release-assets -Recurse -Filter "Wengge-AI-Assistant-*.spdx.json")
+          if ($sboms.Count -ne 1) { throw "Expected exactly one SPDX SBOM, found $($sboms.Count)" }
+          $sbom = Get-Content -Raw -LiteralPath $sboms[0].FullName | ConvertFrom-Json
+          if ($sbom.spdxVersion -notlike "SPDX-*") { throw "Invalid SPDX SBOM version" }
+          if (@($sbom.packages).Count -eq 0) { throw "SPDX SBOM contains no packages" }
+          $latest = @(Get-ChildItem release-assets -Recurse -Filter "latest.yml")
+          $blockmaps = @(Get-ChildItem release-assets -Recurse -Filter "*.exe.blockmap")
+          if ($latest.Count -ne 1) { throw "Expected exactly one latest.yml, found $($latest.Count)" }
+          if ($blockmaps.Count -eq 0) { throw "Installer blockmap is missing" }
       - name: Publish GitHub Release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           generate_release_notes: false
           body_path: release-assets/release-body.md
@@ -107,3 +142,4 @@ jobs:
             release-assets/desktop/release/Wengge-AI-Assistant-Setup-*.exe
             release-assets/desktop/release/Wengge-AI-Assistant-Setup-*.exe.blockmap
             release-assets/desktop/release/latest.yml
+            release-assets/desktop/release/Wengge-AI-Assistant-*.spdx.json
