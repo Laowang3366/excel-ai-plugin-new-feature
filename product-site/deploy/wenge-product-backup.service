@@ -1,0 +1,19 @@
+[Unit]
+Description=Create and verify Wenge product analytics backup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=wenge-product
+Group=wenge-product
+WorkingDirectory=/opt/wenge-product/app
+EnvironmentFile=/etc/wenge-product.env
+ExecStart=/usr/bin/node scripts/analytics-backup.mjs backup --source ${DATABASE_PATH} --output-dir ${ANALYTICS_BACKUP_DIR} --retain ${ANALYTICS_BACKUP_RETAIN}
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/wenge-product/data
+ReadWritePaths=/opt/wenge-product/backups
+LockPersonality=true

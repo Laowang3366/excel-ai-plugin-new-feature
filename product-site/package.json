@@ -8,6 +8,9 @@
     "start": "node src/server.mjs",
     "test": "node --test",
     "hash-password": "node scripts/hash-password.mjs",
+    "analytics:backup": "node scripts/analytics-backup.mjs backup",
+    "analytics:verify": "node scripts/analytics-backup.mjs verify",
+    "analytics:restore": "node scripts/analytics-backup.mjs restore",
     "publish-release": "node scripts/publish-release.mjs"
   },
   "dependencies": {

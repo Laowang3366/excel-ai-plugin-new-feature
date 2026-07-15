@@ -36,6 +36,9 @@
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
 | M-09 | 已实现，待真实 Office | 删除工作表用 `finally` 恢复用户原 `DisplayAlerts` | 最后可见表、保护表与原关闭状态实机验证 |
+| M-10 | 未完成 | 现有 fake COM、Open XML 和单元测试门禁 | 隔离 Windows Runner 的 Excel/WPS 实机矩阵与 Electron E2E |
+| M-11 | 未完成 | 审查报告已列出治理缺口 | SECURITY、CODEOWNERS、许可、隐私与删除制度需责任人/法律决策 |
+| M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换、systemd timer 与故障测试 | 生产负责人确认 RPO/RTO并完成恢复演练；异机副本、Office TTL/配额和全链路告警 |
 
 ## 1. 执行摘要
 
@@ -99,7 +102,7 @@
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
-| Product-site test | 通过 | 10/10 通过，包含 XFF 绕过、统计故障、周期标识、留存清理与旧数据迁移 |
+| Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
 | 真实 Office/WPS 冒烟 | 未执行 | 上线前必须在隔离 Windows Runner 补齐 |
 
@@ -578,11 +581,15 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### M-12 备份、留存、恢复和运行告警未形成可验证闭环
 
+> 部分整改：产品站新增 SQLite 原生在线备份命令，归档转换为自包含 journal、生成 SHA-256/大小元数据并执行 `quick_check`；恢复命令再次执行完整性校验且拒绝覆盖现有目标。新增每日 systemd timer、14 份轮换、RPO≤25 小时/RTO≤4 小时运维基线和季度恢复演练步骤。自动化测试覆盖活动 WAL 库一致性快照、备份后新增写入隔离、篡改检测、轮换边界和目标防覆盖。
+
 - 产品站使用 SQLite WAL，但没有仓库内可验证的备份、恢复和完整性演练流程。
 - Office 事务快照、备份、日志和自动化状态缺少统一清理策略。
 - 发布回滚主要依赖人工恢复文件。
 
 **整改**：定义 RPO/RTO；执行在线 SQLite 备份和定期恢复演练；对 Office 备份/事务设置 TTL、配额和可审计清理；建立更新失败率、后台登录异常、下载 5xx、Worker 崩溃和数据迁移失败告警。
+
+**验收状态**：产品站代码与部署资产已完成；生产仍需确认 RPO/RTO、启用 timer、接入失败告警并提交一次真实恢复演练记录。异机/异地副本、Office 备份/事务 TTL 与配额、更新/登录/下载/Worker/迁移告警仍未完成，因此 M-12 不关闭。
 
 ## 7. Low — 工程治理观察项
 

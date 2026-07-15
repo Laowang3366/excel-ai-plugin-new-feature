@@ -38,6 +38,23 @@ npm run publish-release -- \
 
 私钥只允许存放在发布机或服务器的受限目录，不得提交 Git。桌面安装包只包含对应公钥。
 
+## 下载统计备份与恢复
+
+在线创建一致性备份并保留最近 14 份：
+
+```bash
+npm run analytics:backup -- --source ./.local/data/analytics.sqlite --output-dir ./.local/backups --retain 14
+```
+
+备份带 SHA-256 元数据，并在生成和恢复前执行 SQLite `quick_check`：
+
+```bash
+npm run analytics:verify -- --backup ./.local/backups/analytics-<timestamp>.sqlite
+npm run analytics:restore -- --backup ./.local/backups/analytics-<timestamp>.sqlite --target ./.local/restore/analytics.sqlite
+```
+
+恢复命令不会覆盖已存在的目标数据库。生产恢复步骤和 systemd 定时器见 `docs/product-site-deployment.md`。
+
 ## 热补丁范围
 
 桌面端只接受以下路径，其他文件会在解压前被拒绝：
