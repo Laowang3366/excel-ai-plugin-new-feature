@@ -50,6 +50,7 @@ import {
 } from "./settingsManager";
 import {
   validateInput,
+  AppLogInput,
   AppOpenExternalInput,
   AppOpenPathInput,
   LaunchOfficeApplicationInput,
@@ -209,9 +210,11 @@ export function registerIpcHandlers(): void {
 
   // 转发渲染进程日志到主进程持久化
   ipcMain.handle("app:log", (_event, level: unknown, tag: unknown, message: unknown) => {
-    const levelStr = String(level ?? "info");
-    const tagStr = String(tag ?? "renderer");
-    const msgStr = String(message ?? "");
+    const { level: levelStr, tag: tagStr, message: msgStr } = validateInput(AppLogInput, {
+      level,
+      tag,
+      message,
+    });
     const logMsg = `[${tagStr}] ${msgStr}`;
     if (levelStr === "error") rendererLogger.error(logMsg);
     else if (levelStr === "warn") rendererLogger.warn(logMsg);

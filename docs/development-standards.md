@@ -372,6 +372,9 @@ ipcMain.handle("agent:startTurn", async (_event, args) => {
 - 只有 `params`、`variables` 等确实承载多种 operation 的扩展对象可以显式开放；仍必须受统一 JSON 大小、深度、节点数、字符串和数组预算限制，并尽快拆成 operation 级判别 Schema。
 - 新增工具必须进入 `toolSchema.test.ts` 的全量 malformed 校验；参数非法时不得先弹审批框或调用 Worker。
 - 新增或修改 IPC schema 必须设置与业务匹配的字符串、数组、矩阵总量和文件传输预算；Base64 在 `Buffer.from` 前按编码长度估算解码大小，文件回读在 `readFile` 前检查 stat。
+- `settings:set` 必须按 key 选择对应的值 Schema，禁止退回不区分设置项的 `unknown`；Provider、固定文件夹和压缩配置等复合值要限制字段、数量和字符串长度。
+- 必须开放的 JSON 参数包使用 `electron/shared/jsonResourceBudget.ts` 统一限制深度、节点、单字符串、数组项、对象字段和转义后的序列化字节数。
+- 高成本 IPC 在 `trustedIpc` 边界按 `processId + frameId` 使用令牌桶限流；限流只约束调用发起频率，不得用执行超时中断长耗时 Office 操作。
 
 ### 5.3 结构化日志
 

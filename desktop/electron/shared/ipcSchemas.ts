@@ -8,6 +8,12 @@
 
 import { z } from "zod";
 
+import {
+  DEFAULT_IPC_JSON_RESOURCE_BUDGET,
+  inspectJsonResourceBudget,
+} from "./jsonResourceBudget";
+import { SETTINGS_SECRET_MASK } from "./settingsSecretContract";
+
 // ============================================================
 // 通用
 // ============================================================
@@ -59,7 +65,12 @@ export const MigrateDataPathInput = IpcPath;
 export type MigrateDataPathInput = z.infer<typeof MigrateDataPathInput>;
 
 export const AppOpenPathInput = IpcPath;
-export const AppOpenExternalInput = z.string().url("URL 格式不正确");
+export const AppOpenExternalInput = z.string().max(8_192).url("URL 格式不正确");
+export const AppLogInput = z.object({
+  level: z.enum(["debug", "info", "warn", "error"]),
+  tag: z.string().max(128),
+  message: z.string().max(50_000),
+});
 export const LaunchOfficeApplicationInput = z.enum(["wps", "excel", "word", "powerpoint"]);
 export type LaunchOfficeApplicationInput = z.infer<typeof LaunchOfficeApplicationInput>;
 
@@ -97,7 +108,115 @@ export const SettingsKeyInput = z.enum([
   "windowOpacity",
 ]);
 export const SettingsGetInput = SettingsKeyInput;
-export const SettingsSetInput = z.tuple([SettingsKeyInput, z.unknown()]);
+
+const SettingsText = z.string().max(32_768);
+const SettingsIdentifier = z.string().max(256);
+const ReasoningModeInput = z.enum(["off", "low", "medium", "high", "max"]);
+const PositiveTokenCount = z.number().int().positive().max(100_000_000);
+const SecretInput = z.union([z.literal(SETTINGS_SECRET_MASK), SettingsText]);
+const ModelConfigInput = z.object({
+  name: z.string().min(1).max(1_024),
+  contextWindowSize: PositiveTokenCount.optional(),
+  compHash: z.string().max(512).optional(),
+  reasoningMode: ReasoningModeInput.optional(),
+}).strict();
+const CustomHeadersInput = z.record(
+  z.string().min(1).max(256),
+  z.string().max(8_192),
+).superRefine((headers, ctx) => {
+  if (Object.keys(headers).length > 64) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "自定义请求头最多包含 64 项",
+    });
+  }
+});
+const AiProviderConfigInput = z.object({
+  id: z.string().min(1).max(256),
+  name: z.string().max(512),
+  provider: z.string().max(256),
+  apiKey: SecretInput,
+  baseUrl: z.string().max(8_192),
+  model: z.string().max(1_024),
+  models: z.array(z.string().max(1_024)).max(1_000).optional(),
+  modelConfigs: z.array(ModelConfigInput).max(1_000).optional(),
+  defaultBaseUrl: z.string().max(8_192).optional(),
+  defaultModel: z.string().max(1_024).optional(),
+  apiFormat: z.string().max(128).optional(),
+  customHeaders: CustomHeadersInput.optional(),
+  contextWindowSize: PositiveTokenCount.optional(),
+  compHash: z.string().max(512).optional(),
+  reasoningMode: ReasoningModeInput.optional(),
+}).strict();
+const AiProviderMapInput = z.record(
+  z.string().min(1).max(256),
+  AiProviderConfigInput,
+).superRefine((providers, ctx) => {
+  if (Object.keys(providers).length > 50) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "AI 提供商最多配置 50 个",
+    });
+  }
+});
+const CompactionConfigInput = z.object({
+  enabled: z.boolean().optional(),
+  autoCompactThresholdPercent: z.number().finite().min(1).max(100).optional(),
+  autoCompactTokenThreshold: PositiveTokenCount.optional(),
+  midTurnThresholdRatio: z.number().finite().min(0.1).max(1).optional(),
+  retainedUserMessageMaxTokens: PositiveTokenCount.optional(),
+  retainedRecentItemCount: z.number().int().nonnegative().max(100_000).optional(),
+  summaryRetryCount: z.number().int().nonnegative().max(20).optional(),
+  summaryRetryBaseDelayMs: z.number().int().nonnegative().max(3_600_000).optional(),
+  summaryRetryMaxDelayMs: z.number().int().nonnegative().max(3_600_000).optional(),
+  summaryRetryBackoffFactor: z.number().finite().min(1).max(100).optional(),
+  archiveRolloutAfterBytes: z.number().int().positive().max(10 * 1024 * 1024 * 1024).optional(),
+  compactPrompt: z.string().max(100_000).optional(),
+  compactionProvider: z.enum(["local", "remote"]).optional(),
+  remoteCompactUrl: z.string().max(8_192).optional(),
+  remoteCompactApiKey: SecretInput.optional(),
+  remoteCompactModel: z.string().max(1_024).optional(),
+  contextWindowSize: PositiveTokenCount.optional(),
+}).strict();
+const PinnedFolderInput = z.object({
+  path: IpcPath,
+  name: z.string().min(1).max(255),
+  addedAt: z.number().finite().nonnegative(),
+  pinnedFiles: z.array(IpcPath).max(1_000).optional(),
+}).strict();
+
+type SettingsKey = z.infer<typeof SettingsKeyInput>;
+const SettingsValueSchemas: Record<SettingsKey, z.ZodType> = {
+  activeProvider: SettingsIdentifier,
+  aiProviders: AiProviderMapInput,
+  closeToTray: z.boolean(),
+  compactionConfig: CompactionConfigInput,
+  dataStoragePath: z.string().max(IPC_MAX_PATH_CHARS),
+  dynamicArrayFunctionsEnabled: z.boolean(),
+  knowledgeEnabled: z.boolean(),
+  language: z.enum(["zh-CN", "en-US"]),
+  mineruApiToken: SecretInput,
+  ocrMineruApiToken: SecretInput,
+  officeAutoCompactEnabled: z.boolean(),
+  permissionMode: z.enum(["normal", "auto_approve_safe", "confirm_all"]),
+  pinnedFolders: z.array(PinnedFolderInput).max(100),
+  remoteDataProcessingEnabled: z.boolean(),
+  showReasoning: z.boolean(),
+  theme: z.enum(["light", "dark"]),
+  windowOpacity: z.number().finite().min(0.55).max(1),
+};
+
+export const SettingsSetInput = z.tuple([SettingsKeyInput, z.unknown()])
+  .superRefine(([key, value], ctx) => {
+    const result = SettingsValueSchemas[key].safeParse(value);
+    if (result.success) return;
+    for (const issue of result.error.issues) {
+      ctx.addIssue({
+        ...issue,
+        path: [1, ...issue.path],
+      });
+    }
+  });
 
 // ============================================================
 // Excel
@@ -144,10 +263,14 @@ export const OfficeAutomationDocumentsListInput = z.object({ app: OfficeAutomati
 export const OfficeAutomationDocumentInput = z.object({
   app: OfficeAutomationAppInput,
   filePath: IpcPath,
-  instanceId: z.string().min(1).optional(),
+  instanceId: z.string().min(1).max(256).optional(),
 });
-export const OfficeAutomationObjectsListInput = OfficeAutomationDocumentInput.extend({ kind: z.string().min(1).optional() });
-export const OfficeAutomationObjectActivateInput = OfficeAutomationDocumentInput.extend({ locator: z.string().min(1) });
+export const OfficeAutomationObjectsListInput = OfficeAutomationDocumentInput.extend({
+  kind: z.string().min(1).max(256).optional(),
+});
+export const OfficeAutomationObjectActivateInput = OfficeAutomationDocumentInput.extend({
+  locator: z.string().min(1).max(8_192),
+});
 export const OfficeAutomationIdInput = z.object({ id: z.string().uuid() });
 export const OfficeAutomationForceInput = OfficeAutomationIdInput.extend({ force: z.boolean().optional() });
 export const OfficeAutomationTemplateSaveInput = z.object({
@@ -158,7 +281,19 @@ export const OfficeAutomationTemplateSaveInput = z.object({
 });
 export const OfficeAutomationTemplateRunInput = z.object({
   templateId: z.string().uuid(),
-  variables: z.record(z.string(), z.unknown()).optional(),
+  variables: z.record(z.string().max(256), z.unknown()).superRefine((variables, ctx) => {
+    const violation = inspectJsonResourceBudget(
+      variables,
+      DEFAULT_IPC_JSON_RESOURCE_BUDGET,
+    );
+    if (violation) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: violation.path,
+        message: violation.message,
+      });
+    }
+  }).optional(),
 });
 
 // ============================================================
@@ -191,7 +326,7 @@ export const AgentContinueTurnInput = z.object({
 export type AgentContinueTurnInput = z.infer<typeof AgentContinueTurnInput>;
 
 export const AgentInterruptInput = z.object({
-  threadId: z.string().min(1).nullable().optional(),
+  threadId: z.string().min(1).max(256).nullable().optional(),
 }).optional();
 export type AgentInterruptInput = z.infer<typeof AgentInterruptInput>;
 
@@ -199,28 +334,28 @@ export type AgentInterruptInput = z.infer<typeof AgentInterruptInput>;
 // Thread
 // ============================================================
 
-export const ThreadIdInput = z.string().min(1);
-export const ThreadNewInput = z.string().optional();
+export const ThreadIdInput = z.string().min(1).max(256);
+export const ThreadNewInput = z.string().max(256).optional();
 export const ThreadUpdateMetadataInput = z.object({
-  threadId: z.string().min(1),
+  threadId: z.string().min(1).max(256),
   patch: z.object({
     name: z.string().max(200).optional(),
-    folderId: z.string().optional(),
-    modelProvider: z.string().min(1).optional(),
-    model: z.string().optional(),
+    folderId: z.string().max(256).optional(),
+    modelProvider: z.string().min(1).max(256).optional(),
+    model: z.string().max(1_024).optional(),
   }).strict(),
 });
 export const ThreadGraphEdgeInput = z.object({
-  parentThreadId: z.string().min(1),
-  childThreadId: z.string().min(1),
-  label: z.string().optional(),
+  parentThreadId: z.string().min(1).max(256),
+  childThreadId: z.string().min(1).max(256),
+  label: z.string().max(500).optional(),
 });
 export const ThreadGraphCloseEdgeInput = z.object({
-  parentThreadId: z.string().min(1),
-  childThreadId: z.string().min(1),
+  parentThreadId: z.string().min(1).max(256),
+  childThreadId: z.string().min(1).max(256),
 });
 export const ThreadGraphListDescendantsInput = z.object({
-  parentThreadId: z.string().min(1),
+  parentThreadId: z.string().min(1).max(256),
   status: z.enum(["open", "closed", "all"]).optional(),
 });
 
@@ -252,18 +387,18 @@ export const OcrRecognizeInput = z.object({
 // ============================================================
 
 export const AiListModelsInput = z.object({
-  baseUrl: z.string(),
-  apiKey: z.string(),
-  apiFormat: z.string(),
-  providerId: z.string().min(1).optional(),
+  baseUrl: z.string().max(8_192),
+  apiKey: z.string().max(32_768),
+  apiFormat: z.string().max(128),
+  providerId: z.string().min(1).max(256).optional(),
 });
 
 export const AiTestConnectionInput = z.object({
-  baseUrl: z.string(),
-  apiKey: z.string(),
-  apiFormat: z.string(),
-  model: z.string(),
-  providerId: z.string().min(1).optional(),
+  baseUrl: z.string().max(8_192),
+  apiKey: z.string().max(32_768),
+  apiFormat: z.string().max(128),
+  model: z.string().max(1_024),
+  providerId: z.string().min(1).max(256).optional(),
 });
 
 // ============================================================
@@ -271,11 +406,11 @@ export const AiTestConnectionInput = z.object({
 // ============================================================
 
 export const ToolConfirmInput = z.object({
-  toolCallId: z.string(),
+  toolCallId: z.string().max(256),
   alwaysAllow: z.boolean().optional(),
 });
 
-export const ToolCancelInput = z.string();
+export const ToolCancelInput = z.string().max(256);
 
 // ============================================================
 // Stats

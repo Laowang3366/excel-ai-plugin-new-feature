@@ -5,9 +5,12 @@ import {
   type IpcMainInvokeEvent,
 } from "electron";
 
+import { createIpcRateLimiter } from "./ipcRateLimiter";
+
 type MainWindowRef = () => BrowserWindow | null;
 
 let mainWindowRef: MainWindowRef | null = null;
+const rateLimiter = createIpcRateLimiter();
 
 export function configureTrustedIpcSender(ref: MainWindowRef): void {
   mainWindowRef = ref;
@@ -64,6 +67,7 @@ export const trustedIpcMain = {
   ): void {
     ipcMain.handle(channel, (event, ...args) => {
       assertTrustedIpcSender(event);
+      rateLimiter.assertAllowed(channel, event);
       return listener(event, ...(args as TArgs));
     });
   },
