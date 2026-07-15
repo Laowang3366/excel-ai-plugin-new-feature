@@ -275,6 +275,149 @@ describe("StateRuntimeStore", () => {
     }
   });
 
+  it("keeps secrets and raw tool payloads out of the rollout FTS projection", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "state-runtime-"));
+    let store: StateRuntimeStore | undefined;
+    const canary = "sk-1234567890abcdefghijklmnop";
+    try {
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      await store.appendRolloutItems("thread-redaction", [
+        {
+          type: "turn_item",
+          turnId: "turn-redaction",
+          item: {
+            type: "user_message",
+            id: "msg-redaction",
+            content: `quarterly planning ${canary}`,
+            timestamp: 100,
+          },
+        },
+        {
+          type: "turn_item",
+          turnId: "turn-redaction",
+          item: {
+            type: "tool_call",
+            id: "call-redaction",
+            toolName: "web.search",
+            arguments: { query: `customer forecast ${canary}` },
+            status: "completed",
+            timestamp: 101,
+          },
+        },
+        {
+          type: "turn_item",
+          turnId: "turn-redaction",
+          item: {
+            type: "reasoning",
+            id: "reasoning-redaction",
+            summaryText: ["safe planning summary"],
+            rawContent: [`private chain ${canary}`],
+            timestamp: 102,
+          },
+        },
+      ]);
+      const dbPath = store.getDatabasePaths().logs;
+      await store.close();
+      store = undefined;
+
+      const logsDb = openSqliteDatabase(dbPath);
+      const ftsRows = logsDb.prepare(
+        `SELECT content FROM rollout_events_fts ORDER BY rowid`,
+      ).all() as Array<{ content: string }>;
+      const ftsSchema = logsDb.prepare(`PRAGMA table_info(rollout_events_fts)`).all() as Array<{
+        name: string;
+      }>;
+      logsDb.close();
+
+      const serializedFts = JSON.stringify(ftsRows);
+      expect(serializedFts).not.toContain(canary);
+      expect(serializedFts).not.toContain("customer forecast");
+      expect(serializedFts).not.toContain("private chain");
+      expect(serializedFts).toContain("quarterly planning");
+      expect(serializedFts).toContain("safe planning summary");
+      expect(ftsSchema.map((column) => column.name)).not.toContain("item_json");
+    } finally {
+      await store?.close();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rebuilds legacy rollout FTS rows without their duplicated raw item JSON", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "state-runtime-"));
+    let store: StateRuntimeStore | undefined;
+    const canary = "sk-1234567890abcdefghijklmnop";
+    try {
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      await store.appendRolloutItems("thread-legacy-fts", [
+        {
+          type: "turn_item",
+          turnId: "turn-legacy-fts",
+          item: {
+            type: "user_message",
+            id: "msg-legacy-fts",
+            content: `legacy planning ${canary}`,
+            timestamp: 100,
+          },
+        },
+      ]);
+      const logsPath = store.getDatabasePaths().logs;
+      await store.close();
+      store = undefined;
+
+      const legacyDb = openSqliteDatabase(logsPath);
+      const event = legacyDb.prepare(
+        `SELECT id, thread_id, turn_id, item_type, item_json FROM rollout_events LIMIT 1`,
+      ).get() as Record<string, any>;
+      legacyDb.exec(`
+        DROP TABLE rollout_events_fts;
+        CREATE VIRTUAL TABLE rollout_events_fts USING fts5(
+          thread_id UNINDEXED,
+          turn_id UNINDEXED,
+          item_type UNINDEXED,
+          content,
+          item_json UNINDEXED
+        );
+        DELETE FROM schema_migrations WHERE id = '006_minimize_rollout_fts';
+      `);
+      legacyDb.prepare(
+        `INSERT INTO rollout_events_fts
+          (rowid, thread_id, turn_id, item_type, content, item_json)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      ).run(
+        event.id,
+        event.thread_id,
+        event.turn_id,
+        event.item_type,
+        `legacy planning ${canary}`,
+        event.item_json,
+      );
+      legacyDb.close();
+
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      await store.close();
+      store = undefined;
+
+      const migratedDb = openSqliteDatabase(logsPath);
+      const content = migratedDb.prepare(
+        `SELECT content FROM rollout_events_fts LIMIT 1`,
+      ).get() as { content: string };
+      const columns = migratedDb.prepare(`PRAGMA table_info(rollout_events_fts)`).all() as Array<{
+        name: string;
+      }>;
+      migratedDb.close();
+
+      expect(content.content).toContain("legacy planning");
+      expect(content.content).not.toContain(canary);
+      expect(columns.map((column) => column.name)).not.toContain("item_json");
+    } finally {
+      await store?.close();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("backfills derived thread name and rollout search indexes on init", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "state-runtime-"));
     let store: StateRuntimeStore | undefined;

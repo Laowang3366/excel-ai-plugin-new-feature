@@ -380,11 +380,17 @@ ipcMain.handle("agent:startTurn", async (_event, args) => {
 
 **禁止**在生产代码中使用 `console.log`，**必须**使用 `electron/shared/logger.ts`。
 
+- 消息和结构化字段在控制台或文件输出前必须经过 `electron/shared/sensitiveData.ts` 统一脱敏；不得在业务模块自建另一套密钥正则。
+- `apiKey`、`token`、`authorization`、`password`、`secret`、`cookie`、`customHeaders` 等字段值不得写入日志。
+- 工具执行审计默认只保存类型、字段名、集合数量、状态和结构指纹，不得保存参数、单元格内容、查询、宏代码或工具结果原文。
+- FTS 等派生索引不得重复保存恢复数据的完整 JSON；推理只索引摘要，不索引 raw content。
+- 新增日志或索引路径必须增加 canary 测试，证明高置信密钥不会以明文落盘。
+
 ```typescript
-import { logger } from "../shared/logger";
+import { createLogger } from "../shared/logger";
 
 // 指定上下文
-const log = logger.child({ context: "agentLoop" });
+const log = createLogger("AgentLoop");
 log.info("Turn started", { turnId, threadId });
 log.error("Stream failed", { error: err.message });
 ```

@@ -1,4 +1,5 @@
 import type { RolloutItem } from "../shared/types";
+import { redactSensitiveText, summarizeValueForAudit } from "../../shared/sensitiveData";
 
 /**
  * Rollout 检索文本提取。
@@ -11,41 +12,42 @@ export function extractRolloutSearchContent(item: RolloutItem): string {
   if (item.type === "turn_item") {
     const turnItem = item.item;
     if (turnItem.type === "user_message" || turnItem.type === "assistant_message") {
-      return turnItem.content;
+      return redactSensitiveText(turnItem.content, 100_000);
     }
     if (turnItem.type === "tool_call") {
-      return `${turnItem.toolName} ${JSON.stringify(turnItem.arguments)}`;
+      return `${turnItem.toolName} ${summarizeValueForAudit(turnItem.arguments)}`;
     }
     if (turnItem.type === "tool_result") {
-      return `${turnItem.toolName} ${stringifyUnknown(turnItem.result)}`;
+      return `${turnItem.toolName} ${turnItem.isError ? "error" : "success"} ${summarizeValueForAudit(turnItem.result)}`;
     }
     if (turnItem.type === "reasoning") {
-      return [...turnItem.summaryText, ...turnItem.rawContent].join(" ");
+      return redactSensitiveText(turnItem.summaryText.join(" "), 100_000);
     }
     if (turnItem.type === "compacted") {
-      return turnItem.summary;
+      return redactSensitiveText(turnItem.summary, 100_000);
     }
     if (turnItem.type === "compact_progress") {
-      return `${turnItem.reason} ${turnItem.status}`;
+      return redactSensitiveText(`${turnItem.reason} ${turnItem.status}`, 100_000);
     }
   }
 
   if (item.type === "session_meta") {
-    return [
-      item.meta.id,
-      item.meta.modelProvider,
-      item.meta.model,
-      item.meta.folderId,
-    ].filter(Boolean).join(" ");
+    return redactSensitiveText(
+      [
+        item.meta.id,
+        item.meta.modelProvider,
+        item.meta.model,
+        item.meta.folderId,
+      ].filter(Boolean).join(" "),
+      100_000,
+    );
   }
-  if (item.type === "compacted") return item.summary;
-  if (item.type === "compact_params") return `${item.reason} ${item.status}`;
+  if (item.type === "compacted") return redactSensitiveText(item.summary, 100_000);
+  if (item.type === "compact_params") {
+    return redactSensitiveText(`${item.reason} ${item.status}`, 100_000);
+  }
   if (item.type === "turn_usage") return "turn usage";
-  if (item.type === "turn_context") return item.cwd ?? "";
+  if (item.type === "turn_context") return redactSensitiveText(item.cwd ?? "", 100_000);
 
-  return JSON.stringify(item);
-}
-
-function stringifyUnknown(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value);
+  return summarizeValueForAudit(item);
 }

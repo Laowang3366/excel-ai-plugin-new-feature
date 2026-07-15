@@ -1,4 +1,9 @@
 import type { AgentTurnCallbacks } from "../../shared/types";
+import {
+  redactSensitiveText,
+  redactSensitiveValue,
+  summarizeValueForAudit,
+} from "../../../shared/sensitiveData";
 
 export interface ToolExecutionLogRecord {
   threadId: string;
@@ -26,16 +31,7 @@ export function parseToolArguments(argsJson: string): Record<string, unknown> {
 }
 
 export function summarizeForLog(value: unknown, maxLength = 2000): string {
-  let summary: string;
-  if (typeof value === "string") {
-    summary = value;
-  } else {
-    try {
-      summary = JSON.stringify(value) ?? String(value);
-    } catch {
-      summary = String(value);
-    }
-  }
+  const summary = summarizeValueForAudit(value);
   if (summary.length <= maxLength) return summary;
   return `${summary.slice(0, maxLength)}...`;
 }
@@ -47,11 +43,19 @@ export async function logToolExecutionSafely(
 ): Promise<void> {
   if (!appendToolExecutionLog) return;
   try {
-    await appendToolExecutionLog(record);
+    await appendToolExecutionLog({
+      ...record,
+      argumentsSummary: redactSensitiveText(record.argumentsSummary, 2000),
+      resultSummary: redactSensitiveText(record.resultSummary, 2000),
+      error: record.error ? redactSensitiveText(record.error, 2000) : undefined,
+      metadata: record.metadata
+        ? redactSensitiveValue(record.metadata) as Record<string, unknown>
+        : undefined,
+    });
   } catch (err: any) {
     callbacks.onEvent({
       type: "warning",
-      message: `工具执行日志写入失败：${err?.message || String(err)}`,
+      message: `工具执行日志写入失败：${redactSensitiveText(err?.message || String(err), 1000)}`,
       threadId: record.threadId,
     });
   }

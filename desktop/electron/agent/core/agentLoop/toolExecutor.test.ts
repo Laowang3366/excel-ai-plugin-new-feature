@@ -15,6 +15,7 @@ import {
   processToolCalls,
   shouldRequireApproval,
 } from "./toolExecutor";
+import { summarizeForLog } from "./toolExecutionLog";
 
 function createTurn(item?: ToolCallItem): Turn {
   return {
@@ -247,8 +248,8 @@ describe("processToolCalls", () => {
       toolCallId: "call-log",
       toolName: "range.read",
       status: "success",
-      resultSummary: "{\"rows\":1}",
-      argumentsSummary: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}",
+      resultSummary: summarizeForLog({ rows: 1 }),
+      argumentsSummary: summarizeForLog({ sheetName: "Sheet1", range: "A1" }),
     }));
     const logCalls = logToolExecution.mock.calls as unknown as Array<[{ durationMs: number }]>;
     const loggedRecord = logCalls[0]?.[0];

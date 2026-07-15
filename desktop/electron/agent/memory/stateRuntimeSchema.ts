@@ -124,6 +124,19 @@ export const STATE_RUNTIME_MIGRATIONS: Record<RuntimeDbName, RuntimeMigration[]>
         );
       `,
     },
+    {
+      id: "006_minimize_rollout_fts",
+      sql: `
+        DROP TABLE IF EXISTS rollout_events_fts;
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS rollout_events_fts USING fts5(
+          thread_id UNINDEXED,
+          turn_id UNINDEXED,
+          item_type UNINDEXED,
+          content
+        );
+      `,
+    },
   ],
   goals: [
     {

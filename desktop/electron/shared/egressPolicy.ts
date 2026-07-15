@@ -1,3 +1,5 @@
+import { findHighConfidenceSensitiveData } from "./sensitiveData";
+
 export type RemoteDataOperation =
   | "web-search"
   | "ocr"
@@ -34,16 +36,6 @@ export class RemoteDataPolicyError extends Error {
   }
 }
 
-const HIGH_CONFIDENCE_SECRET_PATTERNS: Array<{ kind: string; pattern: RegExp }> = [
-  { kind: "private-key", pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i },
-  { kind: "aws-access-key", pattern: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/ },
-  { kind: "github-token", pattern: /\bgh(?:p|o|u|s|r)_[A-Za-z0-9]{30,}\b/ },
-  { kind: "slack-token", pattern: /\bxox(?:b|p|a|r|s)-[A-Za-z0-9-]{20,}\b/ },
-  { kind: "google-api-key", pattern: /\bAIza[A-Za-z0-9_-]{30,}\b/ },
-  { kind: "openai-style-key", pattern: /\bsk-[A-Za-z0-9_-]{20,}\b/ },
-  { kind: "jwt", pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/ },
-];
-
 export function isRemoteDataProcessingEnabled(value: unknown): boolean {
   return value === true;
 }
@@ -72,13 +64,7 @@ export function assertRemoteDataProcessingAllowed(options: {
   }
 }
 
-export function findHighConfidenceSensitiveData(texts: string[]): string[] {
-  const combined = texts.filter(Boolean).join("\n");
-  if (!combined) return [];
-  return HIGH_CONFIDENCE_SECRET_PATTERNS
-    .filter(({ pattern }) => pattern.test(combined))
-    .map(({ kind }) => kind);
-}
+export { findHighConfidenceSensitiveData } from "./sensitiveData";
 
 export function toRemoteDataPolicyResult(error: unknown): {
   success: false;

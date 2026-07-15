@@ -13,6 +13,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { app } from "electron";
+import { redactSensitiveText, redactSensitiveValue } from "./sensitiveData";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -32,6 +33,7 @@ const LOG_COLORS: Record<LogLevel, string> = {
 const RESET = "\x1b[0m";
 
 const MIN_LEVEL: LogLevel = process.env.NODE_ENV === "development" ? "debug" : "info";
+const MAX_LOG_LINE_LENGTH = 16_384;
 
 let logDir: string | null = null;
 
@@ -72,12 +74,33 @@ function getLogFilePath(): string {
 
 function formatMessage(level: LogLevel, source: string, message: string, data?: unknown): string {
   const timestamp = new Date().toISOString();
-  const base = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] [${source}] ${message}`;
+  const safeSource = redactSensitiveText(source, 256).replace(/[\r\n]+/g, " ");
+  const safeMessage = redactSensitiveText(message).replace(/[\r\n]+/g, " ");
+  const base = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] [${safeSource}] ${safeMessage}`;
   if (data !== undefined) {
-    const dataStr = typeof data === "string" ? data : JSON.stringify(data, null, 0);
-    return `${base} ${dataStr}`;
+    let safeData: unknown;
+    try {
+      safeData = redactSensitiveValue(data);
+    } catch {
+      safeData = "[Unserializable]";
+    }
+    const dataStr = typeof safeData === "string" ? safeData : safeStringify(safeData);
+    return truncateLogLine(`${base} ${dataStr}`);
   }
-  return base;
+  return truncateLogLine(base);
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return "[Unserializable]";
+  }
+}
+
+function truncateLogLine(value: string): string {
+  if (value.length <= MAX_LOG_LINE_LENGTH) return value;
+  return `${value.slice(0, MAX_LOG_LINE_LENGTH - 14)}...[TRUNCATED]`;
 }
 
 function writeToFile(formatted: string): void {

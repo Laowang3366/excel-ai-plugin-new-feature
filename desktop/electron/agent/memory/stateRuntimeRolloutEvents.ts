@@ -23,8 +23,8 @@ export function appendRolloutItemsToLogs(
      VALUES (?, ?, ?, ?, ?)`
   );
   const insertSearch = logsDb.prepare(
-    `INSERT INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content, item_json)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content)
+     VALUES (?, ?, ?, ?, ?)`
   );
   const rows: RolloutLine[] = items.map((item) => ({
     timestamp: new Date().toISOString(),
@@ -48,7 +48,6 @@ export function appendRolloutItemsToLogs(
         turnId,
         line.item.type,
         extractRolloutSearchContent(line.item),
-        itemJson,
       );
     }
   });

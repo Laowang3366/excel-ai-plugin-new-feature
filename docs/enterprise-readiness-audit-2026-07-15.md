@@ -29,6 +29,7 @@
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
 | M-01 | 部分完成 | `ToolDefinition.parameters` 统一规范化为模型与运行时共用 Schema；已声明对象默认拒绝未知字段，审批前与执行前双重校验；枚举、整数/数值范围、深度、节点数和 JSON 大小统一限制；全量工具 malformed 测试 | 将 `office.action.*.params`、模板变量等有意开放的扩展对象继续拆成 operation 级判别 Schema |
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
+| M-03 | 部分完成 | 统一高置信密钥与敏感字段脱敏；通用 logger 在控制台/文件前递归脱敏并限制单行；工具审计只保存结构统计与指纹；FTS 移除重复 `item_json`，不再索引工具载荷和 raw reasoning；canary 与旧库迁移测试 | 会话/SQLite 应用层加密；日志与 Office 自动化数据留存、导出、线程删除和全局擦除闭环 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
 | M-05 | 部分完成 | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；直接 action、工作流及模板均在 Worker 前拒绝越界请求 | 依据任务分类动态裁剪模型可见高级 operation；真实 Excel/WPS 回归 |
 | M-06 | 已实现 | 下载统计改为 best-effort，数据库故障时安装包仍返回 200；故障注入测试 | 留存清理与周期盐轮换 |
@@ -92,7 +93,7 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 158 个测试文件、891 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 163 个测试文件、917 项测试全部通过 |
 | Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 566.92 KB，超过 500 KB 建议值 |
 | Desktop `format:check` | **失败** | 限定源码检查仍约有 482 个格式不匹配文件 |
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
@@ -489,11 +490,15 @@
 
 ### M-03 工具、会话和日志重复保存原始敏感内容
 
+> 整改进展：新增共享敏感数据模块，远程外传检测、通用日志、工具执行日志和 rollout 检索共用同一组高置信规则。日志消息和结构化字段会在控制台与文件输出前递归脱敏并限制单行长度；工具执行审计改为类型、字段名、集合数量和结构指纹，不再保存参数/结果原文。`rollout_events_fts` 已通过迁移移除 `item_json` 副本，工具调用/结果只索引结构摘要，reasoning 只索引 summary；旧 FTS 会重建，损坏投影也不会回退复制原始 JSON。canary 测试覆盖字段、文本、循环对象、私钥块、日志文件、SQLite FTS 和旧库迁移。
+
 - `toolExecutionLog.ts:28-40` 直接 JSON 序列化前 2000 字。
 - 工具参数/结果还进入 SQLite、JSONL 和 FTS；通用 logger 无字段级脱敏。
 - 日志按天分文件但没有清理策略，并使用同步 `appendFileSync`。
 
 **整改**：工具级声明 `redactedFields/summaryFields`；默认只记数量、类型、状态和哈希；引入加密、留存、导出、线程删除和全局擦除策略。用 canary 扫描 logs/SQLite/JSONL/FTS，均不得出现原文。
+
+**验收状态**：派生日志与索引的明文复制已关闭；JSONL 和 `rollout_events.item_json` 仍作为会话恢复/兼容数据保留，不把“删除全部会话正文”伪装成整改。M-03 尚未关闭，后续需完成恢复数据应用层加密、密钥轮换，以及 logs/Office 备份/事务/工作流的统一 TTL、导出、线程删除和全局擦除策略。
 
 ### M-04 流式请求在已输出部分内容后仍会整体重试
 
@@ -589,7 +594,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### L-03 Renderer 主包偏大
 
-生产构建主 Renderer chunk 约 563.73 KB，超过 Vite 500 KB 建议值。建议对设置、Office 自动化、知识库和统计面板做路由/组件级 lazy loading，并建立 bundle budget。
+生产构建主 Renderer chunk 约 566.92 KB，超过 Vite 500 KB 建议值。建议对设置、Office 自动化、知识库和统计面板做路由/组件级 lazy loading，并建立 bundle budget。
 
 ## 8. 已验证的正向控制
 

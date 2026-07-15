@@ -334,18 +334,18 @@ export class StateRuntimeStore {
       )
       .all() as Record<string, any>[];
     const insertSearch = dbs.logs.prepare(
-      `INSERT OR IGNORE INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content, item_json)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO rollout_events_fts (rowid, thread_id, turn_id, item_type, content)
+       VALUES (?, ?, ?, ?, ?)`,
     );
     const write = () =>
       this.runLogsWrite(() => {
         for (const row of missingRows) {
           if (indexedIds.has(row.id)) continue;
-          let content = row.item_json;
+          let content = "unreadable rollout event";
           try {
             content = extractRolloutSearchContent(JSON.parse(row.item_json));
           } catch {
-            // 损坏 JSONL 投影仍保留原始 JSON 供粗略检索。
+            // 损坏投影不再把原始 JSON 复制到 FTS。
           }
           insertSearch.run(
             row.id,
@@ -353,7 +353,6 @@ export class StateRuntimeStore {
             row.turn_id ?? null,
             row.item_type,
             content,
-            row.item_json,
           );
         }
       });
