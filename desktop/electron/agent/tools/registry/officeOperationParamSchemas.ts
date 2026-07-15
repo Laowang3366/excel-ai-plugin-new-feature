@@ -1,3 +1,4 @@
+import { EXCEL_FORMULA_PARAM_SCHEMAS } from "./officeExcelFormulaParamSchemas";
 import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
 
 export type OfficeSchemaApp = "excel" | "word" | "presentation";
@@ -156,6 +157,7 @@ function strictAppObject(
 const COMMON_INSPECTION_OPERATIONS = ["inspectFile", "layout", "tables", "listBackups"];
 
 export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
+  ...EXCEL_FORMULA_PARAM_SCHEMAS,
   ...EXCEL_PRINT_PARAM_SCHEMAS,
   ...COMMON_INSPECTION_OPERATIONS.map((operation) => ({
     operation,

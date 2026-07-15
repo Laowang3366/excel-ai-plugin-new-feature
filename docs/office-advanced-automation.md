@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/条件格式/数据验证/表格样式、Word 标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；`formatChart` 的 `series`、`axes`、`dataLabels` 以及 `configurePrint` 的页边距、页眉页脚也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/条件格式/数据验证/表格样式、Word 标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印和公式替换规则的嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -37,8 +37,8 @@
 | `applyWorkbookTemplate` | 应用内置预设或捕获模板及分层格式规则 | `preset`/`template`、`sheetNames`、工作表规则 |
 | `inspectPrintSettings` / `configurePrint` | 回读或设置完整页面与打印参数 | `sheetNames`、纸张/方向/页边距、标题行列、缩放、分页符、页眉页脚 |
 | `exportSheetsToPdf` | 合并或分别批量导出指定工作表 PDF | `sheetNames`、`mode`、`outputPath`/`outputDirectory`、`overwrite` |
-| `traceFormulaDependencies` / `inspectFormulaDependencies` | 读取同表、跨表、外部、名称和结构化引用，构建正反依赖并检测循环、`#REF!` | `scope`、`target`、`maxExpandedRangeCells`；只读 inspect 操作 |
-| `repairFormulaReferences` | 批量修复错误引用 | 明确 `replacements`，或 `copyFromNeighbors:true` 使用相邻公式 R1C1 模式 |
+| `traceFormulaDependencies` / `inspectFormulaDependencies` | 读取同表、跨表及外部单元格引用，构建正反依赖并检测循环、`#REF!` | `scope`；`target` 使用 action 顶层定位；只读 inspect 操作 |
+| `repairFormulaReferences` | 按明确映射批量修复错误引用 | 必填 `replacements:[{find,replace}]`；可用 `applyAllMappings:true` 把映射应用到不含 `#REF!` 的公式 |
 | `convertFormulasToValues` / `inspectFormulaBackups` / `restoreFormulas` | 备份后固化公式、查看备份并按批次恢复 | `target`/`scope`、`createBackup`、`backupId`、`removeAfterRestore` |
 | `inspectFormulaProtection` / `manageFormulaProtection` | 检查、锁定或解锁公式区域并保护工作表 | `command:lock/unlock`、`password`、`unlockInputs`、`protectSheet` |
 | `exportPdf` / `snapshot` | 导出工作簿/工作表 PDF 或区域 PNG | `scope`，以及 `target`/`outputPath` |
@@ -70,6 +70,8 @@
 `configurePrint` 可同时处理多个 `sheetNames`。当前 Worker 纸张支持 A3/A4/A5/Letter/Legal；`marginUnit` 支持 `centimeters`、`inches`、`points`。使用 `repeatRows`/`repeatColumns` 设置打印标题，`horizontalPageBreaks`/`verticalPageBreaks` 设置手动分页；`fitToOnePageWide:true` 固定一页宽，默认不强制一页高。`exportSheetsToPdf.mode` 为 `combined` 时按工作表顺序生成一个 PDF，为 `separate` 时输出到 `outputDirectory`。
 
 #### 公式治理
+
+公式治理 operation 已按 Worker 的真实读取字段实施严格参数校验。依赖检查支持 `scope:"workbook"|"sheet"|"target"`；引用修复只接受显式 `replacements` 字符串映射。相邻公式推断、名称/结构化引用展开以及 `maxExpandedRangeCells` 当前没有 Worker 实现，不应作为可用参数发送。
 
 `range.write` 对 Excel/WPS 共用同一公式分类与写入策略：普通公式走 `Formula`，现代/动态公式走 `Formula2`，只有显式 `legacyCse:true` 才走 `FormulaArray`。现代公式缺少 `Formula2` 时明确失败，不回退 `Formula`，避免重新引入 `@`。返回值包含 `written`、`dynamicCells`、`arrayCells`、`plainCells`。
 
