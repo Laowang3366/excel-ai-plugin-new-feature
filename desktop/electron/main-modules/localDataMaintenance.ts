@@ -2,6 +2,7 @@ import { readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { pruneOfficeBackups } from "../agent/tools/officeCore/transactions";
+import { guardDataOperation } from "./dataMaintenance";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -96,15 +97,20 @@ export async function runLocalDataMaintenance(
 
 export function startLocalDataMaintenance(options: {
   getDataPath: () => string;
+  isDataMaintenanceInProgress?: () => boolean;
   intervalMs?: number;
   onReport?: (report: LocalDataMaintenanceReport) => void;
 }): () => void {
   const intervalMs = options.intervalMs ?? 6 * 60 * 60 * 1000;
   let running = false;
+  const runMaintenance = guardDataOperation(
+    options.isDataMaintenanceInProgress,
+    () => runLocalDataMaintenance(options.getDataPath()),
+  );
   const timer = setInterval(() => {
-    if (running) return;
+    if (running || options.isDataMaintenanceInProgress?.()) return;
     running = true;
-    void runLocalDataMaintenance(options.getDataPath())
+    void runMaintenance()
       .then((report) => options.onReport?.(report))
       .catch((error) => options.onReport?.({
         ...emptyReport(),

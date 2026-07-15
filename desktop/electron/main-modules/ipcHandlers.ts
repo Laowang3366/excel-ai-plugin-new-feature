@@ -44,6 +44,7 @@ import {
   getStateRuntimeStoreInstance,
   isDataMigrationInProgress,
   getAgentGraphStoreInstance,
+  eraseUserData,
   exportUserData,
   migrateDataPath,
   applyWindowOpacity,
@@ -60,6 +61,7 @@ import {
   ExcelReadRangeInput,
   ExcelSelectHostInput,
   ExcelWriteRangeInput,
+  EraseUserDataInput,
   ExportUserDataInput,
   MigrateDataPathInput,
   SettingsGetInput,
@@ -78,6 +80,7 @@ import { registerOcrIpcHandler } from "./ipcOcrHandlers";
 import { registerAiIpcHandlers } from "./ipcAiHandlers";
 import { registerFileIpcHandlers } from "./ipcFileHandlers";
 import { registerOfficeAutomationIpcHandlers } from "./ipcOfficeAutomationHandlers";
+import { guardDataOperation } from "./dataMaintenance";
 import {
   getWindowDisplayMode,
   setWindowDisplayMode,
@@ -162,10 +165,18 @@ export function registerIpcHandlers(): void {
   });
 
   // ---- 应用信息 ----
-  registerOcrIpcHandler(pathAuthorizer);
-  registerAiIpcHandlers();
-  registerFileIpcHandlers({ mainWindowRef, pathAuthorizer, getDataPath: getActiveDataPath });
-  registerOfficeAutomationIpcHandlers({ getDataPath: getActiveDataPath });
+  registerOcrIpcHandler(pathAuthorizer, isDataMigrationInProgress);
+  registerAiIpcHandlers(isDataMigrationInProgress);
+  registerFileIpcHandlers({
+    mainWindowRef,
+    pathAuthorizer,
+    getDataPath: getActiveDataPath,
+    isDataMaintenanceInProgress: isDataMigrationInProgress,
+  });
+  registerOfficeAutomationIpcHandlers({
+    getDataPath: getActiveDataPath,
+    isDataMaintenanceInProgress: isDataMigrationInProgress,
+  });
 
   ipcMain.handle("app:getDataPath", () => getActiveDataPath());
 
@@ -212,6 +223,7 @@ export function registerIpcHandlers(): void {
 
   // 转发渲染进程日志到主进程持久化
   ipcMain.handle("app:log", (_event, level: unknown, tag: unknown, message: unknown) => {
+    if (isDataMigrationInProgress()) return;
     const { level: levelStr, tag: tagStr, message: msgStr } = validateInput(AppLogInput, {
       level,
       tag,
@@ -251,6 +263,11 @@ export function registerIpcHandlers(): void {
     return await exportUserData(validated);
   });
 
+  ipcMain.handle("app:eraseUserData", async (_event, input: unknown) => {
+    const validated = validateInput(EraseUserDataInput, input);
+    return await eraseUserData(validated.confirmation);
+  });
+
   // ---- 窗口行为 ----
   ipcMain.handle("window:getAlwaysOnTop", () => {
     return mainWindowRef()?.isAlwaysOnTop() ?? false;
@@ -277,7 +294,7 @@ export function registerIpcHandlers(): void {
     return getSettingForRenderer(validated);
   });
 
-  ipcMain.handle("settings:set", async (_event, keyInput: unknown, valueInput: unknown) => {
+  ipcMain.handle("settings:set", guardDataOperation(isDataMigrationInProgress, async (_event, keyInput: unknown, valueInput: unknown) => {
     const [key, value] = validateInput(SettingsSetInput, [keyInput, valueInput]);
     const rendererValue = setSettingFromRenderer(key, value);
 
@@ -338,7 +355,7 @@ export function registerIpcHandlers(): void {
       setDynamicArrayFunctionsEnabled(value);
     }
     return rendererValue;
-  });
+  }));
 
   ipcMain.handle("settings:getAll", () => {
     return getSettingsForRenderer();

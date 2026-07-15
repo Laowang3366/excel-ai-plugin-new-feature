@@ -29,7 +29,7 @@ export async function runUserDataExport(
   deps: UserDataExportCoordinatorDeps,
 ): Promise<CoordinatedUserDataExportResult> {
   if (deps.isBusy()) {
-    return { success: false, error: "数据迁移或导出正在进行中，请稍后重试" };
+    return { success: false, error: "数据维护或相关操作正在进行中，请稍后重试" };
   }
   const trimmedPath = targetPath.trim();
   if (!trimmedPath) return { success: false, error: "请选择有效的导出目录" };

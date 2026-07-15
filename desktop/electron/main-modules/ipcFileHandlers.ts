@@ -11,6 +11,7 @@ import {
   validateInput,
 } from "../shared/ipcSchemas";
 import { assertAuthorizedPath, type PathAuthorizer } from "./ipcPathSecurity";
+import { guardDataOperation } from "./dataMaintenance";
 
 export interface FolderFileInfo {
   filePath: string;
@@ -25,6 +26,7 @@ interface RegisterFileIpcHandlersOptions {
   mainWindowRef: () => BrowserWindow | null;
   pathAuthorizer: PathAuthorizer;
   getDataPath: () => string;
+  isDataMaintenanceInProgress?: () => boolean;
 }
 
 export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthorizer: PathAuthorizer): Promise<FolderFileInfo[]> {
@@ -59,6 +61,29 @@ export async function assertFileWithinIpcTransferLimit(
   if (!stat.isFile()) throw new Error("目标路径不是文件");
   if (stat.size > maxBytes) {
     throw new Error(`文件过大，IPC 传输最大支持 ${Math.floor(maxBytes / 1024 / 1024)}MB`);
+  }
+}
+
+export async function writeManagedTempFile(
+  data: unknown,
+  options: Pick<RegisterFileIpcHandlersOptions,
+    "getDataPath" | "pathAuthorizer" | "isDataMaintenanceInProgress">,
+): Promise<{ success: boolean; filePath?: string; error?: string }> {
+  try {
+    const input = validateInput(FileWriteTempFileInput, data);
+    return await guardDataOperation(options.isDataMaintenanceInProgress, async () => {
+      const prefix = input.prefix?.replace(/[^a-zA-Z0-9_-]/g, "") || "clipboard";
+      const suffix = input.suffix?.replace(/[^a-zA-Z0-9.]/g, "") || ".png";
+      const tmpDir = path.join(options.getDataPath(), "temp");
+      await fs.promises.mkdir(tmpDir, { recursive: true });
+      const fileName = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${suffix}`;
+      const filePath = path.join(tmpDir, fileName);
+      await fs.promises.writeFile(filePath, Buffer.from(input.data, "base64"));
+      options.pathAuthorizer.authorizePath(filePath);
+      return { success: true, filePath };
+    })();
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -167,21 +192,7 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
   });
 
   ipcMain.handle("file:writeTempFile", async (_event, data: unknown) => {
-    try {
-      const input = validateInput(FileWriteTempFileInput, data);
-      const prefix = input.prefix?.replace(/[^a-zA-Z0-9_-]/g, "") || "clipboard";
-      const suffix = input.suffix?.replace(/[^a-zA-Z0-9.]/g, "") || ".png";
-      const tmpDir = path.join(getDataPath(), "temp");
-      await fs.promises.mkdir(tmpDir, { recursive: true });
-      const fileName = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${suffix}`;
-      const filePath = path.join(tmpDir, fileName);
-      const buffer = Buffer.from(input.data, "base64");
-      await fs.promises.writeFile(filePath, buffer);
-      pathAuthorizer.authorizePath(filePath);
-      return { success: true, filePath };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    return writeManagedTempFile(data, options);
   });
 
   ipcMain.handle("file:trashFile", async (_event, filePath: unknown) => {

@@ -39,6 +39,12 @@ export interface IIpcApi {
       categories?: string[];
       error?: string;
     }>;
+    eraseUserData: (input: { confirmation: string }) => Promise<{
+      success: boolean;
+      erasedCategories: string[];
+      errors: string[];
+      error?: string;
+    }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
     launchOffice: (application: OfficeApplication) => Promise<{ success: boolean; error?: string }>;

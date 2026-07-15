@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("app:migrateDataPath", targetPath),
     exportUserData: (targetPath: string) =>
       ipcRenderer.invoke("app:exportUserData", targetPath),
+    eraseUserData: (input: { confirmation: string }) =>
+      ipcRenderer.invoke("app:eraseUserData", input),
     openPath: (targetPath: string) => ipcRenderer.invoke("app:openPath", targetPath),
     openExternal: (targetUrl: string) => ipcRenderer.invoke("app:openExternal", targetUrl),
     launchOffice: (application: "wps" | "excel" | "word" | "powerpoint") =>

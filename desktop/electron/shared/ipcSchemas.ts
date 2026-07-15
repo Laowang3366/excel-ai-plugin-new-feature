@@ -7,13 +7,9 @@
  */
 
 import { z } from "zod";
-
-import {
-  DEFAULT_IPC_JSON_RESOURCE_BUDGET,
-  inspectJsonResourceBudget,
-} from "./jsonResourceBudget";
+import { DEFAULT_IPC_JSON_RESOURCE_BUDGET, inspectJsonResourceBudget } from "./jsonResourceBudget";
 import { SETTINGS_SECRET_MASK } from "./settingsSecretContract";
-
+export { EraseUserDataInput } from "./userDataEraseSchema";
 // ============================================================
 // 通用
 // ============================================================
@@ -65,7 +61,6 @@ export const MigrateDataPathInput = IpcPath;
 export type MigrateDataPathInput = z.infer<typeof MigrateDataPathInput>;
 export const ExportUserDataInput = IpcPath;
 export type ExportUserDataInput = z.infer<typeof ExportUserDataInput>;
-
 export const AppOpenPathInput = IpcPath;
 export const AppOpenExternalInput = z.string().max(8_192).url("URL 格式不正确");
 export const AppLogInput = z.object({

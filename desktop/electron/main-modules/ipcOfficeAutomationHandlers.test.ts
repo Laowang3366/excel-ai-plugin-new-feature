@@ -4,15 +4,45 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const registeredHandlers = vi.hoisted(() => new Map<string, (...args: any[]) => unknown>());
+
+vi.mock("../shared/trustedIpc", () => ({
+  trustedIpcMain: {
+    handle: vi.fn((channel: string, handler: (...args: any[]) => unknown) => {
+      registeredHandlers.set(channel, handler);
+    }),
+  },
+}));
+
 import type { OfficeActionBridge, OfficeDocumentManagerBridge } from "../agent/tools/contracts/office";
 import { runOfficeWorkflow } from "../agent/tools/officeCore/workflow";
-import { createOfficeAutomationService } from "./ipcOfficeAutomationHandlers";
+import {
+  createOfficeAutomationService,
+  registerOfficeAutomationIpcHandlers,
+} from "./ipcOfficeAutomationHandlers";
 
 const roots: string[] = [];
 
 describe("Office automation IPC service", () => {
   afterEach(async () => {
+    registeredHandlers.clear();
     await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  });
+
+  it("rejects direct automation IPC before invoking Office during data maintenance", async () => {
+    const documentBridge = createDocumentBridge();
+    registerOfficeAutomationIpcHandlers({
+      getDataPath: () => "C:\\data",
+      isDataMaintenanceInProgress: () => true,
+      documentBridge,
+    });
+
+    const handler = registeredHandlers.get("office:automation:documents:list");
+    await expect(handler?.({}, {})).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("正在维护"),
+    });
+    expect(documentBridge.listDocuments).not.toHaveBeenCalled();
   });
 
   it("lists and activates documents and objects through the shared document bridge", async () => {

@@ -23,15 +23,19 @@ import {
   type OcrInvoiceItem,
   type OcrVisionResult,
 } from "./ocrModeDetection";
+import { guardDataOperation } from "./dataMaintenance";
 
-export function registerOcrIpcHandler(pathAuthorizer: ReturnType<typeof createPathAuthorizer>): void {
+export function registerOcrIpcHandler(
+  pathAuthorizer: ReturnType<typeof createPathAuthorizer>,
+  isDataMaintenanceInProgress?: () => boolean,
+): void {
   try {
     ipcMain.removeHandler("ocr:recognize");
   } catch {
     // Handler may not exist on first registration.
   }
 
-  ipcMain.handle("ocr:recognize", async (_event, mode: unknown, filePaths: unknown) => {
+  ipcMain.handle("ocr:recognize", guardDataOperation(isDataMaintenanceInProgress, async (_event, mode: unknown, filePaths: unknown) => {
     try {
       const validated = validateInput(OcrRecognizeInput, { mode, filePaths });
       const authorizedFilePaths = validated.filePaths.map((filePath) =>
@@ -41,7 +45,7 @@ export function registerOcrIpcHandler(pathAuthorizer: ReturnType<typeof createPa
     } catch (err: any) {
       return emptyOcrResult(normalizeOcrMode(mode), [err?.message || "OCR 识别失败"]);
     }
-  });
+  }));
 }
 
 export async function recognizeWithOcrFallbacks(

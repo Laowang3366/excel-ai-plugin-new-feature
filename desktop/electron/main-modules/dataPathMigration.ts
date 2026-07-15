@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { SqliteStore } from "../agent/knowledge";
+import { StateRuntimeStore } from "../agent/memory/stateRuntimeStore";
 import { isPathInside, normalizePathForCompare, pathExists } from "./settingsDataPath";
 
 export interface PreparedDataPathMigration {
@@ -76,6 +78,23 @@ export async function cleanupPreparedDataPathMigration(
     if (prepared.targetExisted) {
       await fs.promises.mkdir(prepared.targetDataPath, { recursive: true }).catch(() => {});
     }
+  }
+}
+
+export async function validateStagedDataPath(stageDataPath: string): Promise<void> {
+  const stateStore = new StateRuntimeStore(
+    path.join(stageDataPath, "sessions", "state-runtime"),
+  );
+  await stateStore.init();
+  await stateStore.close();
+
+  const knowledgeStore = new SqliteStore(
+    path.join(stageDataPath, "knowledge", "knowledge.db"),
+  );
+  try {
+    await knowledgeStore.init();
+  } finally {
+    knowledgeStore.close();
   }
 }
 

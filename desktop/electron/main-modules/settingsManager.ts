@@ -12,10 +12,13 @@ import { AgentLoop } from "../agent/core/agentLoop";
 import { AgentGraphStore } from "../agent/memory/agentGraphStore";
 import { SessionStore } from "../agent/memory/sessionStore";
 import { StateRuntimeStore } from "../agent/memory/stateRuntimeStore";
-import { SqliteStore } from "../agent/knowledge";
 import type { AIClientConfig } from "../agent/providers/aiClient";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
 import { reloadKnowledgeRuntime, resetKnowledgeRuntime } from "../agent/runtime/knowledgeRuntime";
+import {
+  buildCompactionConfig,
+  type SavedCompactionConfig,
+} from "../agent/runtime/compactionRuntime";
 import { configureLogDirectory } from "../shared/logger";
 import {
   getActiveDataPath,
@@ -36,10 +39,14 @@ import {
   cleanupPreparedDataPathMigration,
   commitPreparedDataPathMigration,
   prepareDataPathMigration,
+  validateStagedDataPath,
   type PreparedDataPathMigration,
 } from "./dataPathMigration";
 import { runUserDataExport } from "./userDataExportCoordinator";
 import { DEFAULT_SETTINGS } from "./settingsDefaults";
+import { runUserDataErase } from "./userDataEraseCoordinator";
+import { buildActiveAIConfig } from "./settingsAiConfig";
+import { hasActiveDataOperations } from "./dataMaintenance";
 
 export { getActiveDataPath };
 
@@ -190,7 +197,7 @@ export async function exportUserData(
   targetPath: string,
 ): ReturnType<typeof runUserDataExport> {
   return runUserDataExport(targetPath, {
-    isBusy: () => migrationInProgress,
+    isBusy: () => migrationInProgress || hasActiveDataOperations(),
     setBusy: (busy) => { migrationInProgress = busy; },
     hasRunningAgent: () => (agentLoopsGetter?.() ?? []).some((agent) => agent.getIsRunning()),
     getDataPath: getActiveDataPath,
@@ -209,12 +216,53 @@ export async function exportUserData(
   });
 }
 
+export async function eraseUserData(
+  confirmation: string,
+): ReturnType<typeof runUserDataErase> {
+  const getAgents = () => agentLoopsGetter?.() ?? [];
+  return runUserDataErase(confirmation, {
+    isBusy: () => migrationInProgress || hasActiveDataOperations(),
+    setBusy: (busy) => { migrationInProgress = busy; },
+    hasRunningAgent: () => getAgents().some((agent) => agent.getIsRunning()),
+    getDataPath: getActiveDataPath,
+    getSessionStore: getSessionStoreInstance,
+    resetAgents: async () => { await Promise.all(getAgents().map((agent) => agent.resetThread())); },
+    closeStateRuntime: closeStateRuntimeStore,
+    resetKnowledgeRuntime,
+    clearSettings: () => {
+      settingsStore.clear();
+      initializeSettingsSecrets();
+    },
+    restoreRuntimes: async () => {
+      await resetSessionStore();
+      const aiConfig = getActiveAIConfig();
+      const compactionConfig = buildCompactionConfig({
+        contextWindowSize: aiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW,
+        savedCompaction: getRuntimeSettingValue("compactionConfig") as
+          SavedCompactionConfig | undefined,
+      });
+      for (const agent of getAgents()) {
+        agent.updateAIConfig(aiConfig);
+        agent.updateCompactionConfig(compactionConfig);
+        agent.updatePermissionMode("normal");
+      }
+      const restoredKnowledge = await reloadKnowledgeRuntime(
+        aiConfig, getActiveDataPath(),
+        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+      );
+      if (!restoredKnowledge.store) {
+        throw new Error(restoredKnowledge.error || "知识库恢复失败");
+      }
+    },
+  });
+}
+
 export async function migrateDataPath(
   targetDataPath: string,
 ): Promise<{ success: boolean; dataPath?: string; error?: string }> {
   // 互斥锁
-  if (migrationInProgress) {
-    return { success: false, error: "数据迁移正在进行中，请稍后重试" };
+  if (migrationInProgress || hasActiveDataOperations()) {
+    return { success: false, error: "数据维护或相关操作正在进行中，请稍后重试" };
   }
   migrationInProgress = true;
 
@@ -321,54 +369,15 @@ export async function migrateDataPath(
   }
 }
 
-async function validateStagedDataPath(stageDataPath: string): Promise<void> {
-  const stateStore = new StateRuntimeStore(
-    path.join(stageDataPath, "sessions", "state-runtime"),
-  );
-  await stateStore.init();
-  await stateStore.close();
-
-  const knowledgeStore = new SqliteStore(
-    path.join(stageDataPath, "knowledge", "knowledge.db"),
-  );
-  try {
-    await knowledgeStore.init();
-  } finally {
-    knowledgeStore.close();
-  }
-}
-
 export function isDataMigrationInProgress(): boolean {
   return migrationInProgress;
 }
 
 export function getActiveAIConfig(): AIClientConfig {
   const activeProviderId = settingsStore.get("activeProvider") as string;
-  const providers = (settingsStore.get("aiProviders") as Record<string, any>) || {};
-
-  if (!activeProviderId || !providers[activeProviderId]) {
-    return {
-      provider: "openai",
-      apiKey: "",
-      baseUrl: "https://api.openai.com/v1",
-      model: "gpt-4o",
-    };
-  }
-
-  const p = decryptProviderForRuntime(providers[activeProviderId], settingsSecretCipher) as any;
-  const activeModelConfig = p.modelConfigs?.find((m: any) => m.name === p.model);
-  return {
-    provider: p.provider,
-    apiKey: p.apiKey || "",
-    baseUrl: p.baseUrl || p.defaultBaseUrl || "",
-    model: p.model || p.defaultModel || "",
-    apiFormat: p.apiFormat,
-    customHeaders: p.customHeaders,
-    contextWindowSize:
-      activeModelConfig?.contextWindowSize || p.contextWindowSize || DEFAULT_CONTEXT_WINDOW,
-    compHash: activeModelConfig?.compHash || p.compHash,
-    reasoningMode: activeModelConfig?.reasoningMode || p.reasoningMode,
-  };
+  const providers = (settingsStore.get("aiProviders") as
+    Record<string, Record<string, unknown>>) || {};
+  return buildActiveAIConfig(activeProviderId, providers, settingsSecretCipher);
 }
 
 /** 应用窗口主题 */

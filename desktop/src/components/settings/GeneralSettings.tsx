@@ -10,6 +10,7 @@ import { ipcApi } from "../../services/ipcApi";
 import { SettingsSliderField, SettingsSwitchField } from "./SettingsFields";
 import { GENERAL_TEXT } from "./generalSettingsText";
 import { GeneralSettingsStorageCard } from "./GeneralSettingsStorageCard";
+import { useGeneralSettingsStorage } from "./useGeneralSettingsStorage";
 
 export const GeneralSettings: React.FC = () => {
   const {
@@ -33,15 +34,10 @@ export const GeneralSettings: React.FC = () => {
     setAutoCompactThresholdPercent,
     loadSettings,
   } = useSettingsStore();
-  const [dataPath, setDataPath] = useState("");
-  const [pathError, setPathError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportMessage, setExportMessage] = useState("");
   const [mineruApiToken, setMineruApiToken] = useState("");
   const [mineruSaved, setMineruSaved] = useState(false);
   const text = GENERAL_TEXT[language];
+  const storage = useGeneralSettingsStorage(text, loadSettings);
   const autoCompactThresholdMin = 10;
   const autoCompactThresholdMax = 95;
 
@@ -55,15 +51,6 @@ export const GeneralSettings: React.FC = () => {
     let canceled = false;
 
     const loadLocalSettings = async () => {
-      try {
-        const path = await ipcApi.app.getDataPath();
-        if (!canceled) setDataPath(path || text.unsupportedPath);
-      } catch (error) {
-        if (!canceled) {
-          setPathError(error instanceof Error ? error.message : text.readPathFailed);
-        }
-      }
-
       const token = await ipcApi.settings.get("mineruApiToken");
       if (!canceled && typeof token === "string") {
         setMineruApiToken(token);
@@ -74,59 +61,7 @@ export const GeneralSettings: React.FC = () => {
     return () => {
       canceled = true;
     };
-  }, [text.readPathFailed, text.unsupportedPath]);
-
-  const handleOpenDataPath = async () => {
-    if (!dataPath || pathError) return;
-    const result = await ipcApi.app.openPath(dataPath);
-    if (result) setPathError(result);
-  };
-
-  const handleCopyDataPath = async () => {
-    if (!dataPath || pathError) return;
-    await navigator.clipboard.writeText(dataPath);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  };
-
-  const handleChangeDataPath = async () => {
-    setPathError("");
-    const selection = await ipcApi.app.selectDataPath();
-    const selectedPath = selection?.filePaths?.[0];
-    if (!selectedPath) return;
-
-    setIsMigrating(true);
-    try {
-      const result = await ipcApi.app.migrateDataPath(selectedPath);
-      if (!result?.success) {
-        setPathError(result?.error || text.migrateFailed);
-        return;
-      }
-      setDataPath(result.dataPath || selectedPath);
-      await loadSettings();
-    } finally {
-      setIsMigrating(false);
-    }
-  };
-
-  const handleExportUserData = async () => {
-    setExportMessage("");
-    const selection = await ipcApi.app.selectExportPath();
-    const selectedPath = selection?.filePaths?.[0];
-    if (!selectedPath) return;
-
-    setIsExporting(true);
-    try {
-      const result = await ipcApi.app.exportUserData(selectedPath);
-      setExportMessage(
-        result.success
-          ? `${text.exportSuccess}: ${result.exportPath || selectedPath}`
-          : result.error || text.exportFailed,
-      );
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  }, []);
 
   const handleMineruTokenChange = async (value: string) => {
     setMineruApiToken(value);
@@ -252,19 +187,7 @@ export const GeneralSettings: React.FC = () => {
         </div>
       </div>
 
-      <GeneralSettingsStorageCard
-        language={language}
-        dataPath={dataPath}
-        pathError={pathError}
-        copied={copied}
-        isMigrating={isMigrating}
-        isExporting={isExporting}
-        exportMessage={exportMessage}
-        onOpenDataPath={handleOpenDataPath}
-        onCopyDataPath={handleCopyDataPath}
-        onChangeDataPath={handleChangeDataPath}
-        onExportUserData={handleExportUserData}
-      />
+      <GeneralSettingsStorageCard language={language} {...storage} />
 
       <div className="settings-card">
         <div className="settings-card-header">

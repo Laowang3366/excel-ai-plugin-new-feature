@@ -136,6 +136,16 @@ select.form-input option {
   color: var(--text-white);
 }
 
+.settings-action-btn.danger {
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.settings-action-btn.danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #b91c1c;
+}
+
 .settings-action-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -234,6 +244,15 @@ select.form-input option {
   background: rgba(139, 140, 246, 0.18);
   border-color: #8b8cf6;
   color: #f8fafc;
+}
+
+:root[data-theme="dark"] .settings-action-btn.danger {
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] .settings-action-btn.danger:hover:not(:disabled) {
+  background: rgba(127, 29, 29, 0.35);
 }
 
 :root[data-theme="dark"] .settings-switch-row {

@@ -16,6 +16,7 @@ import {
   saveOfficeWorkflowTemplate,
 } from "../agent/tools/officeCore/workflowTemplates";
 import type { OfficeActionApp } from "../agent/tools/officeCore/types";
+import { guardDataOperation } from "./dataMaintenance";
 import {
   OfficeAutomationDocumentInput,
   OfficeAutomationDocumentsListInput,
@@ -30,6 +31,7 @@ import {
 
 interface OfficeAutomationServiceDeps {
   getDataPath: () => string;
+  isDataMaintenanceInProgress?: () => boolean;
   documentBridge?: OfficeDocumentManagerBridge;
   createActionBridge?: (transactionRoot: string, documentBridge: OfficeDocumentManagerBridge) => OfficeActionBridge;
 }
@@ -104,8 +106,11 @@ export function createOfficeAutomationService(deps: OfficeAutomationServiceDeps)
 export function registerOfficeAutomationIpcHandlers(deps: OfficeAutomationServiceDeps): void {
   const service = createOfficeAutomationService(deps);
   const handle = <T>(channel: string, operation: (input: T) => Promise<unknown> | unknown) => {
+    const guardedOperation = guardDataOperation(deps.isDataMaintenanceInProgress, operation);
     ipcMain.handle(channel, async (_event, input: T) => {
-      try { return { success: true, data: await operation(input) }; }
+      try {
+        return { success: true, data: await guardedOperation(input) };
+      }
       catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error) }; }
     });
   };

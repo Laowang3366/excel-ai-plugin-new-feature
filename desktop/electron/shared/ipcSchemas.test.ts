@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  EraseUserDataInput,
   AgentStartTurnInput,
   AgentInterruptInput,
   AppLogInput,
@@ -37,6 +38,8 @@ describe("ipcSchemas", () => {
     expect(validateInput(LaunchOfficeApplicationInput, "powerpoint")).toBe("powerpoint");
     expect(validateInput(ExportUserDataInput, "C:\\exports\\wengge-data"))
       .toBe("C:\\exports\\wengge-data");
+    expect(validateInput(EraseUserDataInput, { confirmation: "ERASE LOCAL DATA" }))
+      .toEqual({ confirmation: "ERASE LOCAL DATA" });
   });
 
   it("rejects malformed structured IPC inputs", () => {
@@ -44,6 +47,8 @@ describe("ipcSchemas", () => {
     expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow("IPC 参数校验失败");
     expect(() => validateInput(LaunchOfficeApplicationInput, "cmd")).toThrow("IPC 参数校验失败");
     expect(() => validateInput(ExportUserDataInput, "")).toThrow("IPC 参数校验失败");
+    expect(() => validateInput(EraseUserDataInput, { confirmation: "erase" }))
+      .toThrow("IPC 参数校验失败");
     expect(() => validateInput(SettingsGetInput, "arbitrary-secret-key")).toThrow("IPC 参数校验失败");
     expect(() => validateInput(AppLogInput, {
       level: "info",

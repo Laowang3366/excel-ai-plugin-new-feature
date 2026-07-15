@@ -30,6 +30,7 @@ import {
   closeStateRuntimeStore,
   setAgentLoopsGetter,
   initializeSettingsSecrets,
+  isDataMigrationInProgress,
 } from "./main-modules/settingsManager";
 import { createWindow, setIsQuitting } from "./main-modules/windowManager";
 import {
@@ -114,6 +115,7 @@ app
     logLocalDataMaintenance(await runLocalDataMaintenance(getActiveDataPath()));
     stopLocalDataMaintenance = startLocalDataMaintenance({
       getDataPath: getActiveDataPath,
+      isDataMaintenanceInProgress: isDataMigrationInProgress,
       onReport: logLocalDataMaintenance,
     });
     getSessionStoreInstance(); // 提前初始化 SessionStore

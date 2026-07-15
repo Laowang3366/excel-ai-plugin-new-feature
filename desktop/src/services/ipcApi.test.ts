@@ -52,6 +52,19 @@ describe("ipcApi wrapper", () => {
     expect(exportUserData).toHaveBeenCalledWith("C:\\exports\\wengge");
   });
 
+  it("forwards explicit local data erasure confirmation through the wrapper", async () => {
+    const eraseUserData = vi.fn().mockResolvedValue({
+      success: true,
+      erasedCategories: ["settings", "sessions"],
+      errors: [],
+    });
+    setElectronApi({ app: { eraseUserData } });
+
+    await expect(ipcApi.app.eraseUserData({ confirmation: "ERASE LOCAL DATA" }))
+      .resolves.toMatchObject({ success: true });
+    expect(eraseUserData).toHaveBeenCalledWith({ confirmation: "ERASE LOCAL DATA" });
+  });
+
   it("forwards Excel readRange expand mode through the wrapper", async () => {
     const readRange = vi.fn().mockResolvedValue({
       values: [[1], [2]],

@@ -3,7 +3,11 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { assertFileWithinIpcTransferLimit, listAuthorizedOfficeFiles } from "./ipcFileHandlers";
+import {
+  assertFileWithinIpcTransferLimit,
+  listAuthorizedOfficeFiles,
+  writeManagedTempFile,
+} from "./ipcFileHandlers";
 import { createPathAuthorizer } from "./ipcPathSecurity";
 
 const tempDirs: string[] = [];
@@ -42,5 +46,24 @@ describe("ipcFileHandlers", () => {
     await fs.promises.writeFile(filePath, "12345");
 
     await expect(assertFileWithinIpcTransferLimit(filePath, 4)).rejects.toThrow("文件过大");
+  });
+
+  it("does not recreate the managed temp directory during data maintenance", async () => {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "ipc-temp-maintenance-"));
+    tempDirs.push(dir);
+    const authorizer = createPathAuthorizer({
+      getDataPath: () => dir,
+      getPinnedFolders: () => [],
+      getExtraRoots: () => [],
+    });
+
+    const result = await writeManagedTempFile({ data: "ZGF0YQ==" }, {
+      getDataPath: () => dir,
+      pathAuthorizer: authorizer,
+      isDataMaintenanceInProgress: () => true,
+    });
+
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("正在维护") });
+    expect(fs.existsSync(path.join(dir, "temp"))).toBe(false);
   });
 });

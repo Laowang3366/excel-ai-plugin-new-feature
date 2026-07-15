@@ -8,6 +8,7 @@ import { createLogger } from "../shared/logger";
 import { getProviderApiKey } from "./settingsManager";
 import { SETTINGS_SECRET_MASK } from "./settingsSecrets";
 import { secureFetch } from "../shared/outboundUrlPolicy";
+import { guardDataOperation } from "./dataMaintenance";
 
 const logger = createLogger("IPC");
 
@@ -19,8 +20,8 @@ function resolveApiKey(apiKey: string, providerId?: string): string {
   return storedApiKey;
 }
 
-export function registerAiIpcHandlers(): void {
-  ipcMain.handle("ai:listModels", async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, providerId?: unknown) => {
+export function registerAiIpcHandlers(isDataMaintenanceInProgress?: () => boolean): void {
+  ipcMain.handle("ai:listModels", guardDataOperation(isDataMaintenanceInProgress, async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, providerId?: unknown) => {
     const validated = validateInput(AiListModelsInput, { baseUrl, apiKey, apiFormat, providerId });
     try {
       const resolvedApiKey = resolveApiKey(validated.apiKey, validated.providerId);
@@ -58,9 +59,9 @@ export function registerAiIpcHandlers(): void {
       logger.error("[ai:listModels] Error:", err?.message || err);
       return [];
     }
-  });
+  }));
 
-  ipcMain.handle("ai:testConnection", async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, model: unknown, providerId?: unknown) => {
+  ipcMain.handle("ai:testConnection", guardDataOperation(isDataMaintenanceInProgress, async (_event, baseUrl: unknown, apiKey: unknown, apiFormat: unknown, model: unknown, providerId?: unknown) => {
     const validated = validateInput(AiTestConnectionInput, { baseUrl, apiKey, apiFormat, model, providerId });
     const startTime = Date.now();
     try {
@@ -118,5 +119,5 @@ export function registerAiIpcHandlers(): void {
       const latency = Date.now() - startTime;
       return { success: false, error: err?.message || "连接失败", latency };
     }
-  });
+  }));
 }

@@ -61,6 +61,13 @@ export const ipcApi: IIpcApi = {
       if (!raw) return { success: false, error: "IPC not available" };
       return raw.app.exportUserData(targetPath);
     },
+    eraseUserData: async (input) => {
+      const raw = getRaw();
+      if (!raw) {
+        return { success: false, erasedCategories: [], errors: [], error: "IPC not available" };
+      }
+      return raw.app.eraseUserData(input);
+    },
     openPath: async (targetPath) => {
       const raw = getRaw();
       if (!raw) return "";

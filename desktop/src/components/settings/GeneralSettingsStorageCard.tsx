@@ -1,4 +1,5 @@
 import React from "react";
+import { USER_DATA_ERASE_CONFIRMATION } from "../../../electron/shared/userDataEraseContract";
 import { Copy, Database, FolderOpen } from "../common/IconMap";
 import type { GeneralSettingsLanguage } from "./generalSettingsText";
 import { GENERAL_TEXT } from "./generalSettingsText";
@@ -11,10 +12,15 @@ interface GeneralSettingsStorageCardProps {
   isMigrating: boolean;
   isExporting: boolean;
   exportMessage: string;
+  eraseConfirmation: string;
+  isErasing: boolean;
+  eraseMessage: string;
   onOpenDataPath: () => void;
   onCopyDataPath: () => void;
   onChangeDataPath: () => void;
   onExportUserData: () => void;
+  onEraseConfirmationChange: (value: string) => void;
+  onEraseUserData: () => void;
 }
 
 export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProps> = ({
@@ -25,10 +31,15 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
   isMigrating,
   isExporting,
   exportMessage,
+  eraseConfirmation,
+  isErasing,
+  eraseMessage,
   onOpenDataPath,
   onCopyDataPath,
   onChangeDataPath,
   onExportUserData,
+  onEraseConfirmationChange,
+  onEraseUserData,
 }) => {
   const text = GENERAL_TEXT[language];
 
@@ -71,7 +82,7 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
           <button
             className="settings-action-btn primary"
             onClick={onChangeDataPath}
-            disabled={isMigrating}
+            disabled={isMigrating || isExporting || isErasing}
             title={text.changeTitle}
           >
             {isMigrating ? text.migrating : text.change}
@@ -85,12 +96,38 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
         <button
           className="settings-action-btn"
           onClick={onExportUserData}
-          disabled={isMigrating || isExporting}
+          disabled={isMigrating || isExporting || isErasing}
           title={text.exportTitle}
         >
           {isExporting ? text.exporting : text.exportData}
         </button>
         <span className="form-hint">{exportMessage || text.exportHint}</span>
+      </div>
+
+      <div className="form-group">
+        <label>{text.eraseData}</label>
+        <input
+          className="form-input"
+          value={eraseConfirmation}
+          onChange={(event) => onEraseConfirmationChange(event.target.value)}
+          placeholder={text.eraseConfirmationPlaceholder}
+          disabled={isMigrating || isExporting || isErasing}
+          autoComplete="off"
+        />
+        <button
+          className="settings-action-btn danger"
+          onClick={onEraseUserData}
+          disabled={
+            isMigrating
+            || isExporting
+            || isErasing
+            || eraseConfirmation !== USER_DATA_ERASE_CONFIRMATION
+          }
+          title={text.eraseTitle}
+        >
+          {isErasing ? text.erasing : text.eraseData}
+        </button>
+        <span className="form-hint">{eraseMessage || text.eraseHint}</span>
       </div>
     </div>
   );

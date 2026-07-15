@@ -54,7 +54,11 @@ describe("repository governance baseline", () => {
     expect(dataHandling).toContain("删除任一文件失败时不继续删除数据库投影");
     expect(dataHandling).toContain("本地数据隐私导出");
     expect(dataHandling).toContain("API Key、OCR Token 和自定义请求头秘密被省略或掩码");
-    expect(dataHandling).toContain("全局擦除");
+    expect(dataHandling).toContain("ERASE LOCAL DATA");
+    expect(dataHandling).toContain("只按固定白名单删除");
+    expect(dataHandling).toContain("当前数据根路径会保留");
+    expect(dataHandling).toContain("旧迁移目录");
+    expect(dataHandling).toContain("可审计删除证明");
     expect(dataHandling).toContain("默认保留 90 天");
   });
 });
