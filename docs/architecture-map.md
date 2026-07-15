@@ -590,7 +590,7 @@ flowchart TB
 | `desktop/dotnet/Wengge.OfficeWorker/*` | Excel/Word/PPT/WPS COM 与 Open XML 具体能力 | Electron officeWorker 客户端 | COM、DocumentFormat.OpenXml、STA 调度 |
 | `desktop/electron/agent/knowledge/*` | RAG 文档解析、切块、embedding、检索、写入维护 | runtime、knowledge IPC、knowledge tools | SQLite、AI embedding |
 | `desktop/electron/agent/memory/*` | 会话、运行态、长期记忆、压缩、线程图 | AgentLoop、thread IPC、memory tools | SQLite、JSONL |
-| `desktop/electron/agent/shared/*` | Agent 共享类型、消息转换、数值限制 | core/providers/tools | 轻量公共能力 |
+| `desktop/electron/agent/shared/*` | Agent 共享类型门面、压缩类型、消息转换、数值限制；工具执行器契约在 `tools/contracts/toolExecutor.ts` 并由 `shared/types.ts` 再导出 | core/providers/tools | 轻量公共能力 |
 
 ## 13. 维护注意事项
 

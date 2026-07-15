@@ -166,7 +166,7 @@
     "desktop/electron/agent/runtime/knowledgeRuntime.ts": "9d829c99772cbab41e6a91ed157afefdc3ffa9cf3e6186bb6689f2f801496d19",
     "desktop/electron/agent/shared/messageBuilder.test.ts": "fae92553b3b134f1af96b2462b92fd81506aa2bf58381fa78044338826f8da34",
     "desktop/electron/agent/shared/messageBuilder.ts": "b001b045e286ba1968b5c674a68a0a44123f2aa3635c575cbd87d0bb6f035c9c",
-    "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
+
     "desktop/electron/agent/shared/xmlEntities.test.ts": "989ccd593944c45ddf644abec42bab0a5e1deff7a81815163960872a78a94647",
     "desktop/electron/agent/shared/xmlEntities.ts": "524d79c37b0e279481e71aa7a22b8bfa80432a5cfc71ecc2c3284336b2de849b",
     "desktop/electron/agent/tools/contracts/excel.ts": "6e1dc5d37080c3ab460b034647f3b603f34b0d59d0911a8ef4ceb15317d7e89f",
@@ -487,7 +487,6 @@
     "product-site/test/server.test.mjs": "c6e1f043c51d61dfa44689ba6289342b3a5adc71ac69ad01c2528e9e5bae96a0"
   },
   "oversizedSources": {
-    "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",
     "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c"

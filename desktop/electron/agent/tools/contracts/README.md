@@ -6,6 +6,7 @@
 
 - `excel.ts`: Excel/WPS 工作簿、连接状态、内部 VBA/JSA 宏和 UI 控件桥接契约。
 - `office.ts`: Word、PowerPoint、Office 脚本桥接契约，以及统一 Office file/action bridge 契约。
+- `toolExecutor.ts`: 通用工具定义、风险等级与执行器契约；`shared/types.ts` 再导出以保持既有导入路径。
 
 关联模块：
 

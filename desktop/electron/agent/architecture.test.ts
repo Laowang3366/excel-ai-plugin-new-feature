@@ -82,7 +82,9 @@ describe("agent folder architecture", () => {
       "prompts/templates/runtime/folder.zh-CN.md",
       "attachments/imageAttachmentResolver.ts",
       "shared/types.ts",
+      "shared/compactionTypes.ts",
       "shared/messageBuilder.ts",
+      "tools/contracts/toolExecutor.ts",
     ].forEach(expectAgentPath);
   });
 
@@ -157,6 +159,21 @@ describe("agent folder architecture", () => {
 
     expect(ipcHandlers).not.toContain("tools/implementations/excel");
     expect(ipcHandlers).not.toContain("new ExcelComBridge");
+  });
+
+  it("keeps shared compaction and tool contract modules free of facade reverse imports", () => {
+    const compaction = readFileSync(path.join(agentRoot, "shared/compactionTypes.ts"), "utf8");
+    const toolExecutor = readFileSync(
+      path.join(agentRoot, "tools/contracts/toolExecutor.ts"),
+      "utf8",
+    );
+    const facade = readFileSync(path.join(agentRoot, "shared/types.ts"), "utf8");
+
+    expect(compaction).not.toContain('from "./types"');
+    expect(toolExecutor).not.toContain('from "../../shared/types"');
+    expect(toolExecutor).not.toContain('from "../shared/types"');
+    expect(facade).toContain('from "./compactionTypes"');
+    expect(facade).toContain('from "../tools/contracts/toolExecutor"');
   });
 
   it("keeps workflow record store free of orchestrator type imports", () => {
