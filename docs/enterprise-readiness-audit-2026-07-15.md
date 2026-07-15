@@ -41,7 +41,7 @@
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换、systemd timer 与故障测试 | 生产负责人确认 RPO/RTO并完成恢复演练；异机副本、Office TTL/配额和全链路告警 |
 | L-01 | 未完成 | 已记录格式和大文件基线 | 分批格式治理与存量超限文件拆分 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
-| L-03 | 未完成 | Vite 构建持续报告主包体积 | 路由/组件懒加载与 bundle budget |
+| L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；首屏入口 445.02 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
 
 ## 1. 执行摘要
 
@@ -99,8 +99,8 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 166 个测试文件、936 项测试全部通过 |
-| Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 566.92 KB，超过 500 KB 建议值 |
+| Desktop Vitest | 通过 | 整改后 167 个测试文件、940 项测试全部通过 |
+| Desktop Vite build | 通过 | Renderer 首屏入口 445.02 KB，9 个异步 chunk；480 KiB entry budget 通过 |
 | Desktop `format:check` | **失败** | 限定源码检查仍约有 482 个格式不匹配文件 |
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
@@ -617,7 +617,11 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### L-03 Renderer 主包偏大
 
+> 整改完成：`SettingsPage` 整体以及 Office 自动化、公式、代码、OCR、报告和简单任务面板改为 `React.lazy` 按需加载；首屏入口由 566.92 KB 降至 445.02 KB，设置页形成 73.24 KB 独立块，其余功能形成更小异步块。热补丁健康确认从“应用壳出现”调整为当前首屏路由真实挂载后确认，避免设置页异步块尚未加载就提前 ACK。新增 bundle budget 脚本与边界测试，限制首屏 480 KiB、任一 chunk 500 KiB，并要求至少两个异步块；`electron:build` 复用同一 build 门禁。
+
 生产构建主 Renderer chunk 约 566.92 KB，超过 Vite 500 KB 建议值。建议对设置、Office 自动化、知识库和统计面板做路由/组件级 lazy loading，并建立 bundle budget。
+
+**验收状态**：代码拆分、自动预算和生产构建已完成，Vite 大 chunk 告警消失；L-03 代码层关闭，仍需打包应用冷启动和低速磁盘体验回归。
 
 ## 8. 已验证的正向控制
 
@@ -686,6 +690,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 基线；当前自动化门禁为 166 个 Vitest 文件、936 项测试和 97 项 .NET 测试全部通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 基线；当前自动化门禁为 167 个 Vitest 文件、940 项测试和 97 项 .NET 测试全部通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

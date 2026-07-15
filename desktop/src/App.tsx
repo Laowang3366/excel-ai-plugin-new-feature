@@ -31,7 +31,7 @@ import {
 } from "./store/settingsStore";
 import { Sidebar } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
-import { SettingsPage, type SettingsSection } from "./components/SettingsPage";
+import type { SettingsSection } from "./components/SettingsPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { Eye, Maximize2, Minimize2, PanelLeft, Pin } from "./components/common/IconMap";
 import { logWarn } from "./utils/rendererLogger";
@@ -44,11 +44,32 @@ import type { WindowDisplayMode } from "./electronApi";
 /** 主内容区可显示的页面 */
 export type AppPage = "chat" | "settings";
 
+const SettingsPage = React.lazy(() =>
+  import("./components/SettingsPage").then((module) => ({ default: module.SettingsPage })),
+);
+
 function requestLayoutReflow(): void {
   void document.documentElement.offsetWidth;
   window.requestAnimationFrame(() => {
     void document.documentElement.offsetWidth;
   });
+}
+
+function HotPatchHealthAck() {
+  useEffect(() => {
+    let canceled = false;
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (canceled || document.querySelector(".error-boundary")) return;
+        void ipcApi.update.ackHotPatchHealth();
+      });
+    });
+    return () => {
+      canceled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+  return null;
 }
 
 export const App: React.FC = () => {
@@ -86,22 +107,6 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    let canceled = false;
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        if (canceled || document.querySelector(".error-boundary")) return;
-        if (!document.querySelector(".app-shell")) return;
-        void ipcApi.update.ackHotPatchHealth();
-      });
-    });
-    return () => {
-      canceled = true;
-      window.cancelAnimationFrame(frame);
-    };
-  }, [isLoading]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -301,11 +306,21 @@ export const App: React.FC = () => {
         <div className={`app-shell ${displayMode}-mode`}>
           {renderTitlebar(true, settingsNavCollapsed, () => setSettingsSidebarCollapsed((collapsed) => !collapsed))}
           <div className="app-view">
-            <SettingsPage
-              onBack={() => setCurrentPage("chat")}
-              initialSection={settingsSection}
-              sidebarCollapsed={settingsNavCollapsed}
-            />
+            <React.Suspense
+              fallback={(
+                <div className="app-loading">
+                  <div className="spinner" />
+                  <p>{text.app.loading}</p>
+                </div>
+              )}
+            >
+              <SettingsPage
+                onBack={() => setCurrentPage("chat")}
+                initialSection={settingsSection}
+                sidebarCollapsed={settingsNavCollapsed}
+              />
+              <HotPatchHealthAck />
+            </React.Suspense>
           </div>
         </div>
       </ErrorBoundary>
@@ -343,6 +358,7 @@ export const App: React.FC = () => {
             />
           </main>
         </div>
+        <HotPatchHealthAck />
       </div>
     </ErrorBoundary>
   );

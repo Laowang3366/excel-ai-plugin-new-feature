@@ -23,12 +23,7 @@ import { ChatFolderBadge } from "./chat/ChatFolderBadge";
 import { OfficeLauncher } from "./chat/OfficeLauncher";
 import { FeatureSidebarPanel } from "./common/FeatureSidebarPanel";
 import { ToolConfirmDialog } from "./chat/ToolConfirmDialog";
-import { FormulaTaskComposerPanel } from "./task/FormulaTaskComposerPanel";
-import { CodeTaskComposerPanel } from "./task/CodeTaskComposerPanel";
-import { OCRTaskComposerPanel } from "./task/OCRTaskComposerPanel";
-import { ReportTaskComposerPanel } from "./task/ReportTaskComposerPanel";
-import { OfficeAutomationPanel } from "./office/OfficeAutomationPanel";
-import { SimpleTaskComposerPanel, type SimpleTaskIntent } from "./task/SimpleTaskComposerPanel";
+import type { SimpleTaskIntent } from "./task/SimpleTaskComposerPanel";
 import { getChatTitleSummary, MessageBubbleIcon } from "../utils/chatHelpers";
 import { useComposer } from "../hooks/useComposer";
 import { useTaskDrafts } from "../hooks/useTaskDrafts";
@@ -44,6 +39,37 @@ import {
 } from "../utils/featureSidebarState";
 import { Maximize2, Minimize2, PanelRight } from "./common/IconMap";
 import type { SettingsSection } from "./SettingsPage";
+
+const FormulaTaskComposerPanel = React.lazy(() =>
+  import("./task/FormulaTaskComposerPanel").then((module) => ({
+    default: module.FormulaTaskComposerPanel,
+  })),
+);
+const CodeTaskComposerPanel = React.lazy(() =>
+  import("./task/CodeTaskComposerPanel").then((module) => ({
+    default: module.CodeTaskComposerPanel,
+  })),
+);
+const OCRTaskComposerPanel = React.lazy(() =>
+  import("./task/OCRTaskComposerPanel").then((module) => ({
+    default: module.OCRTaskComposerPanel,
+  })),
+);
+const ReportTaskComposerPanel = React.lazy(() =>
+  import("./task/ReportTaskComposerPanel").then((module) => ({
+    default: module.ReportTaskComposerPanel,
+  })),
+);
+const SimpleTaskComposerPanel = React.lazy(() =>
+  import("./task/SimpleTaskComposerPanel").then((module) => ({
+    default: module.SimpleTaskComposerPanel,
+  })),
+);
+const OfficeAutomationPanel = React.lazy(() =>
+  import("./office/OfficeAutomationPanel").then((module) => ({
+    default: module.OfficeAutomationPanel,
+  })),
+);
 
 interface ChatPageProps {
   displayMode: WindowDisplayMode;
@@ -281,59 +307,67 @@ export const ChatPage: React.FC<ChatPageProps> = ({
         onIntentClick={selectFeature}
         onClose={closeFeatureSidebarManually}
       >
-        {activeIntent === "formula" && (
-          <FormulaTaskComposerPanel
-            key={`${composerDraftKey}:formula`}
-            embedded
-            draft={taskDrafts.formula}
-            onDraftChange={updateFormulaDraft}
-            onSubmit={handleFormulaTaskSubmit}
-            onClose={closeFeatureSidebarManually}
-          />
-        )}
-        {activeIntent === "code" && (
-          <CodeTaskComposerPanel
-            key={`${composerDraftKey}:code`}
-            embedded
-            draft={taskDrafts.code}
-            onDraftChange={updateCodeDraft}
-            onSubmit={handleTaskSubmit}
-            onClose={closeFeatureSidebarManually}
-          />
-        )}
-        {activeIntent === "ocr" && (
-          <OCRTaskComposerPanel
-            key={`${composerDraftKey}:ocr`}
-            embedded
-            draft={taskDrafts.ocr}
-            onDraftChange={updateOCRDraft}
-            onClose={closeFeatureSidebarManually}
-          />
-        )}
-        {activeIntent === "report" && (
-          <ReportTaskComposerPanel
-            key={`${composerDraftKey}:report`}
-            embedded
-            draft={taskDrafts.report}
-            onDraftChange={updateReportDraft}
-            onSubmit={handleTaskSubmit}
-            onClose={closeFeatureSidebarManually}
-          />
-        )}
-        {(activeIntent === "clean" || activeIntent === "chart") && (
-          <SimpleTaskComposerPanel
-            key={`${composerDraftKey}:${activeIntent}`}
-            intent={activeIntent}
-            range={taskDrafts[activeIntent]?.range ?? ""}
-            task={taskDrafts[activeIntent]?.task ?? ""}
-            text={text.chat}
-            onRangeChange={(range) => updateSimpleRange(activeIntent, range)}
-            onTaskChange={(task) => updateSimpleTask(activeIntent, task)}
-            onPickRange={handleSimplePickRange}
-            onSubmit={handleTaskSubmit}
-          />
-        )}
-        {activeIntent === "office" && <OfficeAutomationPanel />}
+        <React.Suspense
+          fallback={(
+            <div className="feature-sidebar-loading" role="status">
+              {language === "zh-CN" ? "正在加载功能面板..." : "Loading feature panel..."}
+            </div>
+          )}
+        >
+          {activeIntent === "formula" && (
+            <FormulaTaskComposerPanel
+              key={`${composerDraftKey}:formula`}
+              embedded
+              draft={taskDrafts.formula}
+              onDraftChange={updateFormulaDraft}
+              onSubmit={handleFormulaTaskSubmit}
+              onClose={closeFeatureSidebarManually}
+            />
+          )}
+          {activeIntent === "code" && (
+            <CodeTaskComposerPanel
+              key={`${composerDraftKey}:code`}
+              embedded
+              draft={taskDrafts.code}
+              onDraftChange={updateCodeDraft}
+              onSubmit={handleTaskSubmit}
+              onClose={closeFeatureSidebarManually}
+            />
+          )}
+          {activeIntent === "ocr" && (
+            <OCRTaskComposerPanel
+              key={`${composerDraftKey}:ocr`}
+              embedded
+              draft={taskDrafts.ocr}
+              onDraftChange={updateOCRDraft}
+              onClose={closeFeatureSidebarManually}
+            />
+          )}
+          {activeIntent === "report" && (
+            <ReportTaskComposerPanel
+              key={`${composerDraftKey}:report`}
+              embedded
+              draft={taskDrafts.report}
+              onDraftChange={updateReportDraft}
+              onSubmit={handleTaskSubmit}
+              onClose={closeFeatureSidebarManually}
+            />
+          )}
+          {(activeIntent === "clean" || activeIntent === "chart") && (
+            <SimpleTaskComposerPanel
+              key={`${composerDraftKey}:${activeIntent}`}
+              intent={activeIntent}
+              range={taskDrafts[activeIntent]?.range ?? ""}
+              task={taskDrafts[activeIntent]?.task ?? ""}
+              text={text.chat}
+              onRangeChange={(range) => updateSimpleRange(activeIntent, range)}
+              onTaskChange={(task) => updateSimpleTask(activeIntent, task)}
+              onPickRange={handleSimplePickRange}
+              onSubmit={handleTaskSubmit}
+            />
+          )}
+          {activeIntent === "office" && <OfficeAutomationPanel />}
+        </React.Suspense>
       </FeatureSidebarPanel>
     </div>
   );

@@ -97,6 +97,7 @@ flowchart TB
 核心边界：
 
 - `desktop/src` 只通过 `services/ipcApi.ts` 访问主进程，避免组件直接散落调用 `window.electronAPI`。
+- Renderer 首屏只同步加载应用壳、聊天主链路和侧栏；`SettingsPage`、Office 自动化及任务功能面板使用 `React.lazy` 按需加载。`npm run build` 会执行 `scripts/check-renderer-bundle-budget.cjs`，限制首屏入口为 480 KiB、任一 chunk 为 500 KiB，并要求至少两个异步 chunk。
 - `desktop/electron/preload.ts` 是唯一暴露到 Renderer 的隔离桥。
 - `main-modules/ipcHandlers.ts` 负责通用 IPC、Office 当前窗口 IPC、设置、文件、OCR 子 handler 汇总。
 - `agent/interaction/ipcAgentHandlers.ts` 负责 Agent、Thread、Knowledge、Stats、工具审批相关 IPC。
@@ -590,3 +591,4 @@ flowchart TB
 - 新增知识库解析格式时，入口应在 `knowledge/documentParser.ts` 或独立 parser，再接 `KnowledgeIndexer -> textChunker -> embeddingService -> sqliteStore`；模型可修改能力走 `KnowledgeWriter`。
 - 修改 AI provider、reasoning、context 逻辑时，需要同步 `providers/*`、`settingsProviderState.ts`、`ReasoningModeSelect.tsx` 和 `buildStreamParams.ts`。
 - 修改流式渲染时，要同时考虑主进程 `eventForwarder.ts` 的 32ms 合并和前端 `chatStreamBuffer.ts` 的 50ms 合并，避免工具事件、思考正文和最终回答时间线错位。
+- 新增非首屏 Renderer 功能时优先保持动态 import 边界；不要通过调高 Vite 告警阈值绕过 bundle budget。`electron:build` 必须复用 `npm run build`，确保安装包与 CI 使用同一体积门禁。

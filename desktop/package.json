@@ -8,9 +8,9 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/check-renderer-bundle-budget.cjs",
     "preview": "vite preview",
-    "electron:build": "npm run office:publish && node scripts/clean-build-output.cjs && vite build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
+    "electron:build": "npm run office:publish && node scripts/clean-build-output.cjs && npm run build && node scripts/electron-builder-with-mirror.cjs --win nsis --x64 --publish never",
     "office:build": "node scripts/run-dotnet.cjs build dotnet/Wengge.OfficeAutomation.sln --configuration Release",
     "office:test": "node scripts/run-dotnet.cjs test dotnet/Wengge.OfficeAutomation.sln --configuration Release",
     "office:audit": "node scripts/check-nuget-vulnerabilities.cjs",
