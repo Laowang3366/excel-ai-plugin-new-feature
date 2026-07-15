@@ -382,7 +382,8 @@ main (受保护)
 | 工具 | 当前状态 | 审查口径 |
 |------|----------|----------|
 | ESLint | 已配置并进入桌面 CI | 任何 error 阻断 |
-| Prettier | 已配置，`format:check` 未进入 CI | 不得把未执行的格式检查描述为发布门禁 |
+| Prettier | 全量 `format:check` 仍有存量债务；增量哈希棘轮已进入 CI | 新增或修改后仍不合规的文件阻断，存量未触碰文件暂不阻断 |
+| 文件规模 | 生产文件行数上限的存量哈希棘轮已进入 CI | 新增或修改后仍超限的文件阻断 |
 | TypeScript | Renderer 与 Electron 主进程均进入 CI | 任何类型错误阻断 |
 | Vitest | 已配置并进入桌面 CI | 数量以本次运行输出为准 |
 | .NET build/test/audit | 固定 SDK，进入桌面 CI | 漏洞、构建或测试失败阻断 |
@@ -667,6 +668,7 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm run office:audit
       - run: npm run lint
+      - run: npm run governance:check
       - run: npm run typecheck
       - run: npm test
       - run: npm run office:test
@@ -694,13 +696,14 @@ jobs:
 | npm audit | desktop + product-site | High 及以上漏洞 |
 | NuGet audit | .NET Worker 与测试项目 | 已知漏洞包 |
 | ESLint | desktop | 任何 error |
+| 源码治理棘轮 | desktop + product-site 生产源码 | 新增或修改后仍不符合 Prettier/行数上限 |
 | TypeScript | Renderer + Electron | 任何类型错误 |
 | Vitest | desktop | 任何测试失败 |
 | .NET test | Worker | 构建或测试失败 |
 | Vite build | desktop | 生产构建失败 |
 | Node test | product-site | 任何测试失败 |
 
-`format:check`、coverage、真实 Office/WPS 冒烟和 NSIS 打包不是当前 `ci.yml` 门禁；Release 工作流和本地发布验收有各自的附加步骤，不得混写。
+全量 `format:check`、coverage、真实 Office/WPS 冒烟和 NSIS 打包不是当前 `ci.yml` 门禁；CI 中的 `governance:check` 是增量棘轮，只放行哈希未变化的存量债务，不等同于全仓 Prettier 已通过。Release 工作流和本地发布验收有各自的附加步骤，不得混写。
 
 ### 5.3 门禁与人工审查的分工
 

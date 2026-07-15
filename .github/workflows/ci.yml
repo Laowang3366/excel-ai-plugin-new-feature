@@ -28,6 +28,7 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm run office:audit
       - run: npm run lint
+      - run: npm run governance:check
       - run: npm run typecheck
       - run: npm test
       - run: npm run office:test

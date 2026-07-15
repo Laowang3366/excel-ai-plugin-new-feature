@@ -56,6 +56,18 @@ describe("current repository documentation", () => {
     expect(reviewStandards).toContain("Husky + lint-staged 候选（尚未启用）");
   });
 
+  it("keeps the incremental source-governance ratchet in desktop CI", () => {
+    const workflow = readRepositoryFile(".github/workflows/ci.yml");
+    const desktopPackage = JSON.parse(readRepositoryFile("desktop/package.json"));
+    const developmentStandards = readRepositoryFile("docs/development-standards.md");
+
+    expect(desktopPackage.scripts["governance:check"]).toBe(
+      "node scripts/check-source-governance.cjs",
+    );
+    expect(workflow).toContain("npm run governance:check");
+    expect(developmentStandards).toContain("普通功能 PR 禁止更新基线哈希");
+  });
+
   it("classifies changing activity logs as historical documentation", () => {
     const documentationIndex = readRepositoryFile("docs/README.md");
     expect(documentationIndex).toContain("`dev-log.md`");

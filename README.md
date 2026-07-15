@@ -33,6 +33,7 @@ npm run dev
 | --- | --- |
 | `npm run typecheck` | 检查渲染进程和 Electron 主进程类型 |
 | `npm run lint` | 执行 ESLint |
+| `npm run governance:check` | 阻止新增或修改后仍存在的格式漂移和超限生产文件 |
 | `npm test` | 执行桌面端单元测试 |
 | `npm run office:build` | 编译 .NET Office Worker |
 | `npm run office:test` | 执行 .NET Worker 测试 |

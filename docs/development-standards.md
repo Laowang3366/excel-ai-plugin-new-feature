@@ -69,6 +69,18 @@ import { collectStreamEvents } from "./streamCollector";
 
 不在规范中维护易失真的“当前超限文件”清单。评审时应按本节阈值扫描本次变更涉及的生产文件，并以实际行数为证据；存量超限项记录到审查报告或 Issue，拆分提交不得与无关功能修改混合。
 
+### 1.6 存量债务棘轮
+
+桌面 CI 执行 `npm run governance:check`。`scripts/source-governance-baseline.json` 只记录启用门禁时已经存在的 Prettier 漂移和超限生产文件的换行归一化 SHA-256，不是永久豁免清单：
+
+- 存量文件保持字节等价时允许继续存在，避免一次性全仓格式化掩盖语义变更；
+- 任一存量漂移文件被修改后必须完整通过 Prettier，不能把新的文件哈希写回基线规避整改；
+- 任一存量超限文件被修改后必须按职责拆到本节上限以内；新文件从首次提交起直接执行上限；
+- 文件删除、格式修复或拆分到上限以内时无需保留基线项，后续基线清理应独立提交；
+- 只有经过明确工程治理审查的全量重建才能使用 `node scripts/check-source-governance.cjs --write-baseline`，普通功能 PR 禁止更新基线哈希。
+
+哈希计算统一把 CRLF 转为 LF，保证 Windows 开发机与 GitHub Runner 得到同一结果。完整 `npm run format:check` 仍用于观察全量债务，不得与增量棘轮混为同一个完成状态。
+
 ---
 
 ## 二、Props 与接口精简
