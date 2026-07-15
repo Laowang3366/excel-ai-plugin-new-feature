@@ -40,6 +40,29 @@ function sanitizeSecret(value: unknown): string {
   return typeof value === "string" && value ? SETTINGS_SECRET_MASK : "";
 }
 
+function protectCompactionConfig(
+  incoming: unknown,
+  current: unknown,
+  cipher: SettingsSecretCipher
+): Record<string, unknown> {
+  const config = asRecord(incoming);
+  if (!Object.prototype.hasOwnProperty.call(config, "remoteCompactApiKey")) return config;
+  const currentConfig = asRecord(current);
+  const incomingApiKey = config.remoteCompactApiKey === SETTINGS_SECRET_MASK
+    ? currentConfig.remoteCompactApiKey
+    : config.remoteCompactApiKey;
+  return { ...config, remoteCompactApiKey: encryptSecret(incomingApiKey, cipher) };
+}
+
+function transformCompactionSecret(
+  value: unknown,
+  transform: (secret: unknown) => string
+): Record<string, unknown> {
+  const config = asRecord(value);
+  if (!Object.prototype.hasOwnProperty.call(config, "remoteCompactApiKey")) return config;
+  return { ...config, remoteCompactApiKey: transform(config.remoteCompactApiKey) };
+}
+
 function protectHeaders(
   incoming: unknown,
   current: unknown,
@@ -119,6 +142,15 @@ export function migrateSettingsSecrets(
     ...settings,
     aiProviders: providers,
     mineruApiToken: encryptSecret(settings.mineruApiToken, cipher),
+    ...(settings.compactionConfig !== undefined
+      ? {
+          compactionConfig: protectCompactionConfig(
+            settings.compactionConfig,
+            settings.compactionConfig,
+            cipher
+          ),
+        }
+      : {}),
     ...(settings.ocrMineruApiToken !== undefined
       ? { ocrMineruApiToken: encryptSecret(settings.ocrMineruApiToken, cipher) }
       : {}),
@@ -137,6 +169,9 @@ export function protectSettingValueForStorage(
   if (key === "mineruApiToken" || key === "ocrMineruApiToken") {
     const nextValue = incoming === SETTINGS_SECRET_MASK ? current : incoming;
     return encryptSecret(nextValue, cipher);
+  }
+  if (key === "compactionConfig") {
+    return protectCompactionConfig(incoming, current, cipher);
   }
   return incoming;
 }
@@ -159,6 +194,14 @@ export function sanitizeSettingsForRenderer(
       })
     ),
     mineruApiToken: sanitizeSecret(settings.mineruApiToken),
+    ...(settings.compactionConfig !== undefined
+      ? {
+          compactionConfig: transformCompactionSecret(
+            settings.compactionConfig,
+            sanitizeSecret
+          ),
+        }
+      : {}),
     ...(settings.ocrMineruApiToken !== undefined
       ? { ocrMineruApiToken: sanitizeSecret(settings.ocrMineruApiToken) }
       : {}),
@@ -184,6 +227,9 @@ export function decryptSettingValueForRuntime(
 ): unknown {
   if (key === "mineruApiToken" || key === "ocrMineruApiToken") {
     return decryptSecret(value, cipher);
+  }
+  if (key === "compactionConfig") {
+    return transformCompactionSecret(value, (secret) => decryptSecret(secret, cipher));
   }
   return value;
 }

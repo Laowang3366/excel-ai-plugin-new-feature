@@ -14,7 +14,7 @@
 |---|---|---|---|
 | C-01 | 已实现，待 Electron E2E | `trustedIpc.ts`、`windowNavigationPolicy.ts`、Markdown 外链拦截；远端 sender/子 frame/协议混淆负向测试 | 打包应用实机导航与系统浏览器联调 |
 | C-02 | 已关闭 | 审批缺失默认拒绝；危险/未知/删除/外传强制审批；线程+工具+operation+目标+TTL 授权；全工具元数据表驱动测试 | 无 |
-| C-03 | 代码整改完成，外部动作未完成 | `settingsSecrets.ts` 使用 `safeStorage`，Renderer 仅接收掩码，设置 key 白名单及迁移测试 | 轮换所有可能暴露的真实凭据；签名私钥移出开发机；核验 Windows ACL |
+| C-03 | 代码整改完成，外部动作未完成 | Provider、OCR、远程压缩凭据及自定义请求头由 `settingsSecrets.ts` 使用 `safeStorage` 保护，Renderer 仅接收掩码，设置 key 白名单及迁移测试 | 轮换所有可能暴露的真实凭据；签名私钥移出开发机；核验 Windows ACL |
 | H-01/H-02 | 已实现 | 路径授权改为 realpath/最近存在父目录解析；移除系统 Temp 信任；知识库索引、删除、重建均重新授权；junction 逃逸测试 | Windows 安装包内路径选择实机回归 |
 | H-03 | 已实现，待第三方联调 | `egressPolicy.ts` 统一默认关闭策略；OCR 本地优先；搜索/Embedding/发票模型抽取关闭时零请求；高置信凭据发送前阻断；返回目标服务与数据摘要 | 企业服务 allowlist 与真实 MinerU/搜索/Embedding 联调验收 |
 | H-04 | 已实现 | 工具结果以结构化不可信 JSON 回送；系统提示明确外部数据边界；`memory.write` 必须引用当前轮用户原文并记录哈希/线程/turn/citation；未确认旧记忆不注入 system prompt；提示注入负向测试 | 红队场景与多模型遵循性实测 |
@@ -175,6 +175,8 @@
 
 ### C-03 明文凭据、更新私钥与宽松 ACL 构成现实泄露面
 
+> 代码整改进展：设置 key 已改为白名单与按 key Schema 校验；Provider API Key、自定义请求头、OCR Token 和远程压缩 API Key 统一使用 Windows `safeStorage` 加密，启动时迁移旧明文值，Renderer 只接收掩码，掩码回写保留原密文，Agent 仅从主进程取得解密后的运行时配置。以下“证据”为整改前基线；真实凭据轮换、发布私钥迁出开发机和 Windows ACL 验收仍属于未完成外部动作。
+
 **证据**
 
 - `desktop/electron/main-modules/settingsManager.ts:32-77` 使用未配置 `encryptionKey` 的 `electron-store` 保存 Provider 配置和 MinerU Token。
@@ -195,7 +197,7 @@
 **解决方案**
 
 1. 立即盘点并轮换所有曾使用过的 API Key、MinerU Token、后台密码和签名密钥。
-2. Provider/OCR 凭据迁移到 Electron `safeStorage`、Windows Credential Manager 或企业密钥库；Renderer 只持掩码和 `secretRef`。
+2. Provider、OCR 与远程压缩凭据迁移到 Electron `safeStorage`、Windows Credential Manager 或企业密钥库；Renderer 只持掩码和 `secretRef`。
 3. 更新签名私钥只能存在于受限发布环境/HSM/受保护 CI Secret，不得留在开发工作区。
 4. 缩紧目录和文件 ACL；敏感文件只允许当前服务账户、Administrators 和 SYSTEM。
 5. 引入提交前与 CI secret scanning，并检查构建产物、日志、会话和崩溃报告。
@@ -694,6 +696,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 基线；当前自动化门禁为 167 个 Vitest 文件、940 项测试和 97 项 .NET 测试全部通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 基线；当前自动化门禁为 172 个 Vitest 文件、961 项测试和 97 项 .NET 测试全部通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

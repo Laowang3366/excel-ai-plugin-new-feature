@@ -9,7 +9,7 @@
 - 桌面端主要数据保存在用户选择的数据目录；新安装默认使用当前 Windows 用户的 `%LOCALAPPDATA%` 隔离目录。
 - “允许远程数据处理”默认关闭。关闭时，OCR 只走本地解析，联网搜索被拒绝，知识库降级为关键词索引和检索。
 - 模型对话仍会发送到用户配置的当前模型服务商；选择服务商、Base URL 和要发送的内容由用户或部署方负责。
-- API Key、MinerU Token 和自定义请求头在 Electron 主进程中通过 Windows `safeStorage` 加密存储，Renderer 只接收掩码。会话、知识库、日志和 Office 备份目前没有统一的应用层内容加密。
+- Provider API Key、远程压缩 API Key、MinerU Token 和自定义请求头在 Electron 主进程中通过 Windows `safeStorage` 加密存储，Renderer 只接收掩码。会话、知识库、日志和 Office 备份目前没有统一的应用层内容加密。
 - 高置信凭据会在 OCR、搜索、Embedding 和发票抽取的统一出站检查中被阻断，但该检测不是数据分类或 DLP 的完整替代品。
 
 ## 桌面端本地数据

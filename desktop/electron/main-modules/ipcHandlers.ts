@@ -279,7 +279,6 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("settings:set", async (_event, keyInput: unknown, valueInput: unknown) => {
     const [key, value] = validateInput(SettingsSetInput, [keyInput, valueInput]);
-    const store = getSettingsStore();
     const rendererValue = setSettingFromRenderer(key, value);
 
     if (key === "activeProvider" || key === "aiProviders") {
@@ -290,7 +289,8 @@ export function registerIpcHandlers(): void {
         agent.updateCompactionConfig(
           buildCompactionConfig({
             contextWindowSize,
-            savedCompaction: store.get("compactionConfig") as SavedCompactionConfig | undefined,
+            savedCompaction: getRuntimeSettingValue("compactionConfig") as
+              SavedCompactionConfig | undefined,
           }),
         );
       }
@@ -322,7 +322,8 @@ export function registerIpcHandlers(): void {
         agent.updateCompactionConfig(
           buildCompactionConfig({
             contextWindowSize,
-            savedCompaction: value as SavedCompactionConfig | undefined,
+            savedCompaction: getRuntimeSettingValue("compactionConfig") as
+              SavedCompactionConfig | undefined,
           }),
         );
       }
