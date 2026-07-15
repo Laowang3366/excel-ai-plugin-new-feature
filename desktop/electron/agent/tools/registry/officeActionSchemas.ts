@@ -1,5 +1,9 @@
 import { OFFICE_CAPABILITIES } from "../officeCore/capabilities";
 import { SAFE_ACTION_OPERATIONS } from "../officeCore/operationPolicy";
+import {
+  MODELED_OFFICE_PARAM_SCHEMAS,
+  type OfficeOperationParamSchema,
+} from "./officeOperationParamSchemas";
 
 type JsonSchema = Record<string, any>;
 
@@ -162,6 +166,15 @@ const ADVANCED_PARAM_SCHEMAS: Record<string, { schema: JsonSchema; required: boo
   },
 };
 
+const OPERATION_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
+  ...Object.entries(ADVANCED_PARAM_SCHEMAS).map(([operation, definition]) => ({
+    app: "excel" as const,
+    operation,
+    ...definition,
+  })),
+  ...MODELED_OFFICE_PARAM_SCHEMAS,
+];
+
 export function withOfficeOperationDiscriminator(
   schema: JsonSchema,
   operations: string[],
@@ -170,13 +183,13 @@ export function withOfficeOperationDiscriminator(
   delete baseSchema.oneOf;
   const properties = asSchema(baseSchema.properties);
   const required = Array.isArray(baseSchema.required) ? baseSchema.required : [];
-  const variants = operations.flatMap((operation) => {
-    const definition = ADVANCED_PARAM_SCHEMAS[operation];
-    if (!definition) return [];
-    return [operationVariant(baseSchema, properties, required, operation, definition)];
-  });
+  const variants = operations.flatMap((operation) =>
+    OPERATION_PARAM_SCHEMAS
+      .filter((definition) => definition.operation === operation)
+      .map((definition) => operationVariant(baseSchema, properties, required, definition)),
+  );
   const ordinaryOperations = operations.filter(
-    (operation) => ADVANCED_PARAM_SCHEMAS[operation] === undefined,
+    (operation) => !OPERATION_PARAM_SCHEMAS.some((definition) => definition.operation === operation),
   );
   if (ordinaryOperations.length > 0) {
     variants.push({
@@ -194,15 +207,16 @@ function operationVariant(
   schema: JsonSchema,
   properties: JsonSchema,
   required: unknown[],
-  operation: string,
-  definition: { schema: JsonSchema; required: boolean },
+  definition: OfficeOperationParamSchema,
 ): JsonSchema {
   return {
     ...schema,
     properties: {
       ...properties,
-      app: { ...asSchema(properties.app), const: "excel" },
-      operation: { ...asSchema(properties.operation), const: operation },
+      app: definition.app
+        ? { ...asSchema(properties.app), const: definition.app }
+        : asSchema(properties.app),
+      operation: { ...asSchema(properties.operation), const: definition.operation },
       params: definition.schema,
     },
     required: definition.required ? Array.from(new Set([...required, "params"])) : required,

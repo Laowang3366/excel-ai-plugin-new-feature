@@ -107,6 +107,39 @@ describe("tool schema runtime validation", () => {
     ).error).toContain("未声明参数");
   });
 
+  it("validates object key names, field counts, and schema-valued additional properties", () => {
+    const definition = normalizeToolDefinition({
+      name: "test.dictionary",
+      description: "test",
+      parameters: {
+        type: "object",
+        minProperties: 1,
+        maxProperties: 2,
+        propertyNames: {
+          type: "string",
+          pattern: "^[A-Za-z_][A-Za-z0-9_-]{0,15}$",
+        },
+        additionalProperties: { type: "integer", minimum: 0 },
+      },
+      riskLevel: "safe",
+      requiresApproval: false,
+    });
+
+    expect(parseAndValidateToolArguments('{"alpha":1,"beta-2":0}', definition.parameters).error)
+      .toBeUndefined();
+    expect(parseAndValidateToolArguments("{}", definition.parameters).error).toContain(
+      "至少需要 1 个字段",
+    );
+    expect(parseAndValidateToolArguments('{"alpha":1,"beta":2,"gamma":3}', definition.parameters).error)
+      .toContain("最多允许 2 个字段");
+    expect(parseAndValidateToolArguments('{"bad.name":1}', definition.parameters).error).toContain(
+      "格式不符合要求",
+    );
+    expect(parseAndValidateToolArguments('{"alpha":"1"}', definition.parameters).error).toContain(
+      "应为安全整数",
+    );
+  });
+
   it.each(ALL_TOOL_DEFINITIONS)(
     "accepts a generated valid sample and rejects unknown fields for $name",
     (definition) => {
@@ -311,6 +344,10 @@ function expectStrictDeclaredObjects(schema: Schema): void {
       if (isRecord(property)) expectStrictDeclaredObjects(property);
     }
   }
+  if (isRecord(schema.additionalProperties)) {
+    expectStrictDeclaredObjects(schema.additionalProperties);
+  }
+  if (isRecord(schema.propertyNames)) expectStrictDeclaredObjects(schema.propertyNames);
   if (isRecord(schema.items)) expectStrictDeclaredObjects(schema.items);
   for (const keyword of ["allOf", "oneOf"] as const) {
     const schemas = Array.isArray(schema[keyword]) ? schema[keyword] : [];

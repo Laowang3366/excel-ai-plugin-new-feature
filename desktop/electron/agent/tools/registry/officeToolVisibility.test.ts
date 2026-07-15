@@ -89,23 +89,55 @@ describe("filterToolDefinitionsForTurn", () => {
     ).error).toContain("loadMode");
   });
 
-  it("keeps ordinary params compatible and applies strict schemas to workflow steps", () => {
+  it("uses app-specific strict params for modeled ordinary operations", () => {
     const ordinaryDefinitions = filterToolDefinitionsForTurn(
       ALL_TOOL_DEFINITIONS,
       { content: "给已有数据插入柱状图" },
     );
     const apply = ordinaryDefinitions.find((tool) => tool.name === "office.action.apply");
-    expect(parseAndValidateToolArguments(JSON.stringify({
+    const excelChart = {
       app: "excel",
       action: "insert",
       operation: "insertChart",
       filePath: "C:/book.xlsx",
       target: "range:Sheet1!A1:B10",
-      params: { chartType: "column" },
+      params: { chartType: "column", host: "wps" },
+    };
+    expect(parseAndValidateToolArguments(JSON.stringify(excelChart), apply?.parameters).error)
+      .toBeUndefined();
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      ...excelChart,
+      params: { chartType: "column", shellCommand: "whoami" },
+    }), apply?.parameters).error).toContain("shellCommand");
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      ...excelChart,
+      params: { chartType: "radar" },
+    }), apply?.parameters).error).toContain("chartType");
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      ...excelChart,
+      params: { chartType: "column", host: "powerpoint" },
+    }), apply?.parameters).error).toContain("host");
+
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      app: "presentation",
+      action: "insert",
+      operation: "insertChart",
+      filePath: "C:/deck.pptx",
+      target: "slide:2",
+      params: {
+        chartType: "pie",
+        host: "powerpoint",
+        left: 80,
+        top: 120,
+        width: 520,
+        height: 300,
+      },
     }), apply?.parameters).error).toBeUndefined();
     expect(getDiscriminatedOperations(ordinaryDefinitions, "office.action.apply"))
       .not.toEqual(expect.arrayContaining(ADVANCED_OPERATIONS));
+  });
 
+  it("applies operation-specific params and bounded variables to workflow steps", () => {
     const pivotDefinitions = filterToolDefinitionsForTurn(
       ALL_TOOL_DEFINITIONS,
       { content: "创建交互式数据透视表" },
@@ -123,6 +155,40 @@ describe("filterToolDefinitionsForTurn", () => {
         unexpectedField: true,
       },
     }] }), workflow?.parameters).error).toContain("unexpectedField");
+
+    const ordinaryDefinitions = filterToolDefinitionsForTurn(
+      ALL_TOOL_DEFINITIONS,
+      { content: "把 Word 文档标题改为一级标题并更新目录" },
+    );
+    const ordinaryWorkflow = ordinaryDefinitions.find((tool) => tool.name === "office.workflow.run");
+    const workflowArgs = {
+      variables: { heading_prefix: "第", customer: { name: "示例客户" } },
+      steps: [{
+        app: "word",
+        action: "style",
+        operation: "applyHeadingStyles",
+        filePath: "C:/report.docx",
+        params: { startsWith: "{{vars.heading_prefix}}", level: 1 },
+      }],
+    };
+    expect(parseAndValidateToolArguments(
+      JSON.stringify(workflowArgs),
+      ordinaryWorkflow?.parameters,
+    ).error).toBeUndefined();
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      ...workflowArgs,
+      steps: [{ ...workflowArgs.steps[0], params: { level: 1, unknown: true } }],
+    }), ordinaryWorkflow?.parameters).error).toContain("unknown");
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      ...workflowArgs,
+      variables: { "customer.name": "不可使用点号作为顶层键" },
+    }), ordinaryWorkflow?.parameters).error).toContain("格式不符合要求");
+    expect(parseAndValidateToolArguments(JSON.stringify({
+      ...workflowArgs,
+      variables: Object.fromEntries(
+        Array.from({ length: 129 }, (_, index) => [`key_${index}`, index]),
+      ),
+    }), ordinaryWorkflow?.parameters).error).toContain("最多允许 128 个字段");
   });
 });
 

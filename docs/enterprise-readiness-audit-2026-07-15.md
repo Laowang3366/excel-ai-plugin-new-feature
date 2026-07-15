@@ -27,7 +27,7 @@
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | Release 显式依赖可复用完整 CI；第三方 Actions 固定完整 SHA；Syft 版本固定并发布 SPDX SBOM；构建/发布权限隔离；两阶段 Authenticode 校验；产品站 release 目录只读；工作流静态防回归测试 | 配置受保护证书/HSM 与 Environment approval；隔离发布账户执行产品站 Ed25519 最终清单生成和端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
-| M-01 | 部分完成 | 模型与运行时共用严格 Schema；支持 `const/oneOf/allOf` 判别校验；Power Query、透视表、切片器及工作流步骤按 operation 严格限制参数、枚举和未知字段；审批前与执行前双重校验及 malformed 测试 | 继续为普通 Office operation、模板变量等开放扩展对象补齐判别 Schema |
+| M-01 | 部分完成 | 模型与运行时共用严格 Schema；支持 `const/oneOf/allOf`、正则、对象键数/键名及字典值校验；Power Query、透视表、切片器和一组常用 Excel/Word/PPT 文件级操作按 app + operation 严格限制参数；工作流变量限制顶层数量与安全键名；审批前与执行前双重校验及 malformed 测试 | 继续为尚未建模的 COM 深度 operation 和模板嵌套业务对象补齐判别 Schema |
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
 | M-03 | 部分完成 | 统一脱敏与最小化审计；FTS 移除重复 `item_json`；单会话删除覆盖 JSONL、冷归档、SQLite/FTS/工具日志；日志与 Office 备份/事务/工作流具备周期 TTL 和容量上限 | 会话/SQLite 应用层加密、密钥轮换、统一导出和全局擦除闭环 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
@@ -476,19 +476,19 @@
 
 ## 6. Medium — 发布前整改或正式风险接受
 
-### M-01 模型可见工具 Schema 已统一执行，开放扩展对象仍待细化
+### M-01 模型可见工具 Schema 已统一执行，复杂扩展对象仍待细化
 
-> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。校验器现支持标准 `const/oneOf/allOf`，`office.action.*` 与工作流步骤已对 Power Query、透视表和切片器建立 operation 判别分支：仅允许声明的参数、枚举和字段结构，未知参数在审批与 Worker 调用前拒绝；普通 operation 暂保留兼容分支。全量工具测试会为每个模型可见工具生成合法样例，并注入缺字段、错类型、错枚举和未知字段。剩余普通 Office `params`、模板 `variables` 等跨 operation 扩展对象仍受统一资源预算及业务策略校验，后续继续细化。
+> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。校验器现支持标准 `const/oneOf/allOf`、字符串正则、对象键数/键名和 schema 型 `additionalProperties`。`office.action.*` 与工作流步骤已按 app + operation 对 Power Query、透视表、切片器，以及基础检查/验证、快照、Excel 图表/条件格式/数据验证/表格样式、Word 标题/目录/表格/页眉页脚/图片、PPT 幻灯片/内容/主题/图表/表格/图片和布局操作建立严格分支；未知参数在审批与 Worker 调用前拒绝。模板变量最多 128 个顶层键，键名不得包含点号、花括号或原型污染保留形式，嵌套对象仍可通过 `{{vars.customer.name}}` 使用并受统一资源预算限制。全量工具测试会生成合法样例，并注入缺字段、错类型、错枚举和未知字段。尚未建模的 COM 深度 operation 暂保留兼容分支，模板嵌套值仍是开放 JSON，因此本项仍为部分完成。
 
-- `ToolDefinition.parameters` 主要用于告诉模型，不是执行信任边界。
-- `toolExecutor.ts` 只做 JSON parse；executor 多为零散的必填基础类型检查。
-- 部分 operation enum 和未知字段会继续下传。
+- 初始实现只把 `ToolDefinition.parameters` 用作模型提示，未形成执行信任边界。
+- 初始 `toolExecutor.ts` 只做 JSON parse，executor 依赖零散的必填基础类型检查。
+- 当前未建模的复杂 operation 仍可能让其 `params` 未知字段继续下传，需按 Worker 合同分批收紧。
 
 **整改**：由同一份严格 Zod/JSON Schema 同时生成模型描述并在审批前、执行前校验；`.strict()`、enum、深度、长度和数值边界统一实施。验收应对每个工具做 malformed/fuzz 测试。
 
 ### M-02 IPC 缺少统一资源预算
 
-> 整改进展：聊天正文 50,000 字、恢复上下文 200,000 字、附件和 OCR 文件各 20 个；Excel 直接写入最多 10,000 行、16,384 列且总计 100,000 个单元格，单元格文本不超过 32,767 字；Base64 与文件回读统一限制为 50MB，并分别在 `Buffer.from` 和 `readFile` 前拒绝。`settings:set` 已按 key 校验 Provider、固定文件夹、压缩配置、枚举、布尔值和数值范围；模板变量等开放 JSON 参数统一限制 16 层、100,000 节点、单字符串 1 MiB、数组 20,000 项、对象 512 字段和转义后 4 MiB 序列化体积。Agent turn、日志、文件传输、Excel 写入、OCR、模板运行和设置写入在可信 sender 校验后按 `processId + frameId` 使用令牌桶限流，且不限制任务执行时长。
+> 整改进展：聊天正文 50,000 字、恢复上下文 200,000 字、附件和 OCR 文件各 20 个；Excel 直接写入最多 10,000 行、16,384 列且总计 100,000 个单元格，单元格文本不超过 32,767 字；Base64 与文件回读统一限制为 50MB，并分别在 `Buffer.from` 和 `readFile` 前拒绝。`settings:set` 已按 key 校验 Provider、固定文件夹、压缩配置、枚举、布尔值和数值范围；模板变量顶层限制 128 个安全键，所有开放 JSON 参数统一限制 16 层、100,000 节点、单字符串 1 MiB、数组 20,000 项、单对象 512 字段和转义后 4 MiB 序列化体积。Agent turn、日志、文件传输、Excel 写入、OCR、模板运行和设置写入在可信 sender 校验后按 `processId + frameId` 使用令牌桶限流，且不限制任务执行时长。
 
 - 设置 key/value、矩阵、聊天 content、attachments、base64 和 OCR 文件数组缺少统一总量限制。
 - 文件 IPC 可直接 `Buffer.from(base64)` 后写盘，可能先分配大内存。

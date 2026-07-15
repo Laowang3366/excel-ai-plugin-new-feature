@@ -7,7 +7,10 @@
 import type { ToolDefinition } from "../../shared/types";
 import { APPLY_OPERATIONS, INSPECT_OPERATIONS, withOfficeOperationDiscriminator } from "./officeActionSchemas";
 import { OFFICE_RELIABILITY_TOOL_DEFINITIONS } from "./officeReliability";
-import { OFFICE_WORKFLOW_STEPS_SCHEMA } from "./officeWorkflowSchema";
+import {
+  OFFICE_WORKFLOW_STEPS_SCHEMA,
+  OFFICE_WORKFLOW_VARIABLES_SCHEMA,
+} from "./officeWorkflowSchema";
 
 const OFFICE_CONNECTION_STATUS_DEF: ToolDefinition = {
   name: "office.connection.status",
@@ -66,7 +69,7 @@ const OFFICE_WORKFLOW_RUN_DEF: ToolDefinition = {
         description: "有序步骤；每步结构与 office.action.apply 一致，需提供 app、action、operation、filePath，可选 target/outputPath/preferEngine/params",
       },
       templateId: { type: "string", description: "使用已保存模板时传模板 ID 或名称，此时可省略 steps" },
-      variables: { type: "object", description: "模板变量；步骤字符串中的 {{vars.name}} 会在事务快照前展开" },
+      variables: OFFICE_WORKFLOW_VARIABLES_SCHEMA,
       workflowId: { type: "string", description: "继续已有流水线时传原 workflowId" },
       resume: { type: "boolean", description: "设为 true 时从 workflowId 记录的失败步骤继续" },
       recoverRunning: { type: "boolean", description: "确认原执行进程已终止时，接管仍为 running 的工作流" },

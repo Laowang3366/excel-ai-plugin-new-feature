@@ -64,6 +64,12 @@ function normalizeSchema(schema: JsonSchema): JsonSchema {
   }
   const items = asSchema(schema.items);
   if (items) normalized.items = normalizeSchema(items);
+  const additionalProperties = asSchema(schema.additionalProperties);
+  if (additionalProperties) {
+    normalized.additionalProperties = normalizeSchema(additionalProperties);
+  }
+  const propertyNames = asSchema(schema.propertyNames);
+  if (propertyNames) normalized.propertyNames = normalizeSchema(propertyNames);
   for (const keyword of ["allOf", "oneOf"] as const) {
     const schemas = asSchemaArray(schema[keyword]);
     if (schemas) normalized[keyword] = schemas.map(normalizeSchema);
@@ -154,6 +160,22 @@ function validateObject(
   depth: number,
 ): string | undefined {
   const properties = asSchemaMap(schema.properties) ?? {};
+  const keys = Object.keys(value);
+  const minProperties = finiteNumber(schema.minProperties);
+  const maxProperties = finiteNumber(schema.maxProperties);
+  if (minProperties !== undefined && keys.length < minProperties) {
+    return `${path} 至少需要 ${minProperties} 个字段`;
+  }
+  if (maxProperties !== undefined && keys.length > maxProperties) {
+    return `${path} 最多允许 ${maxProperties} 个字段`;
+  }
+  const propertyNames = asSchema(schema.propertyNames);
+  if (propertyNames) {
+    for (const key of keys) {
+      const error = validateAgainstSchema(key, propertyNames, `${path}.${key} 字段名`, depth + 1);
+      if (error) return error;
+    }
+  }
   const required = Array.isArray(schema.required)
     ? schema.required.filter((item): item is string => typeof item === "string")
     : [];
@@ -166,6 +188,16 @@ function validateObject(
     const childSchema = properties[key];
     if (!childSchema) {
       if (schema.additionalProperties === false) return `${path}.${key} 是未声明参数`;
+      const additionalProperties = asSchema(schema.additionalProperties);
+      if (additionalProperties) {
+        const error = validateAgainstSchema(
+          childValue,
+          additionalProperties,
+          `${path}.${key}`,
+          depth + 1,
+        );
+        if (error) return error;
+      }
       continue;
     }
     const error = validateAgainstSchema(childValue, childSchema, `${path}.${key}`, depth + 1);
@@ -200,6 +232,13 @@ function validateStringBounds(value: string, schema: JsonSchema, path: string): 
     return `${path} 长度不能小于 ${minLength}`;
   if (maxLength !== undefined && value.length > maxLength)
     return `${path} 长度不能超过 ${maxLength}`;
+  if (typeof schema.pattern === "string") {
+    try {
+      if (!new RegExp(schema.pattern, "u").test(value)) return `${path} 格式不符合要求`;
+    } catch {
+      return `${path} 使用了无效的 Schema 正则表达式`;
+    }
+  }
   return undefined;
 }
 

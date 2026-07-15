@@ -1,5 +1,17 @@
 import { withOfficeOperationDiscriminator, WORKFLOW_OPERATIONS } from "./officeActionSchemas";
 
+export const OFFICE_WORKFLOW_VARIABLES_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  maxProperties: 128,
+  propertyNames: {
+    type: "string",
+    pattern: "^[A-Za-z_][A-Za-z0-9_-]{0,63}$",
+  },
+  additionalProperties: true,
+  description:
+    "模板变量，最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。嵌套对象仍可通过 {{vars.customer.name}} 引用。",
+};
+
 export const OFFICE_WORKFLOW_STEP_SCHEMA: Record<string, unknown> = withOfficeOperationDiscriminator({
   type: "object",
   properties: {
