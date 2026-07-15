@@ -1,0 +1,20 @@
+# Repository ownership is derived from the current GitHub repository owner.
+# Update this file and branch protection together if ownership changes.
+* @Laowang3366
+
+# Security, release, privileged runtime, and production operations.
+/.github/ @Laowang3366
+/SECURITY.md @Laowang3366
+/CONTRIBUTING.md @Laowang3366
+/desktop/electron/preload.ts @Laowang3366
+/desktop/electron/shared/ @Laowang3366
+/desktop/electron/main-modules/ @Laowang3366
+/desktop/electron/agent/ @Laowang3366
+/desktop/dotnet/ @Laowang3366
+/desktop/scripts/ @Laowang3366
+/product-site/src/ @Laowang3366
+/product-site/scripts/ @Laowang3366
+/product-site/deploy/ @Laowang3366
+/docs/update-and-release.md @Laowang3366
+/docs/product-site-deployment.md @Laowang3366
+/docs/data-handling-and-privacy.md @Laowang3366

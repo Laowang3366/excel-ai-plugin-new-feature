@@ -37,7 +37,7 @@
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
 | M-09 | 已实现，待真实 Office | 删除工作表用 `finally` 恢复用户原 `DisplayAlerts` | 最后可见表、保护表与原关闭状态实机验证 |
 | M-10 | 未完成 | 现有 fake COM、Open XML 和单元测试门禁 | 隔离 Windows Runner 的 Excel/WPS 实机矩阵与 Electron E2E |
-| M-11 | 未完成 | 审查报告已列出治理缺口 | SECURITY、CODEOWNERS、许可、隐私与删除制度需责任人/法律决策 |
+| M-11 | 部分完成 | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/删除缺口清单及防回归测试 | 在 GitHub ruleset 强制审批；法律负责人确定许可、主体信息、法律依据、处理者/跨境/权利请求条款；完成全局导出与擦除闭环 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换、systemd timer 与故障测试 | 生产负责人确认 RPO/RTO并完成恢复演练；异机副本、Office TTL/配额和全链路告警 |
 | L-01 | 未完成 | 已记录格式和大文件基线 | 分批格式治理与存量超限文件拆分 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
@@ -578,9 +578,13 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### M-11 安全、所有权、许可和隐私治理文件缺失
 
+> 部分整改：新增 `SECURITY.md`，使用仓库 Private Vulnerability Reporting 作为私密渠道，并定义确认、分级和分级修复目标；新增 `CONTRIBUTING.md`，规定敏感变更双人审批、CODEOWNER、必需门禁和禁止作者自合并；新增 `.github/CODEOWNERS`，按当前 GitHub 仓库所有者覆盖发布、preload/IPC、Agent、Worker、产品站和部署路径。`docs/data-handling-and-privacy.md` 按运行代码列出本地数据、远程 OCR/搜索/Embedding/模型、产品站统计及留存控制，并明确冷归档删除、全局导出/擦除、应用层加密和法律条款仍未完成。自动化治理测试约束私密报告链接、敏感路径所有者、审查要求和不得夸大的数据删除口径。
+
 仓库未发现 `SECURITY.md`、`CODEOWNERS`、`CONTRIBUTING.md`、LICENSE/NOTICE 和隐私政策。对于会处理本地文档、OCR 上传、模型调用、搜索查询和下载统计的企业产品，这会造成漏洞响应、代码所有权、第三方许可和数据告知不清晰。
 
 **整改**：建立漏洞披露 SLA、敏感目录所有者、合并审批规则、依赖许可清单、OCR/模型/搜索/统计数据流说明和用户删除机制。
+
+**验收状态**：工程治理文件和事实型数据清单已落地，但文档规则尚未由 GitHub branch protection/ruleset 强制。仓库仍没有由法律责任人确认的 LICENSE/NOTICE 和正式隐私政策；主体、联系方式、处理依据、第三方处理者、跨境机制、数据主体请求与未成年人条款不能由代码审查者代为推定。会话冷归档、Office 备份、日志和全局数据的导出/擦除也仍需 M-03/M-12 代码闭环，因此 M-11 不关闭。
 
 ### M-12 备份、留存、恢复和运行告警未形成可验证闭环
 

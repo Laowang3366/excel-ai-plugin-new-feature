@@ -9,6 +9,7 @@
 - [开发规范](development-standards.md)
 - [更新与发布](update-and-release.md)
 - [产品站部署](product-site-deployment.md)
+- [数据处理事实说明](data-handling-and-privacy.md)
 - [系统提示词架构](codex-system-prompt-architecture.md)
 - [Office 高级自动化](office-advanced-automation.md)
 - [代码审查标准](code-review-standards.md)

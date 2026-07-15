@@ -79,6 +79,9 @@ npm run dev
 
 - [更新与发布](docs/update-and-release.md)
 - [产品站部署](docs/product-site-deployment.md)
+- [数据处理事实说明](docs/data-handling-and-privacy.md)
+- [安全策略](SECURITY.md)
+- [贡献指南](CONTRIBUTING.md)
 - [Office 高级自动化](docs/office-advanced-automation.md)
 - [文档索引](docs/README.md)
 

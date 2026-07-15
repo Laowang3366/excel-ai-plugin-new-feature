@@ -12,6 +12,7 @@ const currentDocumentPaths = [
   "docs/development-standards.md",
   "docs/update-and-release.md",
   "docs/product-site-deployment.md",
+  "docs/data-handling-and-privacy.md",
   "docs/codex-system-prompt-architecture.md",
   "docs/office-advanced-automation.md",
   "docs/code-review-standards.md",
