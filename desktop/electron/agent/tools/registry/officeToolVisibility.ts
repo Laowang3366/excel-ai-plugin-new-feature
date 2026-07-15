@@ -1,29 +1,14 @@
 import type { ToolDefinition } from "../../shared/types";
 import type { PromptRoutingContext } from "../../prompts/promptRouting";
 import { resolveOfficeAdvancedIntents } from "../../prompts/promptRouting";
-import { OFFICE_CAPABILITIES } from "../officeCore/capabilities";
-import { SAFE_ACTION_OPERATIONS } from "../officeCore/operationPolicy";
-
-const POWER_QUERY_OPERATIONS = new Set([
-  "createPowerQuery",
-  "managePowerQuery",
-  "inspectPowerQueries",
-]);
-const PIVOT_OPERATIONS = new Set([
-  "createPivotTable",
-  "refreshPivotTables",
-  "addSlicer",
-]);
-
-const APPLY_OPERATIONS = uniqueSorted(
-  OFFICE_CAPABILITIES.filter((capability) => capability.writesFile)
-    .map((capability) => capability.operation),
-);
-const INSPECT_OPERATIONS = uniqueSorted(Array.from(SAFE_ACTION_OPERATIONS));
-const WORKFLOW_OPERATIONS = uniqueSorted([
-  ...APPLY_OPERATIONS,
-  ...INSPECT_OPERATIONS,
-]);
+import {
+  APPLY_OPERATIONS,
+  INSPECT_OPERATIONS,
+  PIVOT_OPERATIONS,
+  POWER_QUERY_OPERATIONS,
+  withOfficeOperationDiscriminator,
+  WORKFLOW_OPERATIONS,
+} from "./officeActionSchemas";
 
 export function filterToolDefinitionsForTurn(
   definitions: ToolDefinition[],
@@ -68,7 +53,7 @@ function withOperationVisibility(
   const params = asSchema(properties.params);
   return {
     ...definition,
-    parameters: {
+    parameters: withOfficeOperationDiscriminator({
       ...definition.parameters,
       properties: {
         ...properties,
@@ -82,7 +67,7 @@ function withOperationVisibility(
           ? { params: { ...params, description: paramsDescription } }
           : {}),
       },
-    },
+    }, operations),
   };
 }
 
@@ -105,7 +90,7 @@ function withWorkflowOperationVisibility(
         ...properties,
         steps: {
           ...steps,
-          items: {
+          items: withOfficeOperationDiscriminator({
             ...item,
             properties: {
               ...itemProperties,
@@ -117,7 +102,7 @@ function withWorkflowOperationVisibility(
               },
               params: { ...params, description: paramsDescription },
             },
-          },
+          }, operations),
         },
       },
     },
@@ -147,10 +132,6 @@ function buildParamsDescription(allowPowerQuery: boolean, allowPivot: boolean): 
     boundaries.push("透视表/切片器需 advancedIntent:'interactive-pivot'");
   }
   return boundaries.join("；");
-}
-
-function uniqueSorted(values: string[]): string[] {
-  return Array.from(new Set(values)).sort();
 }
 
 function asSchema(value: unknown): Record<string, any> {

@@ -5,6 +5,7 @@
  */
 
 import type { ToolDefinition } from "../../shared/types";
+import { APPLY_OPERATIONS, INSPECT_OPERATIONS, withOfficeOperationDiscriminator } from "./officeActionSchemas";
 import { OFFICE_RELIABILITY_TOOL_DEFINITIONS } from "./officeReliability";
 import { OFFICE_WORKFLOW_STEPS_SCHEMA } from "./officeWorkflowSchema";
 
@@ -300,7 +301,7 @@ const PRESENTATION_SAVE_DEF: ToolDefinition = {
 const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
   name: "office.action.inspect",
   description: "统一 Office 高级检查入口。Excel 可检查查询、图表、对象、模板、打印和公式治理；Word/PPT 可检查排版、审阅、母版、动画、备注以及 Excel 链接来源；也可检查 Office 文件结构与事务备份。",
-  parameters: {
+  parameters: withOfficeOperationDiscriminator({
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
@@ -313,7 +314,7 @@ const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
       params: { type: "object", description: "操作参数" },
     },
     required: ["app", "operation"],
-  },
+  }, INSPECT_OPERATIONS),
   riskLevel: "safe",
   requiresApproval: false,
 };
@@ -321,7 +322,7 @@ const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
 const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
   name: "office.action.apply",
   description: "统一 Office 文件级高级操作入口，必须提供 filePath。支持 Excel 治理、Word/PPT 高级编辑、Excel 链接报告及原位刷新。复杂多文件任务应交给 office.workflow.run，以获得暂停续跑和整体撤销；当前活动窗口或未保存内容仍使用 range.*、word.*、presentation.*。",
-  parameters: {
+  parameters: withOfficeOperationDiscriminator({
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
@@ -334,7 +335,7 @@ const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
       params: { type: "object", description: "参数。Power Query 必须声明 advancedIntent:'refreshable-etl'，创建/更新另需 sourceKind:'external'|'multi-source'；透视表/切片器必须声明 advancedIntent:'interactive-pivot'。Word 修订用 rule，批量合并用 dataSourcePath/outputDirectory/outputFormat；PowerPoint 排版用 edits/align/distribute/crop；Excel 联动用 linked:true、sourceType:range|chart、chartName、linkId，报告包可用 sections。其他高级参数见系统 Office 工具说明。" },
     },
     required: ["app", "action", "operation", "filePath"],
-  },
+  }, APPLY_OPERATIONS),
   riskLevel: "moderate",
   requiresApproval: true,
 };
@@ -342,7 +343,7 @@ const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
 const OFFICE_ACTION_VALIDATE_DEF: ToolDefinition = {
   name: "office.action.validate",
   description: "统一 Office 只读验证入口。operation 使用 inspectFile、layout、tables 或其他 inspect* 操作；params 可用 containsText、countPath+expectedCount/minCount、outputExists 定义可判定的验证条件。",
-  parameters: {
+  parameters: withOfficeOperationDiscriminator({
     type: "object",
     properties: {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用类型" },
@@ -355,7 +356,7 @@ const OFFICE_ACTION_VALIDATE_DEF: ToolDefinition = {
       params: { type: "object", description: "验证条件：containsText 字符串或数组；countPath 配合 expectedCount/minCount；outputExists 检查输出文件" },
     },
     required: ["app", "operation"],
-  },
+  }, INSPECT_OPERATIONS),
   riskLevel: "safe",
   requiresApproval: false,
 };

@@ -343,7 +343,7 @@ describe("processToolCalls", () => {
       type: "tool_call",
       id: "call-3",
       toolName: "office.action.apply",
-      arguments: { app: "excel", action: "style", operation: "format", filePath: "C:\\books\\a.xlsx" },
+      arguments: { app: "excel", action: "style", operation: "formatChart", filePath: "C:\\books\\a.xlsx" },
       status: "pending",
       timestamp: 1000,
     };
@@ -351,7 +351,7 @@ describe("processToolCalls", () => {
       {
         id: "call-3",
         name: "office.action.apply",
-        arguments: "{\"app\":\"excel\",\"action\":\"style\",\"operation\":\"format\",\"filePath\":\"C:\\\\books\\\\a.xlsx\"}",
+        arguments: "{\"app\":\"excel\",\"action\":\"style\",\"operation\":\"formatChart\",\"filePath\":\"C:\\\\books\\\\a.xlsx\"}",
       },
     ];
 

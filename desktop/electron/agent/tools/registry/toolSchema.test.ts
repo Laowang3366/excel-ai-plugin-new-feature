@@ -59,6 +59,54 @@ describe("tool schema runtime validation", () => {
     ).toContain("禁止的保留字段");
   });
 
+  it("supports const and mutually exclusive schemas at runtime", () => {
+    const definition = normalizeToolDefinition({
+      name: "test.discriminator",
+      description: "test",
+      parameters: {
+        type: "object",
+        properties: {
+          operation: { type: "string" },
+          params: { type: "object" },
+        },
+        required: ["operation", "params"],
+        oneOf: [
+          {
+            type: "object",
+            properties: {
+              operation: { type: "string", const: "alpha" },
+              params: { type: "object", properties: { count: { type: "integer" } }, required: ["count"] },
+            },
+            required: ["operation", "params"],
+          },
+          {
+            type: "object",
+            properties: {
+              operation: { type: "string", const: "beta" },
+              params: { type: "object", properties: { enabled: { type: "boolean" } }, required: ["enabled"] },
+            },
+            required: ["operation", "params"],
+          },
+        ],
+      },
+      riskLevel: "safe",
+      requiresApproval: false,
+    });
+
+    expect(parseAndValidateToolArguments(
+      '{"operation":"alpha","params":{"count":1}}',
+      definition.parameters,
+    ).error).toBeUndefined();
+    expect(parseAndValidateToolArguments(
+      '{"operation":"alpha","params":{"enabled":true}}',
+      definition.parameters,
+    ).error).toContain("不匹配任何允许的参数结构");
+    expect(parseAndValidateToolArguments(
+      '{"operation":"alpha","params":{"count":1,"extra":true}}',
+      definition.parameters,
+    ).error).toContain("未声明参数");
+  });
+
   it.each(ALL_TOOL_DEFINITIONS)(
     "accepts a generated valid sample and rejects unknown fields for $name",
     (definition) => {
@@ -125,7 +173,7 @@ describe("tool schema runtime validation", () => {
         {
           app: "excel",
           action: "inspect",
-          operation: "inspectWorkbook",
+          operation: "inspectFile",
           filePath: "C:/book.xlsx",
           unknownStepField: true,
         },
@@ -160,7 +208,7 @@ describe("tool schema runtime validation", () => {
     const step = {
       app: "excel",
       action: "inspect",
-      operation: "inspectWorkbook",
+      operation: "inspectFile",
       filePath: "C:/book.xlsx",
       timeoutMs: 4_999,
     };
@@ -179,6 +227,19 @@ describe("tool schema runtime validation", () => {
 });
 
 function sampleForSchema(schema: Schema): unknown {
+  if (Object.prototype.hasOwnProperty.call(schema, "const")) return schema.const;
+  let result = sampleForPlainSchema(schema);
+  const allOf = Array.isArray(schema.allOf) ? schema.allOf : [];
+  for (const child of allOf) {
+    if (isRecord(child)) result = mergeSamples(result, sampleForSchema(child));
+  }
+  const oneOf = Array.isArray(schema.oneOf) ? schema.oneOf : [];
+  const selected = oneOf.find(isRecord);
+  if (selected) result = mergeSamples(result, sampleForSchema(selected));
+  return result;
+}
+
+function sampleForPlainSchema(schema: Schema): unknown {
   const enumValues = Array.isArray(schema.enum) ? schema.enum : [];
   if (enumValues.length > 0) return enumValues[0];
   switch (schema.type) {
@@ -207,6 +268,10 @@ function sampleForSchema(schema: Schema): unknown {
     default:
       return null;
   }
+}
+
+function mergeSamples(base: unknown, selected: unknown): unknown {
+  return isRecord(base) && isRecord(selected) ? { ...base, ...selected } : selected;
 }
 
 function isRecord(value: unknown): value is Schema {
@@ -247,4 +312,10 @@ function expectStrictDeclaredObjects(schema: Schema): void {
     }
   }
   if (isRecord(schema.items)) expectStrictDeclaredObjects(schema.items);
+  for (const keyword of ["allOf", "oneOf"] as const) {
+    const schemas = Array.isArray(schema[keyword]) ? schema[keyword] : [];
+    for (const child of schemas) {
+      if (isRecord(child)) expectStrictDeclaredObjects(child);
+    }
+  }
 }

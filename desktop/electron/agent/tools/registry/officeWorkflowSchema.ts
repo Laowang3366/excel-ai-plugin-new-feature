@@ -1,4 +1,6 @@
-export const OFFICE_WORKFLOW_STEP_SCHEMA: Record<string, unknown> = {
+import { withOfficeOperationDiscriminator, WORKFLOW_OPERATIONS } from "./officeActionSchemas";
+
+export const OFFICE_WORKFLOW_STEP_SCHEMA: Record<string, unknown> = withOfficeOperationDiscriminator({
   type: "object",
   properties: {
     app: { type: "string", enum: ["excel", "word", "presentation"] },
@@ -49,7 +51,7 @@ export const OFFICE_WORKFLOW_STEP_SCHEMA: Record<string, unknown> = {
     },
   },
   required: ["app", "action", "operation", "filePath"],
-};
+}, WORKFLOW_OPERATIONS);
 
 export const OFFICE_WORKFLOW_STEPS_SCHEMA: Record<string, unknown> = {
   type: "array",

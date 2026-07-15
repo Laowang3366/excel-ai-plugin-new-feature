@@ -64,6 +64,10 @@ function normalizeSchema(schema: JsonSchema): JsonSchema {
   }
   const items = asSchema(schema.items);
   if (items) normalized.items = normalizeSchema(items);
+  for (const keyword of ["allOf", "oneOf"] as const) {
+    const schemas = asSchemaArray(schema[keyword]);
+    if (schemas) normalized[keyword] = schemas.map(normalizeSchema);
+  }
   return normalized;
 }
 
@@ -74,17 +78,22 @@ function validateAgainstSchema(
   depth: number,
 ): string | undefined {
   if (depth > TOOL_ARGUMENT_LIMITS.maxDepth) return `${path} 超过最大嵌套深度`;
+  if (Object.prototype.hasOwnProperty.call(schema, "const") && !Object.is(schema.const, value)) {
+    return `${path} 必须为 ${String(schema.const)}`;
+  }
   const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
   if (enumValues && !enumValues.some((candidate) => Object.is(candidate, value))) {
     return `${path} 必须为 ${enumValues.map(String).join("、")} 之一`;
   }
 
+  let typeError: string | undefined;
   switch (schema.type) {
     case undefined:
-      return undefined;
+      break;
     case "string":
       if (typeof value !== "string") return `${path} 应为字符串`;
-      return validateStringBounds(value, schema, path);
+      typeError = validateStringBounds(value, schema, path);
+      break;
     case "number":
       if (
         typeof value !== "number" ||
@@ -93,21 +102,49 @@ function validateAgainstSchema(
       ) {
         return `${path} 应为有限安全范围内的数字`;
       }
-      return validateNumberBounds(value, schema, path);
+      typeError = validateNumberBounds(value, schema, path);
+      break;
     case "integer":
       if (typeof value !== "number" || !Number.isSafeInteger(value)) return `${path} 应为安全整数`;
-      return validateNumberBounds(value, schema, path);
+      typeError = validateNumberBounds(value, schema, path);
+      break;
     case "boolean":
-      return typeof value === "boolean" ? undefined : `${path} 应为布尔值`;
+      if (typeof value !== "boolean") return `${path} 应为布尔值`;
+      break;
     case "array":
       if (!Array.isArray(value)) return `${path} 应为数组`;
-      return validateArray(value, schema, path, depth);
+      typeError = validateArray(value, schema, path, depth);
+      break;
     case "object":
       if (!isRecord(value)) return `${path} 应为对象`;
-      return validateObject(value, schema, path, depth);
+      typeError = validateObject(value, schema, path, depth);
+      break;
     default:
       return `${path} 使用了不支持的 Schema 类型: ${String(schema.type)}`;
   }
+  if (typeError) return typeError;
+  const allOf = asSchemaArray(schema.allOf);
+  if (allOf) {
+    for (const child of allOf) {
+      const error = validateAgainstSchema(value, child, path, depth + 1);
+      if (error) return error;
+    }
+  }
+  const oneOf = asSchemaArray(schema.oneOf);
+  if (oneOf) {
+    const errors = oneOf.map((child) => validateAgainstSchema(value, child, path, depth + 1));
+    const matches = errors.filter((error) => error === undefined).length;
+    if (matches === 0) {
+      const detail = errors.find((error) => error && !isDiscriminatorMismatch(error, path)) ?? errors[0];
+      return `${path} 不匹配任何允许的参数结构: ${detail}`;
+    }
+    if (matches > 1) return `${path} 同时匹配多个互斥参数结构`;
+  }
+  return undefined;
+}
+
+function isDiscriminatorMismatch(error: string, path: string): boolean {
+  return error.startsWith(`${path}.operation 必须为 `) || error.startsWith(`${path}.app 必须为 `);
 }
 
 function validateObject(
@@ -227,6 +264,10 @@ function asSchemaMap(value: unknown): Record<string, JsonSchema> | undefined {
   const entries = Object.entries(value);
   if (!entries.every(([, child]) => isRecord(child))) return undefined;
   return Object.fromEntries(entries) as Record<string, JsonSchema>;
+}
+
+function asSchemaArray(value: unknown): JsonSchema[] | undefined {
+  return Array.isArray(value) && value.every(isRecord) ? value as JsonSchema[] : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
