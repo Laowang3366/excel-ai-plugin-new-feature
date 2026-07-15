@@ -1,5 +1,10 @@
 import type { ToolExecutor } from "../../shared/types";
 import { clampNumber } from "../../shared/numberLimits";
+import {
+  assertRemoteDataProcessingAllowed,
+  toRemoteDataPolicyResult,
+  type RemoteDataTransferSummary,
+} from "../../../shared/egressPolicy";
 import { validateArgs } from "./validation";
 import {
   cleanText,
@@ -18,6 +23,11 @@ export interface WebSearchResponse {
   query: string;
   provider: string;
   results: WebSearchResultItem[];
+  remoteProcessing?: RemoteDataTransferSummary;
+}
+
+export interface WebSearchExecutorDeps {
+  isRemoteDataProcessingEnabled?: () => boolean;
 }
 
 type Freshness = "day" | "week" | "month" | "year" | "any";
@@ -29,7 +39,10 @@ const HTML_SEARCH_HEADERS = {
   "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.7",
 };
 
-export function addWebSearchExecutors(target: Map<string, ToolExecutor>): void {
+export function addWebSearchExecutors(
+  target: Map<string, ToolExecutor>,
+  deps: WebSearchExecutorDeps = {},
+): void {
   target.set("web.search", {
     name: "web.search",
     execute: async (args: Record<string, unknown>) => {
@@ -45,13 +58,45 @@ export function addWebSearchExecutors(target: Map<string, ToolExecutor>): void {
       const freshness = normalizeFreshness(args.freshness);
 
       try {
+        assertRemoteDataProcessingAllowed({
+          enabled: deps.isRemoteDataProcessingEnabled?.() === true,
+          operation: "web-search",
+          texts: [query],
+        });
         const data = await searchWeb(query, maxResults, freshness);
-        return { success: true, data };
+        return {
+          success: true,
+          data: {
+            ...data,
+            remoteProcessing: {
+              operation: "web-search",
+              service: data.provider,
+              destination: getSearchDestination(data.provider),
+              dataSummary: `搜索查询，${query.length} 个字符`,
+            },
+          },
+        };
       } catch (e: any) {
+        const policyResult = toRemoteDataPolicyResult(e);
+        if (policyResult) return policyResult;
         return { success: false, error: `联网搜索失败: ${e.message}` };
       }
     },
   });
+}
+
+function getSearchDestination(provider: string): string {
+  switch (provider) {
+    case "tavily": return "api.tavily.com";
+    case "bing": return "api.bing.microsoft.com";
+    case "serpapi": return "serpapi.com";
+    case "bing-html": return "www.bing.com";
+    case "baidu-html": return "www.baidu.com";
+    case "so-html": return "www.so.com";
+    case "sogou-html": return "www.sogou.com";
+    case "duckduckgo": return "duckduckgo.com";
+    default: return provider;
+  }
 }
 
 async function searchWeb(

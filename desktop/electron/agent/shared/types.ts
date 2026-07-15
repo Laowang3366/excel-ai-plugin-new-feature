@@ -457,8 +457,17 @@ export interface ToolExecutionResult {
   error?: string;
 }
 
+export interface ToolExecutionContext {
+  threadId?: ThreadId;
+  turnId?: TurnId;
+  userMessages: string[];
+}
+
 /** 工具执行器接口 */
 export interface ToolExecutor {
   readonly name: string;
-  execute(args: Record<string, unknown>): Promise<ToolExecutionResult>;
+  execute(
+    args: Record<string, unknown>,
+    context?: ToolExecutionContext,
+  ): Promise<ToolExecutionResult>;
 }

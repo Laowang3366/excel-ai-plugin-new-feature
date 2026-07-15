@@ -27,6 +27,7 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       log: async () => {},
     },
     update: {
+      ackHotPatchHealth: async () => true,
       getState: async () => ({
         phase: "idle",
         currentVersion: "dev",

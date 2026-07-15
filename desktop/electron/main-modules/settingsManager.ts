@@ -6,23 +6,20 @@
  */
 
 import * as path from "path";
-import * as fs from "fs";
 import { safeStorage } from "electron";
 import Store from "electron-store";
 import { AgentLoop } from "../agent/core/agentLoop";
 import { AgentGraphStore } from "../agent/memory/agentGraphStore";
 import { SessionStore } from "../agent/memory/sessionStore";
 import { StateRuntimeStore } from "../agent/memory/stateRuntimeStore";
+import { SqliteStore } from "../agent/knowledge";
 import type { AIClientConfig } from "../agent/providers/aiClient";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
 import { reloadKnowledgeRuntime, resetKnowledgeRuntime } from "../agent/runtime/knowledgeRuntime";
 import { configureLogDirectory } from "../shared/logger";
 import {
-  copyDirectoryContents,
   getActiveDataPath,
-  isPathInside,
   normalizePathForCompare,
-  pathExists,
   setConfiguredDataPath,
   SETTINGS_STORE_NAME,
 } from "./settingsDataPath";
@@ -35,6 +32,12 @@ import {
   sanitizeSettingsForRenderer,
   type SettingsSecretCipher,
 } from "./settingsSecrets";
+import {
+  cleanupPreparedDataPathMigration,
+  commitPreparedDataPathMigration,
+  prepareDataPathMigration,
+  type PreparedDataPathMigration,
+} from "./dataPathMigration";
 
 export { getActiveDataPath };
 
@@ -48,6 +51,7 @@ const DEFAULT_SETTINGS = {
   closeToTray: false,
   officeAutoCompactEnabled: false,
   dynamicArrayFunctionsEnabled: true,
+  remoteDataProcessingEnabled: false,
   windowOpacity: 1,
   dataStoragePath: "",
   mineruApiToken: "",
@@ -220,12 +224,11 @@ export async function migrateDataPath(
 
   const nextDataPath = path.resolve(trimmedPath);
   const currentDataPath = getActiveDataPath();
-  const currentSessionsRoot = path.join(currentDataPath, "sessions");
-  const nextSessionsRoot = path.join(nextDataPath, "sessions");
-  const currentKnowledgeRoot = path.join(currentDataPath, "knowledge");
-  const nextKnowledgeRoot = path.join(nextDataPath, "knowledge");
-  const currentLogsRoot = path.join(currentDataPath, "logs");
-  const nextLogsRoot = path.join(nextDataPath, "logs");
+  if (normalizePathForCompare(currentDataPath) === normalizePathForCompare(nextDataPath)) {
+    migrationInProgress = false;
+    return { success: true, dataPath: currentDataPath };
+  }
+
   const agents = agentLoopsGetter?.() ?? [];
   if (agents.some((agent) => agent.getIsRunning())) {
     migrationInProgress = false;
@@ -236,19 +239,9 @@ export async function migrateDataPath(
   const previousSessionStore = getSessionStoreInstance();
   const previousAgentGraphStore = agentGraphStore;
   let switchedDataPath = false;
-  const targetDataPathExisted = await pathExists(nextDataPath);
-  const targetSessionsExisted = await pathExists(nextSessionsRoot);
-  const sourceSessionEntries = await fs.promises.readdir(currentSessionsRoot).catch(() => []);
-
-  if (normalizePathForCompare(currentDataPath) === normalizePathForCompare(nextDataPath)) {
-    migrationInProgress = false;
-    return { success: true, dataPath: currentDataPath };
-  }
-
-  if (isPathInside(currentSessionsRoot, nextSessionsRoot)) {
-    migrationInProgress = false;
-    return { success: false, error: "新目录不能位于当前会话数据目录内部" };
-  }
+  let committedTarget = false;
+  let migrationSucceeded = false;
+  let prepared: PreparedDataPathMigration | null = null;
 
   try {
     previousSessionStore.suspendWrites("数据存储正在迁移，请稍后重试");
@@ -256,40 +249,36 @@ export async function migrateDataPath(
     await closeStateRuntimeStore();
     resetKnowledgeRuntime();
 
-    await fs.promises.mkdir(nextDataPath, { recursive: true });
-    await copyDirectoryContents(currentSessionsRoot, nextSessionsRoot);
-    await copyDirectoryContents(currentKnowledgeRoot, nextKnowledgeRoot);
-    await copyDirectoryContents(currentLogsRoot, nextLogsRoot);
-
-    // 迁移后验证：确认目标目录已包含数据
-    if (sourceSessionEntries.length > 0) {
-      const targetEntries = await fs.promises.readdir(nextSessionsRoot).catch(() => []);
-      if (targetEntries.length === 0) {
-        throw new Error("迁移验证失败：目标会话目录为空，可能复制失败");
-      }
-    }
-
+    prepared = await prepareDataPathMigration(currentDataPath, nextDataPath);
     const currentSettings = settingsStore.store;
-    const nextSettingsStore = new Store(getSettingsStoreOptions(nextDataPath));
-    nextSettingsStore.store = {
+    const stagedSettingsStore = new Store(getSettingsStoreOptions(prepared.stageDataPath));
+    stagedSettingsStore.store = {
       ...DEFAULT_SETTINGS,
       ...currentSettings,
       dataStoragePath: nextDataPath,
     };
+    await validateStagedDataPath(prepared.stageDataPath);
+    await commitPreparedDataPathMigration(prepared);
+    committedTarget = true;
 
     setConfiguredDataPath(nextDataPath);
     switchedDataPath = true;
-    settingsStore = nextSettingsStore;
+    settingsStore = new Store(getSettingsStoreOptions(nextDataPath));
     configureLogDirectory(path.join(nextDataPath, "logs"));
     await resetSessionStore();
-    const nextKnowledgeRuntime = await reloadKnowledgeRuntime(getActiveAIConfig(), nextDataPath);
+    const nextKnowledgeRuntime = await reloadKnowledgeRuntime(
+      getActiveAIConfig(),
+      nextDataPath,
+      () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+    );
     if (!nextKnowledgeRuntime.store) {
       throw new Error(nextKnowledgeRuntime.error || "新数据目录的知识库初始化失败");
     }
 
+    migrationSucceeded = true;
     return { success: true, dataPath: nextDataPath };
   } catch (error) {
-    if (switchedDataPath) {
+    if (switchedDataPath || committedTarget) {
       await closeStateRuntimeStore().catch(() => {});
       setConfiguredDataPath(currentDataPath);
       settingsStore = previousSettingsStore;
@@ -306,28 +295,44 @@ export async function migrateDataPath(
         agent.updateSessionStore(previousSessionStore);
         agent.updateStateRuntimeStore(restoredStateRuntime);
       }
-      await reloadKnowledgeRuntime(getActiveAIConfig(), currentDataPath);
+      await reloadKnowledgeRuntime(
+        getActiveAIConfig(),
+        currentDataPath,
+        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+      );
     } catch {
       // 返回原始迁移错误；恢复失败会由后续存储访问继续暴露。
     }
 
-    try {
-      if (!targetDataPathExisted && (await pathExists(nextDataPath))) {
-        await fs.promises.rm(nextDataPath, { recursive: true, force: true });
-      } else if (!targetSessionsExisted && (await pathExists(nextSessionsRoot))) {
-        await fs.promises.rm(nextSessionsRoot, { recursive: true, force: true });
-      }
-    } catch {
-      /* ignore cleanup errors */
-    }
+    await cleanupPreparedDataPathMigration(prepared, committedTarget);
 
     return {
       success: false,
       error: error instanceof Error ? error.message : "迁移数据失败",
     };
   } finally {
+    if (!migrationSucceeded) {
+      await cleanupPreparedDataPathMigration(prepared, false);
+    }
     previousSessionStore.resumeWrites();
     migrationInProgress = false;
+  }
+}
+
+async function validateStagedDataPath(stageDataPath: string): Promise<void> {
+  const stateStore = new StateRuntimeStore(
+    path.join(stageDataPath, "sessions", "state-runtime"),
+  );
+  await stateStore.init();
+  await stateStore.close();
+
+  const knowledgeStore = new SqliteStore(
+    path.join(stageDataPath, "knowledge", "knowledge.db"),
+  );
+  try {
+    await knowledgeStore.init();
+  } finally {
+    knowledgeStore.close();
   }
 }
 

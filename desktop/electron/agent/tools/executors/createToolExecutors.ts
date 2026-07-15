@@ -33,6 +33,7 @@ import { getToolNameAliases } from "../registry/toolDefinitions";
 
 export interface ToolExecutorRuntimeDeps {
   getMineruApiToken?: () => string;
+  isRemoteDataProcessingEnabled?: () => boolean;
   officeDocumentBridge?: OfficeDocumentManagerBridge;
   officeAutomationRoot?: string;
 }
@@ -58,8 +59,13 @@ export function createToolExecutors(
   addExcelExecutors(executors, { workbookBridge, vbaBridge, jsaBridge, uiBridge });
   addFileExecutors(executors, { sessionFolderPath });
   addKnowledgeExecutors(executors, { knowledgeRetriever });
-  addWebSearchExecutors(executors);
-  addOcrExecutors(executors, { getMineruApiToken: runtimeDeps.getMineruApiToken });
+  addWebSearchExecutors(executors, {
+    isRemoteDataProcessingEnabled: runtimeDeps.isRemoteDataProcessingEnabled,
+  });
+  addOcrExecutors(executors, {
+    getMineruApiToken: runtimeDeps.getMineruApiToken,
+    isRemoteDataProcessingEnabled: runtimeDeps.isRemoteDataProcessingEnabled,
+  });
   addMemoryExecutors(executors, { memoryStore });
   addOfficeExecutors(executors, {
     excelBridge: workbookBridge as ExcelConnectionBridge,

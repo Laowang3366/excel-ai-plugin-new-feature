@@ -9,7 +9,7 @@ import type { ToolDefinition } from "../../shared/types";
 
 const OCR_PARSE_DOCUMENT_DEF: ToolDefinition = {
   name: "ocr.parseDocument",
-  description: "解析本地文件的可见内容，返回 Markdown 文本、表格行和结构线索。默认优先使用已配置 token 的 MinerU 标准解析；失败、额度不足或 token 缺失时降级到 MinerU 免费 Agent 轻量解析；免费链路仍不可用时再使用本地解析/内置工具兜底。适合没有多模态能力的模型在抽取、总结、比对、质量判断、样式优化、修改验收等任务前先理解文件可见内容。",
+  description: "解析本地文件的可见内容，返回 Markdown 文本、表格行和结构线索。默认先使用本地解析，仅在用户开启远程数据处理且本地无法完成时，才依次尝试已配置 token 的 MinerU 标准解析和 MinerU 免费 Agent。适合没有多模态能力的模型在抽取、总结、比对、质量判断、样式优化、修改验收等任务前先理解文件可见内容。",
   parameters: {
     type: "object",
     properties: {
@@ -46,7 +46,7 @@ const OCR_PARSE_DOCUMENT_DEF: ToolDefinition = {
       },
       allowLocalFallback: {
         type: "boolean",
-        description: "是否允许远程解析不可用时使用本地免费解析和内置工具兜底，默认 true",
+        description: "是否允许优先使用本地免费解析和内置工具兜底，默认 true",
         default: true,
       },
     },

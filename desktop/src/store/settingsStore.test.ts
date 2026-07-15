@@ -113,6 +113,33 @@ describe("settingsStore dynamic array function support", () => {
   });
 });
 
+describe("settingsStore remote data processing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSettingsStore.setState({
+      remoteDataProcessingEnabled: false,
+      isLoading: true,
+    });
+  });
+
+  it("defaults to local-only mode when loading settings without a saved value", async () => {
+    mocks.getAll.mockResolvedValue({});
+
+    await useSettingsStore.getState().loadSettings();
+
+    expect(useSettingsStore.getState().remoteDataProcessingEnabled).toBe(false);
+  });
+
+  it("persists the remote-processing decision", async () => {
+    mocks.set.mockResolvedValue(undefined);
+
+    useSettingsStore.getState().setRemoteDataProcessingEnabled(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mocks.set).toHaveBeenCalledWith("remoteDataProcessingEnabled", true);
+  });
+});
+
 describe("settingsStore provider configuration state", () => {
   beforeEach(() => {
     vi.clearAllMocks();

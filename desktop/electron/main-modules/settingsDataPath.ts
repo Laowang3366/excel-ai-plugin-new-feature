@@ -63,12 +63,87 @@ export function getActiveDataPath(): string {
     dataPathLogger.warn("配置的数据目录不可写，已回退到用户数据目录", { configured });
   }
 
-  const installDataPath = getInstallDataPath();
-  if (ensureWritableDataPathSync(installDataPath)) return installDataPath;
-
   const userWritableDataPath = getUserWritableDataPath();
+  const installDataPath = getInstallDataPath();
+  if (
+    normalizePathForCompare(installDataPath) !== normalizePathForCompare(userWritableDataPath) &&
+    hasMeaningfulDataSync(installDataPath) &&
+    !hasMeaningfulDataSync(userWritableDataPath)
+  ) {
+    try {
+      if (containsSymbolicLinkSync(installDataPath)) {
+        throw new Error("旧数据目录包含符号链接或联接");
+      }
+      migrateLegacyDataDirectorySync(installDataPath, userWritableDataPath);
+      setConfiguredDataPath(userWritableDataPath);
+      dataPathLogger.info("已将旧安装目录数据迁移到用户隔离目录", {
+        from: installDataPath,
+        to: userWritableDataPath,
+      });
+    } catch (error) {
+      dataPathLogger.warn("旧安装目录数据自动迁移失败", {
+        from: installDataPath,
+        to: userWritableDataPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (ensureWritableDataPathSync(installDataPath)) return installDataPath;
+    }
+  }
+
   ensureWritableDataPathSync(userWritableDataPath);
   return userWritableDataPath;
+}
+
+function hasMeaningfulDataSync(dataPath: string): boolean {
+  try {
+    return fs.readdirSync(dataPath).some((entry) => entry !== ".DS_Store");
+  } catch {
+    return false;
+  }
+}
+
+function containsSymbolicLinkSync(directory: string): boolean {
+  if (fs.lstatSync(directory).isSymbolicLink()) return true;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) return true;
+    if (entry.isDirectory() && containsSymbolicLinkSync(path.join(directory, entry.name))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function migrateLegacyDataDirectorySync(sourceDirectory: string, targetDirectory: string): void {
+  if (containsSymbolicLinkSync(sourceDirectory)) {
+    throw new Error("旧数据目录包含符号链接或联接");
+  }
+  if (hasMeaningfulDataSync(targetDirectory)) {
+    throw new Error("用户数据目录已包含文件，拒绝覆盖");
+  }
+
+  const parentDirectory = path.dirname(targetDirectory);
+  const stagingDirectory = path.join(
+    parentDirectory,
+    `.${path.basename(targetDirectory)}.legacy-migration-${process.pid}-${Date.now()}`,
+  );
+  fs.mkdirSync(parentDirectory, { recursive: true });
+  fs.rmSync(stagingDirectory, { recursive: true, force: true });
+
+  try {
+    fs.cpSync(sourceDirectory, stagingDirectory, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+      dereference: false,
+    });
+    if (fs.existsSync(targetDirectory)) {
+      fs.rmSync(targetDirectory, { recursive: true, force: true });
+    }
+    fs.renameSync(stagingDirectory, targetDirectory);
+  } catch (error) {
+    fs.rmSync(stagingDirectory, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 export async function pathExists(targetPath: string): Promise<boolean> {

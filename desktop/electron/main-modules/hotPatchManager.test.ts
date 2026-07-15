@@ -7,7 +7,9 @@ import { strToU8, zipSync } from "fflate";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  acknowledgeActiveHotPatchHealth,
   activateInstalledHotPatch,
+  applyHotPatchPolicy,
   installHotPatchArchive,
   isAllowedHotPatchPath,
   resolveHotPatchPath,
@@ -125,5 +127,73 @@ describe("installHotPatchArchive", () => {
     await fs.writeFile(path.join(state.rootPath, "dist/index.html"), "tampered");
 
     expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBeNull();
+  });
+
+  it("rolls back a patch on the next startup when renderer health was never acknowledged", async () => {
+    const archive = await createArchive({ "dist/index.html": "health-check" });
+    const userDataPath = path.join(archive.root, "user-data");
+    await installHotPatchArchive({
+      archivePath: archive.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(archive),
+    });
+
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBe("patch-001");
+    delete process.env.WENGE_HOT_PATCH_ROOT;
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBeNull();
+  });
+
+  it("keeps an acknowledged renderer patch active on later startups", async () => {
+    const archive = await createArchive({ "dist/index.html": "healthy" });
+    const userDataPath = path.join(archive.root, "user-data");
+    await installHotPatchArchive({
+      archivePath: archive.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(archive),
+    });
+
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBe("patch-001");
+    expect(await acknowledgeActiveHotPatchHealth(userDataPath)).toBe(true);
+    delete process.env.WENGE_HOT_PATCH_ROOT;
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBe("patch-001");
+  });
+
+  it("disables an active patch when a signed policy revokes its id", async () => {
+    const archive = await createArchive({ "dist/index.html": "revoked" });
+    const userDataPath = path.join(archive.root, "user-data");
+    await installHotPatchArchive({
+      archivePath: archive.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(archive),
+    });
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBe("patch-001");
+
+    const disabled = await applyHotPatchPolicy(userDataPath, "0.1.79", {
+      revokedPatchIds: ["patch-001"],
+      minimumSafeSequenceByBaseVersion: {},
+    });
+
+    expect(disabled).toBe(true);
+    expect(process.env.WENGE_HOT_PATCH_ROOT).toBeUndefined();
+    expect(activateInstalledHotPatch("0.1.79", userDataPath)).toBeNull();
+  });
+
+  it("rejects installation below the signed minimum safe sequence", async () => {
+    const archive = await createArchive({ "dist/index.html": "old" });
+    const userDataPath = path.join(archive.root, "user-data");
+    await applyHotPatchPolicy(userDataPath, "0.1.79", {
+      revokedPatchIds: [],
+      minimumSafeSequenceByBaseVersion: { "0.1.79": 3 },
+    });
+
+    await expect(installHotPatchArchive({
+      archivePath: archive.archivePath,
+      currentVersion: "0.1.79",
+      userDataPath,
+      descriptor: descriptor(archive, "patch-002", 2),
+    })).rejects.toThrow("远程安全基线");
   });
 });

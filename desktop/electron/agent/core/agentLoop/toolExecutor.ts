@@ -14,6 +14,7 @@ import {
   type ToolCallItem,
   type ToolDefinition,
   type ToolExecutionResult,
+  type ToolExecutionContext,
   type ToolExecutor,
   type Turn,
   type TurnItem,
@@ -62,7 +63,8 @@ export type { ToolApprovalConfig } from "./toolApproval";
 export async function executeTool(
   name: string,
   argsJson: string,
-  executors?: Map<string, ToolExecutor>
+  executors?: Map<string, ToolExecutor>,
+  context?: ToolExecutionContext,
 ): Promise<ToolExecutionResult> {
   const resolvedName = resolveExecutableToolName(name, executors);
   if (!executors || !resolvedName) {
@@ -75,7 +77,9 @@ export async function executeTool(
   const executor = executors.get(resolvedName)!;
   try {
     const args = JSON.parse(argsJson || "{}");
-    return await executor.execute(args);
+    return context
+      ? await executor.execute(args, context)
+      : await executor.execute(args);
   } catch (err: any) {
     return {
       success: false,
@@ -272,7 +276,13 @@ export async function processToolCalls(
 
     // 执行工具
     throwIfAborted?.();
-    const result = await executeTool(canonicalToolName, tc.arguments, executors);
+    const result = await executeTool(canonicalToolName, tc.arguments, executors, {
+      threadId: turn.threadId,
+      turnId: turn.turnId,
+      userMessages: turn.items
+        .filter((item) => item.type === "user_message")
+        .map((item) => item.content),
+    });
 
     // 更新工具调用状态
     activeItem.status = result.success ? "completed" : "failed";

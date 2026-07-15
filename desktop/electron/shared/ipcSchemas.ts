@@ -64,6 +64,7 @@ export const SettingsKeyInput = z.enum([
   "officeAutoCompactEnabled",
   "permissionMode",
   "pinnedFolders",
+  "remoteDataProcessingEnabled",
   "showReasoning",
   "theme",
   "windowOpacity",

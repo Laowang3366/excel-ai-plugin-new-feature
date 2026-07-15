@@ -12,6 +12,7 @@
 
 import { createHash } from "crypto";
 import { secureFetch } from "../../shared/outboundUrlPolicy";
+import { assertRemoteDataProcessingAllowed } from "../../shared/egressPolicy";
 
 // ============================================================
 // 各厂商默认 embedding 模型配置
@@ -99,6 +100,8 @@ export interface EmbeddingServiceConfig {
   customHeaders?: Record<string, string>;
   /** 缓存大小（默认 500） */
   cacheSize?: number;
+  /** 企业数据外传开关；未明确开启时禁止远程 Embedding。 */
+  remoteDataProcessingEnabled?: boolean | (() => boolean);
 }
 
 export class EmbeddingService {
@@ -227,6 +230,14 @@ export class EmbeddingService {
   private async callEmbeddingAPI(
     texts: string[]
   ): Promise<Array<{ embedding: number[] }>> {
+    const enabled = typeof this.config.remoteDataProcessingEnabled === "function"
+      ? this.config.remoteDataProcessingEnabled()
+      : this.config.remoteDataProcessingEnabled === true;
+    assertRemoteDataProcessingAllowed({
+      enabled,
+      operation: "embedding",
+      texts,
+    });
     const url = buildEmbeddingUrl(this.config.baseUrl);
 
     const headers: Record<string, string> = {

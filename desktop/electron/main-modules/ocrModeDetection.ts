@@ -1,6 +1,7 @@
 import * as path from "path";
 import type { MineruParsedDocument } from "./mineruOcr";
 import { buildInvoiceFieldFallback, isLikelyInvoiceText } from "./invoiceFieldExtraction";
+import type { RemoteDataTransferSummary } from "../shared/egressPolicy";
 
 export interface OcrInvoiceItem {
   filename: string;
@@ -17,6 +18,7 @@ export interface OcrVisionResult {
   fields: Record<string, string>;
   invoices: OcrInvoiceItem[];
   errors: string[];
+  remoteProcessing?: RemoteDataTransferSummary[];
 }
 
 export function normalizeOcrMode(mode: unknown): "image" | "invoice" {

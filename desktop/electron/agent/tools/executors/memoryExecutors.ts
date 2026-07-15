@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import type { ToolExecutor } from "../../shared/types";
+import type { ToolExecutionContext } from "../../shared/types";
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
 import {
   isToolWritableMemoryKind,
@@ -17,9 +19,9 @@ export function addMemoryExecutors(
 ): void {
   target.set("memory.write", {
     name: "memory.write",
-    execute: async (args: Record<string, unknown>) => {
+    execute: async (args: Record<string, unknown>, context?: ToolExecutionContext) => {
       if (!deps.memoryStore) return { success: false, error: "长期记忆尚未初始化" };
-      const err = validateArgs(args, { kind: "string", content: "string" });
+      const err = validateArgs(args, { kind: "string", content: "string", userEvidence: "string" });
       if (err) return { success: false, error: err };
       const kind = args.kind as string;
       if (!isToolWritableMemoryKind(kind)) {
@@ -28,13 +30,26 @@ export function addMemoryExecutors(
       const optionalErr = validateOptionalMemoryArgs(args, ["namespace", "summary", "confidence"]);
       if (optionalErr) return { success: false, error: optionalErr };
       try {
+        const content = (args.content as string).trim();
+        const evidence = (args.userEvidence as string).trim();
+        const evidenceError = validateUserEvidence(content, evidence, context);
+        if (evidenceError) return { success: false, error: evidenceError };
         const record = await deps.memoryStore.write({
           kind,
           namespace: typeof args.namespace === "string" ? args.namespace : undefined,
-          content: args.content as string,
+          content,
           summary: typeof args.summary === "string" ? args.summary : undefined,
           confidence: typeof args.confidence === "number" ? args.confidence : undefined,
           source: "tool",
+          sourceThreadId: context?.threadId,
+          metadata: {
+            userConfirmed: true,
+            sourceTurnId: context?.turnId,
+            evidenceHash: createHash("sha256").update(evidence, "utf8").digest("hex"),
+          },
+          citations: context?.threadId
+            ? [{ threadId: context.threadId, turnId: context.turnId }]
+            : undefined,
         });
         return { success: true, data: record };
       } catch (error: any) {
@@ -99,6 +114,26 @@ export function addMemoryExecutors(
       }
     },
   });
+}
+
+function validateUserEvidence(
+  content: string,
+  evidence: string,
+  context: ToolExecutionContext | undefined,
+): string | null {
+  if (!context?.threadId || !context.turnId || context.userMessages.length === 0) {
+    return "缺少当前轮用户来源，拒绝写入长期记忆";
+  }
+  if (evidence.length < 2) {
+    return "参数 userEvidence 过短，无法证明用户明确表达了该记忆";
+  }
+  if (!context.userMessages.some((message) => message.includes(evidence))) {
+    return "参数 userEvidence 必须逐字出现在当前轮用户消息中；工具结果、网页、OCR 和附件内容不能作为长期记忆来源";
+  }
+  if (!evidence.includes(content)) {
+    return "记忆 content 必须逐字包含在 userEvidence 中，不能根据外部内容扩写为持久化指令";
+  }
+  return null;
 }
 
 function validateOptionalMemoryArgs(

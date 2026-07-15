@@ -2,6 +2,11 @@ import { trustedIpcMain as ipcMain } from "../shared/trustedIpc";
 import { createAIClient } from "../agent/providers/aiClient";
 import { parseFilesLocally } from "../agent/tools/executors/localDocumentParser";
 import { validateInput, OcrRecognizeInput } from "../shared/ipcSchemas";
+import {
+  assertRemoteDataProcessingAllowed,
+  isRemoteDataProcessingEnabled,
+  type RemoteDataTransferSummary,
+} from "../shared/egressPolicy";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
 import { getActiveAIConfig, getRuntimeSettingValue } from "./settingsManager";
 import { parseFilesWithMineru, parseFilesWithMineruAgent, type MineruParsedDocument } from "./mineruOcr";
@@ -39,7 +44,7 @@ export function registerOcrIpcHandler(pathAuthorizer: ReturnType<typeof createPa
   });
 }
 
-async function recognizeWithOcrFallbacks(
+export async function recognizeWithOcrFallbacks(
   rawMode: unknown,
   rawFilePaths: unknown,
 ): Promise<OcrVisionResult> {
@@ -47,7 +52,10 @@ async function recognizeWithOcrFallbacks(
   const filePaths = normalizeOcrFilePaths(rawFilePaths);
   const effectiveMode = mode === "invoice" || isLikelyInvoiceFileList(filePaths) ? "invoice" : "image";
 
-  const parsed = await parseFilesWithOcrFallbacks(filePaths);
+  const remoteEnabled = isRemoteDataProcessingEnabled(
+    getRuntimeSettingValue("remoteDataProcessingEnabled"),
+  );
+  const parsed = await parseFilesWithOcrFallbacks(filePaths, remoteEnabled);
   if (!hasAnyUsefulParsedDocument(parsed.documents)) {
     return emptyOcrResult(effectiveMode, [
       "未提取到可用 OCR 文本或表格，无法抽取字段",
@@ -57,13 +65,18 @@ async function recognizeWithOcrFallbacks(
   }
 
   const result = effectiveMode === "invoice" || isLikelyInvoiceDocuments(parsed.documents)
-    ? await extractInvoiceFieldsFromMineruDocuments(parsed.documents)
+    ? await extractInvoiceFieldsFromMineruDocuments(parsed.documents, remoteEnabled)
     : buildMineruOcrResult(parsed.documents);
 
   return {
     ...result,
+    remoteProcessing: [
+      ...parsed.remoteProcessing,
+      ...(result.remoteProcessing || []),
+    ],
     errors: [
       ...result.errors,
+      ...parsed.errors,
       ...formatParsedDocumentErrors(parsed.documents),
     ],
   };
@@ -71,27 +84,79 @@ async function recognizeWithOcrFallbacks(
 
 async function parseFilesWithOcrFallbacks(
   filePaths: string[],
-): Promise<{ documents: MineruParsedDocument[]; errors: string[] }> {
+  remoteEnabled: boolean,
+): Promise<{
+  documents: MineruParsedDocument[];
+  errors: string[];
+  remoteProcessing: RemoteDataTransferSummary[];
+}> {
   const errors: string[] = [];
+  const remoteProcessing: RemoteDataTransferSummary[] = [];
   const mineruToken = getConfiguredMineruToken();
   const selected: Array<MineruParsedDocument | undefined> = new Array(filePaths.length);
-  let unresolved = filePaths.map((_, index) => index);
+  const localDocuments = await parseFilesLocally(filePaths);
+  let unresolved = mergeUsefulDocuments(
+    selected,
+    filePaths.map((_, index) => index),
+    localDocuments,
+  );
 
-  if (mineruToken) {
+  if (unresolved.length > 0 && !remoteEnabled) {
+    errors.push("远程数据处理已关闭，本次 OCR 仅使用本地解析");
+  }
+
+  if (unresolved.length > 0 && remoteEnabled) {
     try {
-      const documents = await parseFilesWithMineru(filePaths, mineruToken);
-      unresolved = mergeUsefulDocuments(selected, unresolved, documents);
+      assertRemoteDataProcessingAllowed({
+        enabled: true,
+        operation: "ocr",
+        texts: unresolved.map((index) => localDocuments[index]?.text || ""),
+      });
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+      unresolved = [];
+    }
+  }
+
+  if (unresolved.length > 0 && remoteEnabled && mineruToken) {
+    const pendingCount = unresolved.length;
+    try {
+      const pendingIndices = unresolved;
+      const documents = await parseFilesWithMineru(
+        pendingIndices.map((index) => filePaths[index]),
+        mineruToken,
+      );
+      unresolved = mergeUsefulDocuments(selected, pendingIndices, documents);
+      const completedCount = pendingCount - unresolved.length;
+      if (completedCount > 0) {
+        remoteProcessing.push({
+          operation: "ocr",
+          service: "MinerU",
+          destination: "mineru.net",
+          dataSummary: `${completedCount} 个文件`,
+        });
+      }
       if (unresolved.length > 0) errors.push(formatMineruDocumentErrors(documents) || "MinerU 标准解析存在未完成文件");
     } catch (error: any) {
       errors.push(`MinerU 标准解析失败：${error?.message || "未知错误"}`);
     }
   }
 
-  if (unresolved.length > 0) {
+  if (unresolved.length > 0 && remoteEnabled) {
     const pendingIndices = unresolved;
+    const pendingCount = unresolved.length;
     try {
       const documents = await parseFilesWithMineruAgent(pendingIndices.map((index) => filePaths[index]));
       unresolved = mergeUsefulDocuments(selected, pendingIndices, documents);
+      const completedCount = pendingCount - unresolved.length;
+      if (completedCount > 0) {
+        remoteProcessing.push({
+          operation: "ocr",
+          service: "MinerU Agent",
+          destination: "mineru.net",
+          dataSummary: `${completedCount} 个文件`,
+        });
+      }
       if (unresolved.length > 0) errors.push(formatMineruDocumentErrors(documents) || "MinerU 免费解析存在未完成文件");
     } catch (error: any) {
       errors.push(`MinerU 免费解析失败：${error?.message || "未知错误"}`);
@@ -99,17 +164,16 @@ async function parseFilesWithOcrFallbacks(
   }
 
   if (unresolved.length > 0) {
-    const pendingIndices = unresolved;
-    const localDocuments = await parseFilesLocally(pendingIndices.map((index) => filePaths[index]));
-    for (let index = 0; index < pendingIndices.length; index++) {
-      selected[pendingIndices[index]] = localDocuments[index];
+    for (const index of unresolved) {
+      selected[index] = localDocuments[index];
     }
   }
 
   const documents = selected.filter((document): document is MineruParsedDocument => Boolean(document));
   return {
     documents,
-    errors: hasAnyUsefulParsedDocument(documents) ? [] : errors,
+    errors,
+    remoteProcessing,
   };
 }
 
@@ -184,10 +248,18 @@ function buildMineruOcrResult(documents: MineruParsedDocument[]): OcrVisionResul
 
 async function extractInvoiceFieldsFromMineruDocuments(
   documents: MineruParsedDocument[],
+  remoteEnabled: boolean,
 ): Promise<OcrVisionResult> {
   const fallback = buildMineruInvoiceFallbackResult(documents);
+  if (!remoteEnabled) return fallback;
   try {
-    const aiClient = createAIClient(getActiveAIConfig());
+    assertRemoteDataProcessingAllowed({
+      enabled: true,
+      operation: "invoice-extraction",
+      texts: documents.map((document) => document.text),
+    });
+    const aiConfig = getActiveAIConfig();
+    const aiClient = createAIClient(aiConfig);
     const result = await aiClient.chat({
       messages: [{
         role: "user",
@@ -210,6 +282,12 @@ async function extractInvoiceFieldsFromMineruDocuments(
         ...fallback.errors,
         ...normalized.errors,
       ],
+      remoteProcessing: [{
+        operation: "invoice-extraction",
+        service: aiConfig.provider,
+        destination: getDestinationHost(aiConfig.baseUrl),
+        dataSummary: `${documents.length} 个文件的 OCR 文本`,
+      }],
     };
   } catch (error: any) {
     return {
@@ -219,6 +297,14 @@ async function extractInvoiceFieldsFromMineruDocuments(
         `发票字段抽取失败，已保留 MinerU OCR 文本：${error?.message || "未知错误"}`,
       ],
     };
+  }
+}
+
+function getDestinationHost(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).host;
+  } catch {
+    return baseUrl;
   }
 }
 

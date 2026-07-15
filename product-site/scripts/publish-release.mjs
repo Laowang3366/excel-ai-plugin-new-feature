@@ -42,11 +42,32 @@ const notesPath = path.resolve(requireArg(args, "notes-file"));
 const privateKeyPath = path.resolve(requireArg(args, "private-key"));
 const outputDir = path.resolve(requireArg(args, "output"));
 const baseUrl = requireArg(args, "base-url").replace(/\/+$/u, "");
+const versionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+const patchIdPattern = /^[0-9A-Za-z._-]{1,128}$/u;
 
-if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) throw new Error("版本号格式无效");
+if (!versionPattern.test(version)) throw new Error("版本号格式无效");
 const releaseNotes = JSON.parse(await fs.readFile(notesPath, "utf8"));
 if (!Array.isArray(releaseNotes) || releaseNotes.some((note) => typeof note !== "string" || !note.trim())) {
   throw new Error("更新日志必须是非空字符串数组");
+}
+const revokedPatchIds = String(args["revoked-hot-patch-ids"] || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+if (revokedPatchIds.length > 2_000 || revokedPatchIds.some((id) => !patchIdPattern.test(id))) {
+  throw new Error("--revoked-hot-patch-ids 包含无效补丁 ID 或超过 2000 项");
+}
+const minimumSafeSequenceByBaseVersion = {};
+if (args["minimum-safe-hot-patch-sequence"]) {
+  const baseVersion = args["minimum-safe-hot-patch-base-version"] || version;
+  if (!versionPattern.test(baseVersion)) {
+    throw new Error("--minimum-safe-hot-patch-base-version 版本号格式无效");
+  }
+  const minimumSequence = Number(args["minimum-safe-hot-patch-sequence"]);
+  if (!Number.isInteger(minimumSequence) || minimumSequence < 0) {
+    throw new Error("--minimum-safe-hot-patch-sequence 必须是非负整数");
+  }
+  minimumSafeSequenceByBaseVersion[baseVersion] = minimumSequence;
 }
 
 await fs.mkdir(outputDir, { recursive: true });
@@ -65,6 +86,10 @@ const unsignedManifest = {
     url: `${baseUrl}/releases/windows/${encodeURIComponent(installer.fileName)}`,
     sha256: installer.sha256,
     size: installer.size,
+  },
+  hotPatchPolicy: {
+    revokedPatchIds: Array.from(new Set(revokedPatchIds)),
+    minimumSafeSequenceByBaseVersion,
   },
 };
 

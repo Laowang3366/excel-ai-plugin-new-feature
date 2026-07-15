@@ -39,6 +39,7 @@ import {
   setSettingFromRenderer,
   getActiveDataPath,
   getActiveAIConfig,
+  getRuntimeSettingValue,
   getSessionStoreInstance,
   getStateRuntimeStoreInstance,
   isDataMigrationInProgress,
@@ -80,6 +81,7 @@ import {
   type WindowDisplayMode,
 } from "./windowManager";
 import {
+  acknowledgeHotPatchHealth,
   applyDownloadedUpdate,
   checkForUpdates,
   downloadUpdate,
@@ -147,7 +149,11 @@ export function registerIpcHandlers(): void {
     getSessionStoreInstance,
     getStateRuntimeStoreInstance,
     getAgentGraphStoreInstance,
-    ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath()),
+    ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(
+      getActiveAIConfig(),
+      getActiveDataPath(),
+      () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+    ),
     isDataMigrationInProgress,
     pathAuthorizer,
   });
@@ -192,6 +198,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("update:getState", () => getUpdateState());
+  ipcMain.handle("update:ackHotPatchHealth", () => acknowledgeHotPatchHealth());
   ipcMain.handle("update:check", (_event, manual: unknown) => {
     return checkForUpdates(validateInput(UpdateCheckInput, manual) ?? true);
   });
@@ -269,7 +276,11 @@ export function registerIpcHandlers(): void {
         );
       }
       try {
-        await refreshKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath());
+        await refreshKnowledgeRuntime(
+          getActiveAIConfig(),
+          getActiveDataPath(),
+          () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+        );
       } catch (error) {
         logger.warn("刷新知识库运行时失败，设置已保存:", error);
       }

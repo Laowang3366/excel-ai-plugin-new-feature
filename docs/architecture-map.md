@@ -137,6 +137,7 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `desktop/electron/main.ts` | Electron 生命周期入口 | `getOrCreateAgentRuntime`、`registerIpcHandlers`、`createWindow`、退出时 flush/close | 主窗口、Agent runtime、IPC 注册 |
 | `desktop/electron/main-modules/settingsManager.ts` | electron-store、数据目录、Session/StateRuntime 生命周期 | `getActiveAIConfig`、`getSessionStoreInstance`、`getStateRuntimeStoreInstance` | 设置、数据路径、SQLite/JSONL 存储实例 |
+| `desktop/electron/main-modules/dataPathMigration.ts` | 数据目录完整 staging、逐文件校验、空目标原子切换和回滚清理 | `settingsManager.migrateDataPath` | 设置/会话/知识/日志/Office 自动化完整副本 |
 | `desktop/electron/main-modules/windowManager.ts` | BrowserWindow、托盘、普通/紧凑模式、透明度/主题 | Electron `BrowserWindow`、设置值 | 主窗口状态、托盘行为 |
 | `desktop/electron/main-modules/ipcHandlers.ts` | 通用 IPC 注册入口 | `registerAgentIpcHandlers`、Office bridge refs、settings/file/ocr/office automation 子 handler | 所有主进程 IPC handler |
 | `desktop/electron/agent/runtime/agentRuntime.ts` | Agent 依赖装配 | `bridgeRegistry`、`knowledgeRuntime`、`createToolExecutors`、`AgentLoop` | `AgentRuntime`、`AgentLoopManager` |
@@ -443,17 +444,18 @@ flowchart TB
   OcrTool["tools/registry/ocr.ts"]
   OcrExec["tools/executors/ocrExecutors.ts"]
   LocalParser["tools/executors/localDocumentParser.ts"]
+  Egress["shared/egressPolicy.ts"]
 
   Drag --> ComposerFiles
   ComposerFiles --> ChatInput
   ComposerFiles --> OcrPanel
   OcrPanel --> PreloadOcr --> IpcOcr
-  IpcOcr --> Mineru
+  IpcOcr --> LocalParser
+  IpcOcr --> Egress --> Mineru
   IpcOcr --> Invoice
   OcrTool --> OcrExec
-  OcrExec --> Mineru
   OcrExec --> LocalParser
-  Mineru --> LocalParser
+  OcrExec --> Egress --> Mineru
 ```
 
 OCR/附件连接：
@@ -463,8 +465,9 @@ OCR/附件连接：
 | 聊天附件上传 | `hooks/useComposer.ts`、`composerAttachmentFiles.ts`、`utils/fileBase64.ts` | 解析拖拽/粘贴文件，生成附件对象，随 `AgentTurnInput.attachments` 进入 Agent |
 | 图片预览 | `components/chat/AttachmentImagePreview.tsx`、`utils/attachmentPreview.ts` | 消息列表读取附件路径/base64 展示 |
 | OCR 功能面板 | `components/task/OCRTaskComposerPanel.tsx`、`OCRFileUploadSection.tsx`、`OCRResultSection.tsx` | 前端静默识别并展示字段和预览，可写回 Excel |
-| 主进程 OCR IPC | `main-modules/ipcOcrHandlers.ts`、`ipcHandlers.ocr.test.ts` | `ocr:recognize` 入口，走 MinerU/降级/字段提取 |
-| MinerU 接口 | `main-modules/mineruOcr.ts` | 付费 token 优先、免费限制后降级、本地兜底 |
+| 主进程 OCR IPC | `main-modules/ipcOcrHandlers.ts`、`ipcOcrHandlers.test.ts` | `ocr:recognize` 入口，本地优先；统一远程数据开关允许后才进入 MinerU/模型字段抽取 |
+| 数据外传策略 | `shared/egressPolicy.ts` | 默认本地模式，统一约束 OCR、搜索、Embedding 与发票模型抽取，发送前检查高置信凭据 |
+| MinerU 接口 | `main-modules/mineruOcr.ts` | 只处理本地无法解析且已获远程数据授权的文件；标准 token 失败后可进入免费 Agent |
 | 发票字段提取 | `main-modules/invoiceFieldExtraction.ts` | 将 OCR 文本整理为字段结构 |
 | 模型 OCR 工具 | `tools/registry/ocr.ts`、`tools/executors/ocrExecutors.ts` | 让无多模态模型通过工具识别图片/PDF |
 | 本地文档解析兜底 | `tools/executors/localDocumentParser.ts` | 解析 docx/pptx/pdf/txt/json 等本地内容 |

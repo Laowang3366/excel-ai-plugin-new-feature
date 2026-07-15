@@ -176,7 +176,13 @@ export async function getOrCreateAgentRuntime(
   const bridges = getOrCreateOfficeBridges();
   const aiConfig = deps.getActiveAIConfig();
   const stateRuntime = await deps.getStateRuntimeStoreInstance();
-  const knowledge = await initializeKnowledgeRuntime(aiConfig, deps.getActiveDataPath());
+  const isRemoteDataProcessingEnabled = () =>
+    deps.getSettingsValue("remoteDataProcessingEnabled") === true;
+  const knowledge = await initializeKnowledgeRuntime(
+    aiConfig,
+    deps.getActiveDataPath(),
+    isRemoteDataProcessingEnabled,
+  );
   const memoryStore = new LongTermMemoryStore(stateRuntime);
   const officeAutomationRoot = path.join(deps.getActiveDataPath(), "office-automation");
   const officeDocumentBridge = new DotNetOfficeDocumentBridge();
@@ -206,6 +212,7 @@ export async function getOrCreateAgentRuntime(
           deps.getSettingsValue("mineruApiToken") || deps.getSettingsValue("ocrMineruApiToken");
         return typeof configured === "string" ? configured : "";
       },
+      isRemoteDataProcessingEnabled,
     },
   );
 
@@ -251,8 +258,9 @@ export function getAgentLoopManager(): AgentLoopManager | null {
 export async function refreshKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot: string,
+  isRemoteDataProcessingEnabled: () => boolean = () => false,
 ): Promise<KnowledgeRuntimeState> {
-  const knowledge = await reloadKnowledgeRuntime(aiConfig, dataRoot);
+  const knowledge = await reloadKnowledgeRuntime(aiConfig, dataRoot, isRemoteDataProcessingEnabled);
   if (runtime) {
     runtime.knowledge = knowledge;
   }
@@ -262,8 +270,9 @@ export async function refreshKnowledgeRuntime(
 export async function ensureKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot: string,
+  isRemoteDataProcessingEnabled: () => boolean = () => false,
 ): Promise<KnowledgeRuntimeState> {
-  const knowledge = await initializeKnowledgeRuntime(aiConfig, dataRoot);
+  const knowledge = await initializeKnowledgeRuntime(aiConfig, dataRoot, isRemoteDataProcessingEnabled);
   if (runtime) {
     runtime.knowledge = knowledge;
   }

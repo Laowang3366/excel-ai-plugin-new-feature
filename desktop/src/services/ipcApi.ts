@@ -77,6 +77,10 @@ export const ipcApi: IIpcApi = {
   },
 
   update: {
+    ackHotPatchHealth: async () => {
+      const raw = getRaw();
+      return raw?.update?.ackHotPatchHealth?.() ?? false;
+    },
     getState: async () => {
       const raw = getRaw();
       if (!raw?.update) {

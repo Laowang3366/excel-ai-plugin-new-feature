@@ -23,7 +23,9 @@ public/knowledge/**
 public/wps-jsa-bridge/**
 ```
 
-界面补丁必须包含 `dist/index.html`；知识库补丁必须包含 `builtin-knowledge.json`；WPS 桥接补丁必须包含 `index.html`。补丁声明精确基础版本、单调递增序列、发布时间、过期时间和逐文件 SHA-256/size 清单。客户端在解压前检查归档、声明总量、单文件大小和压缩比，安装后原子切换；每次启动会重新校验已安装文件，篡改、过期或低序列补丁不会激活。
+界面补丁必须包含 `dist/index.html`；知识库补丁必须包含 `builtin-knowledge.json`；WPS 桥接补丁必须包含 `index.html`。补丁声明精确基础版本、单调递增序列、发布时间、过期时间和逐文件 SHA-256/size 清单。客户端以 64 KiB 输入流解压并逐文件写盘校验，不把整个 ZIP 或全部解压内容载入内存；安装后原子切换。每次启动会重新校验已安装文件，并要求 Renderer 在 30 秒内确认健康；白屏、硬崩溃、篡改、过期或低序列补丁会自动回退内置资源。
+
+签名更新清单可携带 `hotPatchPolicy.revokedPatchIds` 与 `hotPatchPolicy.minimumSafeSequenceByBaseVersion`。发布脚本通过 `--revoked-hot-patch-ids <id1,id2>`、`--minimum-safe-hot-patch-sequence <n>` 和可选 `--minimum-safe-hot-patch-base-version <ver>` 生成策略；客户端收到后会持久化安全基线，命中当前补丁时立即停用并重启。
 
 热补丁不能更新 `dist-electron/`、preload、Node 依赖、原生模块或 `.NET Office Worker`。只要 `desktop/dotnet/`、`desktop/electron/agent/officeWorker/` 的协议或主进程执行逻辑发生变化，就必须发布完整安装包。
 

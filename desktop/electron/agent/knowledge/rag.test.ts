@@ -86,6 +86,7 @@ describe("EmbeddingService", () => {
         provider: "openai",
         baseUrl: "https://api.openai.com",
         apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
       });
 
       const r1 = await svc.embed("测试文本");
@@ -114,6 +115,7 @@ describe("EmbeddingService", () => {
         provider: "openai",
         baseUrl: "https://api.example.com",
         apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
       });
       await rootUrlService.embed("根地址");
 
@@ -121,6 +123,7 @@ describe("EmbeddingService", () => {
         provider: "openai",
         baseUrl: "https://api.example.com/v1/chat/completions",
         apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
       });
       await chatUrlService.embed("聊天接口地址");
 
@@ -147,6 +150,7 @@ describe("EmbeddingService", () => {
         provider: "openai",
         baseUrl: "https://api.example.com",
         apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
       });
 
       await expect(svc.embed("测试")).rejects.toThrow("服务返回了网页内容");
@@ -176,6 +180,7 @@ describe("EmbeddingService", () => {
         provider: "openai",
         baseUrl: "https://api.openai.com",
         apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
       });
 
       // 先缓存一个
@@ -207,6 +212,7 @@ describe("EmbeddingService", () => {
         provider: "openai",
         baseUrl: "https://api.openai.com",
         apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
       });
 
       await svc.embed("测试");
@@ -214,6 +220,50 @@ describe("EmbeddingService", () => {
       await svc.embed("测试"); // 清空缓存后应再次调用
 
       expect(fetchCount).toBe(2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("should not call the embedding API when remote processing is disabled", async () => {
+    const fetchMock = vi.fn();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const svc = new EmbeddingService({
+        provider: "openai",
+        baseUrl: "https://api.openai.com",
+        apiKey: "sk-test",
+        remoteDataProcessingEnabled: false,
+      });
+
+      await expect(svc.embed("本地知识片段")).rejects.toMatchObject({
+        code: "remote_data_processing_disabled",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("should block high-confidence secrets before the embedding request", async () => {
+    const fetchMock = vi.fn();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const svc = new EmbeddingService({
+        provider: "openai",
+        baseUrl: "https://api.openai.com",
+        apiKey: "sk-test",
+        remoteDataProcessingEnabled: true,
+      });
+
+      await expect(svc.embed("secret sk-1234567890abcdefghijklmnop")).rejects.toMatchObject({
+        code: "sensitive_data_detected",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       globalThis.fetch = originalFetch;
     }

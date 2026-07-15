@@ -271,6 +271,10 @@ describe("processToolCalls", () => {
 
     expect(execute).toHaveBeenCalledWith({
       filePaths: ["C:\\Users\\29721\\Pictures\\image.png"],
+    }, {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      userMessages: [],
     });
     expect(turn.items[0]).toMatchObject({
       type: "tool_call",

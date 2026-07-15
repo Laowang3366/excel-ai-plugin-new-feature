@@ -88,6 +88,22 @@ export const App: React.FC = () => {
   }, [loadSettings]);
 
   useEffect(() => {
+    if (isLoading) return;
+    let canceled = false;
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (canceled || document.querySelector(".error-boundary")) return;
+        if (!document.querySelector(".app-shell")) return;
+        void ipcApi.update.ackHotPatchHealth();
+      });
+    });
+    return () => {
+      canceled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.lang = language;
   }, [language, theme]);

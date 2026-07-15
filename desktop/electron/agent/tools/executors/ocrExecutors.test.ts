@@ -80,10 +80,10 @@ describe("ocr executors", () => {
         text: expect.stringContaining("发票号码"),
       }],
       errors: [],
-      fallbacks: [{
-        provider: "mineru",
-        success: true,
-      }],
+      fallbacks: [
+        expect.objectContaining({ provider: "local", success: false }),
+        { provider: "mineru", success: true },
+      ],
     });
   });
 
@@ -138,6 +138,7 @@ describe("ocr executors", () => {
         expect.stringContaining("MinerU 免费 Agent"),
       ]),
       fallbacks: [
+        expect.objectContaining({ provider: "local", success: false }),
         {
           provider: "mineru",
           success: false,
@@ -151,19 +152,12 @@ describe("ocr executors", () => {
     });
   });
 
-  it("falls back to local parser when MinerU token and free Agent both fail", async () => {
+  it("uses the local parser before any remote OCR provider", async () => {
     process.env.MINERU_API_TOKEN = "token";
     const filePath = tempFile("ocr-local", ".txt", "本地兜底内容\n第二行");
 
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (url.endsWith("/file-urls/batch")) {
-        return jsonResponse({ code: 2001, msg: "额度不足", data: null }, 200);
-      }
-      if (url.endsWith("/api/v1/agent/parse/file")) {
-        return jsonResponse({ code: 429, msg: "IP 频率限制", data: null }, 200);
-      }
-      throw new Error(`unexpected url: ${url}`);
-    }));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await executeOcr({ filePaths: [filePath] });
 
@@ -172,16 +166,13 @@ describe("ocr executors", () => {
       provider: "local",
       text: expect.stringContaining("本地兜底内容"),
       warnings: expect.arrayContaining([
-        expect.stringContaining("MinerU 标准解析不可用"),
-        expect.stringContaining("MinerU 免费 Agent 解析不可用"),
         expect.stringContaining("本地免费兜底解析"),
       ]),
       fallbacks: [
-        expect.objectContaining({ provider: "mineru", success: false }),
-        expect.objectContaining({ provider: "mineru-agent", success: false }),
         expect.objectContaining({ provider: "local", success: true }),
       ],
     });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("uses free MinerU Agent when no token is configured", async () => {
@@ -225,6 +216,7 @@ describe("ocr executors", () => {
       provider: "mineru-agent",
       text: "## " + path.basename(filePath) + "\n免费链路内容",
       fallbacks: [
+        expect.objectContaining({ provider: "local", success: false }),
         {
           provider: "mineru",
           success: false,
@@ -292,6 +284,27 @@ describe("ocr executors", () => {
     });
   });
 
+  it("does not call MinerU when remote processing is disabled", async () => {
+    process.env.MINERU_API_TOKEN = "token";
+    const filePath = tempFile("ocr-local-only", ".pdf", "pdf");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await executeOcr({ filePaths: [filePath] }, false);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: false,
+      data: {
+        provider: "local",
+        remoteProcessing: [],
+        warnings: expect.arrayContaining([
+          expect.stringContaining("远程数据处理已关闭"),
+        ]),
+      },
+    });
+  });
+
   function tempFile(prefix: string, ext: string, content: string): string {
     const filePath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
     tempFiles.push(filePath);
@@ -300,9 +313,11 @@ describe("ocr executors", () => {
   }
 });
 
-async function executeOcr(args: Record<string, unknown>) {
+async function executeOcr(args: Record<string, unknown>, remoteEnabled = true) {
   const executors = new Map();
-  addOcrExecutors(executors);
+  addOcrExecutors(executors, {
+    isRemoteDataProcessingEnabled: () => remoteEnabled,
+  });
   return await executors.get("ocr.parseDocument")!.execute({
     maxTextChars: 2000,
     maxTableRows: 20,

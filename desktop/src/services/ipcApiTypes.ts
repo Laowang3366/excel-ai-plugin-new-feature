@@ -38,6 +38,7 @@ export interface IIpcApi {
   };
   update: {
     getState: () => Promise<DesktopUpdateState>;
+    ackHotPatchHealth: () => Promise<boolean>;
     check: (manual?: boolean) => Promise<DesktopUpdateState>;
     download: (kind: UpdateKind) => Promise<DesktopUpdateState>;
     apply: () => Promise<DesktopUpdateState>;

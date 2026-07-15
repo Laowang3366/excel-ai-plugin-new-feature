@@ -16,17 +16,17 @@
 | C-02 | 已关闭 | 审批缺失默认拒绝；危险/未知/删除/外传强制审批；线程+工具+operation+目标+TTL 授权；全工具元数据表驱动测试 | 无 |
 | C-03 | 代码整改完成，外部动作未完成 | `settingsSecrets.ts` 使用 `safeStorage`，Renderer 仅接收掩码，设置 key 白名单及迁移测试 | 轮换所有可能暴露的真实凭据；签名私钥移出开发机；核验 Windows ACL |
 | H-01/H-02 | 已实现 | 路径授权改为 realpath/最近存在父目录解析；移除系统 Temp 信任；知识库索引、删除、重建均重新授权；junction 逃逸测试 | Windows 安装包内路径选择实机回归 |
-| H-03 | 部分完成 | OCR/搜索已标记数据外传并强制审批 | 统一离线/企业 egress policy、DLP、目标服务与数据预览仍待实现 |
-| H-04 | 部分完成 | `memory.write/delete` 改为明确审批 | 外部内容结构化不可信边界、记忆来源证明与提示注入测试仍待实现 |
+| H-03 | 已实现，待第三方联调 | `egressPolicy.ts` 统一默认关闭策略；OCR 本地优先；搜索/Embedding/发票模型抽取关闭时零请求；高置信凭据发送前阻断；返回目标服务与数据摘要 | 企业服务 allowlist 与真实 MinerU/搜索/Embedding 联调验收 |
+| H-04 | 已实现 | 工具结果以结构化不可信 JSON 回送；系统提示明确外部数据边界；`memory.write` 必须引用当前轮用户原文并记录哈希/线程/turn/citation；未确认旧记忆不注入 system prompt；提示注入负向测试 | 红队场景与多模型遵循性实测 |
 | H-05 | 已实现 | `outboundUrlPolicy.ts` 强制 HTTPS/精确本地 allowlist，阻断私网、DNS rebinding 与跨源重定向；Provider/Embedding 负向测试 | 企业本地模型 allowlist 配置验收 |
-| H-06 | 未开始 | — | 数据目录全量事务迁移与所有 Runtime 原子重建 |
+| H-06 | 已实现，待安装包实测 | 新安装默认 `%LOCALAPPDATA%` 用户隔离目录并自动迁移旧安装目录；全根目录 staging 复制、稳定文件 SHA-256、SQLite 实际打开校验、空目标原子改名、UNC 默认拒绝；失败恢复旧 store/runtime 并清理目标 | 安装包跨盘迁移、断电/磁盘满与旧目录停止写入实测 |
 | H-07 | 已实现，待真实 Office | `ExcelRangeWriteTransaction` 在任一公式失败时恢复整区；第二个公式失败与回滚失败测试 | Excel/WPS 当前窗口实机验证 |
 | H-08 | 已实现，待真实 Office | COM 所有现代公式统一 `Formula2`；表达式型 spill 识别覆盖范围表达式、IF、TRANSPOSE；COM/Open XML 测试 | Excel 365/WPS 保存重开与 spill 冒烟 |
 | H-09 | 已实现 | Open XML 不再先删除后跳过占位；覆盖写入克隆原单元格属性并保留样式；样式/非 spill 数据测试 | 大型真实工作簿兼容性回归 |
 | H-10 | 已实现 | Worker 协议升至 v2；`excel.range.write` 结果运行时字段校验；旧结果负向测试 | 安装覆盖失败/旧 Worker 实机握手测试 |
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | CI 增加 .NET test/NuGet audit；Release 拆分构建签名与受审批发布；两阶段 Authenticode 校验；产品站 release 目录只读 | 配置受保护证书/HSM、Environment approval；固定第三方 Action SHA；SBOM/最终清单端到端验签 |
-| H-13 | 部分完成 | 热补丁增加单调序列、有效期、归档/文件清单、压缩比/大小边界、启动逐文件复验；重放与篡改测试 | 改为真正流式解压；Renderer 健康确认与白屏自动回滚；远程吊销列表 |
+| H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
 | M-06 | 已实现 | 下载统计改为 best-effort，数据库故障时安装包仍返回 200；故障注入测试 | 留存清理与周期盐轮换 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
@@ -43,7 +43,7 @@
 | Medium | 12 | 应进入发布前整改或形成有期限的正式风险接受 |
 | Low | 3 | 纳入近期工程治理 |
 
-当前最紧急的阻断项是：
+原始审查发现中最紧急的阻断项是：
 
 1. 模型输出的外链可把 Electron 主窗口导航到远端页面，而远端页面继续获得完整 preload 和高权限 IPC。
 2. “全部确认”模式实际无条件自动批准宏、删除和未知工具；“始终允许”还会跨线程、跨工作簿扩大授权。
@@ -88,8 +88,8 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 152 个测试文件、777 项测试全部通过 |
-| Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 564.52 KB，超过 500 KB 建议值 |
+| Desktop Vitest | 通过 | 整改后 156 个测试文件、805 项测试全部通过 |
+| Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 566.92 KB，超过 500 KB 建议值 |
 | Desktop `format:check` | **失败** | 限定源码检查仍约有 482 个格式不匹配文件 |
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
@@ -237,6 +237,8 @@
 
 ### H-03 OCR 与联网搜索缺乏统一数据外传治理
 
+> 整改结果：新增统一的远程数据处理开关，默认关闭；OCR 本地优先，搜索、远程 OCR、发票模型抽取和 Embedding 均在网络请求前执行策略与高置信凭据检查，并通过工具审批呈现外传风险。以下“证据”为整改前基线。
+
 **证据**
 
 - `desktop/electron/main-modules/ipcOcrHandlers.ts:72-107` 的默认顺序为 MinerU Token、免费 MinerU Agent、最后本地解析。
@@ -257,6 +259,8 @@
 - 用 canary 文档和搜索词验证：任何 HTTP 之前必须被阻断或明确确认，离线策略下网络请求数为 0。
 
 ### H-04 外部内容可形成持久化系统提示注入
+
+> 整改结果：工具结果现以结构化不可信数据回送；长期记忆只接受当前轮用户原文证据，记录来源与哈希，且只有用户确认记录可进入 system prompt。以下“证据”为整改前基线。
 
 **证据**
 
@@ -296,6 +300,8 @@
 - 测试 DNS rebinding、IPv6、十进制 IP、redirect 到私网和恶意 URL；API Key 不得到达未授权主机。
 
 ### H-06 数据目录默认、迁移和运行时重绑定不完整
+
+> 整改结果：默认目录已切换为用户隔离路径；旧安装目录通过同父目录 staging 后原子迁入；手动迁移覆盖完整数据根、逐文件校验并验证 SQLite，可在 Runtime 重建失败时回滚。以下“证据”为整改前基线。
 
 **证据**
 
@@ -432,6 +438,8 @@
 - `Get-AuthenticodeSignature` 必须为 `Valid`，失败 CI 不得上传 Release。
 
 ### H-13 热补丁缺少防重放、启动复验和有界解压
+
+> 整改结果：补丁现执行流式有界解压、启动文件复验、序列防回退、签名策略吊销及 Renderer 健康确认回滚。以下“证据”为整改前基线。
 
 **证据**
 
@@ -636,8 +644,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-项目在架构拆分、Office STA、Open XML、更新签名基础、测试数量和产品站基础加固方面已经具备较好的工程基础；近期图表和透视表验证也明显改善了“调用成功但结果不可见”的问题。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口；当前自动化门禁为 156 个 Vitest 文件、805 项测试和 97 项 .NET 测试全部通过。
 
-但当前版本仍存在可直接跨越 Electron 信任边界的攻击链、危险工具审批失效、现实凭据暴露面，以及 Excel 写入失败后数据不一致等问题。这些问题同时覆盖机密性、完整性、可用性和更新供应链，不能通过文档提示、用户谨慎或“测试全绿”进行风险抵消。
-
-因此，本次企业级上线审查结论为：**No-Go / Request Changes**。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

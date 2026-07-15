@@ -28,6 +28,16 @@ export const HotPatchUpdateSchema = z.object({
   restartRequired: z.literal(true),
 }).strict();
 
+export const HotPatchPolicySchema = z.object({
+  revokedPatchIds: z.array(
+    z.string().min(1).max(128).regex(/^[0-9A-Za-z._-]+$/u),
+  ).max(2_000),
+  minimumSafeSequenceByBaseVersion: z.record(
+    z.string().regex(VERSION_PATTERN),
+    z.number().int().nonnegative(),
+  ),
+}).strict();
+
 export const RemoteUpdateManifestSchema = z.object({
   schemaVersion: z.literal(1),
   channel: z.literal("stable"),
@@ -36,11 +46,13 @@ export const RemoteUpdateManifestSchema = z.object({
   releaseNotes: z.array(z.string().min(1).max(300)).max(30),
   installer: InstallerUpdateSchema.optional(),
   hotPatch: HotPatchUpdateSchema.optional(),
+  hotPatchPolicy: HotPatchPolicySchema.optional(),
   signature: z.string().min(40),
 }).strict();
 
 export type InstallerUpdate = z.infer<typeof InstallerUpdateSchema>;
 export type HotPatchUpdate = z.infer<typeof HotPatchUpdateSchema>;
+export type HotPatchPolicy = z.infer<typeof HotPatchPolicySchema>;
 export type RemoteUpdateManifest = z.infer<typeof RemoteUpdateManifestSchema>;
 
 export function canonicalJson(value: unknown): string {

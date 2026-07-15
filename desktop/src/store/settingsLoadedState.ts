@@ -56,6 +56,9 @@ export function buildLoadedSettingsState(allSettings: Record<string, any>): Load
   if (typeof allSettings.dynamicArrayFunctionsEnabled === "boolean") {
     patch.dynamicArrayFunctionsEnabled = allSettings.dynamicArrayFunctionsEnabled;
   }
+  if (typeof allSettings.remoteDataProcessingEnabled === "boolean") {
+    patch.remoteDataProcessingEnabled = allSettings.remoteDataProcessingEnabled;
+  }
   if (allSettings.windowOpacity !== undefined) {
     patch.windowOpacity = normalizeWindowOpacity(allSettings.windowOpacity);
   }

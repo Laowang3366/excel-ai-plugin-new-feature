@@ -16,11 +16,17 @@ import {
   type MineruParsedDocument,
 } from "../../../main-modules/mineruOcr";
 import { clampNumber } from "../../shared/numberLimits";
+import {
+  assertRemoteDataProcessingAllowed,
+  toRemoteDataPolicyResult,
+  type RemoteDataTransferSummary,
+} from "../../../shared/egressPolicy";
 import { parseFilesLocally, type LocalParsedDocument } from "./localDocumentParser";
 import { validateArgs } from "./validation";
 
 export interface OcrExecutorDeps {
   getMineruApiToken?: () => string;
+  isRemoteDataProcessingEnabled?: () => boolean;
 }
 
 type OcrMode = "ocr" | "invoice" | "layout" | "style";
@@ -92,6 +98,7 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
       const allowFreeMineru = args.allowFreeMineru !== false;
       const allowLocalFallback = args.allowLocalFallback !== false;
       const token = getConfiguredMineruToken(deps);
+      const remoteDataProcessingEnabled = deps.isRemoteDataProcessingEnabled?.() === true;
 
       const fallbacks: FallbackAttempt[] = [];
       const warnings: string[] = [];
@@ -100,26 +107,72 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
         provider: OcrProvider;
       } | undefined> = new Array(filePaths.length);
       let unresolved = filePaths.map((_, index) => index);
+      let localDocuments: LocalParsedDocument[] | null = null;
 
-      if (!allowTokenMineru) {
+      if (allowLocalFallback) {
+        localDocuments = await parseFilesLocally(filePaths);
+        fallbacks.push({
+          provider: "local",
+          success: hasAnyUsefulDocument(localDocuments),
+          parsedFiles: localDocuments.filter(hasUsefulDocument).length,
+          totalFiles: filePaths.length,
+          reason: "已先使用本地解析，仅把本地无法处理的文件交给后续远程服务",
+        });
+        unresolved = mergeUsefulOcrDocuments(selected, unresolved, localDocuments, "local");
+        warnings.push(...localDocuments.flatMap((document) => document.warnings));
+      } else {
+        fallbacks.push({
+          provider: "local",
+          success: false,
+          skipped: true,
+          reason: "调用参数 allowLocalFallback=false，已跳过本地解析",
+        });
+      }
+
+      if (unresolved.length > 0 && !remoteDataProcessingEnabled) {
+        const reason = "远程数据处理已关闭，仅保留本地解析结果";
+        fallbacks.push({ provider: "mineru", success: false, skipped: true, reason });
+        fallbacks.push({ provider: "mineru-agent", success: false, skipped: true, reason });
+        warnings.push(reason);
+      }
+
+      if (unresolved.length > 0 && remoteDataProcessingEnabled) {
+        try {
+          assertRemoteDataProcessingAllowed({
+            enabled: true,
+            operation: "ocr",
+            texts: unresolved.map((index) => localDocuments?.[index]?.text || ""),
+          });
+        } catch (error) {
+          const policyResult = toRemoteDataPolicyResult(error);
+          if (policyResult) return policyResult;
+          throw error;
+        }
+      }
+
+      if (unresolved.length > 0 && remoteDataProcessingEnabled && !allowTokenMineru) {
         fallbacks.push({
           provider: "mineru",
           success: false,
           skipped: true,
           reason: "调用参数 allowTokenMineru=false，已跳过配置 token 的 MinerU 标准解析",
         });
-      } else if (!token) {
+      } else if (unresolved.length > 0 && remoteDataProcessingEnabled && !token) {
         fallbacks.push({
           provider: "mineru",
           success: false,
           skipped: true,
           reason: "MinerU API Token 未配置，直接尝试 MinerU 免费 Agent 轻量解析",
         });
-      } else {
-        const standardAttempt = await tryParseWithProvider("mineru", () => parseFilesWithMineru(filePaths, token));
+      } else if (unresolved.length > 0 && remoteDataProcessingEnabled) {
+        const pendingIndices = unresolved;
+        const standardAttempt = await tryParseWithProvider(
+          "mineru",
+          () => parseFilesWithMineru(pendingIndices.map((index) => filePaths[index]), token),
+        );
         fallbacks.push(standardAttempt.fallback);
         if (standardAttempt.documents) {
-          unresolved = mergeUsefulOcrDocuments(selected, unresolved, standardAttempt.documents, "mineru");
+          unresolved = mergeUsefulOcrDocuments(selected, pendingIndices, standardAttempt.documents, "mineru");
         }
         if (unresolved.length > 0) {
           warnings.push(standardAttempt.fallback.error
@@ -128,7 +181,7 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
         }
       }
 
-      if (unresolved.length > 0) {
+      if (unresolved.length > 0 && remoteDataProcessingEnabled) {
         if (!allowFreeMineru) {
           fallbacks.push({
             provider: "mineru-agent",
@@ -155,27 +208,17 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
       }
 
       if (unresolved.length > 0) {
-        if (!allowLocalFallback) {
+        if (!allowLocalFallback || !localDocuments) {
           return {
             success: false,
-            error: `仍有 ${unresolved.length} 个文件未解析，且 allowLocalFallback=false，无法继续本地补齐`,
+            error: `仍有 ${unresolved.length} 个文件未解析，且本地解析不可用`,
             data: { fallbacks },
           };
         }
-        const pendingIndices = unresolved;
-        const localDocuments = await parseFilesLocally(pendingIndices.map((index) => filePaths[index]));
-        fallbacks.push({
-          provider: "local",
-          success: hasAnyUsefulDocument(localDocuments),
-          parsedFiles: localDocuments.filter(hasUsefulDocument).length,
-          totalFiles: pendingIndices.length,
-          reason: "远程解析未完成的文件已使用本地解析补齐",
-        });
-        for (let index = 0; index < pendingIndices.length; index++) {
+        for (const index of unresolved) {
           const document = localDocuments[index];
-          if (document) selected[pendingIndices[index]] = { document, provider: "local" };
+          if (document) selected[index] = { document, provider: "local" };
         }
-        warnings.push(...localDocuments.flatMap((document) => document.warnings));
       }
 
       const outputDocuments = selected.flatMap((entry, index) => entry
@@ -211,11 +254,34 @@ export function addOcrExecutors(target: Map<string, ToolExecutor>, deps: OcrExec
           errors,
           warnings: normalizeWarnings(warnings, selectedProvider, mode, filePaths),
           fallbacks,
+          remoteProcessing: buildOcrRemoteProcessing(outputDocuments),
           nextTools: buildSelfFallbackTools(filePaths, mode),
         },
       };
     },
   });
+}
+
+function buildOcrRemoteProcessing(documents: OutputDocument[]): RemoteDataTransferSummary[] {
+  const providers = new Set(documents.map((document) => document.provider));
+  const transfers: RemoteDataTransferSummary[] = [];
+  if (providers.has("mineru")) {
+    transfers.push({
+      operation: "ocr",
+      service: "MinerU",
+      destination: "mineru.net",
+      dataSummary: `${documents.filter((document) => document.provider === "mineru").length} 个文件`,
+    });
+  }
+  if (providers.has("mineru-agent")) {
+    transfers.push({
+      operation: "ocr",
+      service: "MinerU Agent",
+      destination: "mineru.net",
+      dataSummary: `${documents.filter((document) => document.provider === "mineru-agent").length} 个文件`,
+    });
+  }
+  return transfers;
 }
 
 async function tryParseWithProvider(
@@ -294,7 +360,7 @@ function hasAnyUsefulDocument(documents: Array<{ text: string; rows: string[][] 
 function mergeUsefulOcrDocuments(
   selected: Array<{ document: MineruParsedDocument | LocalParsedDocument; provider: OcrProvider } | undefined>,
   targetIndices: number[],
-  documents: MineruParsedDocument[],
+  documents: Array<MineruParsedDocument | LocalParsedDocument>,
   provider: OcrProvider,
 ): number[] {
   const unresolved: number[] = [];

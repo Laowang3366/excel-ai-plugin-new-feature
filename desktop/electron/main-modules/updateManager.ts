@@ -6,7 +6,10 @@ import { autoUpdater } from "electron-updater";
 
 import { createLogger } from "../shared/logger";
 import {
+  acknowledgeActiveHotPatchHealth,
+  applyHotPatchPolicy,
   activateInstalledHotPatch,
+  disableActiveHotPatch,
   getActiveHotPatchId,
   installHotPatchArchive,
   sha256File,
@@ -54,12 +57,14 @@ const updateLogger = createLogger("UpdateManager");
 const DEFAULT_UPDATE_BASE_URL = "https://plugin.shelelove.top";
 const AUTO_CHECK_DELAY_MS = 12_000;
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
+const HOT_PATCH_HEALTH_TIMEOUT_MS = 30_000;
 
 let options: UpdateManagerOptions | null = null;
 let remoteManifest: RemoteUpdateManifest | null = null;
 let restartInProgress = false;
 let autoCheckTimer: NodeJS.Timeout | null = null;
 let autoCheckInterval: NodeJS.Timeout | null = null;
+let hotPatchHealthTimer: NodeJS.Timeout | null = null;
 let state: DesktopUpdateState = {
   phase: "idle",
   currentVersion: app.getVersion(),
@@ -123,7 +128,27 @@ function availableState(manifest: RemoteUpdateManifest): Partial<DesktopUpdateSt
 }
 
 export function activatePendingHotPatch(userDataPath: string): string | null {
-  return activateInstalledHotPatch(app.getVersion(), userDataPath);
+  const patchId = activateInstalledHotPatch(app.getVersion(), userDataPath);
+  if (!patchId) return null;
+  if (hotPatchHealthTimer) clearTimeout(hotPatchHealthTimer);
+  hotPatchHealthTimer = setTimeout(() => {
+    void disableActiveHotPatch(userDataPath).finally(() => {
+      updateLogger.error("热补丁未在时限内报告 Renderer 健康状态，正在回滚并重启", { patchId });
+      app.relaunch();
+      app.exit(1);
+    });
+  }, HOT_PATCH_HEALTH_TIMEOUT_MS);
+  return patchId;
+}
+
+export async function acknowledgeHotPatchHealth(): Promise<boolean> {
+  if (!options) return false;
+  const acknowledged = await acknowledgeActiveHotPatchHealth(options.userDataPath);
+  if (acknowledged && hotPatchHealthTimer) {
+    clearTimeout(hotPatchHealthTimer);
+    hotPatchHealthTimer = null;
+  }
+  return acknowledged;
 }
 
 export function initializeUpdateManager(input: UpdateManagerOptions): void {
@@ -152,8 +177,10 @@ export function initializeUpdateManager(input: UpdateManagerOptions): void {
 export function disposeUpdateManager(): void {
   if (autoCheckTimer) clearTimeout(autoCheckTimer);
   if (autoCheckInterval) clearInterval(autoCheckInterval);
+  if (hotPatchHealthTimer) clearTimeout(hotPatchHealthTimer);
   autoCheckTimer = null;
   autoCheckInterval = null;
+  hotPatchHealthTimer = null;
 }
 
 export function getUpdateState(): DesktopUpdateState {
@@ -176,6 +203,18 @@ export async function checkForUpdates(manual = true): Promise<DesktopUpdateState
     const response = await net.fetch(requestUrl.toString(), { method: "GET" });
     if (!response.ok) throw new Error(`更新服务返回 ${response.status}`);
     remoteManifest = verifyRemoteUpdateManifest(await response.json(), await loadUpdatePublicKey());
+    const activePatchRevoked = await applyHotPatchPolicy(
+      options.userDataPath,
+      app.getVersion(),
+      remoteManifest.hotPatchPolicy,
+    );
+    if (activePatchRevoked) {
+      updateLogger.error("当前热补丁已被签名更新策略吊销，正在回滚并重启");
+      await options.prepareToRestart();
+      restartInProgress = true;
+      app.relaunch();
+      app.quit();
+    }
     return emitState(availableState(remoteManifest));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

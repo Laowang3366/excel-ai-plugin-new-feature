@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // ---- 应用更新 ----
   update: {
     getState: () => ipcRenderer.invoke("update:getState"),
+    ackHotPatchHealth: () => ipcRenderer.invoke("update:ackHotPatchHealth"),
     check: (manual = true) => ipcRenderer.invoke("update:check", manual),
     download: (kind: "installer" | "hotPatch") => ipcRenderer.invoke("update:download", kind),
     apply: () => ipcRenderer.invoke("update:apply"),

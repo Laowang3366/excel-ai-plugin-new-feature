@@ -22,7 +22,7 @@ describe("web search executors", () => {
       text: async () => html,
     })));
     const executors = new Map();
-    addWebSearchExecutors(executors);
+    addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
 
     const result = await executors.get("web.search").execute({
       query: "excel dynamic array",
@@ -41,7 +41,13 @@ describe("web search executors", () => {
             snippet: "A useful result & summary.",
             source: "example.com",
           },
-        ],
+          ],
+          remoteProcessing: {
+            operation: "web-search",
+            service: "bing-html",
+            destination: "www.bing.com",
+            dataSummary: "搜索查询，19 个字符",
+          },
       },
     });
   });
@@ -63,7 +69,7 @@ describe("web search executors", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
     const executors = new Map();
-    addWebSearchExecutors(executors);
+    addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
 
     const result = await executors.get("web.search").execute({
       query: "public information",
@@ -83,7 +89,13 @@ describe("web search executors", () => {
             snippet: "A public web result.",
             source: "example.cn",
           },
-        ],
+          ],
+          remoteProcessing: {
+            operation: "web-search",
+            service: "baidu-html",
+            destination: "www.baidu.com",
+            dataSummary: "搜索查询，18 个字符",
+          },
       },
     });
   });
@@ -103,7 +115,7 @@ describe("web search executors", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
     const executors = new Map();
-    addWebSearchExecutors(executors);
+    addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
 
     const result = await executors.get("web.search").execute({
       query: "广东佛山 公开资料",
@@ -124,7 +136,13 @@ describe("web search executors", () => {
             snippet: "广东佛山相关公开网页资料。",
             source: "example.cn",
           },
-        ],
+          ],
+          remoteProcessing: {
+            operation: "web-search",
+            service: "so-html",
+            destination: "www.so.com",
+            dataSummary: "搜索查询，9 个字符",
+          },
       },
     });
   });
@@ -136,7 +154,7 @@ describe("web search executors", () => {
       text: async () => "Service unavailable",
     })));
     const executors = new Map();
-    addWebSearchExecutors(executors);
+    addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
 
     const result = await executors.get("web.search").execute({
       query: "demo",
@@ -163,6 +181,38 @@ describe("web search executors", () => {
     expect(result).toEqual({
       success: false,
       error: "参数 freshness 必须是 day、week、month、year 或 any",
+    });
+  });
+
+  it("does not make a request when remote processing is disabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const executors = new Map();
+    addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => false });
+
+    const result = await executors.get("web.search").execute({ query: "public information" });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: false,
+      data: { code: "remote_data_processing_disabled", operation: "web-search" },
+    });
+  });
+
+  it("blocks a high-confidence secret before any search request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const executors = new Map();
+    addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
+
+    const result = await executors.get("web.search").execute({
+      query: "find sk-1234567890abcdefghijklmnop",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: false,
+      data: { code: "sensitive_data_detected", operation: "web-search" },
     });
   });
 });
