@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印和公式替换规则的嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印和公式替换规则的嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -33,8 +33,8 @@
 | `inspectCharts` / `formatChart` | 检查并深度编辑图表、系列、坐标轴和标签 | `chartName/index`、`series`、`axes`、`dataLabels`、区域和尺寸参数 |
 | `inspectWorkbookObjects` / `manageWorkbookObject` | 枚举并管理工作簿多类型对象 | `types`；或 `objectType`、`command` 及对象参数 |
 | `manageWorksheetObjects` | 旧版形状管理兼容入口 | `command`、`name` 及位置尺寸属性 |
-| `captureWorkbookTemplate` / `inspectWorkbookFormatting` | 捕获工作簿格式为可复用模板 JSON | `headerRows`、`titleRows`、`totalRows` |
-| `applyWorkbookTemplate` | 应用内置预设或捕获模板及分层格式规则 | `preset`/`template`、`sheetNames`、工作表规则 |
+| `captureWorkbookTemplate` / `inspectWorkbookFormatting` | 读取工作簿基础格式快照 | 无业务参数；可选 `host`、`actionTimeoutMs` |
+| `applyWorkbookTemplate` | 应用内置预设及基础表级格式 | `preset`、`sheetNames`、字体、自适应、网格线和冻结行参数 |
 | `inspectPrintSettings` / `configurePrint` | 回读或设置完整页面与打印参数 | `sheetNames`、纸张/方向/页边距、标题行列、缩放、分页符、页眉页脚 |
 | `exportSheetsToPdf` | 合并或分别批量导出指定工作表 PDF | `sheetNames`、`mode`、`outputPath`/`outputDirectory`、`overwrite` |
 | `traceFormulaDependencies` / `inspectFormulaDependencies` | 读取同表、跨表及外部单元格引用，构建正反依赖并检测循环、`#REF!` | `scope`；`target` 使用 action 顶层定位；只读 inspect 操作 |
@@ -63,7 +63,7 @@
 
 #### 专业格式与模板
 
-`captureWorkbookTemplate` 返回版本化模板，包含主题、工作表层级、表头样式和逐列格式，可直接作为其他工作簿的 `params.template`。`applyWorkbookTemplate` 内置 `professional`、`financial`、`dashboard`、`minimal` 预设，并支持工作表级 `titleRows/headerRows/totalRows`、主题、列规则、区域规则、结构化表样式、公式/数值/数据条/色阶/图标集条件格式、冻结窗格、网格线和打印规则。
+`captureWorkbookTemplate`/`inspectWorkbookFormatting` 当前返回工作表使用区域、基础字体、首行样式和打印设置快照，供检查或外部保存；Worker 尚不能把捕获结果作为 `params.template` 重新应用。`applyWorkbookTemplate` 仅支持 `professional`、`financial`、`dashboard`、`minimal` 四个内置预设，以及 `sheetNames/allSheets`、`fontName/fontSize`、`autoFit`、`showGridlines`、`freezeRows`。主题、列/区域规则、结构化表样式和条件格式规则尚未实现，发送这些字段会在进入 Worker 前被拒绝。
 
 #### 打印与 PDF
 
