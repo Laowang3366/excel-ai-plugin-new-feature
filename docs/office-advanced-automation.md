@@ -146,11 +146,13 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 | `applyMasterBranding` | 应用模板并统一母版、版式、字体、Logo、页脚、页码和主题色 | `templatePath`、`fontName/fontMap`、`logoPath`、`footerText`、`themeColors`、`layoutMap` |
 | `layoutElements` | 精确编辑、网格排版、对齐、等距分布、保持比例、裁剪和越界修复 | `edits`、`mode`、`shapeNames`、`align`、`distribute`、`fitToSlide` |
 | `inspectAnimations` | 读取动画顺序、类型、触发、时长、延迟和页面切换 | `allSlides` |
-| `configureAnimations` | 添加进入、强调、退出和路径动画 | `effects[].category/effect/shapeNames/trigger/order/duration/delay/pathX/pathY` |
-| `configureSlideShow` | 配置自动播放、循环放映、放映类型、页面切换和翻页时间 | `showType`、`autoPlay`、`loop`、`transition`、`advanceAfter` |
+| `configureAnimations` | 为显式选择的形状添加进入、强调、退出和路径动画 | `effects[].category/effect/shapeName/shapeNames/trigger/order/duration/delay/pathX/pathY` |
+| `configureSlideShow` | 配置自动播放、循环放映、放映类型、页面切换和翻页时间 | 必填 `showType`；可选 `autoPlay`、`loop`、`transition`、`advanceAfter` |
 | `setSpeakerNotes` | 写入单页或批量演讲者备注 | `text` 或 `notesBySlide[]` |
 | `inspectSpeakerNotes` | 读取讲稿并检查缺失页和页面内容对应度 | `allSlides` |
-| `exportHandouts` | 导出备注页或每页 1/2/3/4/6/9 张的 PDF 讲义 | `includeNotes`、`layout`、`outputPath` |
+| `exportHandouts` | 导出备注页、提纲或每页 1/2/3/4/6/9 张的 PDF 讲义 | 必填 `layout`；可选 `includeNotes`；输出用顶层 `outputPath` |
+
+动画规则必须使用非空 `shapeName` 或 `shapeNames` 定位已经检查到的形状；省略选择器、同时传两种选择器、使用未知效果或加入未实现的缓动字段会在进入 Worker 前拒绝，避免默认给整页全部形状添加淡入。放映配置必须显式传 `showType:"speaker"|"window"|"kiosk"`，不会用空参数把全部页面改为默认切换。单页备注使用 `text`，批量备注使用非空 `notesBySlide[{slideIndex,text,append}]`，两种结构互斥。
 
 ### 跨应用
 
