@@ -59,8 +59,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
       # Self-hosted runners often have only .NET Runtime under Program Files and no write
       # permission there; install SDK into runner.temp and prepend PATH (setup-dotnet).
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
@@ -102,8 +100,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
       # Self-hosted runners often have only .NET Runtime under Program Files and no write
       # permission there; install SDK into runner.temp and prepend PATH (setup-dotnet).
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
