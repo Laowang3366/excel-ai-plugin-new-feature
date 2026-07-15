@@ -615,15 +615,15 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### L-02 当前文档基线漂移
 
-> 整改完成：两个 Node 项目在 `package.json#engines` 统一声明 Node 22.12+，根 README 改用 `npm ci` 并以 `global.json` 作为 .NET SDK 事实源。`overview.md` 和开发规范不再固定易失真的测试/代码行数量；文档索引把 `dev-log.md`、早期审查和实施计划明确归档。代码审查标准已按实际 `ci.yml` 区分现行门禁与未安装的 Husky/CommitLint/coverage/EditorConfig 候选。新增自动测试约束版本、动态数字、CI 门禁描述和历史文档分类。
+> 整改完成：两个 Node 项目在 `package.json#engines` 统一声明 Node 22.12+，根 README 改用 `npm ci` 并以 `global.json` 作为 .NET SDK 事实源。`overview.md` 和开发规范不再固定易失真的测试/代码行数量；过期的 `dev-log`、会话记录、早期 code review 手册/报告和实施计划已从工作树移除。现行门禁与审查口径以实际 `ci.yml`、开发规范和运行代码为准；未安装的 Husky/CommitLint/coverage/EditorConfig 不再作为当前文档要求。新增自动测试约束版本、动态数字、CI 门禁描述和历史文档分类。
 
 - 根 `README.md:21` 仍写 Node.js 20+，实际 Electron/Vite 环境要求 Node 22.12+。
-- `overview.md`、`development-standards.md`、`dev-log.md` 等当前文档记录的测试数量与实际 148/758、79 不一致。
-- `code-review-standards.md` 部分 CI 和工具示例已过期。
+- `overview.md`、`development-standards.md` 等文档曾记录易失真的测试数量与实际不一致。
+- 早期 code review 手册中的 CI/工具示例已过期（文件已从工作树移除）。
 
-建议只在当前文档维护动态基线，历史报告明确归档，不把易变化的精确测试数量复制到多个入口。
+建议只在当前文档维护动态基线，不把易变化的精确测试数量复制到多个入口。
 
-**验收状态**：当前文档、包元数据与 CI 已对齐，并有防回归测试；L-02 关闭。历史归档保留当时数字，不纳入当前能力口径。
+**验收状态**：当前文档、包元数据与 CI 已对齐，并有防回归测试；L-02 关闭。历史数字仅存在于 Git 历史，不纳入当前能力口径。
 
 ### L-03 Renderer 主包偏大
 

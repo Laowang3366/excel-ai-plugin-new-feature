@@ -106,7 +106,7 @@ npm run electron:build
 
 ## 文档维护
 
-当前规范以 [开发规范](docs/development-standards.md) 和 [架构图](docs/architecture-map.md) 为准。`docs/superpowers/`、审查报告与阶段方案是历史记录，不代表当前仍存在对应模块或工具。
+当前规范以 [开发规范](docs/development-standards.md) 和 [架构图](docs/architecture-map.md) 为准；完整索引见 [docs/README.md](docs/README.md)。过期设计/会话/旧报告已从工作树移除，Git 历史可追溯。
 
 ## License
 

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,29 @@ const currentDocumentPaths = [
   "docs/data-handling-and-privacy.md",
   "docs/codex-system-prompt-architecture.md",
   "docs/office-advanced-automation.md",
-  "docs/code-review-standards.md",
+];
+
+const retainedDocsFiles = [
+  "README.md",
+  "architecture-map.md",
+  "development-standards.md",
+  "update-and-release.md",
+  "product-site-deployment.md",
+  "data-handling-and-privacy.md",
+  "codex-system-prompt-architecture.md",
+  "office-advanced-automation.md",
+  "enterprise-readiness-audit-2026-07-15.md",
+];
+
+const removedHistoricalNames = [
+  "code-review-standards.md",
+  "code-review-plan.md",
+  "code-review-report",
+  "dev-log.md",
+  "docs/superpowers/",
+  "sandbox-implementation-plan.md",
+  "memory-gap-analysis.md",
+  "session-2026-",
 ];
 
 function readRepositoryFile(relativePath: string): string {
@@ -46,14 +68,11 @@ describe("current repository documentation", () => {
 
   it("does not describe unavailable tools as current CI gates", () => {
     const workflow = readRepositoryFile(".github/workflows/ci.yml");
-    const reviewStandards = readRepositoryFile("docs/code-review-standards.md");
 
     expect(workflow).toContain('node-version: "22"');
     expect(workflow).toContain('dotnet-version: "8.0.422"');
     expect(workflow).not.toContain("test:coverage");
     expect(workflow).not.toContain("format:check");
-    expect(reviewStandards).toContain("Coverage 候选（尚未启用）");
-    expect(reviewStandards).toContain("Husky + lint-staged 候选（尚未启用）");
   });
 
   it("keeps the incremental source-governance ratchet in desktop CI", () => {
@@ -68,9 +87,18 @@ describe("current repository documentation", () => {
     expect(developmentStandards).toContain("普通功能 PR 禁止更新基线哈希");
   });
 
-  it("classifies changing activity logs as historical documentation", () => {
+  it("indexes only retained current docs and excludes removed historical names", () => {
     const documentationIndex = readRepositoryFile("docs/README.md");
-    expect(documentationIndex).toContain("`dev-log.md`");
-    expect(documentationIndex).toContain("不作为当前运行能力或发布流程的依据");
+    const docsDir = path.join(repositoryRoot, "docs");
+    const docsFiles = readdirSync(docsDir).filter((name) => name.endsWith(".md")).sort();
+
+    expect(documentationIndex).toContain("已从仓库工作树移除");
+    expect(documentationIndex).toContain("Git 历史");
+    expect(docsFiles).toEqual([...retainedDocsFiles].sort());
+    expect(existsSync(path.join(docsDir, "superpowers"))).toBe(false);
+
+    for (const name of removedHistoricalNames) {
+      expect(documentationIndex).not.toContain(name);
+    }
   });
 });
