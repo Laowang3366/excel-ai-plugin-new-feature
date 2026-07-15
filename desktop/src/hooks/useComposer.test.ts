@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  COMPOSER_INPUT_MAX_LENGTH,
-  limitComposerInput,
-  resolveDroppedFiles,
-} from "./useComposer";
+import { COMPOSER_INPUT_MAX_LENGTH, limitComposerInput, resolveDroppedFiles } from "./useComposer";
 
 vi.mock("../services/ipcApi", () => {
   const mock = {
@@ -43,7 +39,10 @@ describe("resolveDroppedFiles", () => {
   });
 
   it("uses Electron webUtils file paths for dragged local files", async () => {
-    const file = createFile("report.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    const file = createFile(
+      "report.xlsx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
     mockedFileApi.getPathForFile.mockReturnValue("D:\\docs\\report.xlsx");
 
     const result = await resolveDroppedFiles([file]);

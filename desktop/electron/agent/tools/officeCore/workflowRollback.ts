@@ -22,11 +22,17 @@ export async function rollbackOfficeResults(
   return rollback;
 }
 
-function transactionFromResult(result: OfficeActionResult): { sourcePath: string; backupPath: string } | undefined {
-  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) return undefined;
+function transactionFromResult(
+  result: OfficeActionResult,
+): { sourcePath: string; backupPath: string } | undefined {
+  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data))
+    return undefined;
   const transaction = (result.data as Record<string, unknown>).transaction;
-  if (!transaction || typeof transaction !== "object" || Array.isArray(transaction)) return undefined;
+  if (!transaction || typeof transaction !== "object" || Array.isArray(transaction))
+    return undefined;
   const sourcePath = (transaction as Record<string, unknown>).sourcePath;
   const backupPath = (transaction as Record<string, unknown>).backupPath;
-  return typeof sourcePath === "string" && typeof backupPath === "string" ? { sourcePath, backupPath } : undefined;
+  return typeof sourcePath === "string" && typeof backupPath === "string"
+    ? { sourcePath, backupPath }
+    : undefined;
 }

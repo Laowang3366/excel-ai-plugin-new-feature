@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useCallback, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useSettingsStore } from "../store/settingsStore";
 import type { AppPage } from "../App";
@@ -18,11 +18,12 @@ import { useSidebarViewedThreads } from "../hooks/useSidebarViewedThreads";
 import { HostSelectionDialog } from "./excel/HostSelectionDialog";
 import { SidebarSearchPalette } from "./sidebar/SidebarSearchPalette";
 import { SidebarCollapsed } from "./sidebar/SidebarCollapsed";
-import { buildSidebarDerivedLists } from "../utils/sidebarHelpers";
-import type { FolderSectionActions, FolderSectionFileMenuApi, FolderSectionThreadActions } from "./sidebar/FolderSection";
 import { SidebarExpanded } from "./sidebar/SidebarExpanded";
+import { useSidebarSectionActions } from "../hooks/useSidebarSectionActions";
+import { useSidebarDerivedLists } from "../hooks/useSidebarDerivedLists";
 
 export type { IntentKind } from "../utils/sidebarHelpers";
+
 interface SidebarProps {
   collapsed: boolean;
   currentPage: AppPage;
@@ -36,9 +37,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   onOpenSettingsSection,
 }) => {
-  const { threads, activeThreadId, runningThreadIds, turnStatus, loadThreads, switchThread, createNewThread, deleteThread, moveThreadToFolder, addFilesToComposer } =
-    useChatStore();
-  const { language, pinnedFolders, addPinnedFolder, removePinnedFolder, updatePinnedFolder } = useSettingsStore();
+  const {
+    threads,
+    activeThreadId,
+    runningThreadIds,
+    turnStatus,
+    loadThreads,
+    switchThread,
+    createNewThread,
+    deleteThread,
+    moveThreadToFolder,
+    addFilesToComposer,
+  } = useChatStore();
+  const { language, pinnedFolders, addPinnedFolder, removePinnedFolder, updatePinnedFolder } =
+    useSettingsStore();
   const text = getAppText(language);
 
   const sidebarRef = useRef<HTMLElement>(null);
@@ -52,7 +64,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     toggleConversationsExpanded,
   } = useSidebarSectionToggles();
   const { sidebarWidth, isResizing, handleResizeStart } = useSidebarResize();
-  const { viewedThreadStatusAt, markThreadViewed } = useSidebarViewedThreads(threads, activeThreadId);
+  const { viewedThreadStatusAt, markThreadViewed } = useSidebarViewedThreads(
+    threads,
+    activeThreadId,
+  );
   const {
     creatingFolderThread,
     creatingNewThread,
@@ -122,84 +137,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
     closeFileContextMenu();
   });
 
-  useEffect(() => { loadThreads(); }, [loadThreads]);
+  useEffect(() => {
+    loadThreads();
+  }, [loadThreads]);
 
-  const handleSwitchThread = useCallback((threadId: string) => {
-    markThreadViewed(threadId);
-    switchThread(threadId);
-  }, [markThreadViewed, switchThread]);
+  const handleSwitchThread = useCallback(
+    (threadId: string) => {
+      markThreadViewed(threadId);
+      switchThread(threadId);
+    },
+    [markThreadViewed, switchThread],
+  );
 
-  const handleThreadContextMenu = useCallback((e: React.MouseEvent, threadId: string, inFolder?: boolean) => {
-    closeFileContextMenu();
-    openThreadContextMenu(e, threadId, inFolder);
-  }, [closeFileContextMenu, openThreadContextMenu]);
+  const handleThreadContextMenu = useCallback(
+    (e: React.MouseEvent, threadId: string, inFolder?: boolean) => {
+      closeFileContextMenu();
+      openThreadContextMenu(e, threadId, inFolder);
+    },
+    [closeFileContextMenu, openThreadContextMenu],
+  );
 
-  const folderActions = useMemo<FolderSectionActions>(() => ({
-    toggle: handleToggleFolder,
-    createThread: handleCreateFolderThread,
-    remove: removePinnedFolder,
-  }), [handleCreateFolderThread, handleToggleFolder, removePinnedFolder]);
-
-  const folderThreadActions = useMemo<FolderSectionThreadActions>(() => ({
-    switchThread: handleSwitchThread,
-    openContextMenu: handleThreadContextMenu,
-  }), [handleSwitchThread, handleThreadContextMenu]);
-
-  const folderFileMenuApi = useMemo<FolderSectionFileMenuApi>(() => ({
-    state: fileContextMenu,
-    addFile: handleAddFile,
-    openContextMenu: handleFileContextMenu,
-    close: closeFileContextMenu,
-    trashFile: handleTrashFile,
-    openFile: handleOpenFile,
-    copyPath: handleCopyPath,
-    revealInExplorer: handleRevealInExplorer,
-    pinFile: handlePinFile,
-  }), [
-    closeFileContextMenu,
+  const { folderActions, folderThreadActions, folderFileMenuApi } = useSidebarSectionActions({
+    handleToggleFolder,
+    handleCreateFolderThread,
+    removePinnedFolder,
+    handleSwitchThread,
+    handleThreadContextMenu,
     fileContextMenu,
     handleAddFile,
-    handleCopyPath,
     handleFileContextMenu,
-    handleOpenFile,
-    handlePinFile,
-    handleRevealInExplorer,
+    closeFileContextMenu,
     handleTrashFile,
-  ]);
+    handleOpenFile,
+    handleCopyPath,
+    handleRevealInExplorer,
+    handlePinFile,
+  });
 
   useDocumentDismiss({ active: contextMenu !== null, onDismiss: closeContextMenu });
   useDocumentDismiss({ active: fileContextMenu !== null, onDismiss: closeFileContextMenu });
   useDocumentDismiss({ active: settingsMenuOpen, onDismiss: closeSettingsMenu });
   useDocumentDismiss({ active: sortMenu !== null, onDismiss: closeSortMenu });
 
-  const dismissPendingHosts = useCallback(() => {
-    setPendingHosts(null);
-  }, [setPendingHosts]);
-
-  const hasSearchQuery = false;
   const {
     ungroupedThreads,
     groupedByFolder,
     hasProjectItems,
     hasConversationItems,
     showNoSearchResults,
-  } = useMemo(() => buildSidebarDerivedLists({
+  } = useSidebarDerivedLists({
     threads,
     pinnedFolders,
     folderFiles,
     projectSortMode,
     conversationSortMode,
     language,
-    hasSearchQuery,
-  }), [conversationSortMode, folderFiles, hasSearchQuery, language, pinnedFolders, projectSortMode, threads]);
-
-  const hostSelectionDialog = pendingHosts && pendingHosts.length > 1 ? (
-    <HostSelectionDialog
-      availableHosts={pendingHosts}
-      onSelect={handleSelectHost}
-      onDismiss={dismissPendingHosts}
-    />
-  ) : null;
+    hasSearchQuery: false,
+  });
 
   const sidebarContent = collapsed ? (
     <SidebarCollapsed
@@ -226,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       conversationsExpanded={conversationsExpanded}
       groupedByFolder={groupedByFolder}
       ungroupedThreads={ungroupedThreads}
-      hasSearchQuery={hasSearchQuery}
+      hasSearchQuery={false}
       hasProjectItems={hasProjectItems}
       hasConversationItems={hasConversationItems}
       showNoSearchResults={showNoSearchResults}
@@ -250,6 +244,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       connectFailed={connectFailed}
       connecting={connecting}
       pulseDot={pulseDot}
+      folderActions={folderActions}
+      folderFileMenuApi={folderFileMenuApi}
+      folderThreadActions={folderThreadActions}
       onResizeStart={handleResizeStart}
       onCreateNewThread={handleCreateNewThread}
       onToggleSearch={toggleSearch}
@@ -257,9 +254,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onToggleConversationsExpanded={toggleConversationsExpanded}
       onOpenSortMenu={handleOpenSortMenu}
       onAddFolder={handleAddFolder}
-      folderActions={folderActions}
-      folderFileMenuApi={folderFileMenuApi}
-      folderThreadActions={folderThreadActions}
       onSwitchThread={handleSwitchThread}
       onThreadContextMenu={handleThreadContextMenu}
       onSelectSortMode={handleSelectSortMode}
@@ -294,7 +288,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onAddFolder={handleAddFolder}
         onOpenSettings={openGeneralSettings}
       />
-      {hostSelectionDialog}
+      {pendingHosts && pendingHosts.length > 1 ? (
+        <HostSelectionDialog
+          availableHosts={pendingHosts}
+          onSelect={handleSelectHost}
+          onDismiss={() => setPendingHosts(null)}
+        />
+      ) : null}
     </>
   );
 };

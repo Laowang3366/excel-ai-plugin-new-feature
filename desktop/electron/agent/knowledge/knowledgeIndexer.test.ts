@@ -31,7 +31,9 @@ describe("KnowledgeIndexer", () => {
     const indexer = new KnowledgeIndexer(store, embedder as any, parser as any);
 
     try {
-      await expect(indexer.indexFile(filePath, { skipUnchanged: false })).resolves.toMatchObject({ success: true });
+      await expect(indexer.indexFile(filePath, { skipUnchanged: false })).resolves.toMatchObject({
+        success: true,
+      });
       parser.parseAsync.mockResolvedValueOnce([rawChunk(filePath, "new content")]);
       embedder.embedBatch.mockRejectedValueOnce(new Error("embedding unavailable"));
 
@@ -39,7 +41,9 @@ describe("KnowledgeIndexer", () => {
         success: false,
         error: "embedding unavailable",
       });
-      expect(store.getEntriesBySource(filePath).map((entry) => entry.content)).toEqual(["old content"]);
+      expect(store.getEntriesBySource(filePath).map((entry) => entry.content)).toEqual([
+        "old content",
+      ]);
       expect(store.getEntriesBySource(filePath)[0].embedding).toEqual([1, 0]);
     } finally {
       store.close();

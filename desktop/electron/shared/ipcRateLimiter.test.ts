@@ -12,8 +12,9 @@ describe("IPC rate limiter", () => {
 
     limiter.assertAllowed("agent:startTurn", sender, 1_000);
     limiter.assertAllowed("agent:enqueueTurn", sender, 1_000);
-    expect(() => limiter.assertAllowed("agent:startTurn", sender, 1_000))
-      .toThrow("ipc_rate_limit_exceeded:agent:startTurn");
+    expect(() => limiter.assertAllowed("agent:startTurn", sender, 1_000)).toThrow(
+      "ipc_rate_limit_exceeded:agent:startTurn",
+    );
     expect(() => limiter.assertAllowed("agent:startTurn", sender, 2_000)).not.toThrow();
   });
 
@@ -23,15 +24,11 @@ describe("IPC rate limiter", () => {
     });
 
     limiter.assertAllowed("file:writeTempFile", { processId: 1, frameId: 1 }, 1_000);
-    expect(() => limiter.assertAllowed(
-      "file:writeTempFile",
-      { processId: 2, frameId: 1 },
-      1_000,
-    )).not.toThrow();
-    expect(() => limiter.assertAllowed(
-      "settings:get",
-      { processId: 1, frameId: 1 },
-      1_000,
-    )).not.toThrow();
+    expect(() =>
+      limiter.assertAllowed("file:writeTempFile", { processId: 2, frameId: 1 }, 1_000),
+    ).not.toThrow();
+    expect(() =>
+      limiter.assertAllowed("settings:get", { processId: 1, frameId: 1 }, 1_000),
+    ).not.toThrow();
   });
 });

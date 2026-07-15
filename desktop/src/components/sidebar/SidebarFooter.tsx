@@ -4,13 +4,7 @@ import type { SettingsSection } from "../SettingsPage";
 import type { ExcelStatus } from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";
 import type { getAppText } from "../../i18n";
-import {
-  LogOut,
-  Package,
-  RefreshCw,
-  Settings,
-  User,
-} from "../common/IconMap";
+import { LogOut, Package, RefreshCw, Settings, User } from "../common/IconMap";
 
 interface SidebarFooterProps {
   currentPage: AppPage;
@@ -47,8 +41,10 @@ export function SidebarFooter({
     <div className="sidebar-footer">
       <div className={`sidebar-connection ${connectFailed ? "connection-failed" : ""}`}>
         <div className="sidebar-connection-apps">
-          <div className={`connection-indicator ${excelStatus.connected ? "connected" : "disconnected"}`}
-               title={excelStatus.connected ? `Excel ${excelStatus.version || ""}` : "Excel 未连接"}>
+          <div
+            className={`connection-indicator ${excelStatus.connected ? "connected" : "disconnected"}`}
+            title={excelStatus.connected ? `Excel ${excelStatus.version || ""}` : "Excel 未连接"}
+          >
             <span className={`connection-dot ${pulseDot ? "pulse" : ""}`} />
             <span className="connection-text">
               {excelStatus.connected
@@ -56,8 +52,10 @@ export function SidebarFooter({
                 : text.sidebar.excelDisconnected}
             </span>
           </div>
-          <div className={`connection-indicator ${wordStatus.connected ? "connected" : "disconnected"}`}
-               title={wordStatus.connected ? `Word ${wordStatus.version || ""}` : "Word 未连接"}>
+          <div
+            className={`connection-indicator ${wordStatus.connected ? "connected" : "disconnected"}`}
+            title={wordStatus.connected ? `Word ${wordStatus.version || ""}` : "Word 未连接"}
+          >
             <span className="connection-dot" />
             <span className="connection-text">
               {wordStatus.connected
@@ -65,8 +63,14 @@ export function SidebarFooter({
                 : text.sidebar.wordDisconnected}
             </span>
           </div>
-          <div className={`connection-indicator ${presentationStatus.connected ? "connected" : "disconnected"}`}
-               title={presentationStatus.connected ? `PowerPoint ${presentationStatus.version || ""}` : "PowerPoint 未连接"}>
+          <div
+            className={`connection-indicator ${presentationStatus.connected ? "connected" : "disconnected"}`}
+            title={
+              presentationStatus.connected
+                ? `PowerPoint ${presentationStatus.version || ""}`
+                : "PowerPoint 未连接"
+            }
+          >
             <span className="connection-dot" />
             <span className="connection-text">
               {presentationStatus.connected
@@ -76,7 +80,12 @@ export function SidebarFooter({
           </div>
         </div>
         {excelStatus.connected ? (
-          <button className="btn-connect btn-connect-icon" onClick={onConnect} title={text.sidebar.reconnect} disabled={connecting}>
+          <button
+            className="btn-connect btn-connect-icon"
+            onClick={onConnect}
+            title={text.sidebar.reconnect}
+            disabled={connecting}
+          >
             <RefreshCw size={10} className={connecting ? "spin" : ""} />
           </button>
         ) : (
@@ -102,15 +111,24 @@ export function SidebarFooter({
               <span>{text.sidebar.localAccount}</span>
             </div>
             <div className="sidebar-settings-divider" />
-            <button className="sidebar-settings-menu-item" onClick={() => onOpenSettingsSection("profile")}>
+            <button
+              className="sidebar-settings-menu-item"
+              onClick={() => onOpenSettingsSection("profile")}
+            >
               <User size={16} />
               <span>{text.sidebar.profile}</span>
             </button>
-            <button className="sidebar-settings-menu-item" onClick={() => onOpenSettingsSection("general")}>
+            <button
+              className="sidebar-settings-menu-item"
+              onClick={() => onOpenSettingsSection("general")}
+            >
               <Settings size={16} />
               <span>{text.sidebar.settings}</span>
             </button>
-            <button className="sidebar-settings-menu-item" onClick={() => onOpenSettingsSection("opensource")}>
+            <button
+              className="sidebar-settings-menu-item"
+              onClick={() => onOpenSettingsSection("opensource")}
+            >
               <Package size={16} />
               <span>{text.sidebar.openSource}</span>
             </button>

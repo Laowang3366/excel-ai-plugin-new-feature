@@ -43,6 +43,8 @@
 }
 
 .streaming-waiting {
-  text-align: center; color: var(--text-faint);
-  font-size: 13px; padding: 8px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 8px;
 }

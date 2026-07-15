@@ -32,7 +32,9 @@
   min-width: 0;
 }
 
-.connection-text { color: var(--text-muted); }
+.connection-text {
+  color: var(--text-muted);
+}
 
 .btn-connect {
   min-width: 38px;
@@ -57,7 +59,10 @@
   padding: 0;
 }
 
-.btn-connect:hover { background: var(--primary); color: white; }
+.btn-connect:hover {
+  background: var(--primary);
+  color: white;
+}
 
 .btn-connect svg {
   display: block;
@@ -73,8 +78,14 @@
   padding: 4px 0;
 }
 
-.model-icon { font-size: 14px; }
-.model-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.model-icon {
+  font-size: 14px;
+}
+.model-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .sidebar-nav-btn {
   width: 100%;
@@ -109,8 +120,13 @@
   transform: translateY(1px);
 }
 
-.sidebar-nav-btn:hover { background: var(--bg-tint); }
-.sidebar-nav-btn.active { background: var(--primary-light); color: var(--primary); }
+.sidebar-nav-btn:hover {
+  background: var(--bg-tint);
+}
+.sidebar-nav-btn.active {
+  background: var(--primary-light);
+  color: var(--primary);
+}
 
 .sidebar-settings-menu-wrap {
   position: relative;

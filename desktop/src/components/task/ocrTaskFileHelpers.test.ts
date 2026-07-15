@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  isAcceptedOcrFile,
-  isLikelyInvoiceFile,
-  parseSheetRange,
-} from "./ocrTaskFileHelpers";
+import { isAcceptedOcrFile, isLikelyInvoiceFile, parseSheetRange } from "./ocrTaskFileHelpers";
 
 function file(name: string, type = ""): File {
   return { name, type } as File;

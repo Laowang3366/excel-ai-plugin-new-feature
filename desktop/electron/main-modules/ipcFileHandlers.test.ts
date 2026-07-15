@@ -14,7 +14,9 @@ const tempDirs: string[] = [];
 
 describe("ipcFileHandlers", () => {
   afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map((dir) => fs.promises.rm(dir, { recursive: true, force: true })));
+    await Promise.all(
+      tempDirs.splice(0).map((dir) => fs.promises.rm(dir, { recursive: true, force: true })),
+    );
   });
 
   it("lists sorted Office files and authorizes returned file paths", async () => {
@@ -57,11 +59,14 @@ describe("ipcFileHandlers", () => {
       getExtraRoots: () => [],
     });
 
-    const result = await writeManagedTempFile({ data: "ZGF0YQ==" }, {
-      getDataPath: () => dir,
-      pathAuthorizer: authorizer,
-      isDataMaintenanceInProgress: () => true,
-    });
+    const result = await writeManagedTempFile(
+      { data: "ZGF0YQ==" },
+      {
+        getDataPath: () => dir,
+        pathAuthorizer: authorizer,
+        isDataMaintenanceInProgress: () => true,
+      },
+    );
 
     expect(result).toMatchObject({ success: false, error: expect.stringContaining("正在维护") });
     expect(fs.existsSync(path.join(dir, "temp"))).toBe(false);

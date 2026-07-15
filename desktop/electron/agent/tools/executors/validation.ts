@@ -11,7 +11,7 @@ export type RequiredArgType = "string" | "number" | "array" | "object";
  */
 export function validateArgs(
   args: Record<string, unknown>,
-  required: Record<string, RequiredArgType>
+  required: Record<string, RequiredArgType>,
 ): string | null {
   for (const [key, expectedType] of Object.entries(required)) {
     const val = args[key];
@@ -29,7 +29,8 @@ export function validateArgs(
         if (!Array.isArray(val)) return `参数 ${key} 应为数组，实际为 ${typeof val}`;
         break;
       case "object":
-        if (typeof val !== "object" || Array.isArray(val)) return `参数 ${key} 应为对象，实际为 ${Array.isArray(val) ? "数组" : typeof val}`;
+        if (typeof val !== "object" || Array.isArray(val))
+          return `参数 ${key} 应为对象，实际为 ${Array.isArray(val) ? "数组" : typeof val}`;
         break;
     }
   }

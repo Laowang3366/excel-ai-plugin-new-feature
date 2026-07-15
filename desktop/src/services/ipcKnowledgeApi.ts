@@ -15,7 +15,13 @@ export function createKnowledgeIpcApi(getRaw: () => IIpcApi | null): IIpcApi["kn
     indexFile: async (filePath) => {
       const raw = getRaw();
       if (!raw) {
-        return { sourcePath: filePath, success: false, error: "IPC not available", entryCount: 0, durationMs: 0 };
+        return {
+          sourcePath: filePath,
+          success: false,
+          error: "IPC not available",
+          entryCount: 0,
+          durationMs: 0,
+        };
       }
       return raw.knowledge.indexFile(filePath);
     },

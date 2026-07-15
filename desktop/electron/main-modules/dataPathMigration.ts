@@ -82,15 +82,11 @@ export async function cleanupPreparedDataPathMigration(
 }
 
 export async function validateStagedDataPath(stageDataPath: string): Promise<void> {
-  const stateStore = new StateRuntimeStore(
-    path.join(stageDataPath, "sessions", "state-runtime"),
-  );
+  const stateStore = new StateRuntimeStore(path.join(stageDataPath, "sessions", "state-runtime"));
   await stateStore.init();
   await stateStore.close();
 
-  const knowledgeStore = new SqliteStore(
-    path.join(stageDataPath, "knowledge", "knowledge.db"),
-  );
+  const knowledgeStore = new SqliteStore(path.join(stageDataPath, "knowledge", "knowledge.db"));
   try {
     await knowledgeStore.init();
   } finally {

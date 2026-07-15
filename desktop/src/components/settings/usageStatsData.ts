@@ -27,7 +27,15 @@ export interface UsageModelRow {
   turns: number;
 }
 
-export const MODEL_COLORS = ["#1683f7", "#1f8f45", "#8b6ff0", "#ef2d2d", "#e68600", "#12a6a6", "#64748b"];
+export const MODEL_COLORS = [
+  "#1683f7",
+  "#1f8f45",
+  "#8b6ff0",
+  "#ef2d2d",
+  "#e68600",
+  "#12a6a6",
+  "#64748b",
+];
 
 export const USAGE_TEXT = {
   "zh-CN": {
@@ -93,7 +101,8 @@ function startOfLocalDay(timestamp: number): number {
 }
 
 export function formatNumber(value: number): string {
-  if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(value >= 1_000_000_000 ? 1 : 2)}亿`;
+  if (value >= 100_000_000)
+    return `${(value / 100_000_000).toFixed(value >= 1_000_000_000 ? 1 : 2)}亿`;
   if (value >= 10_000) return `${(value / 10_000).toFixed(value >= 100_000 ? 1 : 2)}万`;
   return value.toLocaleString("zh-CN");
 }
@@ -133,6 +142,8 @@ export function getRangeDateKeys(days: RangeDays, now = Date.now()): string[] {
   return Array.from({ length: days }, (_, index) => dateKey(today - (days - 1 - index) * 86400000));
 }
 
+export type UsageStatsData = ReturnType<typeof buildUsageStatsData>;
+
 export function buildUsageStatsData(rows: UsageRow[], rangeDays: RangeDays, now = Date.now()) {
   const rangeStart = startOfLocalDay(now) - (rangeDays - 1) * 86400000;
   const filtered = rows.filter((row) => row.timestamp >= rangeStart);
@@ -151,7 +162,12 @@ export function buildUsageStatsData(rows: UsageRow[], rangeDays: RangeDays, now 
   for (const row of filtered) {
     if (!dateSet.has(row.dateKey)) continue;
     byDate.get(row.dateKey)?.push(row);
-    const current = byModel.get(row.model) ?? { model: row.model, tokens: 0, messages: 0, turns: 0 };
+    const current = byModel.get(row.model) ?? {
+      model: row.model,
+      tokens: 0,
+      messages: 0,
+      turns: 0,
+    };
     current.tokens += row.tokens;
     current.messages += row.messages;
     current.turns += 1;
@@ -159,8 +175,13 @@ export function buildUsageStatsData(rows: UsageRow[], rangeDays: RangeDays, now 
   }
 
   const modelRows = Array.from(byModel.values()).sort((a, b) => b.tokens - a.tokens);
-  const maxDailyTokens = Math.max(1, ...Array.from(byDate.values()).map((items) => items.reduce((sum, row) => sum + row.tokens, 0)));
-  const yAxisTicks = Array.from({ length: 5 }, (_, index) => Math.round((maxDailyTokens * (4 - index)) / 4));
+  const maxDailyTokens = Math.max(
+    1,
+    ...Array.from(byDate.values()).map((items) => items.reduce((sum, row) => sum + row.tokens, 0)),
+  );
+  const yAxisTicks = Array.from({ length: 5 }, (_, index) =>
+    Math.round((maxDailyTokens * (4 - index)) / 4),
+  );
   const today = startOfLocalDay(now);
   let streak = 0;
   for (let day = today; day >= today - 365 * 86400000; day -= 86400000) {

@@ -1,4 +1,5 @@
 ## 权限、脚本与质量底线
+
 - 权限模式由系统处理；高风险或覆盖重要数据前，先说明影响范围。
 - 只调用已注册的类型化工具；不要尝试生成 PowerShell、Python、JavaScript 或其他外部脚本来绕过工具边界。
 - Office 自动化统一使用 `office.action.*`、`range.*`、`word.*`、`presentation.*` 等专用工具。

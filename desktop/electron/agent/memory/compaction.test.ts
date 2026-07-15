@@ -23,11 +23,7 @@ import {
   buildResumeContext,
   SUMMARY_PREFIX,
 } from "./compaction";
-import {
-  DEFAULT_COMPACTION_CONFIG,
-  type TurnItem,
-  type CompactionConfig,
-} from "../shared/types";
+import { DEFAULT_COMPACTION_CONFIG, type TurnItem, type CompactionConfig } from "../shared/types";
 
 // ============================================================
 // estimateTokens
@@ -76,7 +72,14 @@ describe("estimateItemsTokens", () => {
 
   it("should estimate tool_call tokens", () => {
     const items: TurnItem[] = [
-      { type: "tool_call", id: "1", toolName: "range.read", arguments: { range: "A1" }, status: "completed", timestamp: Date.now() },
+      {
+        type: "tool_call",
+        id: "1",
+        toolName: "range.read",
+        arguments: { range: "A1" },
+        status: "completed",
+        timestamp: Date.now(),
+      },
     ];
     expect(estimateItemsTokens(items)).toBeGreaterThan(20); // 20 base + args
   });
@@ -84,11 +87,29 @@ describe("estimateItemsTokens", () => {
   it("should sum multiple items", () => {
     const items: TurnItem[] = [
       { type: "user_message", id: "1", content: "hello", timestamp: Date.now() },
-      { type: "assistant_message", id: "2", content: "world", phase: "final", timestamp: Date.now() },
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "world",
+        phase: "final",
+        timestamp: Date.now(),
+      },
     ];
-    const single1: TurnItem[] = [{ type: "user_message", id: "1", content: "hello", timestamp: Date.now() }];
-    const single2: TurnItem[] = [{ type: "assistant_message", id: "2", content: "world", phase: "final", timestamp: Date.now() }];
-    expect(estimateItemsTokens(items)).toBe(estimateItemsTokens(single1) + estimateItemsTokens(single2));
+    const single1: TurnItem[] = [
+      { type: "user_message", id: "1", content: "hello", timestamp: Date.now() },
+    ];
+    const single2: TurnItem[] = [
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "world",
+        phase: "final",
+        timestamp: Date.now(),
+      },
+    ];
+    expect(estimateItemsTokens(items)).toBe(
+      estimateItemsTokens(single1) + estimateItemsTokens(single2),
+    );
   });
 });
 
@@ -142,8 +163,19 @@ describe("shouldCompact", () => {
       autoCompactTokenThreshold: 10, // very low threshold
     };
     const items: TurnItem[] = [
-      { type: "user_message", id: "1", content: "这是一条足够长的消息来触发压缩阈值测试", timestamp: Date.now() },
-      { type: "assistant_message", id: "2", content: "这是助手的回复内容，也需要足够的长度来触发阈值", phase: "final", timestamp: Date.now() },
+      {
+        type: "user_message",
+        id: "1",
+        content: "这是一条足够长的消息来触发压缩阈值测试",
+        timestamp: Date.now(),
+      },
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "这是助手的回复内容，也需要足够的长度来触发阈值",
+        phase: "final",
+        timestamp: Date.now(),
+      },
     ];
     expect(shouldCompact(items, config)).toBe(true);
   });
@@ -157,7 +189,13 @@ describe("collectUserMessages", () => {
   it("should collect only user messages", () => {
     const items: TurnItem[] = [
       { type: "user_message", id: "1", content: "hello", timestamp: Date.now() },
-      { type: "assistant_message", id: "2", content: "world", phase: "final", timestamp: Date.now() },
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "world",
+        phase: "final",
+        timestamp: Date.now(),
+      },
       { type: "user_message", id: "3", content: "again", timestamp: Date.now() },
     ];
     expect(collectUserMessages(items)).toHaveLength(2);
@@ -166,7 +204,12 @@ describe("collectUserMessages", () => {
   it("should exclude summary messages", () => {
     const items: TurnItem[] = [
       { type: "user_message", id: "1", content: "hello", timestamp: Date.now() },
-      { type: "user_message", id: "2", content: `${SUMMARY_PREFIX}\n摘要内容`, timestamp: Date.now() },
+      {
+        type: "user_message",
+        id: "2",
+        content: `${SUMMARY_PREFIX}\n摘要内容`,
+        timestamp: Date.now(),
+      },
     ];
     expect(collectUserMessages(items)).toHaveLength(1);
   });
@@ -183,7 +226,7 @@ describe("buildCompactedHistory", () => {
     ];
     const result = buildCompactedHistory(userMessages, "测试摘要");
     const summaryMsg = result.find(
-      (item) => item.type === "user_message" && item.content.startsWith(SUMMARY_PREFIX)
+      (item) => item.type === "user_message" && item.content.startsWith(SUMMARY_PREFIX),
     );
     expect(summaryMsg).toBeDefined();
   });
@@ -195,7 +238,7 @@ describe("buildCompactedHistory", () => {
     const result = buildCompactedHistory(userMessages, "摘要");
     // 短消息应在预算内
     const nonSummary = result.filter(
-      (item) => item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX)
+      (item) => item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX),
     );
     expect(nonSummary.length).toBeGreaterThanOrEqual(1);
   });
@@ -212,7 +255,7 @@ describe("buildCompactedHistory", () => {
       retainedUserMessageMaxTokens: 10_000,
     });
     const retained = result.filter(
-      (item) => item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX)
+      (item) => item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX),
     );
 
     expect(retained.map((item) => item.id)).toEqual(["2", "3"]);
@@ -227,7 +270,13 @@ describe("performCompaction", () => {
   it("should return compactedItem and newHistory", () => {
     const items: TurnItem[] = [
       { type: "user_message", id: "1", content: "hello", timestamp: Date.now() },
-      { type: "assistant_message", id: "2", content: "world", phase: "final", timestamp: Date.now() },
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "world",
+        phase: "final",
+        timestamp: Date.now(),
+      },
     ];
     const result = performCompaction(items, "测试摘要", "auto_pre_turn");
     expect(result.compactedItem).toBeDefined();
@@ -264,7 +313,13 @@ describe("historyToCompactPrompt", () => {
 
   it("should format assistant messages", () => {
     const items: TurnItem[] = [
-      { type: "assistant_message", id: "1", content: "好的", phase: "final", timestamp: Date.now() },
+      {
+        type: "assistant_message",
+        id: "1",
+        content: "好的",
+        phase: "final",
+        timestamp: Date.now(),
+      },
     ];
     const prompt = historyToCompactPrompt(items);
     expect(prompt).toContain("【助手】");
@@ -272,7 +327,14 @@ describe("historyToCompactPrompt", () => {
 
   it("should format tool calls", () => {
     const items: TurnItem[] = [
-      { type: "tool_call", id: "1", toolName: "range.read", arguments: { range: "A1" }, status: "completed", timestamp: Date.now() },
+      {
+        type: "tool_call",
+        id: "1",
+        toolName: "range.read",
+        arguments: { range: "A1" },
+        status: "completed",
+        timestamp: Date.now(),
+      },
     ];
     const prompt = historyToCompactPrompt(items);
     expect(prompt).toContain("【工具调用】");
@@ -280,7 +342,15 @@ describe("historyToCompactPrompt", () => {
 
   it("should format tool results", () => {
     const items: TurnItem[] = [
-      { type: "tool_result", id: "1", toolCallId: "tc-1", toolName: "range.read", result: "output", isError: false, timestamp: Date.now() },
+      {
+        type: "tool_result",
+        id: "1",
+        toolCallId: "tc-1",
+        toolName: "range.read",
+        result: "output",
+        isError: false,
+        timestamp: Date.now(),
+      },
     ];
     const prompt = historyToCompactPrompt(items);
     expect(prompt).toContain("【工具结果】");
@@ -295,7 +365,13 @@ describe("buildResumeContext", () => {
   it("should include [中断恢复上下文] header", () => {
     const items: TurnItem[] = [
       { type: "user_message", id: "1", content: "hello", timestamp: Date.now() },
-      { type: "assistant_message", id: "2", content: "world", phase: "final", timestamp: Date.now() },
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "world",
+        phase: "final",
+        timestamp: Date.now(),
+      },
     ];
     const ctx = buildResumeContext(items);
     expect(ctx).toContain("[中断恢复上下文]");
@@ -303,8 +379,20 @@ describe("buildResumeContext", () => {
 
   it("should include last assistant message", () => {
     const items: TurnItem[] = [
-      { type: "assistant_message", id: "1", content: "first", phase: "final", timestamp: Date.now() },
-      { type: "assistant_message", id: "2", content: "last reply", phase: "final", timestamp: Date.now() },
+      {
+        type: "assistant_message",
+        id: "1",
+        content: "first",
+        phase: "final",
+        timestamp: Date.now(),
+      },
+      {
+        type: "assistant_message",
+        id: "2",
+        content: "last reply",
+        phase: "final",
+        timestamp: Date.now(),
+      },
     ];
     const ctx = buildResumeContext(items);
     expect(ctx).toContain("last reply");

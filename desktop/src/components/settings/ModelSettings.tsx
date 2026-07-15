@@ -66,9 +66,7 @@ export const ModelSettings: React.FC = () => {
       {isEmpty && (
         <div className="provider-empty">
           <Bot size={36} style={{ opacity: 0.3 }} />
-          <p style={{ color: "var(--text-faint)", fontSize: 13 }}>
-            {text.empty}
-          </p>
+          <p style={{ color: "var(--text-faint)", fontSize: 13 }}>{text.empty}</p>
           <button className="btn-add-provider" onClick={() => setShowAddDialog(true)}>
             <Plus size={14} /> {text.addProvider}
           </button>

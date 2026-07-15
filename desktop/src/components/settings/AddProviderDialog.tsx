@@ -5,11 +5,7 @@
  */
 
 import React, { useState } from "react";
-import {
-  useSettingsStore,
-  PROVIDER_TEMPLATES,
-  API_FORMATS,
-} from "../../store/settingsStore";
+import { useSettingsStore, PROVIDER_TEMPLATES, API_FORMATS } from "../../store/settingsStore";
 import type { AiProviderConfig, ModelConfig, ReasoningMode } from "../../electronApi";
 import { ipcApi } from "../../services/ipcApi";
 import {
@@ -55,7 +51,11 @@ export interface AddProviderDialogProps {
   generateId: () => string;
 }
 
-export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onClose, generateId }) => {
+export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({
+  onAdd,
+  onClose,
+  generateId,
+}) => {
   const { language } = useSettingsStore();
   const text = MODEL_TEXT[language];
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -126,12 +126,7 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
     // 但 useTestConnection 的 testConnection 只更新内部状态，不返回结果
     // 所以这里保持原有的内联调用方式
     try {
-      const result = await ipcApi.ai.testConnection(
-        baseUrl,
-        apiKey,
-        apiFormat,
-        resolvedModel
-      );
+      const result = await ipcApi.ai.testConnection(baseUrl, apiKey, apiFormat, resolvedModel);
       if (result.success) {
         handleAdd(resolvedModel);
       }
@@ -170,7 +165,7 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
       dialogClassName="add-provider-dialog"
       title={text.addDialogTitle}
       onClose={onClose}
-      actions={(
+      actions={
         <AddProviderDialogActions
           canAdd={canAdd}
           testing={testing}
@@ -182,117 +177,121 @@ export const AddProviderDialog: React.FC<AddProviderDialogProps> = ({ onAdd, onC
           onAdd={() => handleAdd()}
           onAddWithTest={handleAddWithTest}
         />
-      )}
+      }
     >
-          <AddProviderTemplateSelect
-            label={text.providerType}
-            value={selectedTemplateId}
-            customProviderLabel={text.customProvider}
-            directProvidersLabel={text.directProviders}
-            aggregationProvidersLabel={text.aggregationProviders}
-            otherLabel={text.other}
-            directTemplates={DIRECT_TEMPLATES}
-            aggregationTemplates={AGGREGATION_TEMPLATES}
-            otherTemplates={OTHER_TEMPLATES}
-            onChange={handleSelectTemplate}
+      <AddProviderTemplateSelect
+        label={text.providerType}
+        value={selectedTemplateId}
+        customProviderLabel={text.customProvider}
+        directProvidersLabel={text.directProviders}
+        aggregationProvidersLabel={text.aggregationProviders}
+        otherLabel={text.other}
+        directTemplates={DIRECT_TEMPLATES}
+        aggregationTemplates={AGGREGATION_TEMPLATES}
+        otherTemplates={OTHER_TEMPLATES}
+        onChange={handleSelectTemplate}
+      />
+
+      {/* 配置表单 */}
+      <div className="add-provider-form">
+        <ProviderNameField
+          label={text.providerName}
+          value={name}
+          placeholder={text.providerNamePlaceholder}
+          onChange={setName}
+        />
+
+        <ProviderApiFormatField
+          label={text.apiFormat}
+          value={apiFormat}
+          options={API_FORMATS}
+          onChange={setApiFormat}
+        />
+
+        <ProviderBaseUrlField
+          label={text.apiUrl}
+          value={baseUrl}
+          placeholder="https://api.example.com/v1"
+          onChange={setBaseUrl}
+        />
+
+        <ProviderApiKeyField
+          label={text.apiKey}
+          value={apiKey}
+          showApiKey={showApiKey}
+          onChange={setApiKey}
+          onToggleVisibility={() => setShowApiKey(!showApiKey)}
+        />
+
+        <ProviderModelField
+          label={text.model}
+          selector={
+            <ProviderModelSelector
+              value={model}
+              onChange={setModel}
+              isAggregation={isAggregation}
+              modelConfigs={modelConfigs}
+              modelOptions={selectedTemplate?.presetModels || []}
+              noModelLabel={text.noModel}
+              showEmptyOption
+            />
+          }
+        />
+
+        <ProviderContextWindowField
+          label={text.contextWindowSize}
+          value={contextWindowSize}
+          placeholder={text.contextWindowPlaceholder}
+          hint={
+            selectedTemplate?.defaultContextWindowSize
+              ? text.contextWindowHint(selectedTemplate.defaultContextWindowSize)
+              : undefined
+          }
+          action={
+            <ProviderTestButton
+              className="btn-test"
+              testing={testing}
+              label={text.testModel}
+              disabled={!canTestModel || testing}
+              title={text.testModel}
+              onClick={handleTestModel}
+            />
+          }
+          onChange={setContextWindowSize}
+        />
+
+        {/* 思考等级 */}
+        {reasoningOptionValues.length > 0 && (
+          <ReasoningModeSelect
+            reasoningOptions={buildReasoningOptions(reasoningOptionValues, language)}
+            value={effectiveReasoningMode}
+            defaultMode={defaultReasoningMode}
+            onChange={(mode) => setReasoningMode(mode)}
+            hint={reasoningAutoHint}
           />
+        )}
 
-          {/* 配置表单 */}
-          <div className="add-provider-form">
-            <ProviderNameField
-              label={text.providerName}
-              value={name}
-              placeholder={text.providerNamePlaceholder}
-              onChange={setName}
+        {/* 聚合平台：模型列表管理 */}
+        {isAggregation && (
+          <div className="form-group">
+            <label>{text.modelList}</label>
+            <ModelConfigList
+              modelConfigs={modelConfigs}
+              currentModel={model}
+              onModelConfigsChange={(newConfigs) => setModelConfigs(newConfigs)}
+              onAddModelAutoSelect={(name) => {
+                if (!model) setModel(name);
+              }}
             />
-
-            <ProviderApiFormatField
-              label={text.apiFormat}
-              value={apiFormat}
-              options={API_FORMATS}
-              onChange={setApiFormat}
-            />
-
-            <ProviderBaseUrlField
-              label={text.apiUrl}
-              value={baseUrl}
-              placeholder="https://api.example.com/v1"
-              onChange={setBaseUrl}
-            />
-
-            <ProviderApiKeyField
-              label={text.apiKey}
-              value={apiKey}
-              showApiKey={showApiKey}
-              onChange={setApiKey}
-              onToggleVisibility={() => setShowApiKey(!showApiKey)}
-            />
-
-            <ProviderModelField
-              label={text.model}
-              selector={(
-                <ProviderModelSelector
-                  value={model}
-                  onChange={setModel}
-                  isAggregation={isAggregation}
-                  modelConfigs={modelConfigs}
-                  modelOptions={selectedTemplate?.presetModels || []}
-                  noModelLabel={text.noModel}
-                  showEmptyOption
-                />
-              )}
-            />
-
-            <ProviderContextWindowField
-              label={text.contextWindowSize}
-              value={contextWindowSize}
-              placeholder={text.contextWindowPlaceholder}
-              hint={selectedTemplate?.defaultContextWindowSize ? text.contextWindowHint(selectedTemplate.defaultContextWindowSize) : undefined}
-              action={(
-                <ProviderTestButton
-                  className="btn-test"
-                  testing={testing}
-                  label={text.testModel}
-                  disabled={!canTestModel || testing}
-                  title={text.testModel}
-                  onClick={handleTestModel}
-                />
-              )}
-              onChange={setContextWindowSize}
-            />
-
-            {/* 思考等级 */}
-            {reasoningOptionValues.length > 0 && (
-              <ReasoningModeSelect
-                reasoningOptions={buildReasoningOptions(reasoningOptionValues, language)}
-                value={effectiveReasoningMode}
-                defaultMode={defaultReasoningMode}
-                onChange={(mode) => setReasoningMode(mode)}
-                hint={reasoningAutoHint}
-              />
-            )}
-
-            {/* 聚合平台：模型列表管理 */}
-            {isAggregation && (
-              <div className="form-group">
-                <label>{text.modelList}</label>
-                <ModelConfigList
-                  modelConfigs={modelConfigs}
-                  currentModel={model}
-                  onModelConfigsChange={(newConfigs) => setModelConfigs(newConfigs)}
-                  onAddModelAutoSelect={(name) => {
-                    if (!model) setModel(name);
-                  }}
-                />
-              </div>
-            )}
           </div>
+        )}
+      </div>
 
-          <ProviderTestResult
-            result={testResult}
-            successText={text.connectionOk}
-            errorFallback={text.connectionFailed}
-          />
+      <ProviderTestResult
+        result={testResult}
+        successText={text.connectionOk}
+        errorFallback={text.connectionFailed}
+      />
     </ProviderDialogFrame>
   );
 };

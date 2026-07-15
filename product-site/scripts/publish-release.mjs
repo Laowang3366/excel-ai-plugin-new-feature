@@ -24,7 +24,12 @@ async function copyArtifact(sourcePath, outputDir) {
   const destination = path.join(outputDir, fileName);
   await fs.copyFile(sourcePath, destination);
   const stat = await fs.stat(destination);
-  return { fileName, destination, size: stat.size, sha256: await sha256File(destination) };
+  return {
+    fileName,
+    destination,
+    size: stat.size,
+    sha256: await sha256File(destination),
+  };
 }
 
 async function writeJsonAtomically(filePath, value) {
@@ -47,14 +52,20 @@ const patchIdPattern = /^[0-9A-Za-z._-]{1,128}$/u;
 
 if (!versionPattern.test(version)) throw new Error("版本号格式无效");
 const releaseNotes = JSON.parse(await fs.readFile(notesPath, "utf8"));
-if (!Array.isArray(releaseNotes) || releaseNotes.some((note) => typeof note !== "string" || !note.trim())) {
+if (
+  !Array.isArray(releaseNotes) ||
+  releaseNotes.some((note) => typeof note !== "string" || !note.trim())
+) {
   throw new Error("更新日志必须是非空字符串数组");
 }
 const revokedPatchIds = String(args["revoked-hot-patch-ids"] || "")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
-if (revokedPatchIds.length > 2_000 || revokedPatchIds.some((id) => !patchIdPattern.test(id))) {
+if (
+  revokedPatchIds.length > 2_000 ||
+  revokedPatchIds.some((id) => !patchIdPattern.test(id))
+) {
   throw new Error("--revoked-hot-patch-ids 包含无效补丁 ID 或超过 2000 项");
 }
 const minimumSafeSequenceByBaseVersion = {};
@@ -96,7 +107,9 @@ const unsignedManifest = {
 if (args["hot-patch"]) {
   const sourcePatchPath = path.resolve(args["hot-patch"]);
   const patch = await copyArtifact(sourcePatchPath, outputDir);
-  const patchMetadata = JSON.parse(await fs.readFile(`${sourcePatchPath}.json`, "utf8"));
+  const patchMetadata = JSON.parse(
+    await fs.readFile(`${sourcePatchPath}.json`, "utf8"),
+  );
   unsignedManifest.hotPatch = {
     id: patchMetadata.id,
     baseVersion: patchMetadata.baseVersion,
@@ -130,4 +143,10 @@ const publicRelease = {
 
 await writeJsonAtomically(path.join(outputDir, "manifest.json"), manifest);
 await writeJsonAtomically(path.join(outputDir, "release.json"), publicRelease);
-console.log(JSON.stringify({ version, outputDir, installer: installer.fileName }, null, 2));
+console.log(
+  JSON.stringify(
+    { version, outputDir, installer: installer.fileName },
+    null,
+    2,
+  ),
+);

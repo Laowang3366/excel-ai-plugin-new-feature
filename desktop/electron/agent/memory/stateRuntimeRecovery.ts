@@ -8,7 +8,7 @@ import type { SqliteDatabase } from "../storage/nodeSqlite";
 export function openRuntimeDatabaseWithRecovery(
   dbPath: string,
   dbName: RuntimeDbName,
-  reports: RuntimeRecoveryReport[]
+  reports: RuntimeRecoveryReport[],
 ): SqliteDatabase {
   if (dbPath === ":memory:") return openSqliteDatabase(dbPath);
 
@@ -48,7 +48,7 @@ function assertDatabaseHealthy(db: SqliteDatabase): void {
 
 function backupAndRemoveDatabaseFiles(dbPath: string, dbName: RuntimeDbName): string[] {
   const existingPaths = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`].filter((filePath) =>
-    fs.existsSync(filePath)
+    fs.existsSync(filePath),
   );
   if (existingPaths.length === 0) return [];
 
@@ -59,10 +59,7 @@ function backupAndRemoveDatabaseFiles(dbPath: string, dbName: RuntimeDbName): st
 
   for (const sourcePath of existingPaths) {
     const suffix = sourcePath.slice(dbPath.length);
-    const backupPath = path.join(
-      recoveryDir,
-      `${dbName}-${stamp}${suffix || ".db"}.bak`
-    );
+    const backupPath = path.join(recoveryDir, `${dbName}-${stamp}${suffix || ".db"}.bak`);
     fs.copyFileSync(sourcePath, backupPath);
     fs.rmSync(sourcePath, { force: true });
     backupPaths.push(backupPath);
@@ -73,6 +70,7 @@ function backupAndRemoveDatabaseFiles(dbPath: string, dbName: RuntimeDbName): st
 
 function isRecoverableSqliteCorruption(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /database disk image is malformed|file is not a database|malformed database schema|SQLite quick_check failed/i
-    .test(message);
+  return /database disk image is malformed|file is not a database|malformed database schema|SQLite quick_check failed/i.test(
+    message,
+  );
 }

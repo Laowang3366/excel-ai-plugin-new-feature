@@ -20,47 +20,48 @@ describe("ocr executors", () => {
   it("parses image or pdf files through configured MinerU token first", async () => {
     process.env.MINERU_API_TOKEN = "token";
     const filePath = tempFile("ocr-tool", ".pdf", "pdf");
-    const zipBuffer = await mineruZip([
-      "# 发票",
-      "",
-      "| 字段 | 值 |",
-      "| --- | --- |",
-      "| 发票号码 | 001 |",
-    ].join("\n"));
+    const zipBuffer = await mineruZip(
+      ["# 发票", "", "| 字段 | 值 |", "| --- | --- |", "| 发票号码 | 001 |"].join("\n"),
+    );
 
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith("/file-urls/batch")) {
-        return jsonResponse({
-          code: 0,
-          msg: "ok",
-          data: {
-            batch_id: "batch-1",
-            file_urls: ["https://upload.example.com/file"],
-          },
-        });
-      }
-      if (url === "https://upload.example.com/file") {
-        expect(init?.method).toBe("PUT");
-        return new Response("", { status: 200 });
-      }
-      if (url.endsWith("/extract-results/batch/batch-1")) {
-        return jsonResponse({
-          code: 0,
-          msg: "ok",
-          data: {
-            extract_result: [{
-              file_name: "invoice.pdf",
-              state: "done",
-              full_zip_url: "https://download.example.com/result.zip",
-            }],
-          },
-        });
-      }
-      if (url === "https://download.example.com/result.zip") {
-        return new Response(zipBuffer, { status: 200 });
-      }
-      throw new Error(`unexpected url: ${url}`);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/file-urls/batch")) {
+          return jsonResponse({
+            code: 0,
+            msg: "ok",
+            data: {
+              batch_id: "batch-1",
+              file_urls: ["https://upload.example.com/file"],
+            },
+          });
+        }
+        if (url === "https://upload.example.com/file") {
+          expect(init?.method).toBe("PUT");
+          return new Response("", { status: 200 });
+        }
+        if (url.endsWith("/extract-results/batch/batch-1")) {
+          return jsonResponse({
+            code: 0,
+            msg: "ok",
+            data: {
+              extract_result: [
+                {
+                  file_name: "invoice.pdf",
+                  state: "done",
+                  full_zip_url: "https://download.example.com/result.zip",
+                },
+              ],
+            },
+          });
+        }
+        if (url === "https://download.example.com/result.zip") {
+          return new Response(zipBuffer, { status: 200 });
+        }
+        throw new Error(`unexpected url: ${url}`);
+      }),
+    );
 
     const result = await executeOcr({ filePaths: [filePath], mode: "invoice" });
 
@@ -74,11 +75,13 @@ describe("ocr executors", () => {
         ["字段", "值"],
         ["发票号码", "001"],
       ],
-      documents: [{
-        filename: "invoice.pdf",
-        provider: "mineru",
-        text: expect.stringContaining("发票号码"),
-      }],
+      documents: [
+        {
+          filename: "invoice.pdf",
+          provider: "mineru",
+          text: expect.stringContaining("发票号码"),
+        },
+      ],
       errors: [],
       fallbacks: [
         expect.objectContaining({ provider: "local", success: false }),
@@ -91,41 +94,44 @@ describe("ocr executors", () => {
     process.env.MINERU_API_TOKEN = "token";
     const filePath = tempFile("ocr-agent", ".pdf", "pdf");
 
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith("/file-urls/batch")) {
-        return jsonResponse({ code: 2001, msg: "额度不足", data: null }, 200);
-      }
-      if (url.endsWith("/api/v1/agent/parse/file")) {
-        expect(init?.method).toBe("POST");
-        return jsonResponse({
-          code: 0,
-          msg: "ok",
-          data: {
-            task_id: "task-1",
-            file_url: "https://upload.example.com/agent-file",
-          },
-        });
-      }
-      if (url === "https://upload.example.com/agent-file") {
-        expect(init?.method).toBe("PUT");
-        return new Response("", { status: 200 });
-      }
-      if (url.endsWith("/api/v1/agent/parse/task-1")) {
-        return jsonResponse({
-          code: 0,
-          msg: "ok",
-          data: {
-            task_id: "task-1",
-            state: "done",
-            markdown_url: "https://download.example.com/agent.md",
-          },
-        });
-      }
-      if (url === "https://download.example.com/agent.md") {
-        return new Response("# 免费解析\n\n识别到金额 100", { status: 200 });
-      }
-      throw new Error(`unexpected url: ${url}`);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/file-urls/batch")) {
+          return jsonResponse({ code: 2001, msg: "额度不足", data: null }, 200);
+        }
+        if (url.endsWith("/api/v1/agent/parse/file")) {
+          expect(init?.method).toBe("POST");
+          return jsonResponse({
+            code: 0,
+            msg: "ok",
+            data: {
+              task_id: "task-1",
+              file_url: "https://upload.example.com/agent-file",
+            },
+          });
+        }
+        if (url === "https://upload.example.com/agent-file") {
+          expect(init?.method).toBe("PUT");
+          return new Response("", { status: 200 });
+        }
+        if (url.endsWith("/api/v1/agent/parse/task-1")) {
+          return jsonResponse({
+            code: 0,
+            msg: "ok",
+            data: {
+              task_id: "task-1",
+              state: "done",
+              markdown_url: "https://download.example.com/agent.md",
+            },
+          });
+        }
+        if (url === "https://download.example.com/agent.md") {
+          return new Response("# 免费解析\n\n识别到金额 100", { status: 200 });
+        }
+        throw new Error(`unexpected url: ${url}`);
+      }),
+    );
 
     const result = await executeOcr({ filePaths: [filePath] });
 
@@ -165,12 +171,8 @@ describe("ocr executors", () => {
     expect(result.data).toMatchObject({
       provider: "local",
       text: expect.stringContaining("本地兜底内容"),
-      warnings: expect.arrayContaining([
-        expect.stringContaining("本地免费兜底解析"),
-      ]),
-      fallbacks: [
-        expect.objectContaining({ provider: "local", success: true }),
-      ],
+      warnings: expect.arrayContaining([expect.stringContaining("本地免费兜底解析")]),
+      fallbacks: [expect.objectContaining({ provider: "local", success: true })],
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -178,36 +180,39 @@ describe("ocr executors", () => {
   it("uses free MinerU Agent when no token is configured", async () => {
     const filePath = tempFile("ocr-no-token", ".pdf", "pdf");
 
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (url.endsWith("/api/v1/agent/parse/file")) {
-        return jsonResponse({
-          code: 0,
-          msg: "ok",
-          data: {
-            task_id: "task-2",
-            file_url: "https://upload.example.com/no-token",
-          },
-        });
-      }
-      if (url === "https://upload.example.com/no-token") {
-        return new Response("", { status: 200 });
-      }
-      if (url.endsWith("/api/v1/agent/parse/task-2")) {
-        return jsonResponse({
-          code: 0,
-          msg: "ok",
-          data: {
-            task_id: "task-2",
-            state: "done",
-            markdown_url: "https://download.example.com/no-token.md",
-          },
-        });
-      }
-      if (url === "https://download.example.com/no-token.md") {
-        return new Response("免费链路内容", { status: 200 });
-      }
-      throw new Error(`unexpected url: ${url}`);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/api/v1/agent/parse/file")) {
+          return jsonResponse({
+            code: 0,
+            msg: "ok",
+            data: {
+              task_id: "task-2",
+              file_url: "https://upload.example.com/no-token",
+            },
+          });
+        }
+        if (url === "https://upload.example.com/no-token") {
+          return new Response("", { status: 200 });
+        }
+        if (url.endsWith("/api/v1/agent/parse/task-2")) {
+          return jsonResponse({
+            code: 0,
+            msg: "ok",
+            data: {
+              task_id: "task-2",
+              state: "done",
+              markdown_url: "https://download.example.com/no-token.md",
+            },
+          });
+        }
+        if (url === "https://download.example.com/no-token.md") {
+          return new Response("免费链路内容", { status: 200 });
+        }
+        throw new Error(`unexpected url: ${url}`);
+      }),
+    );
 
     const result = await executeOcr({ filePaths: [filePath] });
 
@@ -237,39 +242,54 @@ describe("ocr executors", () => {
     const secondPath = tempFile("ocr-mixed-second", ".pdf", "second");
     const zipBuffer = await mineruZip("标准解析内容");
 
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith("/file-urls/batch")) {
-        return jsonResponse({
-          code: 0,
-          data: {
-            batch_id: "batch-mixed",
-            file_urls: ["https://upload.example.com/first", "https://upload.example.com/second"],
-          },
-        });
-      }
-      if (url.startsWith("https://upload.example.com/")) return new Response("", { status: 200 });
-      if (url.endsWith("/extract-results/batch/batch-mixed")) {
-        return jsonResponse({
-          code: 0,
-          data: {
-            extract_result: [
-              { file_name: path.basename(firstPath), state: "done", full_zip_url: "https://download.example.com/first.zip" },
-              { file_name: path.basename(secondPath), state: "failed", err_msg: "单文件失败" },
-            ],
-          },
-        });
-      }
-      if (url === "https://download.example.com/first.zip") return new Response(zipBuffer, { status: 200 });
-      if (url.endsWith("/api/v1/agent/parse/file")) {
-        expect(JSON.parse(String(init?.body)).file_name).toBe(path.basename(secondPath));
-        return jsonResponse({ code: 0, data: { task_id: "task-mixed", file_url: "https://upload.example.com/agent-second" } });
-      }
-      if (url.endsWith("/api/v1/agent/parse/task-mixed")) {
-        return jsonResponse({ code: 0, data: { state: "done", markdown_url: "https://download.example.com/second.md" } });
-      }
-      if (url === "https://download.example.com/second.md") return new Response("免费补齐内容", { status: 200 });
-      throw new Error(`unexpected url: ${url}`);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/file-urls/batch")) {
+          return jsonResponse({
+            code: 0,
+            data: {
+              batch_id: "batch-mixed",
+              file_urls: ["https://upload.example.com/first", "https://upload.example.com/second"],
+            },
+          });
+        }
+        if (url.startsWith("https://upload.example.com/")) return new Response("", { status: 200 });
+        if (url.endsWith("/extract-results/batch/batch-mixed")) {
+          return jsonResponse({
+            code: 0,
+            data: {
+              extract_result: [
+                {
+                  file_name: path.basename(firstPath),
+                  state: "done",
+                  full_zip_url: "https://download.example.com/first.zip",
+                },
+                { file_name: path.basename(secondPath), state: "failed", err_msg: "单文件失败" },
+              ],
+            },
+          });
+        }
+        if (url === "https://download.example.com/first.zip")
+          return new Response(zipBuffer, { status: 200 });
+        if (url.endsWith("/api/v1/agent/parse/file")) {
+          expect(JSON.parse(String(init?.body)).file_name).toBe(path.basename(secondPath));
+          return jsonResponse({
+            code: 0,
+            data: { task_id: "task-mixed", file_url: "https://upload.example.com/agent-second" },
+          });
+        }
+        if (url.endsWith("/api/v1/agent/parse/task-mixed")) {
+          return jsonResponse({
+            code: 0,
+            data: { state: "done", markdown_url: "https://download.example.com/second.md" },
+          });
+        }
+        if (url === "https://download.example.com/second.md")
+          return new Response("免费补齐内容", { status: 200 });
+        throw new Error(`unexpected url: ${url}`);
+      }),
+    );
 
     const result = await executeOcr({ filePaths: [firstPath, secondPath] });
 
@@ -298,15 +318,16 @@ describe("ocr executors", () => {
       data: {
         provider: "local",
         remoteProcessing: [],
-        warnings: expect.arrayContaining([
-          expect.stringContaining("远程数据处理已关闭"),
-        ]),
+        warnings: expect.arrayContaining([expect.stringContaining("远程数据处理已关闭")]),
       },
     });
   });
 
   function tempFile(prefix: string, ext: string, content: string): string {
-    const filePath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+    const filePath = path.join(
+      os.tmpdir(),
+      `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
+    );
     tempFiles.push(filePath);
     fs.writeFileSync(filePath, content);
     return filePath;

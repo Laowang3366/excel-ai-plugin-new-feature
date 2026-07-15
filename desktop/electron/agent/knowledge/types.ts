@@ -11,22 +11,14 @@
 
 /** 知识来源分类 */
 export type KnowledgeSourceType =
-  | "workbook"      // Excel 工作簿（.xlsx/.xlsm/.xlsb）
-  | "document"      // 文档（.csv/.json/.docx/.pptx/.md/.txt）
-  | "note"          // 用户手写笔记
-  | "agents_md";    // AGENTS.md 项目级知识
+  | "workbook" // Excel 工作簿（.xlsx/.xlsm/.xlsb）
+  | "document" // 文档（.csv/.json/.docx/.pptx/.md/.txt）
+  | "note" // 用户手写笔记
+  | "agents_md"; // AGENTS.md 项目级知识
 
 /** 文件类型 */
 export type KnowledgeFileType =
-  | "xlsx"
-  | "xlsm"
-  | "xlsb"
-  | "csv"
-  | "json"
-  | "docx"
-  | "pptx"
-  | "md"
-  | "txt";
+  "xlsx" | "xlsm" | "xlsb" | "csv" | "json" | "docx" | "pptx" | "md" | "txt";
 
 // ============================================================
 // 知识条目
@@ -149,7 +141,7 @@ export interface KnowledgeEntryRow {
   source_type: KnowledgeFileType;
   chunk_index: number;
   content: string;
-  metadata: string;       // JSON 字符串
+  metadata: string; // JSON 字符串
   embedding: string | null; // JSON 浮点数数组字符串
   embedding_provider: string | null;
   embedding_model: string | null;

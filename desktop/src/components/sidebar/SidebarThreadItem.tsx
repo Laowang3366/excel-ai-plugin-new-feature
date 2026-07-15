@@ -1,6 +1,10 @@
 import React from "react";
 import type { AppLanguage } from "../../store/settingsStore";
-import { formatTime, getThreadDisplayStatus, getThreadStatusLabel } from "../../utils/sidebarHelpers";
+import {
+  formatTime,
+  getThreadDisplayStatus,
+  getThreadStatusLabel,
+} from "../../utils/sidebarHelpers";
 import { MessageSquare, RefreshCw } from "../common/IconMap";
 
 export interface SidebarThreadItemData {
@@ -30,7 +34,7 @@ export function getSidebarThreadItemStatus({
   const statusViewed = isActiveThread || viewedThreadStatusAt[thread.threadId] === thread.updatedAt;
   const status = getThreadDisplayStatus(
     thread.lastTurnStatus,
-    isRunningThread ? "in_progress" : isActiveThread ? turnStatus as any : undefined,
+    isRunningThread ? "in_progress" : isActiveThread ? (turnStatus as any) : undefined,
     statusViewed,
   );
   return { isActiveThread, status };
@@ -73,12 +77,8 @@ export const SidebarThreadItem: React.FC<SidebarThreadItemProps> = ({
     >
       <div className="thread-item-main">
         {inFolder && <MessageSquare size={12} className="thread-item-icon" />}
-        <div className="thread-item-preview">
-          {thread.preview || fallbackTitle}
-        </div>
-        <span className="thread-item-time">
-          {formatTime(thread.updatedAt, language)}
-        </span>
+        <div className="thread-item-preview">{thread.preview || fallbackTitle}</div>
+        <span className="thread-item-time">{formatTime(thread.updatedAt, language)}</span>
         {status && (
           <span
             className={`thread-status-indicator ${status}`}

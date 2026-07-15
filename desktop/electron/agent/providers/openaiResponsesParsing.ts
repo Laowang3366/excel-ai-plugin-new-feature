@@ -91,10 +91,7 @@ export function upsertToolState(item: any, state: ResponseParserState): Response
   return next;
 }
 
-export function getToolState(
-  data: any,
-  state: ResponseParserState
-): ResponseToolState | undefined {
+export function getToolState(data: any, state: ResponseParserState): ResponseToolState | undefined {
   const itemId = data.item_id || state.itemIdByCallId.get(data.call_id);
   if (itemId && state.toolByItemId.has(itemId)) {
     return state.toolByItemId.get(itemId);
@@ -111,20 +108,16 @@ function responseTextPartKey(data: any, fallbackIndex = 0): string {
   return `${itemId}:${contentIndex}`;
 }
 
-export function appendResponseTextPart(
-  data: any,
-  delta: string,
-  state: ResponseParserState
-): void {
+export function appendResponseTextPart(data: any, delta: string, state: ResponseParserState): void {
   const key = responseTextPartKey(data);
   state.textByPartKey.set(key, `${state.textByPartKey.get(key) || ""}${delta}`);
 }
 
-export function *emitMissingResponseTextPart(
+export function* emitMissingResponseTextPart(
   data: any,
   fullText: unknown,
   state: ResponseParserState,
-  fallbackIndex = 0
+  fallbackIndex = 0,
 ): Generator<AIStreamEvent> {
   if (typeof fullText !== "string" || !fullText) return;
 
@@ -138,9 +131,9 @@ export function *emitMissingResponseTextPart(
   yield { type: "text_delta", delta };
 }
 
-export function *emitMissingResponseOutputItemText(
+export function* emitMissingResponseOutputItemText(
   item: any,
-  state: ResponseParserState
+  state: ResponseParserState,
 ): Generator<AIStreamEvent> {
   if (!Array.isArray(item?.content)) return;
 
@@ -150,14 +143,14 @@ export function *emitMissingResponseOutputItemText(
       { item_id: item.id, content_index: index },
       text,
       state,
-      index
+      index,
     );
   }
 }
 
-export function *emitMissingCompletedResponseText(
+export function* emitMissingCompletedResponseText(
   response: any,
-  state: ResponseParserState
+  state: ResponseParserState,
 ): Generator<AIStreamEvent> {
   const fullText = extractResponsesText(response);
   const delta = missingSuffix(fullText, state.emittedText);
@@ -214,6 +207,8 @@ export function normalizeResponsesUsage(usage: any): TokenUsage | undefined {
 }
 
 export function responseContainsFunctionCall(response: any): boolean {
-  return Array.isArray(response?.output)
-    && response.output.some((item: any) => item?.type === "function_call");
+  return (
+    Array.isArray(response?.output) &&
+    response.output.some((item: any) => item?.type === "function_call")
+  );
 }

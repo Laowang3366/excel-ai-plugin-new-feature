@@ -20,10 +20,7 @@ import {
   type TurnItem,
   type AgentTurnCallbacks,
 } from "../../shared/types";
-import {
-  TOOL_DEFINITIONS_MAP,
-  ALL_TOOL_DEFINITIONS,
-} from "../../tools/registry/toolDefinitions";
+import { TOOL_DEFINITIONS_MAP, ALL_TOOL_DEFINITIONS } from "../../tools/registry/toolDefinitions";
 import { type ToolCallInfo } from "./streamCollector";
 import { desanitizeToolName } from "../../providers/openaiCompatibleClient";
 import {
@@ -141,7 +138,7 @@ export async function processToolCalls(
   callbacks: AgentTurnCallbacks,
   sessionStoreAppend: (threadId: string, turnId: string, item: TurnItem) => Promise<void>,
   appendToolExecutionLog?: (record: ToolExecutionLogRecord) => Promise<void>,
-  throwIfAborted?: () => void
+  throwIfAborted?: () => void,
 ): Promise<void> {
   const userMessages = turn.items
     .filter((item) => item.type === "user_message")
@@ -149,13 +146,9 @@ export async function processToolCalls(
   for (const tc of toolCalls) {
     throwIfAborted?.();
     const startedAt = Date.now();
-    const resolvedToolName = resolveExecutableToolName(tc.name, executors) ?? desanitizeToolName(tc.name);
-    const toolDef = getContextualToolDefinition(
-      resolvedToolName,
-      tc.name,
-      executors,
-      userMessages,
-    );
+    const resolvedToolName =
+      resolveExecutableToolName(tc.name, executors) ?? desanitizeToolName(tc.name);
+    const toolDef = getContextualToolDefinition(resolvedToolName, tc.name, executors, userMessages);
     const canonicalToolName = toolDef?.name ?? resolvedToolName;
     const argumentCheck = parseAndValidateToolArguments(tc.arguments, toolDef?.parameters);
     const approvalArguments = argumentCheck.args ?? {
@@ -166,11 +159,9 @@ export async function processToolCalls(
       threadId: turn.threadId,
       arguments: approvalArguments,
     };
-    const needsApproval = !argumentCheck.error && shouldRequireApproval(
-      canonicalToolName,
-      approvalConfig.permissionMode,
-      approvalScope
-    );
+    const needsApproval =
+      !argumentCheck.error &&
+      shouldRequireApproval(canonicalToolName, approvalConfig.permissionMode, approvalScope);
 
     // 获取或创建 tool_call item
     let activeItem = pendingToolCallItems.get(tc.id);
@@ -214,23 +205,27 @@ export async function processToolCalls(
       callbacks.onEvent({ type: "item_updated", item: activeItem });
       callbacks.onEvent({ type: "item_started", item: resultItem });
       callbacks.onEvent({ type: "item_completed", item: resultItem });
-      await logToolExecutionSafely(appendToolExecutionLog, {
-        threadId: turn.threadId,
-        turnId: turn.turnId,
-        toolCallId: tc.id,
-        toolName: canonicalToolName,
-        status: "error",
-        durationMs: Date.now() - startedAt,
-        timestamp: Date.now(),
-        argumentsSummary: summarizeForLog(approvalArguments),
-        resultSummary: summarizeForLog(errorMessage),
-        error: errorMessage,
-        metadata: {
-          permissionMode: approvalConfig.permissionMode,
-          riskLevel: toolDef?.riskLevel ?? "moderate",
-          phase: "argument_validation",
+      await logToolExecutionSafely(
+        appendToolExecutionLog,
+        {
+          threadId: turn.threadId,
+          turnId: turn.turnId,
+          toolCallId: tc.id,
+          toolName: canonicalToolName,
+          status: "error",
+          durationMs: Date.now() - startedAt,
+          timestamp: Date.now(),
+          argumentsSummary: summarizeForLog(approvalArguments),
+          resultSummary: summarizeForLog(errorMessage),
+          error: errorMessage,
+          metadata: {
+            permissionMode: approvalConfig.permissionMode,
+            riskLevel: toolDef?.riskLevel ?? "moderate",
+            phase: "argument_validation",
+          },
         },
-      }, callbacks);
+        callbacks,
+      );
       continue;
     }
 
@@ -251,7 +246,7 @@ export async function processToolCalls(
               arguments: approvalArgs,
             }),
           },
-          approvalConfig
+          approvalConfig,
         );
 
         if (!approval.approved) {
@@ -267,22 +262,26 @@ export async function processToolCalls(
           callbacks.onEvent({ type: "item_updated", item: activeItem });
           callbacks.onEvent({ type: "item_started", item: resultItem });
           callbacks.onEvent({ type: "item_completed", item: resultItem });
-          await logToolExecutionSafely(appendToolExecutionLog, {
-            threadId: turn.threadId,
-            turnId: turn.turnId,
-            toolCallId: tc.id,
-            toolName: canonicalToolName,
-            status: "cancelled",
-            durationMs: Date.now() - startedAt,
-            timestamp: Date.now(),
-            argumentsSummary: summarizeForLog(approvalArgs),
-            resultSummary: summarizeForLog(resultItem.result),
-            error: "用户取消了工具执行",
-            metadata: {
-              permissionMode: approvalConfig.permissionMode,
-              riskLevel: toolDef?.riskLevel ?? "moderate",
+          await logToolExecutionSafely(
+            appendToolExecutionLog,
+            {
+              threadId: turn.threadId,
+              turnId: turn.turnId,
+              toolCallId: tc.id,
+              toolName: canonicalToolName,
+              status: "cancelled",
+              durationMs: Date.now() - startedAt,
+              timestamp: Date.now(),
+              argumentsSummary: summarizeForLog(approvalArgs),
+              resultSummary: summarizeForLog(resultItem.result),
+              error: "用户取消了工具执行",
+              metadata: {
+                permissionMode: approvalConfig.permissionMode,
+                riskLevel: toolDef?.riskLevel ?? "moderate",
+              },
             },
-          }, callbacks);
+            callbacks,
+          );
           continue;
         }
 
@@ -308,23 +307,27 @@ export async function processToolCalls(
         callbacks.onEvent({ type: "item_updated", item: activeItem });
         callbacks.onEvent({ type: "item_started", item: resultItem });
         callbacks.onEvent({ type: "item_completed", item: resultItem });
-        await logToolExecutionSafely(appendToolExecutionLog, {
-          threadId: turn.threadId,
-          turnId: turn.turnId,
-          toolCallId: tc.id,
-          toolName: canonicalToolName,
-          status: "error",
-          durationMs: Date.now() - startedAt,
-          timestamp: Date.now(),
-          argumentsSummary: summarizeForLog(parseToolArguments(tc.arguments)),
-          resultSummary: summarizeForLog(resultItem.result),
-          error: err.message || "审批过程出错",
-          metadata: {
-            permissionMode: approvalConfig.permissionMode,
-            riskLevel: toolDef?.riskLevel ?? "moderate",
-            phase: "approval",
+        await logToolExecutionSafely(
+          appendToolExecutionLog,
+          {
+            threadId: turn.threadId,
+            turnId: turn.turnId,
+            toolCallId: tc.id,
+            toolName: canonicalToolName,
+            status: "error",
+            durationMs: Date.now() - startedAt,
+            timestamp: Date.now(),
+            argumentsSummary: summarizeForLog(parseToolArguments(tc.arguments)),
+            resultSummary: summarizeForLog(resultItem.result),
+            error: err.message || "审批过程出错",
+            metadata: {
+              permissionMode: approvalConfig.permissionMode,
+              riskLevel: toolDef?.riskLevel ?? "moderate",
+              phase: "approval",
+            },
           },
-        }, callbacks);
+          callbacks,
+        );
         continue;
       }
     }
@@ -353,22 +356,26 @@ export async function processToolCalls(
     callbacks.onEvent({ type: "item_completed", item: activeItem });
     callbacks.onEvent({ type: "item_started", item: resultItem });
     callbacks.onEvent({ type: "item_completed", item: resultItem });
-    await logToolExecutionSafely(appendToolExecutionLog, {
-      threadId: turn.threadId,
-      turnId: turn.turnId,
-      toolCallId: tc.id,
-      toolName: canonicalToolName,
-      status: result.success ? "success" : "error",
-      durationMs: Date.now() - startedAt,
-      timestamp: Date.now(),
-      argumentsSummary: summarizeForLog(activeItem.arguments),
-      resultSummary: summarizeForLog(resultItem.result),
-      error: result.success ? undefined : result.error,
-      metadata: {
-        permissionMode: approvalConfig.permissionMode,
-        riskLevel: toolDef?.riskLevel ?? "moderate",
+    await logToolExecutionSafely(
+      appendToolExecutionLog,
+      {
+        threadId: turn.threadId,
+        turnId: turn.turnId,
+        toolCallId: tc.id,
+        toolName: canonicalToolName,
+        status: result.success ? "success" : "error",
+        durationMs: Date.now() - startedAt,
+        timestamp: Date.now(),
+        argumentsSummary: summarizeForLog(activeItem.arguments),
+        resultSummary: summarizeForLog(resultItem.result),
+        error: result.success ? undefined : result.error,
+        metadata: {
+          permissionMode: approvalConfig.permissionMode,
+          riskLevel: toolDef?.riskLevel ?? "moderate",
+        },
       },
-    }, callbacks);
+      callbacks,
+    );
   }
 }
 
@@ -378,11 +385,13 @@ function getContextualToolDefinition(
   executors: Map<string, ToolExecutor>,
   userMessages?: string[],
 ): ToolDefinition | undefined {
-  const fallback = TOOL_DEFINITIONS_MAP.get(resolvedName)
-    ?? TOOL_DEFINITIONS_MAP.get(requestedName);
+  const fallback =
+    TOOL_DEFINITIONS_MAP.get(resolvedName) ?? TOOL_DEFINITIONS_MAP.get(requestedName);
   const content = userMessages?.[userMessages.length - 1];
   if (!content) return fallback;
-  return getToolDefinitions(executors, { content })
-    .find((definition) => definition.name === fallback?.name || definition.name === resolvedName)
-    ?? fallback;
+  return (
+    getToolDefinitions(executors, { content }).find(
+      (definition) => definition.name === fallback?.name || definition.name === resolvedName,
+    ) ?? fallback
+  );
 }

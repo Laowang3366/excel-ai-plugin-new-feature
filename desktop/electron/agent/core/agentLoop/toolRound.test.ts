@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ToolCallItem, ToolDefinition, Turn, TurnItem } from "../../shared/types";
 import type { StreamResult } from "./streamCollector";
-import {
-  handleToolRound,
-  shouldRunMidTurnCompaction,
-} from "./toolRound";
+import { handleToolRound, shouldRunMidTurnCompaction } from "./toolRound";
 
 function createTurn(items: TurnItem[] = []): Turn {
   return {
@@ -116,11 +113,13 @@ describe("toolRound", () => {
       requiresApproval: false,
     };
 
-    expect(shouldRunMidTurnCompaction({
-      turnItemGroups: [[userItem("这是一段足够长的内容，用于触发 token 估算超过阈值。")]],
-      systemPrompt: "system",
-      tools: [toolDef],
-      compactionConfig,
-    })).toBe(true);
+    expect(
+      shouldRunMidTurnCompaction({
+        turnItemGroups: [[userItem("这是一段足够长的内容，用于触发 token 估算超过阈值。")]],
+        systemPrompt: "system",
+        tools: [toolDef],
+        compactionConfig,
+      }),
+    ).toBe(true);
   });
 });

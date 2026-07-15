@@ -46,7 +46,9 @@ export const ReasoningModeSelect: React.FC<ReasoningModeSelectProps> = ({
           onChange={(e) => onChange(e.target.value as ReasoningMode)}
         >
           {reasoningOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
         <span className="form-hint">{hint || text.reasoningModeHint}</span>

@@ -81,11 +81,13 @@ describe("memory auto extraction", () => {
       })),
     };
     const memoryStore = {
-      search: vi.fn(async () => [createMemoryRecord({
-        kind: "operation_preference",
-        namespace: "global",
-        content,
-      })]),
+      search: vi.fn(async () => [
+        createMemoryRecord({
+          kind: "operation_preference",
+          namespace: "global",
+          content,
+        }),
+      ]),
       write: vi.fn(),
     };
 

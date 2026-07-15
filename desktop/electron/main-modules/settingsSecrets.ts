@@ -14,7 +14,7 @@ type ProviderMap = Record<string, ProviderRecord>;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -43,20 +43,21 @@ function sanitizeSecret(value: unknown): string {
 function protectCompactionConfig(
   incoming: unknown,
   current: unknown,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): Record<string, unknown> {
   const config = asRecord(incoming);
   if (!Object.prototype.hasOwnProperty.call(config, "remoteCompactApiKey")) return config;
   const currentConfig = asRecord(current);
-  const incomingApiKey = config.remoteCompactApiKey === SETTINGS_SECRET_MASK
-    ? currentConfig.remoteCompactApiKey
-    : config.remoteCompactApiKey;
+  const incomingApiKey =
+    config.remoteCompactApiKey === SETTINGS_SECRET_MASK
+      ? currentConfig.remoteCompactApiKey
+      : config.remoteCompactApiKey;
   return { ...config, remoteCompactApiKey: encryptSecret(incomingApiKey, cipher) };
 }
 
 function transformCompactionSecret(
   value: unknown,
-  transform: (secret: unknown) => string
+  transform: (secret: unknown) => string,
 ): Record<string, unknown> {
   const config = asRecord(value);
   if (!Object.prototype.hasOwnProperty.call(config, "remoteCompactApiKey")) return config;
@@ -66,7 +67,7 @@ function transformCompactionSecret(
 function protectHeaders(
   incoming: unknown,
   current: unknown,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): Record<string, string> | undefined {
   if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) return undefined;
   const currentHeaders = asRecord(current);
@@ -74,20 +75,20 @@ function protectHeaders(
     Object.entries(incoming as Record<string, unknown>).map(([name, value]) => {
       const nextValue = value === SETTINGS_SECRET_MASK ? currentHeaders[name] : value;
       return [name, encryptSecret(nextValue, cipher)];
-    })
+    }),
   );
 }
 
 function decryptHeaders(
   headers: unknown,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): Record<string, string> | undefined {
   if (!headers || typeof headers !== "object" || Array.isArray(headers)) return undefined;
   return Object.fromEntries(
     Object.entries(headers as Record<string, unknown>).map(([name, value]) => [
       name,
       decryptSecret(value, cipher),
-    ])
+    ]),
   );
 }
 
@@ -97,14 +98,14 @@ function sanitizeHeaders(headers: unknown): Record<string, string> | undefined {
     Object.entries(headers as Record<string, unknown>).map(([name, value]) => [
       name,
       sanitizeSecret(value),
-    ])
+    ]),
   );
 }
 
 export function protectProviderMapForStorage(
   incoming: unknown,
   current: unknown,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): ProviderMap {
   const incomingProviders = asRecord(incoming) as ProviderMap;
   const currentProviders = asRecord(current) as ProviderMap;
@@ -112,31 +113,33 @@ export function protectProviderMapForStorage(
     Object.entries(incomingProviders).map(([id, rawProvider]) => {
       const provider = asRecord(rawProvider);
       const currentProvider = asRecord(currentProviders[id]);
-      const incomingApiKey = provider.apiKey === SETTINGS_SECRET_MASK
-        ? currentProvider.apiKey
-        : provider.apiKey;
+      const incomingApiKey =
+        provider.apiKey === SETTINGS_SECRET_MASK ? currentProvider.apiKey : provider.apiKey;
       const customHeaders = protectHeaders(
         provider.customHeaders,
         currentProvider.customHeaders,
-        cipher
+        cipher,
       );
-      return [id, {
-        ...provider,
-        apiKey: encryptSecret(incomingApiKey, cipher),
-        ...(customHeaders ? { customHeaders } : {}),
-      }];
-    })
+      return [
+        id,
+        {
+          ...provider,
+          apiKey: encryptSecret(incomingApiKey, cipher),
+          ...(customHeaders ? { customHeaders } : {}),
+        },
+      ];
+    }),
   );
 }
 
 export function migrateSettingsSecrets(
   settings: Record<string, unknown>,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): Record<string, unknown> {
   const providers = protectProviderMapForStorage(
     settings.aiProviders,
     settings.aiProviders,
-    cipher
+    cipher,
   );
   return {
     ...settings,
@@ -147,7 +150,7 @@ export function migrateSettingsSecrets(
           compactionConfig: protectCompactionConfig(
             settings.compactionConfig,
             settings.compactionConfig,
-            cipher
+            cipher,
           ),
         }
       : {}),
@@ -161,7 +164,7 @@ export function protectSettingValueForStorage(
   key: string,
   incoming: unknown,
   current: unknown,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): unknown {
   if (key === "aiProviders") {
     return protectProviderMapForStorage(incoming, current, cipher);
@@ -177,7 +180,7 @@ export function protectSettingValueForStorage(
 }
 
 export function sanitizeSettingsForRenderer(
-  settings: Record<string, unknown>
+  settings: Record<string, unknown>,
 ): Record<string, unknown> {
   const providers = asRecord(settings.aiProviders) as ProviderMap;
   return {
@@ -186,20 +189,20 @@ export function sanitizeSettingsForRenderer(
       Object.entries(providers).map(([id, rawProvider]) => {
         const provider = asRecord(rawProvider);
         const customHeaders = sanitizeHeaders(provider.customHeaders);
-        return [id, {
-          ...provider,
-          apiKey: sanitizeSecret(provider.apiKey),
-          ...(customHeaders ? { customHeaders } : {}),
-        }];
-      })
+        return [
+          id,
+          {
+            ...provider,
+            apiKey: sanitizeSecret(provider.apiKey),
+            ...(customHeaders ? { customHeaders } : {}),
+          },
+        ];
+      }),
     ),
     mineruApiToken: sanitizeSecret(settings.mineruApiToken),
     ...(settings.compactionConfig !== undefined
       ? {
-          compactionConfig: transformCompactionSecret(
-            settings.compactionConfig,
-            sanitizeSecret
-          ),
+          compactionConfig: transformCompactionSecret(settings.compactionConfig, sanitizeSecret),
         }
       : {}),
     ...(settings.ocrMineruApiToken !== undefined
@@ -210,7 +213,7 @@ export function sanitizeSettingsForRenderer(
 
 export function decryptProviderForRuntime(
   provider: ProviderRecord,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): ProviderRecord {
   const customHeaders = decryptHeaders(provider.customHeaders, cipher);
   return {
@@ -223,7 +226,7 @@ export function decryptProviderForRuntime(
 export function decryptSettingValueForRuntime(
   key: string,
   value: unknown,
-  cipher: SettingsSecretCipher
+  cipher: SettingsSecretCipher,
 ): unknown {
   if (key === "mineruApiToken" || key === "ocrMineruApiToken") {
     return decryptSecret(value, cipher);

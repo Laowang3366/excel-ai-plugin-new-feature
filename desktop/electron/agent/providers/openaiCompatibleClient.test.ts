@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { desanitizeToolName, OpenAICompatibleClient, sanitizeToolName } from "./openaiCompatibleClient";
+import {
+  desanitizeToolName,
+  OpenAICompatibleClient,
+  sanitizeToolName,
+} from "./openaiCompatibleClient";
 import type { ChatMessage } from "./aiClientTypes";
 
 const baseConfig = {
@@ -10,13 +14,19 @@ const baseConfig = {
 };
 
 class TestOpenAICompatibleClient extends OpenAICompatibleClient {
-  public exposeBuildRequestMessages(messages: ChatMessage[], systemPrompt?: string): Record<string, unknown>[] {
+  public exposeBuildRequestMessages(
+    messages: ChatMessage[],
+    systemPrompt?: string,
+  ): Record<string, unknown>[] {
     return this.buildRequestMessages(messages, systemPrompt);
   }
 }
 
 async function collectStreamEvents(sse: string) {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(sse, { status: 200 })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(sse, { status: 200 })),
+  );
 
   const client = new OpenAICompatibleClient(baseConfig);
   const events = [];
@@ -49,7 +59,10 @@ describe("OpenAICompatibleClient errors", () => {
   it("does not expose raw HTML error pages to the chat stream", async () => {
     const html = `<!DOCTYPE html><html><head><title>opencode.ai | 502: Bad gateway</title></head>
       <body><h1>Bad gateway</h1><span>Error code 502</span><div>cloudflare.com</div></body></html>`;
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(html, { status: 502 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(html, { status: 502 })),
+    );
 
     const client = new OpenAICompatibleClient({
       provider: "openai",
@@ -67,21 +80,25 @@ describe("OpenAICompatibleClient errors", () => {
     expect(events).toEqual([
       {
         type: "error",
-        error: "API 请求失败 (502): 模型服务网关暂时不可用（Cloudflare 502 Bad Gateway），请稍后重试或切换模型。",
+        error:
+          "API 请求失败 (502): 模型服务网关暂时不可用（Cloudflare 502 Bad Gateway），请稍后重试或切换模型。",
       },
     ]);
   });
 
   it("rejects non-stream chat when the stream reports an HTTP failure", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () =>
-      new Response("upstream unavailable", { status: 502 })
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("upstream unavailable", { status: 502 })),
+    );
 
     const client = new OpenAICompatibleClient(baseConfig);
 
-    await expect(client.chat({
-      messages: [{ role: "user", content: "生成摘要" }],
-    })).rejects.toThrow("API 请求失败 (502)");
+    await expect(
+      client.chat({
+        messages: [{ role: "user", content: "生成摘要" }],
+      }),
+    ).rejects.toThrow("API 请求失败 (502)");
   });
 });
 
@@ -91,11 +108,13 @@ describe("OpenAICompatibleClient streaming text", () => {
   });
 
   it("emits text from array content parts", async () => {
-    const events = await collectStreamEvents([
-      "data: {\"choices\":[{\"delta\":{\"content\":[{\"type\":\"text\",\"text\":\"Hello\"},{\"type\":\"text\",\"text\":\" world\"}]}}]}",
-      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}",
-      "",
-    ].join("\n"));
+    const events = await collectStreamEvents(
+      [
+        'data: {"choices":[{"delta":{"content":[{"type":"text","text":"Hello"},{"type":"text","text":" world"}]}}]}',
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}',
+        "",
+      ].join("\n"),
+    );
 
     expect(events.filter((event) => event.type === "text_delta")).toEqual([
       { type: "text_delta", delta: "Hello world" },
@@ -103,10 +122,12 @@ describe("OpenAICompatibleClient streaming text", () => {
   });
 
   it("emits final message.content when no text delta was streamed", async () => {
-    const events = await collectStreamEvents([
-      "data: {\"choices\":[{\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"Final text\"}]},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":3}}",
-      "",
-    ].join("\n"));
+    const events = await collectStreamEvents(
+      [
+        'data: {"choices":[{"message":{"content":[{"type":"text","text":"Final text"}]},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3}}',
+        "",
+      ].join("\n"),
+    );
 
     expect(events.filter((event) => event.type === "text_delta")).toEqual([
       { type: "text_delta", delta: "Final text" },
@@ -115,21 +136,23 @@ describe("OpenAICompatibleClient streaming text", () => {
   });
 
   it("begins a tool call after both id and name are available", async () => {
-    const events = await collectStreamEvents([
-      "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"name\":\"range_read\"}}]}}]}",
-      "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"arguments\":\"{\\\"range\\\":\\\"A1\\\"}\"}}]}}]}",
-      "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
-      "",
-    ].join("\n"));
+    const events = await collectStreamEvents(
+      [
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"range_read"}}]}}]}',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"arguments":"{\\"range\\":\\"A1\\"}"}}]}}]}',
+        'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+        "",
+      ].join("\n"),
+    );
 
     expect(events.filter((event) => event.type.startsWith("tool_call"))).toEqual([
       { type: "tool_call_begin", toolCallId: "call_1", toolName: "range.read" },
-      { type: "tool_call_delta", toolCallId: "call_1", delta: "{\"range\":\"A1\"}" },
+      { type: "tool_call_delta", toolCallId: "call_1", delta: '{"range":"A1"}' },
       {
         type: "tool_call_end",
         toolCallId: "call_1",
         toolName: "range.read",
-        arguments: "{\"range\":\"A1\"}",
+        arguments: '{"range":"A1"}',
       },
     ]);
   });
@@ -149,7 +172,7 @@ describe("OpenAICompatibleClient request messages", () => {
             type: "function",
             function: {
               name: "range.read",
-              arguments: "{\"range\":\"A1\"}",
+              arguments: '{"range":"A1"}',
             },
           },
         ],
@@ -166,7 +189,7 @@ describe("OpenAICompatibleClient request messages", () => {
             type: "function",
             function: {
               name: "range_read",
-              arguments: "{\"range\":\"A1\"}",
+              arguments: '{"range":"A1"}',
             },
           },
         ],

@@ -40,9 +40,7 @@ export function initKnowledgeTables(db: SqliteDatabase): void {
 }
 
 function migrateEmbeddingProfileColumns(db: SqliteDatabase): void {
-  const rows = db
-    .prepare("PRAGMA table_info(knowledge_entries)")
-    .all() as Array<{ name: string }>;
+  const rows = db.prepare("PRAGMA table_info(knowledge_entries)").all() as Array<{ name: string }>;
   const columns = new Set(rows.map((row) => row.name));
 
   if (!columns.has("embedding_provider")) {

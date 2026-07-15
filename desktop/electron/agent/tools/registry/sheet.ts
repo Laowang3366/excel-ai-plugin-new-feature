@@ -9,7 +9,8 @@ import type { ToolDefinition } from "../../shared/types";
 /** 工作表操作 */
 const SHEET_OPERATION_DEF: ToolDefinition = {
   name: "sheet.operation",
-  description: "对工作表执行增删改操作：新建(add)、重命名(rename)、删除(delete)、复制(copy)、移动(move)",
+  description:
+    "对工作表执行增删改操作：新建(add)、重命名(rename)、删除(delete)、复制(copy)、移动(move)",
   parameters: {
     type: "object",
     properties: {
@@ -29,6 +30,4 @@ const SHEET_OPERATION_DEF: ToolDefinition = {
   isFileDeletion: true,
 };
 
-export const SHEET_TOOL_DEFINITIONS: ToolDefinition[] = [
-  SHEET_OPERATION_DEF,
-];
+export const SHEET_TOOL_DEFINITIONS: ToolDefinition[] = [SHEET_OPERATION_DEF];

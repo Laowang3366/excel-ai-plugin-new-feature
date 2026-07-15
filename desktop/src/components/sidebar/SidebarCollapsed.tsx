@@ -2,13 +2,7 @@ import type { AppPage } from "../../App";
 import type { ExcelStatus } from "../../utils/sidebarHelpers";
 import type { OfficeAppStatus } from "../../hooks/useOfficeConnection";
 import type { getAppText } from "../../i18n";
-import {
-  FolderOpen,
-  Plus,
-  RefreshCw,
-  Search,
-  Settings,
-} from "../common/IconMap";
+import { FolderOpen, Plus, RefreshCw, Search, Settings } from "../common/IconMap";
 
 interface SidebarCollapsedProps {
   currentPage: AppPage;

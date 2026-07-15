@@ -18,14 +18,17 @@ export function useSidebarSettingsNavigation({
     setSettingsMenuOpen(false);
   }, []);
 
-  const openSettingsSection = useCallback((section: SettingsSection) => {
-    setSettingsMenuOpen(false);
-    if (onOpenSettingsSection) {
-      onOpenSettingsSection(section);
-    } else {
-      onNavigate("settings");
-    }
-  }, [onNavigate, onOpenSettingsSection]);
+  const openSettingsSection = useCallback(
+    (section: SettingsSection) => {
+      setSettingsMenuOpen(false);
+      if (onOpenSettingsSection) {
+        onOpenSettingsSection(section);
+      } else {
+        onNavigate("settings");
+      }
+    },
+    [onNavigate, onOpenSettingsSection],
+  );
 
   const openGeneralSettings = useCallback(() => {
     openSettingsSection("general");

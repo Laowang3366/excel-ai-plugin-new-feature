@@ -1,0 +1,238 @@
+.office-view-toolbar,
+.office-object-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.office-view-toolbar {
+  min-height: 30px;
+}
+.office-view-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.office-view-toolbar strong {
+  font-size: 13px;
+}
+
+.office-icon-button {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.office-icon-button:hover:not(:disabled) {
+  border-color: var(--primary-border);
+  color: var(--primary);
+  background: var(--bg-tint);
+}
+.office-icon-button.danger {
+  color: #b91c1c;
+}
+.office-icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.office-app-filter {
+  display: flex;
+  gap: 4px;
+}
+.office-app-filter button {
+  height: 25px;
+  padding: 0 9px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-primary);
+  color: var(--text-faint);
+  font: inherit;
+  cursor: pointer;
+}
+.office-app-filter button:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.office-app-filter button:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.office-app-filter button.active {
+  border-color: var(--primary-border);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.office-document-list,
+.office-object-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.office-document-list {
+  max-height: 188px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+.office-document-row {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+}
+.office-document-row:last-child {
+  border-bottom: 0;
+}
+.office-document-row.selected {
+  background: var(--bg-tint);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.office-row-main {
+  min-width: 0;
+  flex: 1;
+  height: 47px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.office-document-row > .office-icon-button {
+  margin-right: 7px;
+  border-color: transparent;
+  background: transparent;
+}
+.office-app-mark {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  background: #217346;
+}
+.office-app-mark.word {
+  background: #2b579a;
+}
+.office-app-mark.presentation {
+  background: #b7472a;
+}
+.office-row-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.office-row-copy strong,
+.office-row-copy small,
+.office-object-row strong,
+.office-object-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.office-object-header {
+  min-height: 28px;
+}
+.office-object-header select {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+}
+.office-object-header select {
+  height: 25px;
+  margin-left: auto;
+  padding: 0 23px 0 7px;
+}
+.office-object-list {
+  flex: 1;
+  border-top: 1px solid var(--border-default);
+}
+.office-object-row {
+  width: 100%;
+  min-height: 43px;
+  padding: 5px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.office-object-row:hover {
+  background: var(--bg-tint);
+}
+.office-object-row > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.office-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.office-status-dot.running {
+  background: #2563eb;
+}
+.office-status-dot.done,
+.office-status-dot.applied {
+  background: #16803c;
+}
+.office-status-dot.paused,
+.office-status-dot.undone {
+  background: #d97706;
+}
+.office-status-dot.failed,
+.office-status-dot.cancelled,
+.office-status-dot.conflicted {
+  background: #dc2626;
+}
+.office-status-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid var(--border-default);
+  color: var(--text-faint);
+  font-size: 10px;
+}
+.office-status-badge.done,
+.office-status-badge.applied {
+  border-color: color-mix(in srgb, #16803c 35%, var(--border-default));
+  color: #16803c;
+}
+.office-status-badge.running {
+  border-color: color-mix(in srgb, #2563eb 35%, var(--border-default));
+  color: #2563eb;
+}
+.office-status-badge.failed,
+.office-status-badge.cancelled,
+.office-status-badge.conflicted {
+  border-color: color-mix(in srgb, #dc2626 35%, var(--border-default));
+  color: #dc2626;
+}

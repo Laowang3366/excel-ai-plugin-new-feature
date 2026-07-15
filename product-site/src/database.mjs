@@ -11,16 +11,23 @@ const ANALYTICS_SCHEMA_VERSION = 1;
 function normalizeReferer(value) {
   try {
     const url = new URL(String(value || ""));
-    return url.protocol === "http:" || url.protocol === "https:" ? url.origin.slice(0, 200) : "";
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin.slice(0, 200)
+      : "";
   } catch {
     return "";
   }
 }
 
 function migrateAnalyticsData(db) {
-  if (db.pragma("user_version", { simple: true }) >= ANALYTICS_SCHEMA_VERSION) return;
-  const selectReferers = db.prepare("SELECT id, referer FROM downloads WHERE referer <> ''");
-  const updateReferer = db.prepare("UPDATE downloads SET referer = ? WHERE id = ?");
+  if (db.pragma("user_version", { simple: true }) >= ANALYTICS_SCHEMA_VERSION)
+    return;
+  const selectReferers = db.prepare(
+    "SELECT id, referer FROM downloads WHERE referer <> ''",
+  );
+  const updateReferer = db.prepare(
+    "UPDATE downloads SET referer = ? WHERE id = ?",
+  );
   const migrate = db.transaction(() => {
     db.exec("UPDATE downloads SET user_agent = substr(user_agent, 1, 200)");
     for (const row of selectReferers.all()) {
@@ -58,7 +65,9 @@ export function createAnalyticsDatabase(databasePath, options) {
     CREATE INDEX IF NOT EXISTS idx_downloads_version ON downloads(version);
   `);
 
-  const deleteExpired = db.prepare("DELETE FROM downloads WHERE downloaded_at < ?");
+  const deleteExpired = db.prepare(
+    "DELETE FROM downloads WHERE downloaded_at < ?",
+  );
 
   function cleanupExpired() {
     try {
@@ -84,8 +93,12 @@ export function createAnalyticsDatabase(databasePath, options) {
 
   function hashIp(ip, downloadedAt) {
     const period = Math.floor(downloadedAt / (ipRotationDays * DAY_MS));
-    const periodKey = createHmac("sha256", analyticsSalt).update(`analytics-ip:${period}`).digest();
-    return createHmac("sha256", periodKey).update(ip || "unknown").digest("hex");
+    const periodKey = createHmac("sha256", analyticsSalt)
+      .update(`analytics-ip:${period}`)
+      .digest();
+    return createHmac("sha256", periodKey)
+      .update(ip || "unknown")
+      .digest("hex");
   }
 
   const cleanupTimer = setInterval(cleanupExpired, cleanupIntervalMs);
@@ -108,26 +121,42 @@ export function createAnalyticsDatabase(databasePath, options) {
       const currentTime = now();
       const start = currentTime - safeDays * DAY_MS;
       const todayStart = Math.floor(currentTime / DAY_MS) * DAY_MS;
-      const summary = db.prepare(`
+      const summary = db
+        .prepare(
+          `
         SELECT
           COUNT(*) AS total,
           COUNT(DISTINCT ip_hash) AS uniqueDownloads,
           SUM(CASE WHEN downloaded_at >= ? THEN 1 ELSE 0 END) AS today
         FROM downloads WHERE downloaded_at >= ?
-      `).get(todayStart, start);
-      const daily = db.prepare(`
+      `,
+        )
+        .get(todayStart, start);
+      const daily = db
+        .prepare(
+          `
         SELECT strftime('%Y-%m-%d', downloaded_at / 1000, 'unixepoch') AS day, COUNT(*) AS downloads
         FROM downloads WHERE downloaded_at >= ? GROUP BY day ORDER BY day ASC
-      `).all(start);
-      const versions = db.prepare(`
+      `,
+        )
+        .all(start);
+      const versions = db
+        .prepare(
+          `
         SELECT version, COUNT(*) AS downloads
         FROM downloads WHERE downloaded_at >= ? GROUP BY version ORDER BY downloads DESC
-      `).all(start);
-      const recent = db.prepare(`
+      `,
+        )
+        .all(start);
+      const recent = db
+        .prepare(
+          `
         SELECT downloaded_at AS downloadedAt, version, artifact,
                substr(ip_hash, 1, 12) AS visitor, user_agent AS userAgent, referer
         FROM downloads ORDER BY downloaded_at DESC LIMIT 50
-      `).all();
+      `,
+        )
+        .all();
       return { days: safeDays, summary, daily, versions, recent };
     },
     close() {

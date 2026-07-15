@@ -45,16 +45,18 @@ export async function handleToolRound(input: {
     input.callbacks,
     input.appendTurnItem,
     input.appendToolExecutionLog,
-    input.throwIfAborted
+    input.throwIfAborted,
   );
   input.throwIfAborted();
 
-  if (shouldRunMidTurnCompaction({
-    turnItemGroups: input.turnItemGroups,
-    systemPrompt: input.effectiveSystemPrompt,
-    tools: input.toolDefs,
-    compactionConfig: input.compactionConfig,
-  })) {
+  if (
+    shouldRunMidTurnCompaction({
+      turnItemGroups: input.turnItemGroups,
+      systemPrompt: input.effectiveSystemPrompt,
+      tools: input.toolDefs,
+      compactionConfig: input.compactionConfig,
+    })
+  ) {
     await input.runMidTurnCompaction();
   }
   input.throwIfAborted();
@@ -73,6 +75,8 @@ export function shouldRunMidTurnCompaction(input: {
     tools: input.tools,
   });
   const midTurnRatio = input.compactionConfig.midTurnThresholdRatio ?? 0.9;
-  return input.compactionConfig.enabled
-    && allTokens > input.compactionConfig.autoCompactTokenThreshold * midTurnRatio;
+  return (
+    input.compactionConfig.enabled &&
+    allTokens > input.compactionConfig.autoCompactTokenThreshold * midTurnRatio
+  );
 }

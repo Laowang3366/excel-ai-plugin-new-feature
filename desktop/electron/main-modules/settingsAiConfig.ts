@@ -1,9 +1,6 @@
 import type { AIClientConfig } from "../agent/providers/aiClient";
 import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
-import {
-  decryptProviderForRuntime,
-  type SettingsSecretCipher,
-} from "./settingsSecrets";
+import { decryptProviderForRuntime, type SettingsSecretCipher } from "./settingsSecrets";
 
 export function buildActiveAIConfig(
   activeProviderId: string,
@@ -31,9 +28,7 @@ export function buildActiveAIConfig(
     apiFormat: provider.apiFormat,
     customHeaders: provider.customHeaders,
     contextWindowSize:
-      activeModelConfig?.contextWindowSize
-      || provider.contextWindowSize
-      || DEFAULT_CONTEXT_WINDOW,
+      activeModelConfig?.contextWindowSize || provider.contextWindowSize || DEFAULT_CONTEXT_WINDOW,
     compHash: activeModelConfig?.compHash || provider.compHash,
     reasoningMode: activeModelConfig?.reasoningMode || provider.reasoningMode,
   };

@@ -11,14 +11,8 @@ import { createAIClient } from "../../providers/aiClient";
 import { SessionStore } from "../../memory/sessionStore";
 import type { StateRuntimeStore } from "../../memory/stateRuntimeStore";
 import { enqueueQueuedTurn } from "./queuedTurns";
-import {
-  createCompactionProvider,
-  type CompactionProvider,
-} from "./compactionProvider";
-import {
-  DEFAULT_THREAD_IDLE_UNLOAD_MS,
-  ThreadStateManager,
-} from "./threadStateManager";
+import { createCompactionProvider, type CompactionProvider } from "./compactionProvider";
+import { DEFAULT_THREAD_IDLE_UNLOAD_MS, ThreadStateManager } from "./threadStateManager";
 import { PendingInterruptQueue, type ConnectionRequestId } from "./pendingInterruptQueue";
 import { ThreadWatchManager } from "./threadWatchManager";
 import { InputQueue } from "./inputQueue";
@@ -27,10 +21,7 @@ import {
   attachRolloutEventSink as attachRolloutEventSinkHelper,
   bindCallbacksToThread as bindCallbacksToThreadHelper,
 } from "./threadRuntime";
-import {
-  applyAIConfigUpdate,
-  mergePendingCompactionReason,
-} from "./configUpdates";
+import { applyAIConfigUpdate, mergePendingCompactionReason } from "./configUpdates";
 import type { AgentLoopConfig } from "./agentLoopConfig";
 import type { IdleThreadUnloadTimer } from "./idleThreadUnload";
 
@@ -55,13 +46,13 @@ export abstract class AgentLoopBase {
     config: AgentLoopConfig,
     sessionStore?: SessionStore,
     stateRuntimeStore?: StateRuntimeStore,
-    threadWatchManager = new ThreadWatchManager()
+    threadWatchManager = new ThreadWatchManager(),
   ) {
     this.config = config;
     this.aiClient = createAIClient(config.aiConfig);
     this.usesCustomCompactionProvider = Boolean(config.compactionProvider);
-    this.compactionProvider = config.compactionProvider
-      ?? createCompactionProvider(this.aiClient, config.compactionConfig);
+    this.compactionProvider =
+      config.compactionProvider ?? createCompactionProvider(this.aiClient, config.compactionConfig);
     this.sessionStore = sessionStore || new SessionStore();
     this.stateRuntimeStore = stateRuntimeStore;
     this.threadWatchManager = threadWatchManager;
@@ -104,7 +95,7 @@ export abstract class AgentLoopBase {
 
   enqueueTurn(
     input: AgentTurnInput,
-    callbacks: AgentTurnCallbacks
+    callbacks: AgentTurnCallbacks,
   ): { queued: true; queueSize: number } {
     return enqueueQueuedTurn({
       autoDrainInputQueue: this.autoDrainInputQueue,
@@ -117,7 +108,7 @@ export abstract class AgentLoopBase {
   watchThreadStatus(
     threadId: ThreadId,
     connectionId: string,
-    listener: (status: ThreadRuntimeSnapshot) => void
+    listener: (status: ThreadRuntimeSnapshot) => void,
   ) {
     return this.threadWatchManager.watch(threadId, connectionId, listener);
   }
@@ -148,13 +139,16 @@ export abstract class AgentLoopBase {
   protected bindCallbacksToThread(
     callbacks: AgentTurnCallbacks,
     threadId: ThreadId,
-    clientId?: string
+    clientId?: string,
   ): AgentTurnCallbacks {
     return bindCallbacksToThreadHelper({ callbacks, threadId, clientId });
   }
 
   protected markPendingCompactionReason(reason: CompactionReason | null): void {
-    this.pendingCompactionReason = mergePendingCompactionReason(this.pendingCompactionReason, reason);
+    this.pendingCompactionReason = mergePendingCompactionReason(
+      this.pendingCompactionReason,
+      reason,
+    );
   }
 
   protected consumePendingCompactionReason(): CompactionReason | null {

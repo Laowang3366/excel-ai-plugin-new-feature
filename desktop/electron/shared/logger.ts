@@ -3,7 +3,7 @@
  *
  * 替代 electron-log（网络安装受限），提供：
  * - 分级日志（debug/info/warn/error）
-* - 文件持久化（自动按日期分割）
+ * - 文件持久化（自动按日期分割）
  * - 控制台彩色输出（开发环境）
  * - 进程级未捕获异常记录
  *
@@ -25,10 +25,10 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 };
 
 const LOG_COLORS: Record<LogLevel, string> = {
-  debug: "\x1b[90m",   // gray
-  info: "\x1b[36m",    // cyan
-  warn: "\x1b[33m",    // yellow
-  error: "\x1b[31m",   // red
+  debug: "\x1b[90m", // gray
+  info: "\x1b[36m", // cyan
+  warn: "\x1b[33m", // yellow
+  error: "\x1b[31m", // red
 };
 const RESET = "\x1b[0m";
 
@@ -163,9 +163,10 @@ export function setupGlobalErrorHandlers(): void {
   });
 
   process.on("unhandledRejection", (reason) => {
-    const info = reason instanceof Error
-      ? { message: reason.message, stack: reason.stack }
-      : { reason: String(reason) };
+    const info =
+      reason instanceof Error
+        ? { message: reason.message, stack: reason.stack }
+        : { reason: String(reason) };
     logger.error("Unhandled Rejection:", info);
   });
 }

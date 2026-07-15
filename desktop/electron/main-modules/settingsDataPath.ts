@@ -113,7 +113,10 @@ function containsSymbolicLinkSync(directory: string): boolean {
   return false;
 }
 
-export function migrateLegacyDataDirectorySync(sourceDirectory: string, targetDirectory: string): void {
+export function migrateLegacyDataDirectorySync(
+  sourceDirectory: string,
+  targetDirectory: string,
+): void {
   if (containsSymbolicLinkSync(sourceDirectory)) {
     throw new Error("旧数据目录包含符号链接或联接");
   }

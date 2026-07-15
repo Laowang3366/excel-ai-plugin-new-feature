@@ -3,10 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  assertAuthorizedPath,
-  createPathAuthorizer,
-} from "./ipcPathSecurity";
+import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
 
 const tempDirs: string[] = [];
 
@@ -46,7 +43,9 @@ describe("ipcPathSecurity", () => {
 
     expect(authorizer.isAuthorizedPath(appTempFile)).toBe(true);
     expect(authorizer.isAuthorizedPath(systemTempFile)).toBe(false);
-    expect(() => assertAuthorizedPath(authorizer, "C:\\secret\\token.txt")).toThrow("未授权访问路径");
+    expect(() => assertAuthorizedPath(authorizer, "C:\\secret\\token.txt")).toThrow(
+      "未授权访问路径",
+    );
   });
 
   it("rejects a junction that escapes an authorized root", async () => {

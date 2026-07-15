@@ -1,13 +1,18 @@
 import path from "node:path";
 
-import { createAnalyticsBackup, restoreAnalyticsBackup, verifyAnalyticsBackup } from "../src/analyticsBackup.mjs";
+import {
+  createAnalyticsBackup,
+  restoreAnalyticsBackup,
+  verifyAnalyticsBackup,
+} from "../src/analyticsBackup.mjs";
 
 function parseArgs(argv) {
   const [command, ...tokens] = argv;
   const args = {};
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (!token.startsWith("--") || !tokens[index + 1]) throw new Error(`无效参数: ${token}`);
+    if (!token.startsWith("--") || !tokens[index + 1])
+      throw new Error(`无效参数: ${token}`);
     args[token.slice(2)] = tokens[index + 1];
     index += 1;
   }
@@ -25,7 +30,11 @@ let result;
 if (command === "backup") {
   result = await createAnalyticsBackup({
     sourcePath: requirePath(args, "source", process.env.DATABASE_PATH),
-    outputDir: requirePath(args, "output-dir", process.env.ANALYTICS_BACKUP_DIR),
+    outputDir: requirePath(
+      args,
+      "output-dir",
+      process.env.ANALYTICS_BACKUP_DIR,
+    ),
     retain: args.retain === undefined ? 14 : Number(args.retain),
   });
 } else if (command === "verify") {

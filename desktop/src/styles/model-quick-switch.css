@@ -6,7 +6,9 @@
   position: relative;
 }
 .model-quick-switch-btn {
-  display: flex; align-items: center; gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 7px;
   border: none;
   border-radius: 999px;
@@ -36,7 +38,9 @@
 }
 
 .model-qs-dropdown {
-  position: absolute; bottom: calc(100% + 6px); left: 0;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
   width: max(220px, 100%);
   max-width: min(320px, calc(100vw - 32px));
   max-height: min(420px, calc(100vh - 190px));
@@ -46,7 +50,7 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   z-index: 100;
   padding: 4px;
   animation: slideUp 0.15s ease;
@@ -67,24 +71,43 @@
   border-radius: 999px;
 }
 .model-qs-option {
-  display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 7px 10px;
-  border: none; border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
-  cursor: pointer; transition: all 0.12s;
-  font-size: 12px; color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
-.model-qs-option:hover { background: var(--bg-tint); }
+.model-qs-option:hover {
+  background: var(--bg-tint);
+}
 .model-qs-option.active {
   background: var(--primary-light);
   color: var(--primary);
   font-weight: 600;
 }
-.model-qs-option-icon { font-size: 14px; }
-.model-qs-option-name { flex: 1; text-align: left; }
-.model-qs-option-check { color: var(--primary); font-size: 12px; font-weight: 700; }
+.model-qs-option-icon {
+  font-size: 14px;
+}
+.model-qs-option-name {
+  flex: 1;
+  text-align: left;
+}
+.model-qs-option-check {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
 .model-qs-option-dot {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--success);
 }
 
@@ -200,4 +223,3 @@
     flex-shrink: 0;
   }
 }
-

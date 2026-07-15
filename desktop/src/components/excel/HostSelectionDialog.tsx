@@ -42,10 +42,7 @@ export const HostSelectionDialog: React.FC<HostSelectionDialogProps> = ({
 
   return (
     <div className="dialog-overlay" onClick={onDismiss}>
-      <div
-        className="dialog host-selection-dialog"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="dialog host-selection-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h3>
             <FileSpreadsheet size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />
@@ -56,10 +53,7 @@ export const HostSelectionDialog: React.FC<HostSelectionDialogProps> = ({
           <p>{text.sidebar.selectHostDescription}</p>
           <div className="host-selection-options">
             {hasExcel && (
-              <button
-                className="host-selection-btn"
-                onClick={() => onSelect("excel")}
-              >
+              <button className="host-selection-btn" onClick={() => onSelect("excel")}>
                 <span className="host-selection-icon">
                   <FileSpreadsheet size={24} />
                 </span>
@@ -70,10 +64,7 @@ export const HostSelectionDialog: React.FC<HostSelectionDialogProps> = ({
               </button>
             )}
             {hasWps && (
-              <button
-                className="host-selection-btn"
-                onClick={() => onSelect("wps")}
-              >
+              <button className="host-selection-btn" onClick={() => onSelect("wps")}>
                 <span className="host-selection-icon">
                   <FileSpreadsheet size={24} />
                 </span>

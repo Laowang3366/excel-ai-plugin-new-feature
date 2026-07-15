@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AIStreamEvent } from "../../providers/aiClient";
-import type {
-  AgentTurnCallbacks,
-  Thread,
-  Turn,
-  TurnItem,
-} from "../../shared/types";
+import type { AgentTurnCallbacks, Thread, Turn, TurnItem } from "../../shared/types";
 import { runAgentLoopRounds } from "./agentLoopRunner";
 
 async function* streamEvents(events: AIStreamEvent[]): AsyncIterable<AIStreamEvent> {
@@ -82,12 +77,16 @@ describe("runAgentLoopRounds", () => {
       appendTurnItem: vi.fn(async (_threadId, _turnId, item) => {
         appended.push(item);
       }),
-      getTurnItemGroups: () => [[{
-        type: "user_message",
-        id: "user-1",
-        content: "测试",
-        timestamp: 1,
-      }]],
+      getTurnItemGroups: () => [
+        [
+          {
+            type: "user_message",
+            id: "user-1",
+            content: "测试",
+            timestamp: 1,
+          },
+        ],
+      ],
       getActiveThread: () => thread,
       getSessionCompactionConfig: () => ({
         enabled: false,
@@ -108,10 +107,12 @@ describe("runAgentLoopRounds", () => {
       throwIfAborted: vi.fn(),
     });
 
-    expect(aiClient.streamChat).toHaveBeenCalledWith(expect.objectContaining({
-      roundId: 1,
-      reasoningMode: "high",
-    }));
+    expect(aiClient.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roundId: 1,
+        reasoningMode: "high",
+      }),
+    );
     expect(appended).toHaveLength(1);
     expect(appended[0]).toMatchObject({
       type: "assistant_message",

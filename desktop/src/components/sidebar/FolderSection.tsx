@@ -107,10 +107,7 @@ export function FolderSection({
   return (
     <div className="sidebar-folder-section">
       <div className="sidebar-folder-header">
-        <button
-          className="sidebar-folder-toggle"
-          onClick={() => folderActions.toggle(folder.path)}
-        >
+        <button className="sidebar-folder-toggle" onClick={() => folderActions.toggle(folder.path)}>
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <FolderOpen size={14} />
           <span className="sidebar-folder-name">{folder.name}</span>
@@ -159,7 +156,9 @@ export function FolderSection({
                   key={file.filePath}
                   className="sidebar-file-item"
                   onClick={() => fileMenuApi.addFile(file)}
-                  onContextMenu={(e) => fileMenuApi.openContextMenu(e, file, pinnedFiles.includes(file.filePath))}
+                  onContextMenu={(e) =>
+                    fileMenuApi.openContextMenu(e, file, pinnedFiles.includes(file.filePath))
+                  }
                   title={text.sidebar.addFileToChat}
                 >
                   <FileSpreadsheet size={13} />
@@ -167,26 +166,24 @@ export function FolderSection({
                 </button>
               ))
             )
+          ) : folderThreads.length === 0 ? (
+            <div className="sidebar-folder-empty">{text.sidebar.noFolderThreads}</div>
           ) : (
-            folderThreads.length === 0 ? (
-              <div className="sidebar-folder-empty">{text.sidebar.noFolderThreads}</div>
-            ) : (
-              folderThreads.map((thread) => (
-                <SidebarThreadItem
-                  key={thread.threadId}
-                  thread={thread}
-                  activeThreadId={activeThreadId}
-                  runningThreadIds={runningThreadIds}
-                  turnStatus={turnStatus}
-                  viewedThreadStatusAt={viewedThreadStatusAt}
-                  language={language}
-                  fallbackTitle={text.sidebar.newChat}
-                  inFolder
-                  onSwitchThread={threadActions.switchThread}
-                  onThreadContextMenu={threadActions.openContextMenu}
-                />
-              ))
-            )
+            folderThreads.map((thread) => (
+              <SidebarThreadItem
+                key={thread.threadId}
+                thread={thread}
+                activeThreadId={activeThreadId}
+                runningThreadIds={runningThreadIds}
+                turnStatus={turnStatus}
+                viewedThreadStatusAt={viewedThreadStatusAt}
+                language={language}
+                fallbackTitle={text.sidebar.newChat}
+                inFolder
+                onSwitchThread={threadActions.switchThread}
+                onThreadContextMenu={threadActions.openContextMenu}
+              />
+            ))
           )}
         </div>
       )}

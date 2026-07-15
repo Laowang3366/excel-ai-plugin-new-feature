@@ -43,7 +43,17 @@ export function FeatureSidebarPanel({
             <Sparkles size={18} />
             <span id={FEATURE_SIDEBAR_TITLE_ID}>{text.chat.featureSidebar.title}</span>
           </div>
-          {onClose && <button className="feature-sidebar-close" type="button" title={text.chat.featureSidebar.close} aria-label={text.chat.featureSidebar.close} onClick={onClose}><X size={15} /></button>}
+          {onClose && (
+            <button
+              className="feature-sidebar-close"
+              type="button"
+              title={text.chat.featureSidebar.close}
+              aria-label={text.chat.featureSidebar.close}
+              onClick={onClose}
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         <div

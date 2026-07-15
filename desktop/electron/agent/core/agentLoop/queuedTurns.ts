@@ -97,11 +97,13 @@ export async function drainQueuedTurnsAndReschedule(input: {
     });
   } finally {
     input.setDraining(false);
-    if (shouldRescheduleQueueDrain({
-      autoDrainInputQueue: input.autoDrainInputQueue(),
-      isRunning: input.isRunning(),
-      queueSize: input.inputQueue.size(),
-    })) {
+    if (
+      shouldRescheduleQueueDrain({
+        autoDrainInputQueue: input.autoDrainInputQueue(),
+        isRunning: input.isRunning(),
+        queueSize: input.inputQueue.size(),
+      })
+    ) {
       input.scheduleDrain();
     }
   }

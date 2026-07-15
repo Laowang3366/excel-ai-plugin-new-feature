@@ -20,7 +20,9 @@ describe("Office transaction journal", () => {
   const temporaryRoots: string[] = [];
 
   afterEach(async () => {
-    await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+    await Promise.all(
+      temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+    );
   });
 
   it("restores existing files and deletes declared new outputs as one transaction", async () => {
@@ -29,7 +31,13 @@ describe("Office transaction journal", () => {
     const outputPath = path.join(root, "report.docx");
     const journalRoot = path.join(root, "journal");
     await writeFile(sourcePath, "before", "utf8");
-    const step = { app: "excel" as const, action: "edit" as const, operation: "buildReport", filePath: sourcePath, outputPath };
+    const step = {
+      app: "excel" as const,
+      action: "edit" as const,
+      operation: "buildReport",
+      filePath: sourcePath,
+      outputPath,
+    };
     const record = await beginOfficeTransaction({ root: journalRoot, steps: [step] });
 
     await writeFile(sourcePath, "after", "utf8");
@@ -43,7 +51,9 @@ describe("Office transaction journal", () => {
     expect(await readFile(sourcePath, "utf8")).toBe("before");
     await expect(access(outputPath)).rejects.toThrow();
     expect(undone.artifacts).toEqual([outputPath]);
-    expect(undone.changes).toEqual([{ kind: "create", target: outputPath, detail: "生成 Word 报告" }]);
+    expect(undone.changes).toEqual([
+      { kind: "create", target: outputPath, detail: "生成 Word 报告" },
+    ]);
   });
 
   it("restores the deterministic after snapshot without re-executing tools", async () => {
@@ -52,7 +62,13 @@ describe("Office transaction journal", () => {
     const outputPath = path.join(root, "report.pptx");
     const journalRoot = path.join(root, "journal");
     await writeFile(sourcePath, "before", "utf8");
-    const step = { app: "presentation" as const, action: "insert" as const, operation: "buildSlides", filePath: sourcePath, outputPath };
+    const step = {
+      app: "presentation" as const,
+      action: "insert" as const,
+      operation: "buildSlides",
+      filePath: sourcePath,
+      outputPath,
+    };
     const record = await beginOfficeTransaction({ root: journalRoot, steps: [step] });
     await writeFile(outputPath, "first", "utf8");
     await recordOfficeTransactionResult(journalRoot, record, actionResult(step, outputPath));
@@ -78,22 +94,36 @@ describe("Office transaction journal", () => {
     const sourcePath = path.join(root, "book.xlsx");
     const journalRoot = path.join(root, "journal");
     await writeFile(sourcePath, "before", "utf8");
-    const step = { app: "excel" as const, action: "edit" as const, operation: "format", filePath: sourcePath };
+    const step = {
+      app: "excel" as const,
+      action: "edit" as const,
+      operation: "format",
+      filePath: sourcePath,
+    };
     const record = await beginOfficeTransaction({ root: journalRoot, steps: [step] });
     await writeFile(sourcePath, "after", "utf8");
     await recordOfficeTransactionResult(journalRoot, record, {
-      status: "done", engine: "com", ...step, summary: "done", changes: [],
+      status: "done",
+      engine: "com",
+      ...step,
+      summary: "done",
+      changes: [],
     });
     await finalizeOfficeTransaction(journalRoot, record);
     const order: string[] = [];
-    const prepareFiles = vi.fn(async () => { order.push("prepare"); });
-    const restoreFiles = vi.fn(async (files: Array<{ filePath: string; existed: boolean; snapshotPath?: string }>) => {
-      order.push("restore");
-      for (const file of files) {
-        if (file.existed) await writeFile(file.filePath, await readFile(file.snapshotPath!, "utf8"), "utf8");
-        else await rm(file.filePath, { force: true });
-      }
+    const prepareFiles = vi.fn(async () => {
+      order.push("prepare");
     });
+    const restoreFiles = vi.fn(
+      async (files: Array<{ filePath: string; existed: boolean; snapshotPath?: string }>) => {
+        order.push("restore");
+        for (const file of files) {
+          if (file.existed)
+            await writeFile(file.filePath, await readFile(file.snapshotPath!, "utf8"), "utf8");
+          else await rm(file.filePath, { force: true });
+        }
+      },
+    );
 
     await undoOfficeTransaction(journalRoot, record.id, { prepareFiles, restoreFiles });
     expect(await readFile(sourcePath, "utf8")).toBe("before");
@@ -111,7 +141,12 @@ describe("Office transaction journal", () => {
     const journalRoot = path.join(root, "journal");
     await writeFile(sourcePath, "before", "utf8");
     await writeFile(undeclaredPath, "existing", "utf8");
-    const step = { app: "excel" as const, action: "edit" as const, operation: "unknownOutput", filePath: sourcePath };
+    const step = {
+      app: "excel" as const,
+      action: "edit" as const,
+      operation: "unknownOutput",
+      filePath: sourcePath,
+    };
     const record = await beginOfficeTransaction({ root: journalRoot, steps: [step] });
     await recordOfficeTransactionResult(journalRoot, record, actionResult(step, undeclaredPath));
 
@@ -127,11 +162,20 @@ describe("Office transaction journal", () => {
     const sourcePath = path.join(root, "book.xlsx");
     const journalRoot = path.join(root, "journal");
     await writeFile(sourcePath, "before", "utf8");
-    const step = { app: "excel" as const, action: "edit" as const, operation: "format", filePath: sourcePath };
+    const step = {
+      app: "excel" as const,
+      action: "edit" as const,
+      operation: "format",
+      filePath: sourcePath,
+    };
     const record = await beginOfficeTransaction({ root: journalRoot, steps: [step] });
     await writeFile(sourcePath, "after", "utf8");
     await recordOfficeTransactionResult(journalRoot, record, {
-      status: "done", engine: "com", ...step, summary: "done", changes: [{ kind: "style", target: "range:Sheet1!A1", detail: "格式化" }],
+      status: "done",
+      engine: "com",
+      ...step,
+      summary: "done",
+      changes: [{ kind: "style", target: "range:Sheet1!A1", detail: "格式化" }],
     });
     await finalizeOfficeTransaction(journalRoot, record);
     await writeFile(sourcePath, "external edit", "utf8");
@@ -149,7 +193,9 @@ describe("Office transaction journal", () => {
   it("rejects malformed transaction IDs before resolving paths", async () => {
     const root = await createRoot(temporaryRoots);
     await expect(getOfficeTransaction(root, "../../outside")).rejects.toThrow("事务 ID 无效");
-    await expect(getOfficeTransaction(root, "------------------------------------")).rejects.toThrow("事务 ID 无效");
+    await expect(
+      getOfficeTransaction(root, "------------------------------------"),
+    ).rejects.toThrow("事务 ID 无效");
   });
 });
 
@@ -160,7 +206,13 @@ async function createRoot(roots: string[]): Promise<string> {
 }
 
 function actionResult(
-  step: { app: "excel" | "word" | "presentation"; action: "edit" | "insert"; operation: string; filePath: string; outputPath?: string },
+  step: {
+    app: "excel" | "word" | "presentation";
+    action: "edit" | "insert";
+    operation: string;
+    filePath: string;
+    outputPath?: string;
+  },
   outputPath: string,
 ): OfficeActionResult {
   return {
@@ -169,6 +221,12 @@ function actionResult(
     ...step,
     outputPath,
     summary: "done",
-    changes: [{ kind: "create", target: outputPath, detail: step.app === "presentation" ? "生成演示文稿" : "生成 Word 报告" }],
+    changes: [
+      {
+        kind: "create",
+        target: outputPath,
+        detail: step.app === "presentation" ? "生成演示文稿" : "生成 Word 报告",
+      },
+    ],
   };
 }

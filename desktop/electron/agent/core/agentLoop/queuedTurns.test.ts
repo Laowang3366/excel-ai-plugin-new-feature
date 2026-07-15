@@ -18,19 +18,23 @@ describe("queuedTurns", () => {
   it("enqueues supplemental turns only when auto drain is enabled", () => {
     const inputQueue = new InputQueue();
 
-    expect(enqueueQueuedTurn({
-      autoDrainInputQueue: true,
-      inputQueue,
-      turnInput: { content: "继续" },
-      callbacks,
-    })).toEqual({ queued: true, queueSize: 1 });
+    expect(
+      enqueueQueuedTurn({
+        autoDrainInputQueue: true,
+        inputQueue,
+        turnInput: { content: "继续" },
+        callbacks,
+      }),
+    ).toEqual({ queued: true, queueSize: 1 });
 
-    expect(() => enqueueQueuedTurn({
-      autoDrainInputQueue: false,
-      inputQueue,
-      turnInput: { content: "继续" },
-      callbacks,
-    })).toThrow("Agent 正在中断中");
+    expect(() =>
+      enqueueQueuedTurn({
+        autoDrainInputQueue: false,
+        inputQueue,
+        turnInput: { content: "继续" },
+        callbacks,
+      }),
+    ).toThrow("Agent 正在中断中");
   });
 
   it("interrupts current turn and clears pending queues", async () => {
@@ -74,11 +78,13 @@ describe("queuedTurns", () => {
 
     expect(runTurn).toHaveBeenCalledTimes(2);
     expect(inputQueue.size()).toBe(0);
-    expect(shouldRescheduleQueueDrain({
-      autoDrainInputQueue: true,
-      isRunning: false,
-      queueSize: 1,
-    })).toBe(true);
+    expect(
+      shouldRescheduleQueueDrain({
+        autoDrainInputQueue: true,
+        isRunning: false,
+        queueSize: 1,
+      }),
+    ).toBe(true);
   });
 
   it("schedules a queue drain only when allowed", async () => {
@@ -89,7 +95,9 @@ describe("queuedTurns", () => {
       autoDrainInputQueue: true,
       isDrainingInputQueue: false,
       isRunning: false,
-      setDraining: (value) => { isDraining = value; },
+      setDraining: (value) => {
+        isDraining = value;
+      },
       drain,
     });
 

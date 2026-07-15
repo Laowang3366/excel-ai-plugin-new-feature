@@ -2,11 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  canonicalJson,
-  compareVersions,
-  verifyRemoteUpdateManifest,
-} from "./updateManifest";
+import { canonicalJson, compareVersions, verifyRemoteUpdateManifest } from "./updateManifest";
 
 function createSignedManifest() {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -39,8 +35,9 @@ describe("verifyRemoteUpdateManifest", () => {
 
   it("rejects changes made after signing", () => {
     const { manifest, publicKey } = createSignedManifest();
-    expect(() => verifyRemoteUpdateManifest({ ...manifest, version: "0.1.80" }, publicKey))
-      .toThrow("更新清单签名无效");
+    expect(() => verifyRemoteUpdateManifest({ ...manifest, version: "0.1.80" }, publicKey)).toThrow(
+      "更新清单签名无效",
+    );
   });
 });
 

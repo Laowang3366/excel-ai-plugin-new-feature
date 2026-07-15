@@ -7,7 +7,11 @@
 import type { ToolExecutor } from "../../shared/types";
 import type { Retriever } from "../../knowledge/retriever";
 import type { KnowledgeWriter } from "../../knowledge/knowledgeWriter";
-import { getKnowledgeRetriever, getKnowledgeStore, getKnowledgeWriter } from "../../knowledge/knowledgeRegistry";
+import {
+  getKnowledgeRetriever,
+  getKnowledgeStore,
+  getKnowledgeWriter,
+} from "../../knowledge/knowledgeRegistry";
 import { validateArgs } from "./validation";
 
 export interface KnowledgeExecutorDeps {
@@ -15,7 +19,10 @@ export interface KnowledgeExecutorDeps {
   knowledgeWriter?: KnowledgeWriter;
 }
 
-export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: KnowledgeExecutorDeps): void {
+export function addKnowledgeExecutors(
+  target: Map<string, ToolExecutor>,
+  deps: KnowledgeExecutorDeps,
+): void {
   target.set("knowledge.search", {
     name: "knowledge.search",
     execute: async (args: Record<string, unknown>) => {
@@ -61,7 +68,9 @@ export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: K
         const result = await writer.writeNote({
           content: args.content as string,
           title: typeof args.title === "string" ? args.title : undefined,
-          tags: Array.isArray(args.tags) ? args.tags.filter((tag): tag is string => typeof tag === "string") : undefined,
+          tags: Array.isArray(args.tags)
+            ? args.tags.filter((tag): tag is string => typeof tag === "string")
+            : undefined,
           sourceName: typeof args.sourceName === "string" ? args.sourceName : undefined,
           metadata: { source: "tool:knowledge.write" },
         });
@@ -112,7 +121,11 @@ export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: K
           error: "知识库尚未初始化，无法更新知识库来源",
         };
       }
-      const err = validateArgs(args, { sourcePath: "string", operation: "string", content: "string" });
+      const err = validateArgs(args, {
+        sourcePath: "string",
+        operation: "string",
+        content: "string",
+      });
       if (err) return { success: false, error: err };
       const optionalErr = validateOptionalUpdateArgs(args);
       if (optionalErr) return { success: false, error: optionalErr };
@@ -126,7 +139,9 @@ export function addKnowledgeExecutors(target: Map<string, ToolExecutor>, deps: K
           operation,
           content: args.content as string,
           title: typeof args.title === "string" ? args.title : undefined,
-          tags: Array.isArray(args.tags) ? args.tags.filter((tag): tag is string => typeof tag === "string") : undefined,
+          tags: Array.isArray(args.tags)
+            ? args.tags.filter((tag): tag is string => typeof tag === "string")
+            : undefined,
           metadata: { source: "tool:knowledge.updateSource" },
         });
         return {

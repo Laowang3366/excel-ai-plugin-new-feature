@@ -58,8 +58,9 @@ describe("transactional data-path staging", () => {
     const current = path.join(root, "current");
     writeFile(current, "sessions/thread.jsonl", "source");
 
-    await expect(prepareDataPathMigration(current, "\\\\server\\share\\wenge-data"))
-      .rejects.toThrow("UNC");
+    await expect(
+      prepareDataPathMigration(current, "\\\\server\\share\\wenge-data"),
+    ).rejects.toThrow("UNC");
   });
 
   it("removes staging data and restores an originally empty target on rollback", async () => {

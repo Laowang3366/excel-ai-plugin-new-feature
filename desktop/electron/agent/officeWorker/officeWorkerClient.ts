@@ -40,7 +40,11 @@ export class OfficeWorkerClient {
   private requestSequence = 0;
   private readonly pending = new Map<string, PendingRequest>();
 
-  async invoke<T>(method: string, params: Record<string, unknown> = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+  async invoke<T>(
+    method: string,
+    params: Record<string, unknown> = {},
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+  ): Promise<T> {
     traceSmoke(`invoke.start:${method}:timeout=${timeoutMs}`);
     await this.ensureStarted();
     const worker = this.process;
@@ -51,23 +55,36 @@ export class OfficeWorkerClient {
     const id = String(++this.requestSequence);
     return new Promise<T>((resolve, reject) => {
       const startedAt = Date.now();
-      const probeTimer = process.env.WENGGE_OFFICE_SMOKE === "1"
-        ? setInterval(() => traceSmoke(`invoke.waiting:${method}:elapsed=${Date.now() - startedAt}`), 10_000)
-        : undefined;
+      const probeTimer =
+        process.env.WENGGE_OFFICE_SMOKE === "1"
+          ? setInterval(
+              () => traceSmoke(`invoke.waiting:${method}:elapsed=${Date.now() - startedAt}`),
+              10_000,
+            )
+          : undefined;
       probeTimer?.unref();
-      const timer = setTimeout(() => {
-        if (probeTimer) clearInterval(probeTimer);
-        traceSmoke(`invoke.timeout:${method}`);
-        this.pending.delete(id);
-        const error = new OfficeWorkerError(
-          "worker_timeout_unknown_outcome",
-          `Office Worker 操作超时并已终止；操作可能已经部分执行，请检查目标文件或使用事务恢复: ${method}`,
-        );
-        reject(error);
-        this.failWorker(worker, error);
-      }, Math.max(1_000, timeoutMs));
-      this.pending.set(id, { method, resolve: value => resolve(value as T), reject, timer, probeTimer });
-      worker.stdin.write(`${JSON.stringify({ id, method, params })}\n`, "utf8", error => {
+      const timer = setTimeout(
+        () => {
+          if (probeTimer) clearInterval(probeTimer);
+          traceSmoke(`invoke.timeout:${method}`);
+          this.pending.delete(id);
+          const error = new OfficeWorkerError(
+            "worker_timeout_unknown_outcome",
+            `Office Worker 操作超时并已终止；操作可能已经部分执行，请检查目标文件或使用事务恢复: ${method}`,
+          );
+          reject(error);
+          this.failWorker(worker, error);
+        },
+        Math.max(1_000, timeoutMs),
+      );
+      this.pending.set(id, {
+        method,
+        resolve: (value) => resolve(value as T),
+        reject,
+        timer,
+        probeTimer,
+      });
+      worker.stdin.write(`${JSON.stringify({ id, method, params })}\n`, "utf8", (error) => {
         if (!error) return;
         clearTimeout(timer);
         if (probeTimer) clearInterval(probeTimer);
@@ -84,7 +101,7 @@ export class OfficeWorkerClient {
     this.rejectAll(new OfficeWorkerError("worker_stopped", "Office Worker 已停止"));
     if (!worker || worker.killed) return;
     worker.stdin.end();
-    await new Promise<void>(resolve => {
+    await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
         if (!worker.killed) worker.kill();
         resolve();
@@ -118,8 +135,8 @@ export class OfficeWorkerClient {
     this.process = worker;
     worker.stdout.setEncoding("utf8");
     worker.stderr.setEncoding("utf8");
-    worker.stdout.on("data", chunk => this.onStdout(worker, String(chunk)));
-    worker.stderr.on("data", chunk => {
+    worker.stdout.on("data", (chunk) => this.onStdout(worker, String(chunk)));
+    worker.stderr.on("data", (chunk) => {
       const message = String(chunk).trim();
       if (process.env.WENGGE_OFFICE_SMOKE === "1") {
         process.stderr.write(`${message}\n`);
@@ -127,10 +144,16 @@ export class OfficeWorkerClient {
         log.warn("Worker stderr", { message });
       }
     });
-    worker.on("error", error => this.onWorkerExit(worker, error));
-    worker.on("exit", (code, signal) => this.onWorkerExit(worker,
-      new OfficeWorkerError("worker_exited", `Office Worker 已退出: code=${code ?? "null"}, signal=${signal ?? "null"}`),
-    ));
+    worker.on("error", (error) => this.onWorkerExit(worker, error));
+    worker.on("exit", (code, signal) =>
+      this.onWorkerExit(
+        worker,
+        new OfficeWorkerError(
+          "worker_exited",
+          `Office Worker 已退出: code=${code ?? "null"}, signal=${signal ?? "null"}`,
+        ),
+      ),
+    );
 
     const health = await this.invokeWithoutStart<{
       ready: boolean;
@@ -147,9 +170,14 @@ export class OfficeWorkerClient {
     log.info("Office Worker ready", health);
   }
 
-  private invokeWithoutStart<T>(method: string, params: Record<string, unknown>, timeoutMs: number): Promise<T> {
+  private invokeWithoutStart<T>(
+    method: string,
+    params: Record<string, unknown>,
+    timeoutMs: number,
+  ): Promise<T> {
     const worker = this.process;
-    if (!worker) return Promise.reject(new OfficeWorkerError("worker_unavailable", "Office Worker 启动失败"));
+    if (!worker)
+      return Promise.reject(new OfficeWorkerError("worker_unavailable", "Office Worker 启动失败"));
     const id = String(++this.requestSequence);
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -158,7 +186,7 @@ export class OfficeWorkerClient {
         reject(error);
         this.failWorker(worker, error);
       }, timeoutMs);
-      this.pending.set(id, { method, resolve: value => resolve(value as T), reject, timer });
+      this.pending.set(id, { method, resolve: (value) => resolve(value as T), reject, timer });
       worker.stdin.write(`${JSON.stringify({ id, method, params })}\n`, "utf8");
     });
   }
@@ -167,7 +195,10 @@ export class OfficeWorkerClient {
     if (this.process !== worker) return;
     this.stdoutBuffer += chunk;
     if (this.stdoutBuffer.length > MAX_STDOUT_BUFFER) {
-      this.failWorker(worker, new OfficeWorkerError("protocol_overflow", "Office Worker 输出超过限制"));
+      this.failWorker(
+        worker,
+        new OfficeWorkerError("protocol_overflow", "Office Worker 输出超过限制"),
+      );
       return;
     }
 
@@ -196,7 +227,9 @@ export class OfficeWorkerClient {
     this.pending.delete(response.id);
     if (response.error) {
       traceSmoke(`invoke.error:${pending.method}:${response.error.code}`);
-      pending.reject(new OfficeWorkerError(response.error.code, response.error.message, response.error.data));
+      pending.reject(
+        new OfficeWorkerError(response.error.code, response.error.message, response.error.data),
+      );
     } else {
       traceSmoke(`invoke.done:${pending.method}`);
       try {
@@ -234,7 +267,10 @@ export class OfficeWorkerClient {
 export function validateWorkerResult(method: string, result: unknown): unknown {
   if (method !== "excel.range.write") return result;
   if (!result || typeof result !== "object") {
-    throw new OfficeWorkerError("protocol_invalid_result", "Office Worker 返回了无效的范围写入结果");
+    throw new OfficeWorkerError(
+      "protocol_invalid_result",
+      "Office Worker 返回了无效的范围写入结果",
+    );
   }
   const record = result as Record<string, unknown>;
   for (const field of ["written", "dynamicCells", "arrayCells", "plainCells"] as const) {
@@ -259,7 +295,9 @@ export function resolveOfficeWorkerPath(): string {
   const executable = "Wengge.OfficeWorker.exe";
   const candidates = [
     process.env.WENGGE_OFFICE_WORKER_PATH,
-    process.resourcesPath ? path.join(process.resourcesPath, "office-worker", executable) : undefined,
+    process.resourcesPath
+      ? path.join(process.resourcesPath, "office-worker", executable)
+      : undefined,
     path.resolve(process.cwd(), "dotnet", "publish", "win-x64", executable),
     path.resolve(process.cwd(), "desktop", "dotnet", "publish", "win-x64", executable),
     path.resolve(__dirname, "../../../../dotnet/publish/win-x64", executable),

@@ -15,9 +15,7 @@ describe("sensitiveData", () => {
     expect(findHighConfidenceSensitiveData([`Authorization: Bearer ${CANARY}`])).toEqual([
       "openai-style-key",
     ]);
-    expect(redactSensitiveText(`value=${CANARY}`)).toBe(
-      "value=[REDACTED:openai-style-key]",
-    );
+    expect(redactSensitiveText(`value=${CANARY}`)).toBe("value=[REDACTED:openai-style-key]");
   });
 
   it("redacts an entire private key block instead of only its header", () => {
@@ -59,7 +57,10 @@ describe("sensitiveData", () => {
     const summary = summarizeValueForAudit({
       apiKey: CANARY,
       query: "confidential quarterly forecast",
-      rows: [[1, 2], [3, 4]],
+      rows: [
+        [1, 2],
+        [3, 4],
+      ],
       success: true,
     });
 

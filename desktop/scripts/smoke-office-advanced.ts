@@ -34,7 +34,12 @@ async function main(): Promise<void> {
         operation: "manageWorkbookObject",
         filePath: excelPath,
         target: "range:Sheet1!A1:B4",
-        params: { objectType: "table", command: "create", name: "DataTable", style: "TableStyleMedium2" },
+        params: {
+          objectType: "table",
+          command: "create",
+          name: "DataTable",
+          style: "TableStyleMedium2",
+        },
       },
       {
         app: "excel",
@@ -51,7 +56,7 @@ async function main(): Promise<void> {
         params: {
           name: "DataPipeline",
           description: "Office advanced smoke query",
-          mFormula: "let Source = Excel.CurrentWorkbook(){[Name=\"DataTable\"]}[Content] in Source",
+          mFormula: 'let Source = Excel.CurrentWorkbook(){[Name="DataTable"]}[Content] in Source',
           loadMode: "worksheet",
           destination: "QueryOutput!A1",
           tableName: "PipelineOutput",
@@ -134,7 +139,9 @@ async function main(): Promise<void> {
           width: 480,
           height: 280,
           chartArea: { fillColor: "FFFFFF", borderColor: "D1D5DB" },
-          series: [{ index: 1, fillColor: "2563EB", dataLabels: { enabled: true, showValue: true } }],
+          series: [
+            { index: 1, fillColor: "2563EB", dataLabels: { enabled: true, showValue: true } },
+          ],
           axes: [{ kind: "value", title: "Amount", minimum: 0, numberFormat: "0" }],
         },
       },
@@ -143,7 +150,12 @@ async function main(): Promise<void> {
         action: "edit",
         operation: "manageWorkbookObject",
         filePath: excelPath,
-        params: { objectType: "name", command: "upsert", name: "AmountValues", refersTo: "=Sheet1!$B$2:$B$4" },
+        params: {
+          objectType: "name",
+          command: "upsert",
+          name: "AmountValues",
+          refersTo: "=Sheet1!$B$2:$B$4",
+        },
       },
       {
         app: "excel",
@@ -184,7 +196,12 @@ async function main(): Promise<void> {
       { app: "excel", action: "inspect", operation: "inspectPowerQueries", filePath: excelPath },
       { app: "excel", action: "inspect", operation: "inspectCharts", filePath: excelPath },
       { app: "excel", action: "inspect", operation: "inspectWorkbookObjects", filePath: excelPath },
-      { app: "excel", action: "inspect", operation: "captureWorkbookTemplate", filePath: excelPath },
+      {
+        app: "excel",
+        action: "inspect",
+        operation: "captureWorkbookTemplate",
+        filePath: excelPath,
+      },
       {
         app: "excel",
         action: "edit",
@@ -204,8 +221,20 @@ async function main(): Promise<void> {
           verticalPageBreaks: ["C1"],
         },
       },
-      { app: "excel", action: "inspect", operation: "inspectPrintSettings", filePath: excelPath, params: { sheetNames: ["Sheet1", "Inputs"] } },
-      { app: "excel", action: "inspect", operation: "inspectFormulaDependencies", filePath: excelPath, params: { expectBroken: true } },
+      {
+        app: "excel",
+        action: "inspect",
+        operation: "inspectPrintSettings",
+        filePath: excelPath,
+        params: { sheetNames: ["Sheet1", "Inputs"] },
+      },
+      {
+        app: "excel",
+        action: "inspect",
+        operation: "inspectFormulaDependencies",
+        filePath: excelPath,
+        params: { expectBroken: true },
+      },
       {
         app: "excel",
         action: "edit",
@@ -213,7 +242,13 @@ async function main(): Promise<void> {
         filePath: excelPath,
         params: { replacements: [{ sheetName: "Sheet1", find: "#REF!", replace: "Inputs!A1" }] },
       },
-      { app: "excel", action: "inspect", operation: "inspectFormulaDependencies", filePath: excelPath, params: { expectBroken: false } },
+      {
+        app: "excel",
+        action: "inspect",
+        operation: "inspectFormulaDependencies",
+        filePath: excelPath,
+        params: { expectBroken: false },
+      },
       {
         app: "excel",
         action: "edit",
@@ -238,9 +273,20 @@ async function main(): Promise<void> {
         target: "range:Sheet1!A1:F4",
         params: { command: "lock", protectSheet: true, unlockInputs: true },
       },
-      { app: "excel", action: "inspect", operation: "inspectFormulaProtection", filePath: excelPath, target: "range:Sheet1!A1:F4" },
+      {
+        app: "excel",
+        action: "inspect",
+        operation: "inspectFormulaProtection",
+        filePath: excelPath,
+        target: "range:Sheet1!A1:F4",
+      },
       { app: "word", action: "style", operation: "formatLongDocument", filePath: wordPath },
-      { app: "presentation", action: "style", operation: "layoutElements", filePath: presentationPath },
+      {
+        app: "presentation",
+        action: "style",
+        operation: "layoutElements",
+        filePath: presentationPath,
+      },
       {
         app: "excel",
         action: "edit",
@@ -250,18 +296,31 @@ async function main(): Promise<void> {
         params: { sheetNames: ["Sheet1", "Inputs"], mode: "combined", overwrite: true },
       },
     ];
-    const selectedActions = operationFilter.size > 0
-      ? actions.filter((action) => operationFilter.has(action.operation))
-      : actions;
+    const selectedActions =
+      operationFilter.size > 0
+        ? actions.filter((action) => operationFilter.has(action.operation))
+        : actions;
     const results = [];
     for (const action of selectedActions) {
-      if (keepArtifacts) await writeFile(path.join(tempDir, `${action.app}-${action.operation}.json`), JSON.stringify(action, null, 2), "utf8");
+      if (keepArtifacts)
+        await writeFile(
+          path.join(tempDir, `${action.app}-${action.operation}.json`),
+          JSON.stringify(action, null, 2),
+          "utf8",
+        );
       const result = await bridge.executeAction(action);
-      results.push({ app: action.app, operation: action.operation, status: result.status, error: result.error });
-      if (result.status !== "done") throw new Error(`${action.app}/${action.operation}: ${result.error || result.summary}`);
+      results.push({
+        app: action.app,
+        operation: action.operation,
+        status: result.status,
+        error: result.error,
+      });
+      if (result.status !== "done")
+        throw new Error(`${action.app}/${action.operation}: ${result.error || result.summary}`);
       verifyAdvancedExcelResult(action, result.data);
     }
-    if (selectedActions.some((action) => action.operation === "exportSheetsToPdf")) await access(pdfPath);
+    if (selectedActions.some((action) => action.operation === "exportSheetsToPdf"))
+      await access(pdfPath);
     process.stdout.write(`${JSON.stringify({ ok: true, results }, null, 2)}\n`);
   } finally {
     await disposeOfficeWorker();
@@ -286,7 +345,12 @@ function verifyAdvancedExcelResult(action: OfficeActionInput, resultData: unknow
   if (action.operation === "inspectCharts") {
     const charts = arrayField(operationData, "charts");
     const chart = charts.find((item) => item.name === "RevenueChart");
-    if (!chart || chart.title !== "Amount by department" || !Array.isArray(chart.series) || chart.series.length === 0) {
+    if (
+      !chart ||
+      chart.title !== "Amount by department" ||
+      !Array.isArray(chart.series) ||
+      chart.series.length === 0
+    ) {
       throw new Error("图表深度编辑冒烟验收失败");
     }
   }
@@ -294,7 +358,10 @@ function verifyAdvancedExcelResult(action: OfficeActionInput, resultData: unknow
     const objects = objectField(operationData, "objects");
     const names = arrayField(objects, "names");
     const tables = arrayField(objects, "tables");
-    if (!names.some((item) => String(item.name).endsWith("AmountValues")) || !tables.some((item) => item.name === "DataTable")) {
+    if (
+      !names.some((item) => String(item.name).endsWith("AmountValues")) ||
+      !tables.some((item) => item.name === "DataTable")
+    ) {
       throw new Error("工作簿对象冒烟验收失败");
     }
   }
@@ -306,7 +373,10 @@ function verifyAdvancedExcelResult(action: OfficeActionInput, resultData: unknow
   }
   if (action.operation === "inspectPrintSettings") {
     const settings = arrayField(operationData, "settings");
-    if (settings.length !== 2 || settings.some((item) => item.orientation !== "landscape" || Number(item.fitToPagesWide) !== 1)) {
+    if (
+      settings.length !== 2 ||
+      settings.some((item) => item.orientation !== "landscape" || Number(item.fitToPagesWide) !== 1)
+    ) {
       throw new Error("打印与页面设置冒烟验收失败");
     }
   }
@@ -331,13 +401,20 @@ function verifyAdvancedExcelResult(action: OfficeActionInput, resultData: unknow
     throw new Error("公式错误引用修复冒烟验收失败");
   }
   if (action.operation === "convertFormulasToValues") {
-    if (operationData.backupId !== "office-smoke-formulas" || Number(operationData.convertedFormulaCells) !== 2) {
+    if (
+      operationData.backupId !== "office-smoke-formulas" ||
+      Number(operationData.convertedFormulaCells) !== 2
+    ) {
       throw new Error("公式转值与备份冒烟验收失败");
     }
   }
   if (action.operation === "inspectFormulaBackups") {
     const backups = arrayField(operationData, "backups");
-    if (!backups.some((item) => item.backupId === "office-smoke-formulas" && Number(item.formulaCount) === 2)) {
+    if (
+      !backups.some(
+        (item) => item.backupId === "office-smoke-formulas" && Number(item.formulaCount) === 2,
+      )
+    ) {
       throw new Error("公式备份清单冒烟验收失败");
     }
   }
@@ -346,13 +423,18 @@ function verifyAdvancedExcelResult(action: OfficeActionInput, resultData: unknow
   }
   if (action.operation === "inspectFormulaProtection") {
     const protection = arrayField(operationData, "protection");
-    if (protection.length !== 1 || protection[0].protected !== true || Number(protection[0].lockedFormulaCount) < 1) {
+    if (
+      protection.length !== 1 ||
+      protection[0].protected !== true ||
+      Number(protection[0].lockedFormulaCount) < 1
+    ) {
       throw new Error(`公式区域保护冒烟验收失败: ${JSON.stringify(protection)}`);
     }
   }
   if (action.operation === "exportSheetsToPdf") {
     const outputs = operationData.outputPaths;
-    if (!Array.isArray(outputs) || outputs.length !== 1) throw new Error("工作表批量 PDF 导出冒烟验收失败");
+    if (!Array.isArray(outputs) || outputs.length !== 1)
+      throw new Error("工作表批量 PDF 导出冒烟验收失败");
   }
 }
 
@@ -370,31 +452,39 @@ function arrayField(value: Record<string, unknown>, key: string): Array<Record<s
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
-async function createFixtures(excelPath: string, wordPath: string, presentationPath: string): Promise<void> {
+async function createFixtures(
+  excelPath: string,
+  wordPath: string,
+  presentationPath: string,
+): Promise<void> {
   const excelResult = await applyExcelAdvancedAction({
-      operation: "createWorkbook",
-      filePath: excelPath,
-      params: {
-        sheetNames: ["Sheet1", "Inputs"],
-        values: [
-          ["Dept", "Amount", "CrossSheet", "Broken", "CycleA", "CycleB"],
-          ["A", 10, "=Inputs!A1+B2", "=#REF!+B2", "=F2+1", "=E2+1"],
-          ["B", 20, "=Inputs!A2+B3", "=B3*2", "", ""],
-          ["A", 30, "=Inputs!A3+B4", "=B4*2", "", ""],
-        ],
-      },
-    });
-  if (excelResult.status !== "done") throw new Error(`创建 Excel 冒烟文件失败: ${excelResult.error || excelResult.summary}`);
+    operation: "createWorkbook",
+    filePath: excelPath,
+    params: {
+      sheetNames: ["Sheet1", "Inputs"],
+      values: [
+        ["Dept", "Amount", "CrossSheet", "Broken", "CycleA", "CycleB"],
+        ["A", 10, "=Inputs!A1+B2", "=#REF!+B2", "=F2+1", "=E2+1"],
+        ["B", 20, "=Inputs!A2+B3", "=B3*2", "", ""],
+        ["A", 30, "=Inputs!A3+B4", "=B4*2", "", ""],
+      ],
+    },
+  });
+  if (excelResult.status !== "done")
+    throw new Error(`创建 Excel 冒烟文件失败: ${excelResult.error || excelResult.summary}`);
   const inputResult = await applyExcelAdvancedAction({
     operation: "writeRange",
     filePath: excelPath,
     target: "range:Inputs!A1:A3",
     params: { values: [[1], [2], [3]] },
   });
-  if (inputResult.status !== "done") throw new Error(`写入 Excel 冒烟输入失败: ${inputResult.error || inputResult.summary}`);
+  if (inputResult.status !== "done")
+    throw new Error(`写入 Excel 冒烟输入失败: ${inputResult.error || inputResult.summary}`);
   const results = await Promise.all([
     applyWordAdvancedAction({
       operation: "createDocument",
@@ -412,6 +502,8 @@ async function createFixtures(excelPath: string, wordPath: string, presentationP
 }
 
 void main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+  );
   process.exitCode = 1;
 });

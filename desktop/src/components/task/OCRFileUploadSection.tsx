@@ -47,15 +47,11 @@ export const OCRFileUploadSection: React.FC<OCRFileUploadSectionProps> = ({
           style={{ display: "none" }}
         />
         <div className="ocr-drop-content">
-          <span style={{ fontSize: 24, opacity: 0.5 }}><Paperclip size={24} /></span>
-          <p>
-            {dragOver
-              ? "松开以上传"
-              : "拖拽文件到此处，或点击选择"}
-          </p>
-          <p style={{ fontSize: 11, color: "var(--text-faint)" }}>
-            支持 PNG、JPG、WebP、BMP、PDF
-          </p>
+          <span style={{ fontSize: 24, opacity: 0.5 }}>
+            <Paperclip size={24} />
+          </span>
+          <p>{dragOver ? "松开以上传" : "拖拽文件到此处，或点击选择"}</p>
+          <p style={{ fontSize: 11, color: "var(--text-faint)" }}>支持 PNG、JPG、WebP、BMP、PDF</p>
         </div>
       </div>
 
@@ -67,10 +63,7 @@ export const OCRFileUploadSection: React.FC<OCRFileUploadSectionProps> = ({
                 {file.type === "application/pdf" ? <FileText size={14} /> : <Image size={14} />}
               </span>
               <span className="ocr-file-name">{file.name}</span>
-              <button
-                className="ocr-file-remove"
-                onClick={() => onRemoveFile(index)}
-              >
+              <button className="ocr-file-remove" onClick={() => onRemoveFile(index)}>
                 <X size={10} />
               </button>
             </div>

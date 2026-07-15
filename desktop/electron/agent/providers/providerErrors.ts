@@ -32,11 +32,7 @@ function extractJsonErrorMessage(text: string): string | null {
   try {
     const data = JSON.parse(text);
     const message =
-      data?.error?.message ||
-      data?.error ||
-      data?.message ||
-      data?.msg ||
-      data?.detail;
+      data?.error?.message || data?.error || data?.message || data?.msg || data?.detail;
     return typeof message === "string" && message.trim() ? message.trim() : null;
   } catch {
     return null;
@@ -57,7 +53,8 @@ function extractHtmlTitle(html: string): string | null {
 function statusHint(status: number): string {
   if (status === 429) return "请求过于频繁或额度受限，请稍后重试。";
   if (status === 502) return "模型服务网关暂时不可用（502 Bad Gateway），请稍后重试或切换模型。";
-  if (status === 503) return "模型服务暂时不可用（503 Service Unavailable），请稍后重试或切换模型。";
+  if (status === 503)
+    return "模型服务暂时不可用（503 Service Unavailable），请稍后重试或切换模型。";
   if (status === 504) return "模型服务响应超时（504 Gateway Timeout），请稍后重试或切换模型。";
   if (status >= 500) return "模型服务暂时异常，请稍后重试或切换模型。";
   return "请求失败，请检查模型配置或稍后重试。";

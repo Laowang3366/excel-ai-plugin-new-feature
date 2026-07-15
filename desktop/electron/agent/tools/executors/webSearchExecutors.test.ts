@@ -17,10 +17,13 @@ describe("web search executors", () => {
         <p>A useful result &amp; summary.</p>
       </li>
     `;
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      ok: true,
-      text: async () => html,
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        text: async () => html,
+      })),
+    );
     const executors = new Map();
     addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
 
@@ -41,13 +44,13 @@ describe("web search executors", () => {
             snippet: "A useful result & summary.",
             source: "example.com",
           },
-          ],
-          remoteProcessing: {
-            operation: "web-search",
-            service: "bing-html",
-            destination: "www.bing.com",
-            dataSummary: "搜索查询，19 个字符",
-          },
+        ],
+        remoteProcessing: {
+          operation: "web-search",
+          service: "bing-html",
+          destination: "www.bing.com",
+          dataSummary: "搜索查询，19 个字符",
+        },
       },
     });
   });
@@ -59,7 +62,8 @@ describe("web search executors", () => {
         <div class="c-abstract">A public web result.</div>
       </div>
     `;
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockRejectedValueOnce(new Error("fetch failed"))
       .mockRejectedValueOnce(new Error("fetch failed"))
       .mockRejectedValueOnce(new Error("fetch failed"))
@@ -89,13 +93,13 @@ describe("web search executors", () => {
             snippet: "A public web result.",
             source: "example.cn",
           },
-          ],
-          remoteProcessing: {
-            operation: "web-search",
-            service: "baidu-html",
-            destination: "www.baidu.com",
-            dataSummary: "搜索查询，18 个字符",
-          },
+        ],
+        remoteProcessing: {
+          operation: "web-search",
+          service: "baidu-html",
+          destination: "www.baidu.com",
+          dataSummary: "搜索查询，18 个字符",
+        },
       },
     });
   });
@@ -136,23 +140,26 @@ describe("web search executors", () => {
             snippet: "广东佛山相关公开网页资料。",
             source: "example.cn",
           },
-          ],
-          remoteProcessing: {
-            operation: "web-search",
-            service: "so-html",
-            destination: "www.so.com",
-            dataSummary: "搜索查询，9 个字符",
-          },
+        ],
+        remoteProcessing: {
+          operation: "web-search",
+          service: "so-html",
+          destination: "www.so.com",
+          dataSummary: "搜索查询，9 个字符",
+        },
       },
     });
   });
 
   it("returns a diagnostic error when all search providers fail", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      ok: false,
-      status: 503,
-      text: async () => "Service unavailable",
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 503,
+        text: async () => "Service unavailable",
+      })),
+    );
     const executors = new Map();
     addWebSearchExecutors(executors, { isRemoteDataProcessingEnabled: () => true });
 

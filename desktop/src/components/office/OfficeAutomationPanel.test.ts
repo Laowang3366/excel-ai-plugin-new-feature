@@ -3,7 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { OfficeAutomationPanel } from "./OfficeAutomationPanel";
-import { officeAppLabel, parseTemplateVariables, shortOfficePath } from "./officeAutomationViewModel";
+import {
+  officeAppLabel,
+  parseTemplateVariables,
+  shortOfficePath,
+} from "./officeAutomationViewModel";
 
 describe("OfficeAutomationPanel", () => {
   it("renders the four direct management views", () => {

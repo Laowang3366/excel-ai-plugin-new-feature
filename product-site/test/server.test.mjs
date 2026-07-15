@@ -19,13 +19,24 @@ test("download tracking and admin authentication work end to end", async (contex
   await fs.mkdir(releasesDir, { recursive: true });
   const artifact = "Wengge-AI-Assistant-Setup-0.1.79.exe";
   await fs.writeFile(path.join(releasesDir, artifact), "installer-bytes");
-  await fs.writeFile(path.join(releasesDir, "release.json"), JSON.stringify({
-    version: "0.1.79",
-    publishedAt: "2026-07-12T06:00:00.000Z",
-    releaseNotes: ["新增应用内更新"],
-    installer: { fileName: artifact, size: 15, sha256: "a".repeat(64), downloadUrl: "/download/windows" },
-  }));
-  await fs.writeFile(path.join(releasesDir, "manifest.json"), JSON.stringify({ signed: true }));
+  await fs.writeFile(
+    path.join(releasesDir, "release.json"),
+    JSON.stringify({
+      version: "0.1.79",
+      publishedAt: "2026-07-12T06:00:00.000Z",
+      releaseNotes: ["新增应用内更新"],
+      installer: {
+        fileName: artifact,
+        size: 15,
+        sha256: "a".repeat(64),
+        downloadUrl: "/download/windows",
+      },
+    }),
+  );
+  await fs.writeFile(
+    path.join(releasesDir, "manifest.json"),
+    JSON.stringify({ signed: true }),
+  );
   const password = "strong-test-password";
   const { app } = await buildServer({
     logger: false,
@@ -42,8 +53,14 @@ test("download tracking and admin authentication work end to end", async (contex
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  assert.equal((await app.inject({ method: "GET", url: "/healthz" })).statusCode, 200);
-  assert.equal((await app.inject({ method: "GET", url: "/api/admin/stats" })).statusCode, 401);
+  assert.equal(
+    (await app.inject({ method: "GET", url: "/healthz" })).statusCode,
+    200,
+  );
+  assert.equal(
+    (await app.inject({ method: "GET", url: "/api/admin/stats" })).statusCode,
+    401,
+  );
 
   const download = await app.inject({
     method: "GET",
@@ -73,7 +90,9 @@ test("download tracking and admin authentication work end to end", async (contex
 });
 
 test("spoofed forwarded-for prefixes cannot bypass admin login throttling", async (context) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wenge-site-rate-limit-"));
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), "wenge-site-rate-limit-"),
+  );
   const password = "strong-test-password";
   const { app } = await buildServer({
     logger: false,
@@ -103,15 +122,25 @@ test("spoofed forwarded-for prefixes cannot bypass admin login throttling", asyn
 });
 
 test("analytics failures do not block installer downloads", async (context) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wenge-site-analytics-"));
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), "wenge-site-analytics-"),
+  );
   const releasesDir = path.join(root, "releases");
   await fs.mkdir(releasesDir, { recursive: true });
   const artifact = "Wengge-AI-Assistant-Setup-0.1.79.exe";
   await fs.writeFile(path.join(releasesDir, artifact), "installer-bytes");
-  await fs.writeFile(path.join(releasesDir, "release.json"), JSON.stringify({
-    version: "0.1.79",
-    installer: { fileName: artifact, size: 15, sha256: "a".repeat(64), downloadUrl: "/download/windows" },
-  }));
+  await fs.writeFile(
+    path.join(releasesDir, "release.json"),
+    JSON.stringify({
+      version: "0.1.79",
+      installer: {
+        fileName: artifact,
+        size: 15,
+        sha256: "a".repeat(64),
+        downloadUrl: "/download/windows",
+      },
+    }),
+  );
   const { app } = await buildServer({
     logger: false,
     dataDir: path.join(root, "data"),
@@ -122,8 +151,12 @@ test("analytics failures do not block installer downloads", async (context) => {
     analyticsSalt: "test-analytics-salt",
     publicDir: path.resolve(import.meta.dirname, "../public"),
     analytics: {
-      recordDownload() { throw new Error("database read-only"); },
-      getStats() { return {}; },
+      recordDownload() {
+        throw new Error("database read-only");
+      },
+      getStats() {
+        return {};
+      },
       close() {},
     },
   });
@@ -132,7 +165,10 @@ test("analytics failures do not block installer downloads", async (context) => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  const response = await app.inject({ method: "GET", url: "/download/windows" });
+  const response = await app.inject({
+    method: "GET",
+    url: "/download/windows",
+  });
   assert.equal(response.statusCode, 200);
   assert.equal(response.body, "installer-bytes");
 });

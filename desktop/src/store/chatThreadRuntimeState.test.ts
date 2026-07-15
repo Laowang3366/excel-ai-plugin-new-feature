@@ -13,18 +13,20 @@ describe("reconcileRunningThreadIds", () => {
   });
 
   it("keeps active or in-progress threads, removes listed completed entries, and preserves unlisted running ids", () => {
-    expect(reconcileRunningThreadIds({
-      threads: [
-        thread("thread-active", { activeTurnId: "turn-1" }),
-        thread("thread-progress", { lastTurnStatus: "in_progress" }),
-        thread("thread-completed", { lastTurnStatus: "completed" }),
-      ],
-      runningThreadIds: {
-        "thread-completed": true,
-        "thread-stale": true,
-      },
-      stoppedThreadIds: {},
-    })).toEqual({
+    expect(
+      reconcileRunningThreadIds({
+        threads: [
+          thread("thread-active", { activeTurnId: "turn-1" }),
+          thread("thread-progress", { lastTurnStatus: "in_progress" }),
+          thread("thread-completed", { lastTurnStatus: "completed" }),
+        ],
+        runningThreadIds: {
+          "thread-completed": true,
+          "thread-stale": true,
+        },
+        stoppedThreadIds: {},
+      }),
+    ).toEqual({
       "thread-active": true,
       "thread-progress": true,
       "thread-stale": true,
@@ -32,37 +34,41 @@ describe("reconcileRunningThreadIds", () => {
   });
 
   it("does not revive user-stopped in-progress metadata", () => {
-    expect(reconcileRunningThreadIds({
-      threads: [
-        thread("thread-stopped", {
-          activeTurnId: "turn-old",
-          lastTurnStatus: "in_progress",
-        }),
-      ],
-      runningThreadIds: {},
-      stoppedThreadIds: {
-        "thread-stopped": true,
-      },
-    })).toEqual({});
+    expect(
+      reconcileRunningThreadIds({
+        threads: [
+          thread("thread-stopped", {
+            activeTurnId: "turn-old",
+            lastTurnStatus: "in_progress",
+          }),
+        ],
+        runningThreadIds: {},
+        stoppedThreadIds: {
+          "thread-stopped": true,
+        },
+      }),
+    ).toEqual({});
   });
 
   it("lets a terminal status override a stale active turn id", () => {
-    expect(reconcileRunningThreadIds({
-      threads: [
-        thread("thread-interrupted", {
-          activeTurnId: "turn-stale",
-          lastTurnStatus: "interrupted",
-        }),
-        thread("thread-failed", {
-          activeTurnId: "turn-stale",
-          lastTurnStatus: "failed",
-        }),
-      ],
-      runningThreadIds: {
-        "thread-interrupted": true,
-        "thread-failed": true,
-      },
-      stoppedThreadIds: {},
-    })).toEqual({});
+    expect(
+      reconcileRunningThreadIds({
+        threads: [
+          thread("thread-interrupted", {
+            activeTurnId: "turn-stale",
+            lastTurnStatus: "interrupted",
+          }),
+          thread("thread-failed", {
+            activeTurnId: "turn-stale",
+            lastTurnStatus: "failed",
+          }),
+        ],
+        runningThreadIds: {
+          "thread-interrupted": true,
+          "thread-failed": true,
+        },
+        stoppedThreadIds: {},
+      }),
+    ).toEqual({});
   });
 });

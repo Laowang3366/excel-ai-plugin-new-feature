@@ -87,10 +87,10 @@ describe("buildRoundStreamParams", () => {
       round: 1,
     });
 
-    expect(getToolOperations(simple.toolDefs, "office.action.apply"))
-      .not.toContain("createPivotTable");
-    expect(getToolOperations(pivot.toolDefs, "office.action.apply"))
-      .toContain("createPivotTable");
+    expect(getToolOperations(simple.toolDefs, "office.action.apply")).not.toContain(
+      "createPivotTable",
+    );
+    expect(getToolOperations(pivot.toolDefs, "office.action.apply")).toContain("createPivotTable");
   });
 });
 

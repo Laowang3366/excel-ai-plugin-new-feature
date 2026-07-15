@@ -52,7 +52,7 @@ export function createToolExecutors(
   presentationBridge?: PresentationBridge,
   officeActionBridge?: OfficeActionBridge,
   memoryStore?: LongTermMemoryStore,
-  runtimeDeps: ToolExecutorRuntimeDeps = {}
+  runtimeDeps: ToolExecutorRuntimeDeps = {},
 ): Map<string, ToolExecutor> {
   const executors = new Map<string, ToolExecutor>();
 
@@ -73,8 +73,12 @@ export function createToolExecutors(
     presentationBridge,
     officeActionBridge,
     officeDocumentBridge: runtimeDeps.officeDocumentBridge,
-    workflowRoot: runtimeDeps.officeAutomationRoot ? path.join(runtimeDeps.officeAutomationRoot, "workflows") : undefined,
-    transactionRoot: runtimeDeps.officeAutomationRoot ? path.join(runtimeDeps.officeAutomationRoot, "transactions") : undefined,
+    workflowRoot: runtimeDeps.officeAutomationRoot
+      ? path.join(runtimeDeps.officeAutomationRoot, "workflows")
+      : undefined,
+    transactionRoot: runtimeDeps.officeAutomationRoot
+      ? path.join(runtimeDeps.officeAutomationRoot, "transactions")
+      : undefined,
   });
   addExecutorAliases(executors);
 

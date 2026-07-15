@@ -23,7 +23,7 @@ import { getCompactionPromptTemplate } from "../../prompts/compactionPrompt";
 export async function generateSummary(
   aiClient: { chat: (params: any) => Promise<{ content?: string }> },
   prompt: string,
-  compactionConfig?: CompactionConfig
+  compactionConfig?: CompactionConfig,
 ): Promise<string> {
   const result = await aiClient.chat({
     messages: [

@@ -4,14 +4,17 @@ export function useSidebarThreadCreation(createNewThread: (folderPath?: string) 
   const [creatingFolderThread, setCreatingFolderThread] = useState<string | null>(null);
   const [creatingNewThread, setCreatingNewThread] = useState(false);
 
-  const handleCreateFolderThread = useCallback(async (folderPath: string) => {
-    setCreatingFolderThread(folderPath);
-    try {
-      await createNewThread(folderPath);
-    } finally {
-      setTimeout(() => setCreatingFolderThread(null), 300);
-    }
-  }, [createNewThread]);
+  const handleCreateFolderThread = useCallback(
+    async (folderPath: string) => {
+      setCreatingFolderThread(folderPath);
+      try {
+        await createNewThread(folderPath);
+      } finally {
+        setTimeout(() => setCreatingFolderThread(null), 300);
+      }
+    },
+    [createNewThread],
+  );
 
   const handleCreateNewThread = useCallback(async () => {
     setCreatingNewThread(true);

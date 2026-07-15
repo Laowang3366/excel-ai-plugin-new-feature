@@ -64,7 +64,7 @@ export class KnowledgeWriter {
   constructor(
     store: KnowledgeWriteStore,
     embedder: KnowledgeWriteEmbedder,
-    options?: KnowledgeWriterOptions
+    options?: KnowledgeWriterOptions,
   ) {
     this.store = store;
     this.embedder = embedder;
@@ -210,7 +210,8 @@ export class KnowledgeWriter {
       embedding: embeddingResult.embeddings[index],
       embeddingProvider: embeddingResult.embeddings[index] ? embeddingProfile?.provider : undefined,
       embeddingModel: embeddingResult.embeddings[index] ? embeddingProfile?.model : undefined,
-      embeddingDimensions: embeddingResult.embeddings[index]?.length ?? embeddingProfile?.dimensions,
+      embeddingDimensions:
+        embeddingResult.embeddings[index]?.length ?? embeddingProfile?.dimensions,
       indexedAt: input.indexedAt,
       tokenCount: chunk.tokenCount,
     }));
@@ -261,12 +262,13 @@ export class KnowledgeWriter {
   }
 }
 
-function buildNoteContent(title: string, content: string, tags: string[], timestamp: number): string {
-  const lines = [
-    `# ${title}`,
-    "",
-    `创建时间: ${new Date(timestamp).toISOString()}`,
-  ];
+function buildNoteContent(
+  title: string,
+  content: string,
+  tags: string[],
+  timestamp: number,
+): string {
+  const lines = [`# ${title}`, "", `创建时间: ${new Date(timestamp).toISOString()}`];
   if (tags.length > 0) {
     lines.push(`标签: ${tags.join(", ")}`);
   }
@@ -279,7 +281,7 @@ function buildEditableText(
   title: string,
   content: string,
   tags: string[],
-  timestamp: number
+  timestamp: number,
 ): string {
   if (sourceType === "md") {
     return buildNoteContent(title, content, tags, timestamp);
@@ -324,12 +326,19 @@ function normalizeTags(tags: unknown): string[] {
 }
 
 function makeTitleFromContent(content: string): string {
-  const firstLine = content.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "知识条目";
+  const firstLine =
+    content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean) || "知识条目";
   return firstLine.replace(/^#+\s*/, "").slice(0, 80) || "知识条目";
 }
 
 function buildSourceName(baseName: string, id: string, timestamp: number): string {
-  const stamp = new Date(timestamp).toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+  const stamp = new Date(timestamp)
+    .toISOString()
+    .replace(/[-:T.Z]/g, "")
+    .slice(0, 14);
   const slug = sanitizeFileStem(baseName || "note").slice(0, 48) || "note";
   return `note-${stamp}-${id.slice(0, 8)}-${slug}.md`;
 }

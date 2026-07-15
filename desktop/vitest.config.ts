@@ -10,7 +10,12 @@ export default defineConfig({
     // 覆盖率配置
     coverage: {
       provider: "v8",
-      include: ["src/utils/**", "src/store/**", "electron/agent/compaction.ts", "electron/agent/agentLoop/*.ts"],
+      include: [
+        "src/utils/**",
+        "src/store/**",
+        "electron/agent/compaction.ts",
+        "electron/agent/agentLoop/*.ts",
+      ],
       reporter: ["text", "lcov"],
     },
     // 全局 setup

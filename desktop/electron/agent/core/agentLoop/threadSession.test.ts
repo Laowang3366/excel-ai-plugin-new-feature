@@ -79,8 +79,12 @@ describe("threadSession", () => {
         baseUrl: "https://example.com/v1",
         model: "gpt-test",
       },
-      setActiveThread: (thread) => { activeThreadRef.current = thread; },
-      setCompactedHistory: (history) => { compactedHistory = history; },
+      setActiveThread: (thread) => {
+        activeThreadRef.current = thread;
+      },
+      setCompactedHistory: (history) => {
+        compactedHistory = history;
+      },
       threadStateManager: manager,
       publishThreadStatus,
       scheduleIdleThreadUnload,
@@ -100,8 +104,12 @@ describe("threadSession", () => {
       activeThread: activeThreadRef.current,
       sessionStore: sessionStore as never,
       threadId,
-      setActiveThread: (thread) => { activeThreadRef.current = thread; },
-      setCompactedHistory: (history) => { compactedHistory = history; },
+      setActiveThread: (thread) => {
+        activeThreadRef.current = thread;
+      },
+      setCompactedHistory: (history) => {
+        compactedHistory = history;
+      },
       threadStateManager: manager,
       publishThreadStatus,
       scheduleIdleThreadUnload,
@@ -140,9 +148,15 @@ describe("threadSession", () => {
       isRunning: false,
       activeThread,
       sessionStore: sessionStore as never,
-      setActiveThread: (threadValue) => { activeThread = threadValue; },
-      setActiveTurn: (turnValue) => { activeTurn = turnValue as never; },
-      setCompactedHistory: (history) => { compactedHistory = history as never; },
+      setActiveThread: (threadValue) => {
+        activeThread = threadValue;
+      },
+      setActiveTurn: (turnValue) => {
+        activeTurn = turnValue as never;
+      },
+      setCompactedHistory: (history) => {
+        compactedHistory = history as never;
+      },
       threadStateManager: manager,
       publishThreadStatus,
       clearIdleUnloadTimer,

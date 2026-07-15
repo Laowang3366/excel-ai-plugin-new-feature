@@ -12,10 +12,7 @@
 import React from "react";
 import { useSettingsStore } from "../../store/settingsStore";
 import type { AiProviderConfig } from "../../electronApi";
-import {
-  Pencil,
-  Trash2,
-} from "../common/IconMap";
+import { Pencil, Trash2 } from "../common/IconMap";
 import { MODEL_TEXT } from "./modelSettingsI18n";
 import { SETTINGS_SECRET_MASK } from "../../../electron/shared/settingsSecretContract";
 
@@ -48,11 +45,12 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   const text = MODEL_TEXT[language];
 
   // 遮蔽 API Key 显示
-  const maskedKey = provider.apiKey === SETTINGS_SECRET_MASK
-    ? SETTINGS_SECRET_MASK
-    : provider.apiKey
-    ? provider.apiKey.slice(0, 6) + "••••" + provider.apiKey.slice(-4)
-    : text.unset;
+  const maskedKey =
+    provider.apiKey === SETTINGS_SECRET_MASK
+      ? SETTINGS_SECRET_MASK
+      : provider.apiKey
+        ? provider.apiKey.slice(0, 6) + "••••" + provider.apiKey.slice(-4)
+        : text.unset;
 
   return (
     <div className={`provider-card ${isActive ? "active" : ""}`}>
@@ -68,10 +66,24 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
         </div>
         <div className="provider-card-badges">
           {isActive && <span className="active-badge">{text.active}</span>}
-          <button className="card-action-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="编辑">
+          <button
+            className="card-action-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            title="编辑"
+          >
             <Pencil size={14} />
           </button>
-          <button className="card-action-btn danger" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="删除">
+          <button
+            className="card-action-btn danger"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="删除"
+          >
             <Trash2 size={14} />
           </button>
         </div>

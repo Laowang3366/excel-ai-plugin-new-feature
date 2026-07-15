@@ -49,8 +49,8 @@ describe("handleAgentEvent", () => {
       handleAgentEvent(
         { type: "turn_started", turnId: "turn-queued", threadId: "thread-1" } as AgentEvent,
         current,
-        []
-      )
+        [],
+      ),
     );
 
     expect(next).toMatchObject({
@@ -79,7 +79,7 @@ describe("handleAgentEvent", () => {
     const patches = handleAgentEvent(
       { type: "item_completed", threadId: "thread-1", item: foreignItem } as AgentEvent,
       current,
-      []
+      [],
     );
 
     expect(patches).toEqual([]);
@@ -96,13 +96,15 @@ describe("handleAgentEvent", () => {
     const patches = handleAgentEvent(
       { type: "turn_started", turnId: "turn-foreign", threadId: "thread-1" } as AgentEvent,
       current,
-      []
+      [],
     );
 
-    expect(patches).toEqual([{
-      runningThreadIds: { "thread-1": true },
-      stoppedThreadIds: {},
-    }]);
+    expect(patches).toEqual([
+      {
+        runningThreadIds: { "thread-1": true },
+        stoppedThreadIds: {},
+      },
+    ]);
   });
 
   it("ignores old thread items while the active view is a blank new conversation", () => {
@@ -125,7 +127,7 @@ describe("handleAgentEvent", () => {
     const patches = handleAgentEvent(
       { type: "item_completed", threadId: "thread-old", item: oldItem } as AgentEvent,
       current,
-      []
+      [],
     );
 
     expect(patches).toEqual([]);
@@ -148,7 +150,7 @@ describe("handleAgentEvent", () => {
         clientId: "client-new",
       } as AgentEvent,
       current,
-      []
+      [],
     );
 
     const next = applyPatches(current, patches);
@@ -177,13 +179,15 @@ describe("handleAgentEvent", () => {
         clientId: "client-old",
       } as AgentEvent,
       current,
-      []
+      [],
     );
 
-    expect(patches).toEqual([{
-      runningThreadIds: { "thread-old": true },
-      stoppedThreadIds: {},
-    }]);
+    expect(patches).toEqual([
+      {
+        runningThreadIds: { "thread-old": true },
+        stoppedThreadIds: {},
+      },
+    ]);
   });
 
   it("clears a different running thread when it completes", () => {
@@ -197,13 +201,15 @@ describe("handleAgentEvent", () => {
     const patches = handleAgentEvent(
       { type: "turn_completed", turnId: "turn-foreign", threadId: "thread-1" } as AgentEvent,
       current,
-      []
+      [],
     );
 
-    expect(patches).toEqual([{
-      runningThreadIds: { "thread-2": true },
-      pendingInterruptThreadIds: {},
-    }]);
+    expect(patches).toEqual([
+      {
+        runningThreadIds: { "thread-2": true },
+        pendingInterruptThreadIds: {},
+      },
+    ]);
   });
 
   it("clears active turn id when the active thread is interrupted", () => {
@@ -219,8 +225,8 @@ describe("handleAgentEvent", () => {
       handleAgentEvent(
         { type: "turn_interrupted", turnId: "turn-running", threadId: "thread-1" } as AgentEvent,
         current,
-        []
-      )
+        [],
+      ),
     );
 
     expect(next).toMatchObject({
@@ -246,7 +252,7 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({ type: "item_started", item: toolCall } as AgentEvent, current, [])
+      handleAgentEvent({ type: "item_started", item: toolCall } as AgentEvent, current, []),
     );
 
     expect(next.streamingReasoning).toBe("");
@@ -288,7 +294,7 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({ type: "item_completed", item: completed } as AgentEvent, current, [])
+      handleAgentEvent({ type: "item_completed", item: completed } as AgentEvent, current, []),
     );
 
     expect(next.streamingReasoning).toBe("");
@@ -313,7 +319,7 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({ type: "item_completed", item: finalMessage } as AgentEvent, current, [])
+      handleAgentEvent({ type: "item_completed", item: finalMessage } as AgentEvent, current, []),
     );
 
     expect(next.streamingContent).toBe("");
@@ -338,7 +344,7 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({ type: "item_completed", item: commentary } as AgentEvent, current, [])
+      handleAgentEvent({ type: "item_completed", item: commentary } as AgentEvent, current, []),
     );
 
     expect(next.streamingContent).toBe("下一轮正在输出");
@@ -362,7 +368,7 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({ type: "item_completed", item: completed } as AgentEvent, current, [])
+      handleAgentEvent({ type: "item_completed", item: completed } as AgentEvent, current, []),
     );
 
     expect(next.streamingReasoning).toBe("下一轮思考");
@@ -382,7 +388,7 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({ type: "item_started", item: progress } as AgentEvent, current, [])
+      handleAgentEvent({ type: "item_started", item: progress } as AgentEvent, current, []),
     );
 
     expect(next.messages).toEqual([progress]);
@@ -393,18 +399,22 @@ describe("handleAgentEvent", () => {
 
     const next = applyPatches(
       current,
-      handleAgentEvent({
-        type: "thread_compact_started",
-        threadId: "thread-1",
-        params: {
-          reason: "auto_token_limit",
-          itemCount: 8,
-          tokensBefore: 120000,
-          tokenThreshold: 100000,
-          retryCount: 2,
-          timestamp: 1000,
-        },
-      } as AgentEvent, current, [])
+      handleAgentEvent(
+        {
+          type: "thread_compact_started",
+          threadId: "thread-1",
+          params: {
+            reason: "auto_token_limit",
+            itemCount: 8,
+            tokensBefore: 120000,
+            tokenThreshold: 100000,
+            retryCount: 2,
+            timestamp: 1000,
+          },
+        } as AgentEvent,
+        current,
+        [],
+      ),
     );
 
     expect(next.compactionNotice).toContain("失败最多重试 2 次");

@@ -10,15 +10,18 @@ import {
 describe("data maintenance guard", () => {
   it("allows normal work and rejects work while the data root is under maintenance", () => {
     expect(() => assertDataMaintenanceAvailable(() => false)).not.toThrow();
-    expect(() => assertDataMaintenanceAvailable(() => true)).toThrow(
-      DATA_MAINTENANCE_BUSY_MESSAGE,
-    );
+    expect(() => assertDataMaintenanceAvailable(() => true)).toThrow(DATA_MAINTENANCE_BUSY_MESSAGE);
   });
 
   it("tracks an operation until its asynchronous work settles", async () => {
     let finish!: () => void;
-    const pending = new Promise<void>((resolve) => { finish = resolve; });
-    const operation = guardDataOperation(() => false, async () => pending);
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const operation = guardDataOperation(
+      () => false,
+      async () => pending,
+    );
 
     const result = operation();
     expect(hasActiveDataOperations()).toBe(true);
@@ -28,9 +31,12 @@ describe("data maintenance guard", () => {
   });
 
   it("releases the active operation count after a failure", async () => {
-    const operation = guardDataOperation(() => false, async () => {
-      throw new Error("failed");
-    });
+    const operation = guardDataOperation(
+      () => false,
+      async () => {
+        throw new Error("failed");
+      },
+    );
 
     await expect(operation()).rejects.toThrow("failed");
     expect(hasActiveDataOperations()).toBe(false);

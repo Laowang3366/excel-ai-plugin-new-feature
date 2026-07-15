@@ -15,12 +15,14 @@ interface ChatFolderBadgeProps {
   text: ChatFolderBadgeText;
   onToggleOpen: () => void;
   onClose: () => void;
-  onAddFilesToComposer: (files: Array<{
-    filePath: string;
-    fileName: string;
-    fileType: "document";
-    size?: number;
-  }>) => void;
+  onAddFilesToComposer: (
+    files: Array<{
+      filePath: string;
+      fileName: string;
+      fileType: "document";
+      size?: number;
+    }>,
+  ) => void;
   onHideBadge: () => void;
 }
 
@@ -36,17 +38,11 @@ export const ChatFolderBadge: React.FC<ChatFolderBadgeProps> = ({
 }) => {
   return (
     <div className="chat-folder-badge-wrapper">
-      <button
-        className="chat-folder-badge"
-        title={folder.path}
-        onClick={onToggleOpen}
-      >
+      <button className="chat-folder-badge" title={folder.path} onClick={onToggleOpen}>
         <FolderOpen size={13} />
         <span className="chat-folder-name">{folder.name}</span>
         {files.length > 0 && (
-          <span className="chat-folder-file-count">
-            {text.folderFileCount(files.length)}
-          </span>
+          <span className="chat-folder-file-count">{text.folderFileCount(files.length)}</span>
         )}
       </button>
       {open && files.length > 0 && (
@@ -58,12 +54,14 @@ export const ChatFolderBadge: React.FC<ChatFolderBadgeProps> = ({
               className="folder-file-popover-item clickable"
               title={file.filePath}
               onClick={() => {
-                onAddFilesToComposer([{
-                  filePath: file.filePath,
-                  fileName: file.fileName,
-                  fileType: "document",
-                  size: file.size,
-                }]);
+                onAddFilesToComposer([
+                  {
+                    filePath: file.filePath,
+                    fileName: file.fileName,
+                    fileType: "document",
+                    size: file.size,
+                  },
+                ]);
                 onClose();
                 onHideBadge();
               }}

@@ -82,7 +82,7 @@ import { collectStreamEvents } from "./streamCollector";
 - 文件删除、格式修复或拆分到上限以内时无需保留基线项，后续基线清理应独立提交；
 - 只有经过明确工程治理审查的全量重建才能使用 `node scripts/check-source-governance.cjs --write-baseline`，普通功能 PR 禁止更新基线哈希。
 
-哈希计算统一把 CRLF 转为 LF，保证 Windows 开发机与 GitHub Runner 得到同一结果。完整 `npm run format:check` 仍用于观察全量债务，不得与增量棘轮混为同一个完成状态。
+哈希计算统一把 CRLF 转为 LF，保证 Windows 开发机与 GitHub Runner 得到同一结果。受治理源码的 Prettier 债务已清零（`legacyFormatting=0`）；`npm run format:check` 与 `governance:check` 均须保持通过，不得用基线哈希重新豁免漂移。
 
 ---
 

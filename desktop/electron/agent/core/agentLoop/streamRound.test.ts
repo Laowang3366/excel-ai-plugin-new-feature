@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AIStreamEvent } from "../../providers/aiClient";
 import type { Thread, Turn, TurnItem } from "../../shared/types";
-import {
-  applyStreamUsage,
-  collectRoundStream,
-  emitStreamErrorItem,
-} from "./streamRound";
+import { applyStreamUsage, collectRoundStream, emitStreamErrorItem } from "./streamRound";
 
 async function* streamEvents(events: AIStreamEvent[]): AsyncIterable<AIStreamEvent> {
   for (const event of events) {
@@ -40,10 +36,12 @@ function createThread(): Thread {
 describe("streamRound", () => {
   it("collects a model sampling stream with retry wrapper", async () => {
     const aiClient = {
-      streamChat: vi.fn(() => streamEvents([
-        { type: "text_delta", delta: "你好" },
-        { type: "done", finishReason: "stop" },
-      ])),
+      streamChat: vi.fn(() =>
+        streamEvents([
+          { type: "text_delta", delta: "你好" },
+          { type: "done", finishReason: "stop" },
+        ]),
+      ),
     };
     const streamResult = await collectRoundStream({
       aiClient: aiClient as never,

@@ -25,7 +25,13 @@ export function useTestConnection({ testFailedText }: UseTestConnectionOptions) 
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const testConnection = useCallback(
-    async (baseUrl: string, apiKey: string, apiFormat: string, model: string, providerId?: string) => {
+    async (
+      baseUrl: string,
+      apiKey: string,
+      apiFormat: string,
+      model: string,
+      providerId?: string,
+    ) => {
       setTesting(true);
       setTestResult(null);
       try {
@@ -34,7 +40,7 @@ export function useTestConnection({ testFailedText }: UseTestConnectionOptions) 
           apiKey,
           apiFormat,
           model,
-          providerId
+          providerId,
         );
         setTestResult(result);
       } catch (err: any) {
@@ -43,7 +49,7 @@ export function useTestConnection({ testFailedText }: UseTestConnectionOptions) 
         setTesting(false);
       }
     },
-    [testFailedText]
+    [testFailedText],
   );
 
   return { testing, testResult, setTestResult, testConnection };

@@ -24,7 +24,10 @@ export class ThreadRepository {
     return deletedSession || hadSnapshot;
   }
 
-  async updateMetadata(threadId: ThreadId, patch: Partial<ThreadMetadata>): Promise<ThreadMetadata> {
+  async updateMetadata(
+    threadId: ThreadId,
+    patch: Partial<ThreadMetadata>,
+  ): Promise<ThreadMetadata> {
     await this.sessions.updateThreadMetadata(threadId, patch);
     const updated = await this.sessions.loadThread(threadId);
     if (!updated) throw new Error("会话不存在");

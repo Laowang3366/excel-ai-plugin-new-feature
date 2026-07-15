@@ -55,7 +55,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ item })
             <MarkdownContent content={cleanedContent} />
           </div>
         </div>
-        {showMeta && <MessageMeta timestamp={item.timestamp} copyText={normalizeVisibleMarkdown(cleanedContent)} />}
+        {showMeta && (
+          <MessageMeta
+            timestamp={item.timestamp}
+            copyText={normalizeVisibleMarkdown(cleanedContent)}
+          />
+        )}
       </div>
     );
   }

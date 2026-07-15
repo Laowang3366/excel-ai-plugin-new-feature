@@ -45,7 +45,11 @@ export interface ExcelWorkbookBridge {
   /** 工作簿检查 */
   inspectWorkbook(): Promise<unknown>;
   /** 读取范围 */
-  readRange(sheetName: string, range: string, expand?: RangeReadExpandMode): Promise<RangeReadResult>;
+  readRange(
+    sheetName: string,
+    range: string,
+    expand?: RangeReadExpandMode,
+  ): Promise<RangeReadResult>;
   /** 写入范围 */
   writeRange(
     sheetName: string,
@@ -62,17 +66,28 @@ export interface ExcelWorkbookBridge {
   /** 获取公式上下文 */
   getFormulaContext(sheetName: string, range?: string): Promise<unknown>;
   /** 工作表操作 */
-  sheetOperation(operation: string, sheetName: string, options?: Record<string, unknown>): Promise<unknown>;
+  sheetOperation(
+    operation: string,
+    sheetName: string,
+    options?: Record<string, unknown>,
+  ): Promise<unknown>;
 
   // ---- 工作簿管理 ----
   /** 打开已有工作簿 */
-  openWorkbook(filePath: string): Promise<{ success: boolean; workbookName?: string; error?: string }>;
+  openWorkbook(
+    filePath: string,
+  ): Promise<{ success: boolean; workbookName?: string; error?: string }>;
   /** 创建新工作簿 */
-  createWorkbook(filePath: string, sheetNames?: string[]): Promise<{ success: boolean; workbookName?: string; error?: string }>;
+  createWorkbook(
+    filePath: string,
+    sheetNames?: string[],
+  ): Promise<{ success: boolean; workbookName?: string; error?: string }>;
   /** 保存工作簿 */
   saveWorkbook(saveAsPath?: string): Promise<{ success: boolean; error?: string }>;
   /** 切换活动工作簿 */
-  switchWorkbook(workbookName: string): Promise<{ success: boolean; workbookName?: string; error?: string }>;
+  switchWorkbook(
+    workbookName: string,
+  ): Promise<{ success: boolean; workbookName?: string; error?: string }>;
 }
 
 /**
@@ -106,7 +121,7 @@ export interface ExcelVbaBridge {
   writeModule(
     moduleName: string,
     code: string,
-    options?: VbaModuleWriteOptions
+    options?: VbaModuleWriteOptions,
   ): Promise<VbaModuleWriteResult>;
 }
 

@@ -44,8 +44,11 @@ export const GeneralSettings: React.FC = () => {
   // 获取当前供应商的上下文窗口大小（用户自定义，支持 per-model 覆盖）
   const activeProvider = providers[activeProviderId];
   const currentModel = activeProvider?.model || activeProvider?.defaultModel || "";
-  const activeModelConfig = activeProvider?.modelConfigs?.find(m => m.name === currentModel);
-  const currentContextWindow = activeModelConfig?.contextWindowSize || activeProvider?.contextWindowSize || DEFAULT_CONTEXT_WINDOW;
+  const activeModelConfig = activeProvider?.modelConfigs?.find((m) => m.name === currentModel);
+  const currentContextWindow =
+    activeModelConfig?.contextWindowSize ||
+    activeProvider?.contextWindowSize ||
+    DEFAULT_CONTEXT_WINDOW;
 
   useEffect(() => {
     let canceled = false;
@@ -90,7 +93,9 @@ export const GeneralSettings: React.FC = () => {
           label={text.remoteDataProcessingEnabled}
           checked={remoteDataProcessingEnabled}
           onChange={setRemoteDataProcessingEnabled}
-          hint={remoteDataProcessingEnabled ? text.remoteDataEnabledHint : text.remoteDataDisabledHint}
+          hint={
+            remoteDataProcessingEnabled ? text.remoteDataEnabledHint : text.remoteDataDisabledHint
+          }
         />
       </div>
 
@@ -181,9 +186,7 @@ export const GeneralSettings: React.FC = () => {
             placeholder={text.mineruApiTokenPlaceholder}
             autoComplete="off"
           />
-          <span className="form-hint">
-            {mineruSaved ? text.saved : text.mineruApiTokenHint}
-          </span>
+          <span className="form-hint">{mineruSaved ? text.saved : text.mineruApiTokenHint}</span>
         </div>
       </div>
 
@@ -217,12 +220,12 @@ export const GeneralSettings: React.FC = () => {
           disabled={!compactionEnabled}
           onChange={setAutoCompactThresholdPercent}
           hint={text.compactionThresholdHint}
-          info={(
-          <div className="compaction-model-info">
-            {text.currentModelContext}: <strong>{formatTokensAsK(currentContextWindow)}</strong>
-            {currentModel && <span className="compaction-model-name">({currentModel})</span>}
-          </div>
-          )}
+          info={
+            <div className="compaction-model-info">
+              {text.currentModelContext}: <strong>{formatTokensAsK(currentContextWindow)}</strong>
+              {currentModel && <span className="compaction-model-name">({currentModel})</span>}
+            </div>
+          }
         />
       </div>
     </div>

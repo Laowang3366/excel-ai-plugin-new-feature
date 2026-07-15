@@ -98,7 +98,11 @@ describe("turnExecution", () => {
     expect(thread.metadata.activeTurnId).toBeUndefined();
     expect(thread.turns).toEqual([turn]);
     expect(sessionStore.appendTurnItem).toHaveBeenCalled();
-    expect(sessionStore.appendTurnUsage).toHaveBeenCalledWith("thread-1", turn.turnId, turn.tokenUsage);
+    expect(sessionStore.appendTurnUsage).toHaveBeenCalledWith(
+      "thread-1",
+      turn.turnId,
+      turn.tokenUsage,
+    );
     expect(scheduleTurnMemoryExtraction).toHaveBeenCalledWith(thread, turn);
     expect(events.map((event) => (event as { type: string }).type)).toContain("turn_completed");
   });

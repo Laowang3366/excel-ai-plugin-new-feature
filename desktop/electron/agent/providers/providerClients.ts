@@ -44,10 +44,7 @@ export function resolveThinkingBudget(mode?: ReasoningMode): number {
 
 /** OpenAI — reasoning.effort 参数 */
 export class OpenAIClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     // OpenAI: reasoning.effort，max 映射为 xhigh
     body.reasoning = {
       effort: mode === "max" ? "xhigh" : mode,
@@ -57,10 +54,7 @@ export class OpenAIClient extends OpenAICompatibleClient {
 
 /** DeepSeek — thinking.type + reasoning_effort */
 export class DeepSeekClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     // DeepSeek: thinking.type + reasoning_effort (只有 high/max 两档)
     body.thinking = { type: "enabled" };
     body.reasoning_effort = mode === "max" ? "max" : "high";
@@ -69,26 +63,18 @@ export class DeepSeekClient extends OpenAICompatibleClient {
 
 /** 智谱 GLM — thinking.type + reasoning_effort */
 export class ZhipuClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     // 智谱: thinking.type + reasoning_effort
     // low/medium 映射为 high，max 保持 max
     body.thinking = { type: "enabled" };
     body.reasoning_effort =
-      mode === "low" || mode === "medium" ? "high" :
-      mode === "max" ? "max" :
-      mode || "high";
+      mode === "low" || mode === "medium" ? "high" : mode === "max" ? "max" : mode || "high";
   }
 }
 
 /** Kimi — thinking.type 开关 */
 export class KimiClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    _mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, _mode?: ReasoningMode): void {
     // Kimi: 只有 enabled/disabled，无等级
     body.thinking = { type: "enabled" };
   }
@@ -96,10 +82,7 @@ export class KimiClient extends OpenAICompatibleClient {
 
 /** 小米 MiMo — thinking.type 开关 */
 export class XiaomiClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    _body: Record<string, unknown>,
-    _mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(_body: Record<string, unknown>, _mode?: ReasoningMode): void {
     // MiMo: 不传 thinking 参数，使用模型默认（开启思考）
     // 关闭时由 streamChat 逻辑处理（不调用 applyReasoningConfig）
   }
@@ -111,10 +94,7 @@ export class XiaomiClient extends OpenAICompatibleClient {
 
 /** 讯飞星辰 — enable_thinking + thinking_budget */
 export class XunfeiClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     body.enable_thinking = true;
     // 聚合平台按档位映射 budget
     body.thinking_budget = resolveThinkingBudget(mode);
@@ -123,10 +103,7 @@ export class XunfeiClient extends OpenAICompatibleClient {
 
 /** 百度千帆 — 使用 OpenAI 兼容接口 */
 export class BaiduClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    _mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, _mode?: ReasoningMode): void {
     body.enable_search = false;
     body.enable_citation = false;
   }
@@ -134,10 +111,7 @@ export class BaiduClient extends OpenAICompatibleClient {
 
 /** 火山引擎 — thinking.type + budget_tokens */
 export class VolcengineClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     body.thinking = {
       type: "enabled",
       budget_tokens: resolveThinkingBudget(mode),
@@ -153,10 +127,7 @@ export class JDCloudClient extends OpenAICompatibleClient {}
 
 /** 阿里云百炼 — enable_thinking + thinking_budget */
 export class AliyunClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     body.enable_thinking = true;
     body.thinking_budget = resolveThinkingBudget(mode);
   }
@@ -164,10 +135,7 @@ export class AliyunClient extends OpenAICompatibleClient {
 
 /** 千问 (Qwen) — 通过 DashScope 兼容模式接入 */
 export class QwenClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     // Qwen 部分模型（如 qwen3-*）支持思考模式
     // 与阿里云百炼共享同一套 API，使用 enable_thinking + thinking_budget
     if (mode && mode !== "off") {
@@ -179,10 +147,7 @@ export class QwenClient extends OpenAICompatibleClient {
 
 /** MiniMax — OpenAI 兼容 */
 export class MiniMaxClient extends OpenAICompatibleClient {
-  protected applyReasoningConfig(
-    body: Record<string, unknown>,
-    mode?: ReasoningMode
-  ): void {
+  protected applyReasoningConfig(body: Record<string, unknown>, mode?: ReasoningMode): void {
     // MiniMax 使用 reasoning_effort 参数（与 OpenAI 类似）
     if (mode && mode !== "off") {
       body.reasoning_config = {

@@ -19,15 +19,12 @@ export async function loadThreads(): Promise<{ threads: ThreadMetadata[] }> {
 function isThreadRunning(threadId: string, current: ChatState): boolean {
   if (current.stoppedThreadIds?.[threadId]) return false;
   const metadata = current.threads?.find((thread) => thread.threadId === threadId);
-  return Boolean(
-    current.runningThreadIds?.[threadId] ||
-    isThreadMetadataRunning(metadata)
-  );
+  return Boolean(current.runningThreadIds?.[threadId] || isThreadMetadataRunning(metadata));
 }
 
 export async function switchThread(
   threadId: string,
-  current: ChatState
+  current: ChatState,
 ): Promise<{
   patches: Array<Partial<ChatState>>;
   error?: string;
@@ -35,7 +32,7 @@ export async function switchThread(
   try {
     if (!ipcApi?.thread) return { patches: [], error: "Thread API not available" };
 
-    const threadData = await ipcApi.thread.load(threadId) as any;
+    const threadData = (await ipcApi.thread.load(threadId)) as any;
     let allItems: any[] = [];
     if (threadData?.turns && Array.isArray(threadData.turns)) {
       allItems = threadData.turns.flatMap((t: any) => t.items || []);
@@ -46,28 +43,30 @@ export async function switchThread(
     const loadedMetadata = threadData?.metadata as ThreadMetadata | undefined;
     const cachedMetadata = current.threads?.find((thread) => thread.threadId === threadId);
     const targetMetadata = loadedMetadata ?? cachedMetadata;
-    const targetRunning = !current.stoppedThreadIds?.[threadId] && (
-      Boolean(current.runningThreadIds?.[threadId]) ||
-      isThreadMetadataRunning(loadedMetadata) ||
-      (!loadedMetadata && isThreadRunning(threadId, current))
-    );
+    const targetRunning =
+      !current.stoppedThreadIds?.[threadId] &&
+      (Boolean(current.runningThreadIds?.[threadId]) ||
+        isThreadMetadataRunning(loadedMetadata) ||
+        (!loadedMetadata && isThreadRunning(threadId, current)));
 
     return {
-      patches: [{
-        activeThreadId: threadId,
-        activeClientId: null,
-        messages: allItems,
-        isStreaming: targetRunning,
-        streamingContent: "",
-        streamingReasoning: "",
-        activeStreamingRound: null,
-        activeTurnId: targetRunning ? targetMetadata?.activeTurnId ?? null : null,
-        turnStatus: targetRunning ? "in_progress" : "idle",
-        lastInterruptContext: null,
-        compactionNotice: null,
-        error: null,
-        pendingFolderId: null,
-      }],
+      patches: [
+        {
+          activeThreadId: threadId,
+          activeClientId: null,
+          messages: allItems,
+          isStreaming: targetRunning,
+          streamingContent: "",
+          streamingReasoning: "",
+          activeStreamingRound: null,
+          activeTurnId: targetRunning ? (targetMetadata?.activeTurnId ?? null) : null,
+          turnStatus: targetRunning ? "in_progress" : "idle",
+          lastInterruptContext: null,
+          compactionNotice: null,
+          error: null,
+          pendingFolderId: null,
+        },
+      ],
     };
   } catch (err: any) {
     return { patches: [], error: `切换会话失败：${err.message}` };
@@ -76,7 +75,7 @@ export async function switchThread(
 
 export async function createNewThread(
   folderId?: string,
-  isCurrentlyStreaming?: boolean
+  isCurrentlyStreaming?: boolean,
 ): Promise<{
   patches: Array<Partial<ChatState>>;
   error?: string;
@@ -92,30 +91,35 @@ export async function createNewThread(
     await ipcApi.thread.newThread(folderId);
 
     return {
-      patches: [{
-        messages: [],
-        isStreaming: false,
-        streamingContent: "",
-        streamingReasoning: "",
-        activeStreamingRound: null,
-        activeThreadId: null,
-        activeTurnId: null,
-        activeClientId: null,
-        turnStatus: "idle",
-        lastInterruptContext: null,
-        tokenUsage: null,
-        contextUsage: null,
-        compactionNotice: null,
-        error: null,
-        pendingFolderId: folderId || null,
-      }],
+      patches: [
+        {
+          messages: [],
+          isStreaming: false,
+          streamingContent: "",
+          streamingReasoning: "",
+          activeStreamingRound: null,
+          activeThreadId: null,
+          activeTurnId: null,
+          activeClientId: null,
+          turnStatus: "idle",
+          lastInterruptContext: null,
+          tokenUsage: null,
+          contextUsage: null,
+          compactionNotice: null,
+          error: null,
+          pendingFolderId: folderId || null,
+        },
+      ],
     };
   } catch (err: any) {
     return { patches: [], error: `新建会话失败：${err.message}` };
   }
 }
 
-export async function deleteThread(threadId: string, current: ChatState): Promise<{
+export async function deleteThread(
+  threadId: string,
+  current: ChatState,
+): Promise<{
   patches: Array<Partial<ChatState>>;
   error?: string;
 }> {
@@ -138,7 +142,10 @@ export async function deleteThread(threadId: string, current: ChatState): Promis
   }
 }
 
-export async function moveThreadToFolder(threadId: string, folderId?: string): Promise<{
+export async function moveThreadToFolder(
+  threadId: string,
+  folderId?: string,
+): Promise<{
   error?: string;
 }> {
   try {

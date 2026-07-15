@@ -10,7 +10,10 @@
   background: var(--bg-primary);
   color: var(--text-faint);
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
 }
 
 .feature-sidebar-toggle:hover {
@@ -119,7 +122,10 @@
   font-size: 12px;
   font-weight: 600;
   text-align: left;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
 }
 
 .feature-sidebar-shortcut span {
@@ -204,7 +210,10 @@
   cursor: pointer;
 }
 
-.feature-sidebar-close:hover { background: var(--bg-tint); color: var(--text-primary); }
+.feature-sidebar-close:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
 
 .feature-sidebar-shortcut.feature-office {
   grid-column: 1 / -1;
@@ -222,8 +231,12 @@
   padding: 0;
 }
 
-.feature-sidebar-panel.office-automation-mode .feature-sidebar-shortcut span { display: none; }
-.feature-sidebar-panel.office-automation-mode .feature-sidebar-shortcut.feature-office { grid-column: auto; }
+.feature-sidebar-panel.office-automation-mode .feature-sidebar-shortcut span {
+  display: none;
+}
+.feature-sidebar-panel.office-automation-mode .feature-sidebar-shortcut.feature-office {
+  grid-column: auto;
+}
 
 .compact-mode .feature-sidebar-panel.office-automation-mode {
   --feature-sidebar-width: 100%;

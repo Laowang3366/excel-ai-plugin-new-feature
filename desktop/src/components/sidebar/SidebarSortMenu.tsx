@@ -1,8 +1,5 @@
 import type { SidebarSortMode } from "../../utils/sidebarHelpers";
-import {
-  Check,
-  Clock,
-} from "../common/IconMap";
+import { Check, Clock } from "../common/IconMap";
 
 export type SidebarSortSection = "projects" | "conversations";
 

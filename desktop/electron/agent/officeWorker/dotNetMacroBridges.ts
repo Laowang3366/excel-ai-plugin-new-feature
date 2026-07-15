@@ -16,7 +16,12 @@ import { getOfficeWorkerClient, type OfficeWorkerClient } from "./officeWorkerCl
 export class DotNetVbaBridge implements ExcelVbaBridge {
   constructor(private readonly client: OfficeWorkerClient = getOfficeWorkerClient()) {}
 
-  detectCapabilities(): Promise<{ supported: boolean; version?: string; host?: "excel" | "wps"; reason?: string }> {
+  detectCapabilities(): Promise<{
+    supported: boolean;
+    version?: string;
+    host?: "excel" | "wps";
+    reason?: string;
+  }> {
     return this.client.invoke("excel.vba.detect");
   }
 
@@ -24,7 +29,11 @@ export class DotNetVbaBridge implements ExcelVbaBridge {
     return this.client.invoke("excel.vba.run", { macroName, args: args || [] });
   }
 
-  writeModule(moduleName: string, code: string, options: VbaModuleWriteOptions = {}): Promise<VbaModuleWriteResult> {
+  writeModule(
+    moduleName: string,
+    code: string,
+    options: VbaModuleWriteOptions = {},
+  ): Promise<VbaModuleWriteResult> {
     return this.client.invoke("excel.vba.writeModule", { moduleName, code, ...options });
   }
 }
@@ -37,11 +46,15 @@ export class DotNetJsaBridge implements WpsJsaBridge {
   }
 
   writeCode(code: string, options: JsaWriteOptions = {}): Promise<JsaWriteResult> {
-    return this.client.invoke("wps.jsa.write", {
-      code,
-      ...options,
-      sourceDir: resolveWpsJsaSourceDir(),
-    }, 30_000);
+    return this.client.invoke(
+      "wps.jsa.write",
+      {
+        code,
+        ...options,
+        sourceDir: resolveWpsJsaSourceDir(),
+      },
+      30_000,
+    );
   }
 }
 
@@ -51,7 +64,7 @@ function resolveWpsJsaSourceDir(): string {
     path.join(process.cwd(), "public", "wps-jsa-bridge"),
     process.resourcesPath ? path.join(process.resourcesPath, "public", "wps-jsa-bridge") : "",
   ].filter((candidate): candidate is string => Boolean(candidate));
-  const source = candidates.find(candidate => existsSync(path.join(candidate, "index.html")));
+  const source = candidates.find((candidate) => existsSync(path.join(candidate, "index.html")));
   if (!source) throw new Error("安装包缺少 WPS JSA 内部桥接资源");
   return source;
 }

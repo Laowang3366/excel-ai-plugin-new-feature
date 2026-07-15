@@ -141,7 +141,8 @@ function validateAgainstSchema(
     const errors = oneOf.map((child) => validateAgainstSchema(value, child, path, depth + 1));
     const matches = errors.filter((error) => error === undefined).length;
     if (matches === 0) {
-      const detail = errors.find((error) => error && !isDiscriminatorMismatch(error, path)) ?? errors[0];
+      const detail =
+        errors.find((error) => error && !isDiscriminatorMismatch(error, path)) ?? errors[0];
       return `${path} 不匹配任何允许的参数结构: ${detail}`;
     }
     if (matches > 1) return `${path} 同时匹配多个互斥参数结构`;
@@ -306,7 +307,7 @@ function asSchemaMap(value: unknown): Record<string, JsonSchema> | undefined {
 }
 
 function asSchemaArray(value: unknown): JsonSchema[] | undefined {
-  return Array.isArray(value) && value.every(isRecord) ? value as JsonSchema[] : undefined;
+  return Array.isArray(value) && value.every(isRecord) ? (value as JsonSchema[]) : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

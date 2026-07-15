@@ -10,12 +10,14 @@ interface UseSidebarFolderFilesParams {
   searchOpen: boolean;
   addPinnedFolder: (folder: PinnedFolder) => void;
   updatePinnedFolder: (folderPath: string, patch: Partial<PinnedFolder>) => void;
-  addFilesToComposer: (files: Array<{
-    filePath: string;
-    fileName: string;
-    fileType: "document";
-    size?: number;
-  }>) => void;
+  addFilesToComposer: (
+    files: Array<{
+      filePath: string;
+      fileName: string;
+      fileType: "document";
+      size?: number;
+    }>,
+  ) => void;
   onOpenFileMenu: () => void;
 }
 
@@ -47,17 +49,20 @@ export function useSidebarFolderFiles({
     }
   }, [addPinnedFolder]);
 
-  const handleToggleFolder = useCallback(async (folderPath: string) => {
-    setExpandedFolders((prev) => {
-      const next = !prev[folderPath];
-      if (next && !folderFiles[folderPath]) {
-        ipcApi.folder.listFiles(folderPath).then((files) => {
-          setFolderFiles((prev2) => ({ ...prev2, [folderPath]: files }));
-        });
-      }
-      return { ...prev, [folderPath]: next };
-    });
-  }, [folderFiles]);
+  const handleToggleFolder = useCallback(
+    async (folderPath: string) => {
+      setExpandedFolders((prev) => {
+        const next = !prev[folderPath];
+        if (next && !folderFiles[folderPath]) {
+          ipcApi.folder.listFiles(folderPath).then((files) => {
+            setFolderFiles((prev2) => ({ ...prev2, [folderPath]: files }));
+          });
+        }
+        return { ...prev, [folderPath]: next };
+      });
+    },
+    [folderFiles],
+  );
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -66,58 +71,77 @@ export function useSidebarFolderFiles({
       .filter((folderPath) => !folderFiles[folderPath]);
     if (missingPaths.length === 0) return;
     let cancelled = false;
-    ipcApi.folder.listFilesBatch(missingPaths).then((filesByFolder) => {
-      if (cancelled) return;
-      setFolderFiles((prev) => {
-        const next = { ...prev };
-        missingPaths.forEach((folderPath) => {
-          next[folderPath] = filesByFolder[folderPath] || [];
+    ipcApi.folder
+      .listFilesBatch(missingPaths)
+      .then((filesByFolder) => {
+        if (cancelled) return;
+        setFolderFiles((prev) => {
+          const next = { ...prev };
+          missingPaths.forEach((folderPath) => {
+            next[folderPath] = filesByFolder[folderPath] || [];
+          });
+          return next;
         });
-        return next;
-      });
-    }).catch(() => {
-      if (cancelled) return;
-      setFolderFiles((prev) => {
-        const next = { ...prev };
-        missingPaths.forEach((folderPath) => {
-          next[folderPath] = [];
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFolderFiles((prev) => {
+          const next = { ...prev };
+          missingPaths.forEach((folderPath) => {
+            next[folderPath] = [];
+          });
+          return next;
         });
-        return next;
       });
-    });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [folderFiles, pinnedFolders, searchOpen]);
 
-  const handleAddFile = useCallback((file: FolderFileInfo) => {
-    addFilesToComposer([{
-      filePath: file.filePath,
-      fileName: file.fileName,
-      fileType: "document",
-      size: file.size,
-    }]);
-  }, [addFilesToComposer]);
+  const handleAddFile = useCallback(
+    (file: FolderFileInfo) => {
+      addFilesToComposer([
+        {
+          filePath: file.filePath,
+          fileName: file.fileName,
+          fileType: "document",
+          size: file.size,
+        },
+      ]);
+    },
+    [addFilesToComposer],
+  );
 
-  const handleFileContextMenu = useCallback((event: MouseEvent, file: FolderFileInfo, isPinned: boolean) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onOpenFileMenu();
-    setFileContextMenu({ file, x: event.clientX, y: event.clientY, isPinned });
-  }, [onOpenFileMenu]);
+  const handleFileContextMenu = useCallback(
+    (event: MouseEvent, file: FolderFileInfo, isPinned: boolean) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onOpenFileMenu();
+      setFileContextMenu({ file, x: event.clientX, y: event.clientY, isPinned });
+    },
+    [onOpenFileMenu],
+  );
 
-  const refreshFolderContainingFile = useCallback(async (filePath: string) => {
-    const folderPath = Object.keys(folderFiles).find((fp) =>
-      folderFiles[fp].some((file) => file.filePath === filePath)
-    );
-    if (!folderPath) return;
-    const files = await ipcApi.folder.listFiles(folderPath);
-    setFolderFiles((prev) => ({ ...prev, [folderPath]: files }));
-  }, [folderFiles]);
+  const refreshFolderContainingFile = useCallback(
+    async (filePath: string) => {
+      const folderPath = Object.keys(folderFiles).find((fp) =>
+        folderFiles[fp].some((file) => file.filePath === filePath),
+      );
+      if (!folderPath) return;
+      const files = await ipcApi.folder.listFiles(folderPath);
+      setFolderFiles((prev) => ({ ...prev, [folderPath]: files }));
+    },
+    [folderFiles],
+  );
 
-  const handleTrashFile = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    await ipcApi.file.trashFile(filePath);
-    await refreshFolderContainingFile(filePath);
-  }, [refreshFolderContainingFile]);
+  const handleTrashFile = useCallback(
+    async (filePath: string) => {
+      setFileContextMenu(null);
+      await ipcApi.file.trashFile(filePath);
+      await refreshFolderContainingFile(filePath);
+    },
+    [refreshFolderContainingFile],
+  );
 
   const handleOpenFile = useCallback(async (filePath: string) => {
     setFileContextMenu(null);
@@ -134,19 +158,24 @@ export function useSidebarFolderFiles({
     await ipcApi.file.revealInExplorer(filePath);
   }, []);
 
-  const handlePinFile = useCallback(async (filePath: string) => {
-    setFileContextMenu(null);
-    const folderPath = Object.keys(folderFiles).find((fp) =>
-      folderFiles[fp].some((file) => file.filePath === filePath)
-    );
-    const folder = folderPath ? pinnedFolders.find((item) => item.path === folderPath) : undefined;
-    if (!folder || !folderPath) return;
-    const pinned = folder.pinnedFiles || [];
-    const nextPinned = pinned.includes(filePath)
-      ? pinned.filter((item) => item !== filePath)
-      : [...pinned, filePath];
-    updatePinnedFolder(folderPath, { pinnedFiles: nextPinned });
-  }, [folderFiles, pinnedFolders, updatePinnedFolder]);
+  const handlePinFile = useCallback(
+    async (filePath: string) => {
+      setFileContextMenu(null);
+      const folderPath = Object.keys(folderFiles).find((fp) =>
+        folderFiles[fp].some((file) => file.filePath === filePath),
+      );
+      const folder = folderPath
+        ? pinnedFolders.find((item) => item.path === folderPath)
+        : undefined;
+      if (!folder || !folderPath) return;
+      const pinned = folder.pinnedFiles || [];
+      const nextPinned = pinned.includes(filePath)
+        ? pinned.filter((item) => item !== filePath)
+        : [...pinned, filePath];
+      updatePinnedFolder(folderPath, { pinnedFiles: nextPinned });
+    },
+    [folderFiles, pinnedFolders, updatePinnedFolder],
+  );
 
   const closeFileContextMenu = useCallback(() => {
     setFileContextMenu(null);

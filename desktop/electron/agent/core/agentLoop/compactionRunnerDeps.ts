@@ -34,47 +34,51 @@ export function createCompactionRunnerDeps(input: {
       threadId: ThreadId,
       reason: CompactionReason,
       items: TurnItem[],
-      callbacks: AgentTurnCallbacks
-    ) => startCompactionProgress({
-      sessionStore: input.sessionStore,
-      threadId,
-      reason,
-      items,
-      callbacks,
-      compactionConfig: input.getSessionCompactionConfig(),
-    }),
+      callbacks: AgentTurnCallbacks,
+    ) =>
+      startCompactionProgress({
+        sessionStore: input.sessionStore,
+        threadId,
+        reason,
+        items,
+        callbacks,
+        compactionConfig: input.getSessionCompactionConfig(),
+      }),
     completeCompactionProgress: (
       progress: CompactProgressItem,
       tokensBefore: number,
       tokensAfter: number,
       summary: string,
-      callbacks: AgentTurnCallbacks
-    ) => completeCompactionProgress({
-      progress,
-      tokensBefore,
-      tokensAfter,
-      summary,
-      callbacks,
-    }),
+      callbacks: AgentTurnCallbacks,
+    ) =>
+      completeCompactionProgress({
+        progress,
+        tokensBefore,
+        tokensAfter,
+        summary,
+        callbacks,
+      }),
     failCompactionProgress: (
       threadId: ThreadId,
       progress: CompactProgressItem,
       items: TurnItem[],
       error: unknown,
-      callbacks: AgentTurnCallbacks
-    ) => failCompactionProgress({
-      sessionStore: input.sessionStore,
-      threadId,
-      progress,
-      items,
-      error,
-      callbacks,
-    }),
-    archiveRolloutIfConfigured: (threadId: ThreadId) => archiveRolloutIfConfigured({
-      sessionStore: input.sessionStore,
-      threadId,
-      threshold: input.archiveRolloutAfterBytes,
-    }),
+      callbacks: AgentTurnCallbacks,
+    ) =>
+      failCompactionProgress({
+        sessionStore: input.sessionStore,
+        threadId,
+        progress,
+        items,
+        error,
+        callbacks,
+      }),
+    archiveRolloutIfConfigured: (threadId: ThreadId) =>
+      archiveRolloutIfConfigured({
+        sessionStore: input.sessionStore,
+        threadId,
+        threshold: input.archiveRolloutAfterBytes,
+      }),
     setCompactedHistory: input.setCompactedHistory,
     getActiveThread: input.getActiveThread,
     compactionConfig: input.compactionConfig,

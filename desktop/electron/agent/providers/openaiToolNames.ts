@@ -14,9 +14,21 @@ export function desanitizeToolName(name: string): string {
   }
 
   const prefixes = [
-    "workbook", "range", "selection", "formula", "vba", "sheet",
-    "ui", "file", "word", "presentation", "office", "knowledge",
-    "web", "ocr", "memory",
+    "workbook",
+    "range",
+    "selection",
+    "formula",
+    "vba",
+    "sheet",
+    "ui",
+    "file",
+    "word",
+    "presentation",
+    "office",
+    "knowledge",
+    "web",
+    "ocr",
+    "memory",
   ];
   for (const prefix of prefixes) {
     if (name.startsWith(prefix + "_")) {

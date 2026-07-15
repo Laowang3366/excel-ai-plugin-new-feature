@@ -1,6 +1,7 @@
 ## 场景化操作指南：OCR 与发票识别
 
 当本轮涉及图片/PDF/Office 可见内容解析、OCR、识别字段、发票识别，或模型没有多模态能力但需要理解图片内容时：
+
 - 第一步调用 `ocr.parseDocument`，图片/PDF/Office 文件路径来自本轮附件或用户给出的路径。
 - 发票场景必须使用 `ocr.parseDocument({ mode:"invoice", filePaths:[...] })`，不要只凭文件名或历史对话作答。
 - 基于 OCR 返回的 text、markdown、rows、warnings、fallbacks 抽取字段；缺失字段填空字符串，禁止编造。

@@ -9,7 +9,18 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { BookOpen, Database, FolderOpen, FileScan, Trash2, RefreshCw, Search, Check, X, FileText } from "../common/IconMap";
+import {
+  BookOpen,
+  Database,
+  FolderOpen,
+  FileScan,
+  Trash2,
+  RefreshCw,
+  Search,
+  Check,
+  X,
+  FileText,
+} from "../common/IconMap";
 import { useSettingsStore } from "../../store/settingsStore";
 import { ipcApi } from "../../services/ipcApi";
 import {
@@ -33,7 +44,9 @@ export const KnowledgeSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reindexing, setReindexing] = useState(false);
-  const [reindexProgress, setReindexProgress] = useState<{ current: number; total: number } | null>(null);
+  const [reindexProgress, setReindexProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const totalEntries = sources.reduce((sum, source) => sum + source.entryCount, 0);
 
@@ -127,9 +140,9 @@ export const KnowledgeSettings: React.FC = () => {
           Array.isArray(r.results)
             ? formatKnowledgeFolderIndexSuccess(text, r.results)
             : text.indexFolderSuccess
-              .replace("{success}", "0")
-              .replace("{failed}", "0")
-              .replace("{count}", "0")
+                .replace("{success}", "0")
+                .replace("{failed}", "0")
+                .replace("{count}", "0"),
         );
         await loadSources();
       } else {
@@ -157,7 +170,9 @@ export const KnowledgeSettings: React.FC = () => {
       {error && (
         <div className="settings-error-banner">
           <X size={16} /> {error}
-          <button className="settings-dismiss-btn" onClick={() => setError(null)}>×</button>
+          <button className="settings-dismiss-btn" onClick={() => setError(null)}>
+            ×
+          </button>
         </div>
       )}
 
@@ -199,7 +214,9 @@ export const KnowledgeSettings: React.FC = () => {
           </div>
         ) : (
           <div className="knowledge-source-list">
-            <div className="knowledge-source-summary">{formatKnowledgeSourceStats(text, sources.length, totalEntries)}</div>
+            <div className="knowledge-source-summary">
+              {formatKnowledgeSourceStats(text, sources.length, totalEntries)}
+            </div>
             {sources.map((s) => (
               <div className="knowledge-source-item" key={s.sourcePath}>
                 <div className="knowledge-source-icon">
@@ -207,15 +224,23 @@ export const KnowledgeSettings: React.FC = () => {
                 </div>
                 <div className="knowledge-source-main">
                   <div className="knowledge-source-title-row">
-                    <span className="knowledge-source-name" title={s.sourceName}>{s.sourceName}</span>
-                    <span className="type-badge">{getKnowledgeSourceTypeLabel(text, s.sourceType)}</span>
+                    <span className="knowledge-source-name" title={s.sourceName}>
+                      {s.sourceName}
+                    </span>
+                    <span className="type-badge">
+                      {getKnowledgeSourceTypeLabel(text, s.sourceType)}
+                    </span>
                   </div>
                   <div className="knowledge-source-path" title={s.sourcePath}>
                     {text.sourcePathLabel}: {s.sourcePath}
                   </div>
                   <div className="knowledge-source-meta">
-                    <span>{text.entriesCol}: {s.entryCount}</span>
-                    <span>{text.indexedCol}: {formatKnowledgeTime(s.lastIndexed, language)}</span>
+                    <span>
+                      {text.entriesCol}: {s.entryCount}
+                    </span>
+                    <span>
+                      {text.indexedCol}: {formatKnowledgeTime(s.lastIndexed, language)}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -248,12 +273,13 @@ export const KnowledgeSettings: React.FC = () => {
             disabled={reindexing}
           >
             <RefreshCw size={16} className={reindexing ? "spin" : ""} />
-            <span>{reindexing && reindexProgress
-              ? text.reindexAllProgress
-                .replace("{current}", String(reindexProgress.current))
-                .replace("{total}", String(reindexProgress.total))
-              : text.reindexAll
-            }</span>
+            <span>
+              {reindexing && reindexProgress
+                ? text.reindexAllProgress
+                    .replace("{current}", String(reindexProgress.current))
+                    .replace("{total}", String(reindexProgress.total))
+                : text.reindexAll}
+            </span>
           </button>
         </div>
       </div>

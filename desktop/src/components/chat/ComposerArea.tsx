@@ -38,33 +38,14 @@ import {
   X,
   ChevronDown,
 } from "../common/IconMap";
+import { getComposerPrimaryAction, isComposerSubmitKey } from "./composerPrimaryAction";
 
-export function isComposerSubmitKey(
-  key: string,
-  shiftKey: boolean,
-  isComposing = false,
-): boolean {
-  return key === "Enter" && !shiftKey && !isComposing;
-}
+export {
+  getComposerPrimaryAction,
+  isComposerSubmitKey,
+  type ComposerPrimaryAction,
+} from "./composerPrimaryAction";
 
-export type ComposerPrimaryAction = "send" | "stop";
-
-export function getComposerPrimaryAction(
-  isStreaming: boolean,
-  hasInput: boolean,
-): ComposerPrimaryAction {
-  return isStreaming && !hasInput ? "stop" : "send";
-}
-
-// ============================================================
-// 类型
-// ============================================================
-
-/**
- * useComposer hook 返回值的类型
- *
- * 由 useComposer.ts 定义和返回，此处仅引用类型。
- */
 type ComposerState = ReturnType<typeof import("../../hooks/useComposer").useComposer>;
 
 interface ComposerAreaProps {
@@ -92,14 +73,27 @@ export function ComposerArea({
   onOpenSettings,
 }: ComposerAreaProps) {
   const {
-    inputText, textareaRef, hasInput, isStreaming, composerDragOver,
+    inputText,
+    textareaRef,
+    hasInput,
+    isStreaming,
+    composerDragOver,
     attachedFiles,
-    showAttachPopover, setShowAttachPopover,
-    showPermissionPopover, setShowPermissionPopover,
-    showThinkingPopover, setShowThinkingPopover,
-    handleOpenFile, handleOpenImage, handleOpenFolder,
-    removeAttachedFile, handleComposerDragOver, handleComposerDragLeave,
-    handleComposerDrop, handleTextareaChange, handlePaste,
+    showAttachPopover,
+    setShowAttachPopover,
+    showPermissionPopover,
+    setShowPermissionPopover,
+    showThinkingPopover,
+    setShowThinkingPopover,
+    handleOpenFile,
+    handleOpenImage,
+    handleOpenFolder,
+    removeAttachedFile,
+    handleComposerDragOver,
+    handleComposerDragLeave,
+    handleComposerDrop,
+    handleTextareaChange,
+    handlePaste,
   } = composer;
 
   const { permissionMode, setPermissionMode, language } = useSettingsStore();
@@ -123,7 +117,7 @@ export function ComposerArea({
         {/* 附件 chip 列表 */}
         {attachedFiles.length > 0 && (
           <div className="composer-attachments">
-            {attachedFiles.map((f, i) => (
+            {attachedFiles.map((f, i) =>
               f.fileType === "image" ? (
                 <AttachmentImagePreview
                   key={`${f.filePath}-${i}`}
@@ -139,8 +133,8 @@ export function ComposerArea({
                     <X size={10} />
                   </button>
                 </div>
-              )
-            ))}
+              ),
+            )}
           </div>
         )}
         <textarea
@@ -153,8 +147,8 @@ export function ComposerArea({
             isStreaming
               ? text.chat.aiReplying
               : showWelcomeComposer
-              ? text.chat.welcomePlaceholder
-              : text.chat.inputPlaceholder
+                ? text.chat.welcomePlaceholder
+                : text.chat.inputPlaceholder
           }
           maxLength={COMPOSER_INPUT_MAX_LENGTH}
           rows={2}
@@ -204,7 +198,9 @@ export function ComposerArea({
                 title={text.chat.permissionMode}
               >
                 <PermissionIcon mode={permissionMode} />
-                <span className="permission-label">{text.chat.permissionLabels[permissionMode]}</span>
+                <span className="permission-label">
+                  {text.chat.permissionLabels[permissionMode]}
+                </span>
                 <ChevronDown size={13} />
               </button>
               {showPermissionPopover && (
@@ -245,13 +241,18 @@ export function ComposerArea({
             {contextUsage && (
               <div
                 className={`context-indicator ${
-                  contextUsage.percentage >= 90 ? "danger" : contextUsage.percentage >= 70 ? "warning" : "normal"
+                  contextUsage.percentage >= 90
+                    ? "danger"
+                    : contextUsage.percentage >= 70
+                      ? "warning"
+                      : "normal"
                 }`}
                 title={`${text.chat.contextUsage}: ${contextUsage.estimatedTokens.toLocaleString()} / ${contextUsage.contextWindowSize.toLocaleString()} tokens (${contextUsage.percentage}%)`}
               >
                 <Activity size={14} />
                 <span className="context-indicator-pct">
-                  {formatEstimatedUsedTokens(contextUsage.estimatedTokens)}/{formatTokensAsK(contextUsage.contextWindowSize)}
+                  {formatEstimatedUsedTokens(contextUsage.estimatedTokens)}/
+                  {formatTokensAsK(contextUsage.contextWindowSize)}
                 </span>
               </div>
             )}

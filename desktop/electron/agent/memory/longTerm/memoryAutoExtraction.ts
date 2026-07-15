@@ -1,17 +1,8 @@
 import type { ChatMessage, StreamChatParams } from "../../providers/aiClient";
-import type {
-  RuntimeLongTermMemoryRecord,
-  RuntimeMemoryCitation,
-} from "../stateRuntimeTypes";
+import type { RuntimeLongTermMemoryRecord, RuntimeMemoryCitation } from "../stateRuntimeTypes";
 import type { Thread, Turn, TurnItem } from "../../shared/types";
-import {
-  TOOL_WRITABLE_MEMORY_KINDS,
-  type MemoryWriteInput,
-} from "./memoryTypes";
-import {
-  parseStageOneOutput,
-  type ExtractedMemoryCandidate,
-} from "./memoryExtraction";
+import { TOOL_WRITABLE_MEMORY_KINDS, type MemoryWriteInput } from "./memoryTypes";
+import { parseStageOneOutput, type ExtractedMemoryCandidate } from "./memoryExtraction";
 import type { MemorySearchOptions } from "./memoryStore";
 
 export interface MemoryAutoExtractionAIClient {
@@ -105,11 +96,11 @@ function buildMemoryExtractionMessages(
       role: "system",
       content: [
         "Extract durable long-term user memories from the completed turn.",
-        "Return strict JSON only: {\"memories\":[]}.",
+        'Return strict JSON only: {"memories":[]}.',
         `Allowed kinds: ${TOOL_WRITABLE_MEMORY_KINDS.join(", ")}.`,
         "Write only explicit user preferences, long-term constraints, user corrections, document style preferences, operation/tooling preferences, or low-sensitivity file impressions.",
         "Ignore one-off task instructions, progress, tool statistics, generated document bodies, table dumps, temporary paths, secrets, credentials, and sensitive personal data.",
-        "Do not infer or invent memories. Preserve the user's language. Prefer namespace \"global\" unless the user clearly scopes the memory.",
+        'Do not infer or invent memories. Preserve the user\'s language. Prefer namespace "global" unless the user clearly scopes the memory.',
       ].join("\n"),
     },
     {

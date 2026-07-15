@@ -24,7 +24,7 @@ export class ThreadWatchManager {
   watch(
     threadId: ThreadId,
     connectionId: ConnectionId,
-    listener: ThreadStatusListener
+    listener: ThreadStatusListener,
   ): ThreadWatchSubscription {
     let threadWatchers = this.watchers.get(threadId);
     if (!threadWatchers) {
@@ -99,7 +99,7 @@ export class ThreadWatchActiveGuard {
   constructor(
     private readonly manager: ThreadWatchManager,
     private readonly threadId: ThreadId,
-    private readonly connectionId: ConnectionId
+    private readonly connectionId: ConnectionId,
   ) {}
 
   dispose(): void {

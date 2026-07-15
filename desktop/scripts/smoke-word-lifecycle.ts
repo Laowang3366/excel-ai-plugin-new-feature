@@ -2,7 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { DotNetOfficeActionBridge as OfficeComActionBridge, applyWordAdvancedAction, disposeOfficeWorker } from "./officeWorkerSmokeHelpers";
+import {
+  DotNetOfficeActionBridge as OfficeComActionBridge,
+  applyWordAdvancedAction,
+  disposeOfficeWorker,
+} from "./officeWorkerSmokeHelpers";
 
 async function main(): Promise<void> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wengge-word-lifecycle-"));
@@ -37,6 +41,8 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+  );
   process.exitCode = 1;
 });

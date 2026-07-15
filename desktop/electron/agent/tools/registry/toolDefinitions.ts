@@ -37,20 +37,24 @@ const RAW_TOOL_DEFINITIONS: ToolDefinition[] = [
   ...OFFICE_TOOL_DEFINITIONS,
 ];
 
-export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = RAW_TOOL_DEFINITIONS.map(normalizeToolDefinition);
+export const ALL_TOOL_DEFINITIONS: ToolDefinition[] =
+  RAW_TOOL_DEFINITIONS.map(normalizeToolDefinition);
 
 /** 工具定义映射 */
 export const TOOL_DEFINITIONS_MAP = new Map<string, ToolDefinition>(
   ALL_TOOL_DEFINITIONS.flatMap((tool) => [
     [tool.name, tool] as const,
     ...getToolNameAliases(tool.name).map((alias) => [alias, tool] as const),
-  ])
+  ]),
 );
 
 export function getToolNameAliases(toolName: string): string[] {
   if (!toolName.includes(".")) return [];
-  return Array.from(new Set([
-    toolName.replace(/\./g, "_"),
-    toolName.replace(/\.(?=[^.]+$)/, "_"),
-  ].filter((alias) => alias !== toolName)));
+  return Array.from(
+    new Set(
+      [toolName.replace(/\./g, "_"), toolName.replace(/\.(?=[^.]+$)/, "_")].filter(
+        (alias) => alias !== toolName,
+      ),
+    ),
+  );
 }

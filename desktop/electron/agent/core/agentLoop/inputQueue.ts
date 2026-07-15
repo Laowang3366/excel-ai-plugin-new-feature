@@ -23,7 +23,9 @@ export class InputQueue {
 
   enqueue(item: QueuedTurnInput): number {
     if (this.items.length >= this.maxItems) {
-      throw new Error(`运行中输入队列已满（${this.maxItems} 条），请等待当前会话处理一部分内容后再发送`);
+      throw new Error(
+        `运行中输入队列已满（${this.maxItems} 条），请等待当前会话处理一部分内容后再发送`,
+      );
     }
     this.items.push(item);
     return this.items.length;

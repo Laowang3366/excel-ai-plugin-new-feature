@@ -1,13 +1,6 @@
 import React from "react";
 import type { TestResult } from "./useTestConnection";
-import {
-  CheckCircle,
-  Eye,
-  EyeOff,
-  Loader2,
-  Zap,
-  XCircle,
-} from "../common/IconMap";
+import { CheckCircle, Eye, EyeOff, Loader2, Zap, XCircle } from "../common/IconMap";
 
 export interface ApiFormatOption {
   value: string;
@@ -21,12 +14,7 @@ interface ProviderNameFieldProps {
   onChange: (value: string) => void;
 }
 
-export function ProviderNameField({
-  label,
-  value,
-  placeholder,
-  onChange,
-}: ProviderNameFieldProps) {
+export function ProviderNameField({ label, value, placeholder, onChange }: ProviderNameFieldProps) {
   return (
     <div className="form-group">
       <label>{label}</label>
@@ -65,7 +53,9 @@ export function ProviderApiFormatField({
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
         ))}
       </select>
       {hint && <span className="form-hint">{hint}</span>}
@@ -144,10 +134,7 @@ export function ProviderApiKeyField({
         onChange={(event) => onChange(event.target.value)}
         placeholder="sk-..."
       />
-      <button
-        className="toggle-visibility"
-        onClick={onToggleVisibility}
-      >
+      <button className="toggle-visibility" onClick={onToggleVisibility}>
         {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
       </button>
     </div>
@@ -161,7 +148,9 @@ export function ProviderApiKeyField({
           {input}
           {action}
         </div>
-      ) : input}
+      ) : (
+        input
+      )}
     </div>
   );
 }
@@ -227,9 +216,13 @@ export function ProviderModelField({
           {selector}
           {action}
         </div>
-      ) : selector}
+      ) : (
+        selector
+      )}
       {hints.map((hint) => (
-        <span key={hint} className="form-hint">{hint}</span>
+        <span key={hint} className="form-hint">
+          {hint}
+        </span>
       ))}
     </div>
   );
@@ -261,16 +254,15 @@ export function ProviderTestButton({
   onClick,
 }: ProviderTestButtonProps) {
   return (
-    <button
-      className={className}
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-    >
+    <button className={className} onClick={onClick} disabled={disabled} title={title}>
       {testing ? (
-        <><Loader2 size={14} className="spin" /> {testingLabel ?? label}</>
+        <>
+          <Loader2 size={14} className="spin" /> {testingLabel ?? label}
+        </>
       ) : (
-        <><Zap size={14} /> {label}</>
+        <>
+          <Zap size={14} /> {label}
+        </>
       )}
     </button>
   );
@@ -285,9 +277,13 @@ export function ProviderTestResult({
   return (
     <div className={`test-result ${result.success ? "success" : "error"}`}>
       {result.success ? (
-        <><CheckCircle size={14} /> {successText(result.latency)}</>
+        <>
+          <CheckCircle size={14} /> {successText(result.latency)}
+        </>
       ) : (
-        <><XCircle size={14} /> {result.error || errorFallback}</>
+        <>
+          <XCircle size={14} /> {result.error || errorFallback}
+        </>
       )}
     </div>
   );

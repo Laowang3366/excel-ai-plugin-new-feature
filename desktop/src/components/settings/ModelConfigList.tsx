@@ -17,10 +17,7 @@ import { useSettingsStore } from "../../store/settingsStore";
 export interface ModelConfigListProps {
   modelConfigs: ModelConfig[];
   currentModel: string;
-  onModelConfigsChange: (
-    newConfigs: ModelConfig[],
-    extraPatch?: Partial<AiProviderConfig>
-  ) => void;
+  onModelConfigsChange: (newConfigs: ModelConfig[], extraPatch?: Partial<AiProviderConfig>) => void;
   /** 新增模型后自动选中（仅 AddProviderDialog 使用） */
   onAddModelAutoSelect?: (name: string) => void;
 }
@@ -77,9 +74,7 @@ export const ModelConfigList: React.FC<ModelConfigListProps> = ({
               className="form-input model-config-cw"
               value={mc.contextWindowSize ?? ""}
               onChange={(e) => {
-                const val = e.target.value
-                  ? parseInt(e.target.value, 10)
-                  : undefined;
+                const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
                 updateContextWindow(idx, val);
               }}
               placeholder={text.contextWindowPlaceholder}

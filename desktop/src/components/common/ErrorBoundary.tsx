@@ -28,9 +28,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       const text = getAppText(language);
       return (
         <div className="error-boundary">
-          <div className="error-boundary-icon"><AlertTriangle size={32} /></div>
+          <div className="error-boundary-icon">
+            <AlertTriangle size={32} />
+          </div>
           <div className="error-boundary-title">{text.common.errorOccurred}</div>
-          <div className="error-boundary-message">{this.state.error?.message || text.common.unknownError}</div>
+          <div className="error-boundary-message">
+            {this.state.error?.message || text.common.unknownError}
+          </div>
           <button
             className="error-boundary-retry"
             onClick={() => this.setState({ hasError: false, error: null })}

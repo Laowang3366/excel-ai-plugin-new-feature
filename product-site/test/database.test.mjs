@@ -17,7 +17,9 @@ async function createTemporaryDatabase(prefix) {
 }
 
 test("IP identifiers are stable within a rotation period and change across periods", async (context) => {
-  const { root, databasePath } = await createTemporaryDatabase("wenge-analytics-rotation-");
+  const { root, databasePath } = await createTemporaryDatabase(
+    "wenge-analytics-rotation-",
+  );
   let currentTime = 100 * 30 * DAY_MS;
   const analytics = createAnalyticsDatabase(databasePath, {
     analyticsSalt: "test-analytics-salt",
@@ -31,11 +33,23 @@ test("IP identifiers are stable within a rotation period and change across perio
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  analytics.recordDownload({ version: "1.0.0", artifact: "setup.exe", ip: "198.51.100.8" });
+  analytics.recordDownload({
+    version: "1.0.0",
+    artifact: "setup.exe",
+    ip: "198.51.100.8",
+  });
   currentTime += DAY_MS;
-  analytics.recordDownload({ version: "1.0.0", artifact: "setup.exe", ip: "198.51.100.8" });
+  analytics.recordDownload({
+    version: "1.0.0",
+    artifact: "setup.exe",
+    ip: "198.51.100.8",
+  });
   currentTime += 30 * DAY_MS;
-  analytics.recordDownload({ version: "1.0.0", artifact: "setup.exe", ip: "198.51.100.8" });
+  analytics.recordDownload({
+    version: "1.0.0",
+    artifact: "setup.exe",
+    ip: "198.51.100.8",
+  });
 
   const visitors = analytics.getStats(365).recent.map((row) => row.visitor);
   assert.equal(visitors[1], visitors[2]);
@@ -43,7 +57,9 @@ test("IP identifiers are stable within a rotation period and change across perio
 });
 
 test("startup cleanup deletes expired downloads and retains rows inside the retention window", async (context) => {
-  const { root, databasePath } = await createTemporaryDatabase("wenge-analytics-retention-");
+  const { root, databasePath } = await createTemporaryDatabase(
+    "wenge-analytics-retention-",
+  );
   let currentTime = 0;
   const initial = createAnalyticsDatabase(databasePath, {
     analyticsSalt: "test-analytics-salt",
@@ -52,9 +68,17 @@ test("startup cleanup deletes expired downloads and retains rows inside the rete
     cleanupIntervalMs: LONG_CLEANUP_INTERVAL_MS,
     now: () => currentTime,
   });
-  initial.recordDownload({ version: "old", artifact: "old.exe", ip: "198.51.100.1" });
+  initial.recordDownload({
+    version: "old",
+    artifact: "old.exe",
+    ip: "198.51.100.1",
+  });
   currentTime = 81 * DAY_MS;
-  initial.recordDownload({ version: "current", artifact: "current.exe", ip: "198.51.100.2" });
+  initial.recordDownload({
+    version: "current",
+    artifact: "current.exe",
+    ip: "198.51.100.2",
+  });
   initial.close();
 
   currentTime = 100 * DAY_MS;
@@ -76,7 +100,9 @@ test("startup cleanup deletes expired downloads and retains rows inside the rete
 });
 
 test("legacy analytics rows are minimized during migration", async (context) => {
-  const { root, databasePath } = await createTemporaryDatabase("wenge-analytics-migration-");
+  const { root, databasePath } = await createTemporaryDatabase(
+    "wenge-analytics-migration-",
+  );
   const legacy = new Database(databasePath);
   legacy.exec(`
     CREATE TABLE downloads (
@@ -89,10 +115,21 @@ test("legacy analytics rows are minimized during migration", async (context) => 
       referer TEXT NOT NULL
     )
   `);
-  legacy.prepare(`
+  legacy
+    .prepare(
+      `
     INSERT INTO downloads (downloaded_at, version, artifact, ip_hash, user_agent, referer)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(DAY_MS, "legacy", "legacy.exe", "a".repeat(64), "u".repeat(500), "https://example.test/private/path?token=secret");
+  `,
+    )
+    .run(
+      DAY_MS,
+      "legacy",
+      "legacy.exe",
+      "a".repeat(64),
+      "u".repeat(500),
+      "https://example.test/private/path?token=secret",
+    );
   legacy.close();
 
   let currentTime = 2 * DAY_MS;
@@ -126,7 +163,9 @@ test("legacy analytics rows are minimized during migration", async (context) => 
 });
 
 test("cleanup failures are reported without preventing new analytics writes", async (context) => {
-  const { root, databasePath } = await createTemporaryDatabase("wenge-analytics-cleanup-failure-");
+  const { root, databasePath } = await createTemporaryDatabase(
+    "wenge-analytics-cleanup-failure-",
+  );
   let currentTime = 0;
   const initial = createAnalyticsDatabase(databasePath, {
     analyticsSalt: "test-analytics-salt",
@@ -135,7 +174,11 @@ test("cleanup failures are reported without preventing new analytics writes", as
     cleanupIntervalMs: LONG_CLEANUP_INTERVAL_MS,
     now: () => currentTime,
   });
-  initial.recordDownload({ version: "old", artifact: "old.exe", ip: "198.51.100.4" });
+  initial.recordDownload({
+    version: "old",
+    artifact: "old.exe",
+    ip: "198.51.100.4",
+  });
   initial.close();
 
   const raw = new Database(databasePath);
@@ -166,7 +209,11 @@ test("cleanup failures are reported without preventing new analytics writes", as
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  analytics.recordDownload({ version: "current", artifact: "current.exe", ip: "198.51.100.5" });
+  analytics.recordDownload({
+    version: "current",
+    artifact: "current.exe",
+    ip: "198.51.100.5",
+  });
   assert.equal(maintenanceErrors.length, 1);
   assert.equal(analytics.getStats(365).summary.total, 2);
 });

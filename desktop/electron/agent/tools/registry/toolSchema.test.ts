@@ -75,7 +75,11 @@ describe("tool schema runtime validation", () => {
             type: "object",
             properties: {
               operation: { type: "string", const: "alpha" },
-              params: { type: "object", properties: { count: { type: "integer" } }, required: ["count"] },
+              params: {
+                type: "object",
+                properties: { count: { type: "integer" } },
+                required: ["count"],
+              },
             },
             required: ["operation", "params"],
           },
@@ -83,7 +87,11 @@ describe("tool schema runtime validation", () => {
             type: "object",
             properties: {
               operation: { type: "string", const: "beta" },
-              params: { type: "object", properties: { enabled: { type: "boolean" } }, required: ["enabled"] },
+              params: {
+                type: "object",
+                properties: { enabled: { type: "boolean" } },
+                required: ["enabled"],
+              },
             },
             required: ["operation", "params"],
           },
@@ -93,18 +101,24 @@ describe("tool schema runtime validation", () => {
       requiresApproval: false,
     });
 
-    expect(parseAndValidateToolArguments(
-      '{"operation":"alpha","params":{"count":1}}',
-      definition.parameters,
-    ).error).toBeUndefined();
-    expect(parseAndValidateToolArguments(
-      '{"operation":"alpha","params":{"enabled":true}}',
-      definition.parameters,
-    ).error).toContain("不匹配任何允许的参数结构");
-    expect(parseAndValidateToolArguments(
-      '{"operation":"alpha","params":{"count":1,"extra":true}}',
-      definition.parameters,
-    ).error).toContain("未声明参数");
+    expect(
+      parseAndValidateToolArguments(
+        '{"operation":"alpha","params":{"count":1}}',
+        definition.parameters,
+      ).error,
+    ).toBeUndefined();
+    expect(
+      parseAndValidateToolArguments(
+        '{"operation":"alpha","params":{"enabled":true}}',
+        definition.parameters,
+      ).error,
+    ).toContain("不匹配任何允许的参数结构");
+    expect(
+      parseAndValidateToolArguments(
+        '{"operation":"alpha","params":{"count":1,"extra":true}}',
+        definition.parameters,
+      ).error,
+    ).toContain("未声明参数");
   });
 
   it("validates object key names, field counts, and schema-valued additional properties", () => {
@@ -125,13 +139,15 @@ describe("tool schema runtime validation", () => {
       requiresApproval: false,
     });
 
-    expect(parseAndValidateToolArguments('{"alpha":1,"beta-2":0}', definition.parameters).error)
-      .toBeUndefined();
+    expect(
+      parseAndValidateToolArguments('{"alpha":1,"beta-2":0}', definition.parameters).error,
+    ).toBeUndefined();
     expect(parseAndValidateToolArguments("{}", definition.parameters).error).toContain(
       "至少需要 1 个字段",
     );
-    expect(parseAndValidateToolArguments('{"alpha":1,"beta":2,"gamma":3}', definition.parameters).error)
-      .toContain("最多允许 2 个字段");
+    expect(
+      parseAndValidateToolArguments('{"alpha":1,"beta":2,"gamma":3}', definition.parameters).error,
+    ).toContain("最多允许 2 个字段");
     expect(parseAndValidateToolArguments('{"bad.name":1}', definition.parameters).error).toContain(
       "格式不符合要求",
     );

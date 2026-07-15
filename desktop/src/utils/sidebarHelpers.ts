@@ -28,7 +28,7 @@ export const INTENT_SHORTCUTS = [
   { key: "office" as const, icon: Workflow },
 ] as const;
 
-export type IntentKind = typeof INTENT_SHORTCUTS[number]["key"] | null;
+export type IntentKind = (typeof INTENT_SHORTCUTS)[number]["key"] | null;
 
 /** Excel 连接状态 */
 export interface ExcelStatus {
@@ -53,7 +53,7 @@ export function formatTime(timestamp: number, language: AppLanguage): string {
 export function getThreadDisplayStatus(
   metadataStatus?: string,
   activeStatus?: "idle" | "in_progress" | "completed" | "interrupted" | "failed",
-  statusViewed = false
+  statusViewed = false,
 ): "running" | "completed" | "failed" | null {
   if (activeStatus === "in_progress") return "running";
   const status = activeStatus && activeStatus !== "idle" ? activeStatus : metadataStatus;
@@ -64,7 +64,10 @@ export function getThreadDisplayStatus(
   return null;
 }
 
-export function getThreadStatusLabel(status: ReturnType<typeof getThreadDisplayStatus>, language: AppLanguage): string {
+export function getThreadStatusLabel(
+  status: ReturnType<typeof getThreadDisplayStatus>,
+  language: AppLanguage,
+): string {
   if (language === "en-US") {
     if (status === "running") return "In conversation";
     if (status === "completed") return "Completed";
@@ -77,7 +80,10 @@ export function getThreadStatusLabel(status: ReturnType<typeof getThreadDisplayS
   return "";
 }
 
-export function matchesSidebarSearch(values: Array<string | undefined | null>, query: string): boolean {
+export function matchesSidebarSearch(
+  values: Array<string | undefined | null>,
+  query: string,
+): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
   return values.some((value) => value?.toLowerCase().includes(normalizedQuery));
@@ -101,7 +107,7 @@ export function compareSidebarText(left: string, right: string, language: AppLan
 export function sortSidebarItems<T extends { preview?: string; updatedAt: number }>(
   items: T[],
   mode: SidebarSortMode,
-  language: AppLanguage
+  language: AppLanguage,
 ): T[] {
   return [...items].sort((a, b) => {
     if (mode === "recentAsc") return a.updatedAt - b.updatedAt;
@@ -141,29 +147,36 @@ export function buildSidebarDerivedLists({
   const ungroupedThreads = sortSidebarItems(
     threads.filter((thread) => !thread.folderId),
     conversationSortMode,
-    language
+    language,
   );
-  const groupedByFolder = pinnedFolders.map((folder) => ({
-    folder,
-    folderMatches: true,
-    threads: sortSidebarItems(
-      threads.filter((thread) => thread.folderId === folder.path),
-      projectSortMode,
-      language
-    ),
-    files: folderFiles[folder.path] || [],
-  })).filter(({ folderMatches, threads: folderThreads, files }) =>
-    !hasSearchQuery || folderMatches || folderThreads.length > 0 || files.length > 0
-  ).sort((a, b) => {
-    if (projectSortMode === "recentAsc") return a.folder.addedAt - b.folder.addedAt;
-    if (projectSortMode === "nameAsc") return compareSidebarText(a.folder.name, b.folder.name, language);
-    if (projectSortMode === "nameDesc") return compareSidebarText(b.folder.name, a.folder.name, language);
-    return b.folder.addedAt - a.folder.addedAt;
-  }).map(({ folder, threads: folderThreads, files }) => ({
-    folder,
-    threads: folderThreads,
-    files,
-  }));
+  const groupedByFolder = pinnedFolders
+    .map((folder) => ({
+      folder,
+      folderMatches: true,
+      threads: sortSidebarItems(
+        threads.filter((thread) => thread.folderId === folder.path),
+        projectSortMode,
+        language,
+      ),
+      files: folderFiles[folder.path] || [],
+    }))
+    .filter(
+      ({ folderMatches, threads: folderThreads, files }) =>
+        !hasSearchQuery || folderMatches || folderThreads.length > 0 || files.length > 0,
+    )
+    .sort((a, b) => {
+      if (projectSortMode === "recentAsc") return a.folder.addedAt - b.folder.addedAt;
+      if (projectSortMode === "nameAsc")
+        return compareSidebarText(a.folder.name, b.folder.name, language);
+      if (projectSortMode === "nameDesc")
+        return compareSidebarText(b.folder.name, a.folder.name, language);
+      return b.folder.addedAt - a.folder.addedAt;
+    })
+    .map(({ folder, threads: folderThreads, files }) => ({
+      folder,
+      threads: folderThreads,
+      files,
+    }));
   const hasProjectItems = groupedByFolder.length > 0;
   const hasConversationItems = ungroupedThreads.length > 0;
 

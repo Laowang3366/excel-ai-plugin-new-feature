@@ -29,17 +29,12 @@ export { generateSummary } from "./summaryGenerator";
 export { buildSessionCompactionConfig } from "./sessionCompactionConfig";
 
 // 流式参数构建
-export {
-  buildEffectiveSystemPrompt,
-} from "./buildStreamParams";
+export { buildEffectiveSystemPrompt } from "./buildStreamParams";
 
 // 输出预算与线程拆分模块
 export { resolveMaxTokens } from "./maxTokens";
 export { TurnState } from "./turnState";
-export {
-  DEFAULT_THREAD_IDLE_UNLOAD_MS,
-  ThreadStateManager,
-} from "./threadStateManager";
+export { DEFAULT_THREAD_IDLE_UNLOAD_MS, ThreadStateManager } from "./threadStateManager";
 export type { ThreadRuntimeSnapshot, ThreadRuntimeStatus } from "../../shared/types";
 export { createAgentThread, loadAgentThread } from "./threadLifecycle";
 export { createTurn, createUserMessageItem, completeTurn } from "./turnRunner";

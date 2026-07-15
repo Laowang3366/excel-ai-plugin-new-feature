@@ -54,7 +54,7 @@ export function isPrivateOrReservedAddress(address: string): boolean {
 
 export async function validateOutboundUrl(
   input: string | URL,
-  options: OutboundUrlPolicyOptions = {}
+  options: OutboundUrlPolicyOptions = {},
 ): Promise<URL> {
   const url = input instanceof URL ? new URL(input.toString()) : new URL(input);
   if (url.username || url.password) throw new Error("outbound_url_credentials_forbidden");
@@ -81,13 +81,18 @@ export async function validateOutboundUrl(
     addresses = [{ address: hostname, family: literalFamily }];
   } else {
     try {
-      addresses = await (options.lookupAll ?? (async (name) => lookup(name, { all: true })))(hostname);
+      addresses = await (options.lookupAll ?? (async (name) => lookup(name, { all: true })))(
+        hostname,
+      );
     } catch (error) {
       if (process.env.NODE_ENV !== "test") throw error;
       addresses = [{ address: "93.184.216.34", family: 4 }];
     }
   }
-  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateOrReservedAddress(address))) {
+  if (
+    addresses.length === 0 ||
+    addresses.some(({ address }) => isPrivateOrReservedAddress(address))
+  ) {
     throw new Error("outbound_private_address_forbidden");
   }
   return url;
@@ -97,7 +102,7 @@ export async function secureFetch(
   input: string | URL,
   init: RequestInit = {},
   options: OutboundUrlPolicyOptions = {},
-  redirectCount = 0
+  redirectCount = 0,
 ): Promise<Response> {
   const url = await validateOutboundUrl(input, options);
   const response = await fetch(url.toString(), { ...init, redirect: "manual" });

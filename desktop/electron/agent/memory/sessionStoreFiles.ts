@@ -7,7 +7,8 @@ const readdir = promisify(fs.readdir);
 
 /** Get the default sessions root used by legacy local installs. */
 export function getDefaultSessionsRoot(): string {
-  const appData = process.env.APPDATA || path.join(process.env.USERPROFILE || "C:\\", "AppData", "Roaming");
+  const appData =
+    process.env.APPDATA || path.join(process.env.USERPROFILE || "C:\\", "AppData", "Roaming");
   return path.join(appData, "excel-ai-assistant", "sessions");
 }
 
@@ -19,7 +20,10 @@ export function getSessionFilePath(sessionsRoot: string, threadId: ThreadId): st
   const day = now.getDate().toString().padStart(2, "0");
 
   const dir = path.join(sessionsRoot, year, month, day);
-  const timestamp = now.toISOString().replace(/:/g, "-").replace(/\.\d+Z$/, "");
+  const timestamp = now
+    .toISOString()
+    .replace(/:/g, "-")
+    .replace(/\.\d+Z$/, "");
   const filename = `rollout-${timestamp}-${threadId}.jsonl`;
 
   return path.join(dir, filename);
@@ -37,11 +41,7 @@ export async function findThreadRolloutArtifacts(
   threadId: ThreadId,
 ): Promise<string[]> {
   const files: string[] = [];
-  const suffixes = [
-    `-${threadId}.jsonl`,
-    `-${threadId}.jsonl.gz`,
-    `-${threadId}.jsonl.zst`,
-  ];
+  const suffixes = [`-${threadId}.jsonl`, `-${threadId}.jsonl.gz`, `-${threadId}.jsonl.zst`];
   await collectMatchingRolloutArtifacts(sessionsRoot, suffixes, files);
   return files;
 }
@@ -81,9 +81,9 @@ async function collectMatchingRolloutArtifacts(
     if (entry.isDirectory()) {
       await collectMatchingRolloutArtifacts(fullPath, suffixes, files);
     } else if (
-      entry.isFile()
-      && entry.name.startsWith("rollout-")
-      && suffixes.some((suffix) => entry.name.endsWith(suffix))
+      entry.isFile() &&
+      entry.name.startsWith("rollout-") &&
+      suffixes.some((suffix) => entry.name.endsWith(suffix))
     ) {
       files.push(fullPath);
     }
@@ -92,7 +92,7 @@ async function collectMatchingRolloutArtifacts(
 
 export async function scanThreadMetadata(
   sessionsRoot: string,
-  loadThreadByPath: (filePath: string) => Promise<Thread | null>
+  loadThreadByPath: (filePath: string) => Promise<Thread | null>,
 ): Promise<ThreadMetadata[]> {
   const results: ThreadMetadata[] = [];
   await scanDirectory(sessionsRoot, results, loadThreadByPath);
@@ -102,7 +102,7 @@ export async function scanThreadMetadata(
 async function scanDirectory(
   dir: string,
   results: ThreadMetadata[],
-  loadThreadByPath: (filePath: string) => Promise<Thread | null>
+  loadThreadByPath: (filePath: string) => Promise<Thread | null>,
 ): Promise<void> {
   let entries: fs.Dirent[];
   try {

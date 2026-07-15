@@ -41,8 +41,9 @@ describe("InputQueue", () => {
 
     queue.enqueue({ input: input("first"), callbacks: callbacks() });
 
-    expect(() => queue.enqueue({ input: input("second"), callbacks: callbacks() }))
-      .toThrow("运行中输入队列已满");
+    expect(() => queue.enqueue({ input: input("second"), callbacks: callbacks() })).toThrow(
+      "运行中输入队列已满",
+    );
     expect(queue.size()).toBe(1);
   });
 });

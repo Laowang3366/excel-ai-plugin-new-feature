@@ -23,7 +23,8 @@ describe("managed user data erasure", () => {
       "temp/ocr.txt",
       "settings/excel-ai-settings.json",
       "operator-notes.txt",
-    ]) writeFile(root, relativePath);
+    ])
+      writeFile(root, relativePath);
 
     const report = await eraseManagedUserData(root);
 

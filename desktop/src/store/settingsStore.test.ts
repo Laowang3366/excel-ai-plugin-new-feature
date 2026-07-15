@@ -178,12 +178,14 @@ describe("settingsStore provider configuration state", () => {
       isConfigured: false,
     });
 
-    useSettingsStore.getState().addProvider(makeProvider({
-      id: "inactive",
-      apiKey: "sk-test",
-      baseUrl: "https://api.example.test/v1",
-      model: "model-a",
-    }));
+    useSettingsStore.getState().addProvider(
+      makeProvider({
+        id: "inactive",
+        apiKey: "sk-test",
+        baseUrl: "https://api.example.test/v1",
+        model: "model-a",
+      }),
+    );
 
     expect(useSettingsStore.getState().activeProviderId).toBe("active");
     expect(useSettingsStore.getState().isConfigured).toBe(false);

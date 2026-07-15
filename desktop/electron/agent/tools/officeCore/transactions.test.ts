@@ -3,7 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { createOfficeBackup, listOfficeBackups, pruneOfficeBackups, restoreOfficeBackup } from "./transactions";
+import {
+  createOfficeBackup,
+  listOfficeBackups,
+  pruneOfficeBackups,
+  restoreOfficeBackup,
+} from "./transactions";
 
 describe("Office file transactions", () => {
   it("creates, lists, and restores a persistent backup", async () => {
@@ -22,7 +27,11 @@ describe("Office file transactions", () => {
       await writeFile(sourcePath, "after", "utf8");
 
       expect(await listOfficeBackups(backupRoot, sourcePath)).toEqual([record]);
-      await restoreOfficeBackup({ backupRoot, backupPath: record.backupPath, destinationPath: sourcePath });
+      await restoreOfficeBackup({
+        backupRoot,
+        backupPath: record.backupPath,
+        destinationPath: sourcePath,
+      });
       expect(await readFile(sourcePath, "utf8")).toBe("before");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -34,11 +43,13 @@ describe("Office file transactions", () => {
     try {
       const sourcePath = path.join(tempDir, "outside.docx");
       await writeFile(sourcePath, "outside", "utf8");
-      await expect(restoreOfficeBackup({
-        backupRoot: path.join(tempDir, "backups"),
-        backupPath: sourcePath,
-        destinationPath: path.join(tempDir, "target.docx"),
-      })).rejects.toThrow("受控 Office 事务目录");
+      await expect(
+        restoreOfficeBackup({
+          backupRoot: path.join(tempDir, "backups"),
+          backupPath: sourcePath,
+          destinationPath: path.join(tempDir, "target.docx"),
+        }),
+      ).rejects.toThrow("受控 Office 事务目录");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -59,11 +70,13 @@ describe("Office file transactions", () => {
         sourcePath,
       });
 
-      await expect(restoreOfficeBackup({
-        backupRoot,
-        backupPath: record.backupPath,
-        destinationPath: otherPath,
-      })).rejects.toThrow("备份与目标文件不匹配");
+      await expect(
+        restoreOfficeBackup({
+          backupRoot,
+          backupPath: record.backupPath,
+          destinationPath: otherPath,
+        }),
+      ).rejects.toThrow("备份与目标文件不匹配");
       expect(await readFile(otherPath, "utf8")).toBe("other");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -125,15 +138,18 @@ describe("Office file transactions", () => {
       const outsidePath = path.join(tempDir, "outside.xlsx");
       await mkdir(backupRoot, { recursive: true });
       await writeFile(outsidePath, "outside");
-      await writeFile(path.join(backupRoot, "forged.json"), `${JSON.stringify({
-        id: "forged",
-        app: "excel",
-        operation: "writeRange",
-        sourcePath: path.join(tempDir, "source.xlsx"),
-        backupPath: outsidePath,
-        createdAt: "2020-01-01T00:00:00.000Z",
-        size: 7,
-      })}\n`);
+      await writeFile(
+        path.join(backupRoot, "forged.json"),
+        `${JSON.stringify({
+          id: "forged",
+          app: "excel",
+          operation: "writeRange",
+          sourcePath: path.join(tempDir, "source.xlsx"),
+          backupPath: outsidePath,
+          createdAt: "2020-01-01T00:00:00.000Z",
+          size: 7,
+        })}\n`,
+      );
 
       expect(await listOfficeBackups(backupRoot)).toEqual([]);
       await pruneOfficeBackups(backupRoot, { maxAgeDays: 1, now: Date.now() });

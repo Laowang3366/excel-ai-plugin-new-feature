@@ -9,32 +9,38 @@ const baseThread = {
 
 describe("getSidebarThreadItemStatus", () => {
   it("marks running threads from runtime state", () => {
-    expect(getSidebarThreadItemStatus({
-      thread: baseThread,
-      activeThreadId: null,
-      runningThreadIds: { "thread-1": true },
-      turnStatus: "idle",
-      viewedThreadStatusAt: {},
-    })).toEqual({ isActiveThread: false, status: "running" });
+    expect(
+      getSidebarThreadItemStatus({
+        thread: baseThread,
+        activeThreadId: null,
+        runningThreadIds: { "thread-1": true },
+        turnStatus: "idle",
+        viewedThreadStatusAt: {},
+      }),
+    ).toEqual({ isActiveThread: false, status: "running" });
   });
 
   it("marks the active thread as viewed for non-running status badges", () => {
-    expect(getSidebarThreadItemStatus({
-      thread: baseThread,
-      activeThreadId: "thread-1",
-      runningThreadIds: {},
-      turnStatus: "failed",
-      viewedThreadStatusAt: {},
-    })).toEqual({ isActiveThread: true, status: null });
+    expect(
+      getSidebarThreadItemStatus({
+        thread: baseThread,
+        activeThreadId: "thread-1",
+        runningThreadIds: {},
+        turnStatus: "failed",
+        viewedThreadStatusAt: {},
+      }),
+    ).toEqual({ isActiveThread: true, status: null });
   });
 
   it("hides completed metadata after the user has viewed it", () => {
-    expect(getSidebarThreadItemStatus({
-      thread: { ...baseThread, lastTurnStatus: "completed" },
-      activeThreadId: null,
-      runningThreadIds: {},
-      turnStatus: "idle",
-      viewedThreadStatusAt: { "thread-1": 100 },
-    })).toEqual({ isActiveThread: false, status: null });
+    expect(
+      getSidebarThreadItemStatus({
+        thread: { ...baseThread, lastTurnStatus: "completed" },
+        activeThreadId: null,
+        runningThreadIds: {},
+        turnStatus: "idle",
+        viewedThreadStatusAt: { "thread-1": 100 },
+      }),
+    ).toEqual({ isActiveThread: false, status: null });
   });
 });

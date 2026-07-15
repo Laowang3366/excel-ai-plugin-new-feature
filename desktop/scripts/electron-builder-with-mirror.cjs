@@ -2,8 +2,7 @@ const { spawnSync } = require("child_process");
 
 const env = {
   ...process.env,
-  ELECTRON_MIRROR:
-    process.env.ELECTRON_MIRROR || "https://npmmirror.com/mirrors/electron/",
+  ELECTRON_MIRROR: process.env.ELECTRON_MIRROR || "https://npmmirror.com/mirrors/electron/",
   ELECTRON_BUILDER_BINARIES_MIRROR:
     process.env.ELECTRON_BUILDER_BINARIES_MIRROR ||
     "https://npmmirror.com/mirrors/electron-builder-binaries/",

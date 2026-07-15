@@ -101,27 +101,30 @@ export function useExcelConnection() {
   /**
    * 用户从弹窗中选择目标宿主
    */
-  const handleSelectHost = useCallback(async (host: "excel" | "wps") => {
-    setConnecting(true);
-    try {
-      const status = await ipcApi.excel.selectHost(host);
-      setExcelStatus(status as ExcelStatus);
-      if (status.connected) {
-        setPulseDot(true);
-        scheduleTimeout(() => setPulseDot(false), 1500);
-        setPendingHosts(null);
-      } else {
+  const handleSelectHost = useCallback(
+    async (host: "excel" | "wps") => {
+      setConnecting(true);
+      try {
+        const status = await ipcApi.excel.selectHost(host);
+        setExcelStatus(status as ExcelStatus);
+        if (status.connected) {
+          setPulseDot(true);
+          scheduleTimeout(() => setPulseDot(false), 1500);
+          setPendingHosts(null);
+        } else {
+          setConnectFailed(true);
+          scheduleTimeout(() => setConnectFailed(false), 600);
+        }
+      } catch {
+        setExcelStatus(INITIAL_STATUS);
         setConnectFailed(true);
         scheduleTimeout(() => setConnectFailed(false), 600);
+      } finally {
+        setConnecting(false);
       }
-    } catch {
-      setExcelStatus(INITIAL_STATUS);
-      setConnectFailed(true);
-      scheduleTimeout(() => setConnectFailed(false), 600);
-    } finally {
-      setConnecting(false);
-    }
-  }, [scheduleTimeout]);
+    },
+    [scheduleTimeout],
+  );
 
   return {
     excelStatus,

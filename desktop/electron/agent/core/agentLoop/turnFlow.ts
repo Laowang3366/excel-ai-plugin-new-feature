@@ -37,7 +37,7 @@ export interface TurnFlowInput {
   bindCallbacksToThread: (
     callbacks: AgentTurnCallbacks,
     threadId: ThreadId,
-    clientId?: string
+    clientId?: string,
   ) => AgentTurnCallbacks;
   getAllTurnItems: () => TurnItem[];
   compactionConfig?: CompactionConfig;
@@ -45,14 +45,14 @@ export interface TurnFlowInput {
   performAutoCompaction: (
     thread: Thread,
     reason: CompactionReason,
-    callbacks: AgentTurnCallbacks
+    callbacks: AgentTurnCallbacks,
   ) => Promise<void>;
   persistThreadSnapshot: (thread: Thread) => Promise<void>;
   runAgentLoop: (
     turn: Turn,
     callbacks: AgentTurnCallbacks,
     turnInput: AgentTurnInput,
-    resumeContext?: string
+    resumeContext?: string,
   ) => Promise<void>;
   scheduleTurnMemoryExtraction: (thread: Thread, turn: Turn) => void;
   scheduleIdleThreadUnload: () => void;

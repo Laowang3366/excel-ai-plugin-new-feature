@@ -1,14 +1,9 @@
 import { findHighConfidenceSensitiveData } from "./sensitiveData";
 
-export type RemoteDataOperation =
-  | "web-search"
-  | "ocr"
-  | "invoice-extraction"
-  | "embedding";
+export type RemoteDataOperation = "web-search" | "ocr" | "invoice-extraction" | "embedding";
 
 export type RemoteDataPolicyErrorCode =
-  | "remote_data_processing_disabled"
-  | "sensitive_data_detected";
+  "remote_data_processing_disabled" | "sensitive_data_detected";
 
 export interface RemoteDataTransferSummary {
   operation: RemoteDataOperation;

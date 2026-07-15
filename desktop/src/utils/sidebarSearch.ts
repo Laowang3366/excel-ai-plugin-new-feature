@@ -48,9 +48,12 @@ export function buildSidebarSearchResults({
   const folderByPath = new Map(folders.map((folder) => [folder.path, folder]));
 
   const threadResults = threads
-    .map((thread) => ({ thread, folder: thread.folderId ? folderByPath.get(thread.folderId) : undefined }))
+    .map((thread) => ({
+      thread,
+      folder: thread.folderId ? folderByPath.get(thread.folderId) : undefined,
+    }))
     .filter(({ thread, folder }) =>
-      includesQuery([thread.name, thread.preview, folder?.name, folder?.path], normalizedQuery)
+      includesQuery([thread.name, thread.preview, folder?.name, folder?.path], normalizedQuery),
     )
     .sort((left, right) => right.thread.updatedAt - left.thread.updatedAt)
     .slice(0, limitPerGroup);
@@ -60,7 +63,7 @@ export function buildSidebarSearchResults({
       (folderFiles[folder.path] || []).map((file) => ({
         file,
         folder,
-      }))
+      })),
     )
     .filter(({ file }) => includesQuery([file.fileName, file.filePath], normalizedQuery))
     .sort((left, right) => right.file.lastModified - left.file.lastModified)

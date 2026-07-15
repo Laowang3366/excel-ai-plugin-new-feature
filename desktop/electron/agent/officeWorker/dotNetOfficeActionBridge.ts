@@ -20,7 +20,9 @@ export function actionTimeout(input: OfficeActionInput): number {
   if (Number.isFinite(requested)) return clampTimeout(requested);
   if (process.env.WENGGE_OFFICE_SMOKE === "1") {
     const smokeTimeout = Number(process.env.WENGGE_OFFICE_SMOKE_TIMEOUT_MS);
-    return clampTimeout(Number.isFinite(smokeTimeout) ? smokeTimeout : DEFAULT_SMOKE_ACTION_TIMEOUT_MS);
+    return clampTimeout(
+      Number.isFinite(smokeTimeout) ? smokeTimeout : DEFAULT_SMOKE_ACTION_TIMEOUT_MS,
+    );
   }
   return DEFAULT_ACTION_TIMEOUT_MS;
 }

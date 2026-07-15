@@ -94,12 +94,7 @@ export const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     baseUrl: "https://api.moonshot.cn/v1",
     defaultModel: "kimi-k2.7-code",
     apiFormat: "openai",
-    presetModels: [
-      "kimi-k2.7-code",
-      "kimi-k2.7-code-highspeed",
-      "kimi-k2.6",
-      "kimi-k2.5",
-    ],
+    presetModels: ["kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6", "kimi-k2.5"],
     defaultContextWindowSize: 262_144,
     category: "direct",
     reasoningOptions: REASONING_TOGGLE,

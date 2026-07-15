@@ -57,14 +57,16 @@ describe("threadActions", () => {
       isStreaming: false,
       runningThreadIds: { "thread-1": true },
       stoppedThreadIds: {},
-      threads: [{
-        threadId: "thread-1",
-        preview: "正在执行的会话",
-        modelProvider: "test",
-        createdAt: 1,
-        updatedAt: 2,
-        activeTurnId: "turn-running",
-      }],
+      threads: [
+        {
+          threadId: "thread-1",
+          preview: "正在执行的会话",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 2,
+          activeTurnId: "turn-running",
+        },
+      ],
     } as unknown as ChatState);
 
     expect(result.patches[0]).toMatchObject({
@@ -92,15 +94,17 @@ describe("threadActions", () => {
       isStreaming: false,
       runningThreadIds: { "thread-1": true },
       stoppedThreadIds: { "thread-1": true },
-      threads: [{
-        threadId: "thread-1",
-        preview: "旧状态",
-        modelProvider: "test",
-        createdAt: 1,
-        updatedAt: 2,
-        activeTurnId: "turn-stale",
-        lastTurnStatus: "in_progress",
-      }],
+      threads: [
+        {
+          threadId: "thread-1",
+          preview: "旧状态",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 2,
+          activeTurnId: "turn-stale",
+          lastTurnStatus: "in_progress",
+        },
+      ],
     } as unknown as ChatState);
 
     expect(result.patches[0]).toMatchObject({
@@ -157,13 +161,15 @@ describe("threadActions", () => {
       isStreaming: false,
       runningThreadIds: { "thread-1": true },
       stoppedThreadIds: {},
-      threads: [{
-        threadId: "thread-1",
-        preview: "运行中",
-        modelProvider: "test",
-        createdAt: 1,
-        updatedAt: 2,
-      }],
+      threads: [
+        {
+          threadId: "thread-1",
+          preview: "运行中",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 2,
+        },
+      ],
     } as unknown as ChatState);
 
     expect(result.patches[0]).toMatchObject({

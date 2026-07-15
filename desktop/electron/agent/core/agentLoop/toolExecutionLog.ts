@@ -23,7 +23,7 @@ export function parseToolArguments(argsJson: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(argsJson || "{}");
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
+      ? (parsed as Record<string, unknown>)
       : { value: parsed };
   } catch {
     return { _raw: argsJson };
@@ -39,7 +39,7 @@ export function summarizeForLog(value: unknown, maxLength = 2000): string {
 export async function logToolExecutionSafely(
   appendToolExecutionLog: ((record: ToolExecutionLogRecord) => Promise<void>) | undefined,
   record: ToolExecutionLogRecord,
-  callbacks: AgentTurnCallbacks
+  callbacks: AgentTurnCallbacks,
 ): Promise<void> {
   if (!appendToolExecutionLog) return;
   try {
@@ -49,7 +49,7 @@ export async function logToolExecutionSafely(
       resultSummary: redactSensitiveText(record.resultSummary, 2000),
       error: record.error ? redactSensitiveText(record.error, 2000) : undefined,
       metadata: record.metadata
-        ? redactSensitiveValue(record.metadata) as Record<string, unknown>
+        ? (redactSensitiveValue(record.metadata) as Record<string, unknown>)
         : undefined,
     });
   } catch (err: any) {

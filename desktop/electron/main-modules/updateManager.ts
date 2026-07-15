@@ -74,8 +74,11 @@ let state: DesktopUpdateState = {
 };
 
 function updateBaseUrl(): string {
-  return (options?.updateBaseUrl || process.env.WENGE_UPDATE_BASE_URL || DEFAULT_UPDATE_BASE_URL)
-    .replace(/\/+$/u, "");
+  return (
+    options?.updateBaseUrl ||
+    process.env.WENGE_UPDATE_BASE_URL ||
+    DEFAULT_UPDATE_BASE_URL
+  ).replace(/\/+$/u, "");
 }
 
 function emitState(patch: Partial<DesktopUpdateState>): DesktopUpdateState {
@@ -104,14 +107,16 @@ async function loadUpdatePublicKey(): Promise<string> {
 }
 
 function availableState(manifest: RemoteUpdateManifest): Partial<DesktopUpdateState> {
-  const activePatchId = options ? getActiveHotPatchId(options.userDataPath, app.getVersion()) : null;
+  const activePatchId = options
+    ? getActiveHotPatchId(options.userDataPath, app.getVersion())
+    : null;
   const installerAvailable = Boolean(
     manifest.installer && compareVersions(manifest.version, app.getVersion()) > 0,
   );
   const hotPatchAvailable = Boolean(
     manifest.hotPatch &&
-      manifest.hotPatch.baseVersion === app.getVersion() &&
-      manifest.hotPatch.id !== activePatchId,
+    manifest.hotPatch.baseVersion === app.getVersion() &&
+    manifest.hotPatch.id !== activePatchId,
   );
   return {
     phase: installerAvailable || hotPatchAvailable ? "available" : "up-to-date",
@@ -230,14 +235,19 @@ async function downloadFile(
   onProgress: (progress: number) => void,
 ): Promise<void> {
   const parsedUrl = new URL(url);
-  const localDevelopmentUrl = parsedUrl.hostname === "127.0.0.1" || parsedUrl.hostname === "localhost";
-  if (parsedUrl.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && localDevelopmentUrl)) {
+  const localDevelopmentUrl =
+    parsedUrl.hostname === "127.0.0.1" || parsedUrl.hostname === "localhost";
+  if (
+    parsedUrl.protocol !== "https:" &&
+    !(process.env.NODE_ENV !== "production" && localDevelopmentUrl)
+  ) {
     throw new Error("更新文件必须通过 HTTPS 下载");
   }
   const response = await net.fetch(url, { method: "GET" });
   if (!response.ok || !response.body) throw new Error(`补丁下载失败: ${response.status}`);
   const finalUrl = resolveFinalDownloadUrl(parsedUrl, response.url);
-  const finalLocalDevelopmentUrl = finalUrl.hostname === "127.0.0.1" || finalUrl.hostname === "localhost";
+  const finalLocalDevelopmentUrl =
+    finalUrl.hostname === "127.0.0.1" || finalUrl.hostname === "localhost";
   if (
     finalUrl.protocol !== "https:" &&
     !(process.env.NODE_ENV !== "production" && finalLocalDevelopmentUrl)
@@ -279,7 +289,12 @@ async function downloadFile(
 async function downloadHotPatch(): Promise<DesktopUpdateState> {
   if (!options || !remoteManifest?.hotPatch) throw new Error("没有可下载的热补丁");
   const descriptor = remoteManifest.hotPatch;
-  const archivePath = path.join(options.userDataPath, "updates", "downloads", `${descriptor.id}.zip`);
+  const archivePath = path.join(
+    options.userDataPath,
+    "updates",
+    "downloads",
+    `${descriptor.id}.zip`,
+  );
   emitState({ phase: "downloading", downloadedKind: undefined, progress: 0, error: undefined });
   await downloadFile(descriptor.url, archivePath, descriptor.size, (progress) => {
     emitState({ phase: "downloading", progress: Math.max(0, Math.min(100, progress)) });

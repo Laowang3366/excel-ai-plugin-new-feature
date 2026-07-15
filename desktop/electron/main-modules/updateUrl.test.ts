@@ -11,9 +11,11 @@ describe("resolveFinalDownloadUrl", () => {
   });
 
   it("uses the final absolute or relative response URL when available", () => {
-    expect(resolveFinalDownloadUrl(requestUrl, "https://cdn.example.com/patch.zip").toString())
-      .toBe("https://cdn.example.com/patch.zip");
-    expect(resolveFinalDownloadUrl(requestUrl, "mirror/patch.zip").toString())
-      .toBe("https://plugin.shelelove.top/releases/windows/mirror/patch.zip");
+    expect(
+      resolveFinalDownloadUrl(requestUrl, "https://cdn.example.com/patch.zip").toString(),
+    ).toBe("https://cdn.example.com/patch.zip");
+    expect(resolveFinalDownloadUrl(requestUrl, "mirror/patch.zip").toString()).toBe(
+      "https://plugin.shelelove.top/releases/windows/mirror/patch.zip",
+    );
   });
 });

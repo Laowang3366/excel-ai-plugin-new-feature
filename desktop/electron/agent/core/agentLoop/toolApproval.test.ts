@@ -32,11 +32,12 @@ describe("toolApproval", () => {
         !tool.isFileDeletion &&
         !tool.isDataEgress &&
         !tool.requiresExplicitApproval
-      ) continue;
+      )
+        continue;
 
       expect(
         shouldRequireApproval(tool.name, "confirm_all"),
-        `${tool.name} must stay fail-closed`
+        `${tool.name} must stay fail-closed`,
       ).toBe(true);
     }
   });
@@ -56,12 +57,17 @@ describe("toolApproval", () => {
   });
 
   it("denies approval when no callback is configured", async () => {
-    await expect(requestToolApproval({
-      toolCallId: "call-1",
-      toolName: "range.write",
-      arguments: { range: "A1" },
-      riskLevel: "moderate",
-    }, { permissionMode: "normal" })).resolves.toEqual({ approved: false });
+    await expect(
+      requestToolApproval(
+        {
+          toolCallId: "call-1",
+          toolName: "range.write",
+          arguments: { range: "A1" },
+          riskLevel: "moderate",
+        },
+        { permissionMode: "normal" },
+      ),
+    ).resolves.toEqual({ approved: false });
   });
 
   it("scopes temporary grants by thread, operation and target file", () => {
@@ -74,18 +80,24 @@ describe("toolApproval", () => {
     expect(markToolAlwaysAllowed("office.action.apply", scope)).toBe(true);
     expect(getAlwaysAllowedTools().has("office.action.apply")).toBe(true);
     expect(shouldRequireApproval("office.action.apply", "normal", scope)).toBe(false);
-    expect(shouldRequireApproval("office.action.apply", "normal", {
-      ...scope,
-      threadId: "thread-2",
-    })).toBe(true);
-    expect(shouldRequireApproval("office.action.apply", "normal", {
-      threadId: "thread-1",
-      arguments: { operation: "format", filePath: "C:\\books\\b.xlsx" },
-    })).toBe(true);
-    expect(shouldRequireApproval("office.action.apply", "normal", {
-      threadId: "thread-1",
-      arguments: { operation: "delete", filePath: "C:\\books\\a.xlsx" },
-    })).toBe(true);
+    expect(
+      shouldRequireApproval("office.action.apply", "normal", {
+        ...scope,
+        threadId: "thread-2",
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequireApproval("office.action.apply", "normal", {
+        threadId: "thread-1",
+        arguments: { operation: "format", filePath: "C:\\books\\b.xlsx" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequireApproval("office.action.apply", "normal", {
+        threadId: "thread-1",
+        arguments: { operation: "delete", filePath: "C:\\books\\a.xlsx" },
+      }),
+    ).toBe(true);
   });
 
   it("does not persist grants without a stable workbook or file identity", () => {
@@ -109,10 +121,12 @@ describe("toolApproval", () => {
       canAlwaysAllow: true,
     };
 
-    await expect(requestToolApproval(request, {
-      permissionMode: "normal",
-      requestToolApproval: callback,
-    })).resolves.toEqual({ approved: true, alwaysAllow: true });
+    await expect(
+      requestToolApproval(request, {
+        permissionMode: "normal",
+        requestToolApproval: callback,
+      }),
+    ).resolves.toEqual({ approved: true, alwaysAllow: true });
     expect(callback).toHaveBeenCalledWith(request);
   });
 });

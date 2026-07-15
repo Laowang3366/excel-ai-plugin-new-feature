@@ -9,7 +9,12 @@
 import type { OfficeActionInput, OfficeActionResult } from "./types";
 
 type ResultBase = Pick<OfficeActionResult, "engine" | "app" | "action" | "operation" | "summary"> &
-  Partial<Pick<OfficeActionResult, "filePath" | "outputPath" | "target" | "changes" | "validation" | "error" | "data">>;
+  Partial<
+    Pick<
+      OfficeActionResult,
+      "filePath" | "outputPath" | "target" | "changes" | "validation" | "error" | "data"
+    >
+  >;
 
 export function doneResult(input: ResultBase): OfficeActionResult {
   return { status: "done", changes: [], ...input };

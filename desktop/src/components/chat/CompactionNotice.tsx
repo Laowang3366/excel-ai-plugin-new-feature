@@ -20,20 +20,21 @@ export const CompactionNotice: React.FC<CompactionNoticeProps> = ({ item, messag
 
   if (dismissed) return null;
 
-  const displayMessage = message || (item?.type === "compact_progress"
-    ? item.message
-    : item
-      ? text.assistant.compactionWithTokens(item.tokensBefore, item.tokensAfter)
-      : text.assistant.compactionAuto);
+  const displayMessage =
+    message ||
+    (item?.type === "compact_progress"
+      ? item.message
+      : item
+        ? text.assistant.compactionWithTokens(item.tokensBefore, item.tokensAfter)
+        : text.assistant.compactionAuto);
 
   return (
     <div className="compaction-notice">
-      <span className="compaction-icon"><Minimize2 size={14} /></span>
+      <span className="compaction-icon">
+        <Minimize2 size={14} />
+      </span>
       <span className="compaction-text">{displayMessage}</span>
-      <button
-        className="compaction-dismiss"
-        onClick={() => setDismissed(true)}
-      >
+      <button className="compaction-dismiss" onClick={() => setDismissed(true)}>
         <X size={12} />
       </button>
     </div>

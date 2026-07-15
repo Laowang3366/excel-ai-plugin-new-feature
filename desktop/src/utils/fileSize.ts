@@ -3,7 +3,10 @@ export interface FormatFileSizeOptions {
   compact?: boolean;
 }
 
-export function formatFileSize(size: number | undefined, options: FormatFileSizeOptions = {}): string {
+export function formatFileSize(
+  size: number | undefined,
+  options: FormatFileSizeOptions = {},
+): string {
   const { emptyText = "0 B", compact = false } = options;
   if (typeof size !== "number" || !Number.isFinite(size) || size < 0) return emptyText;
   if (size < 1024) return `${size} B`;

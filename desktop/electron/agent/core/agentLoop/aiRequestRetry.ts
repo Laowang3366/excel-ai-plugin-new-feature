@@ -50,10 +50,10 @@ export async function runAIRequestWithRetry<T>(params: {
     } catch (error) {
       lastError = error;
       if (
-        attempt >= retryConfig.maxRetries
-        || params.signal?.aborted
-        || !isRetriableAIRequestError(error)
-        || params.canRetry?.(error) === false
+        attempt >= retryConfig.maxRetries ||
+        params.signal?.aborted ||
+        !isRetriableAIRequestError(error) ||
+        params.canRetry?.(error) === false
       ) {
         throw error;
       }
@@ -69,11 +69,7 @@ export function isRetriableAIRequestError(error: unknown): boolean {
 
   const status = getHttpStatus(error);
   if (status !== undefined) {
-    return status === 408
-      || status === 409
-      || status === 425
-      || status === 429
-      || status >= 500;
+    return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
   }
 
   const message = getErrorMessage(error).toLowerCase();
@@ -90,11 +86,10 @@ export function isRetriableAIRequestError(error: unknown): boolean {
 
 function normalizeRetryConfig(
   phase: AIRequestPhase,
-  config?: AIRequestRetryConfig
+  config?: AIRequestRetryConfig,
 ): Required<AIRequestRetryConfig> {
-  const defaults = phase === "compact"
-    ? DEFAULT_COMPACT_RETRY_CONFIG
-    : DEFAULT_SAMPLING_RETRY_CONFIG;
+  const defaults =
+    phase === "compact" ? DEFAULT_COMPACT_RETRY_CONFIG : DEFAULT_SAMPLING_RETRY_CONFIG;
   const maxRetries = Math.max(0, Math.floor(config?.maxRetries ?? defaults.maxRetries));
   const baseDelayMs = Math.max(0, Math.floor(config?.baseDelayMs ?? defaults.baseDelayMs));
   const maxDelayMs = Math.max(baseDelayMs, Math.floor(config?.maxDelayMs ?? defaults.maxDelayMs));
@@ -102,10 +97,7 @@ function normalizeRetryConfig(
   return { maxRetries, baseDelayMs, maxDelayMs, backoffFactor };
 }
 
-function computeDelayMs(
-  attempt: number,
-  config: Required<AIRequestRetryConfig>
-): number {
+function computeDelayMs(attempt: number, config: Required<AIRequestRetryConfig>): number {
   const delay = config.baseDelayMs * Math.pow(config.backoffFactor, attempt);
   return Math.min(config.maxDelayMs, Math.floor(delay));
 }
@@ -114,10 +106,14 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timer);
-      reject(createAbortError());
-    }, { once: true });
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(createAbortError());
+      },
+      { once: true },
+    );
   });
 }
 

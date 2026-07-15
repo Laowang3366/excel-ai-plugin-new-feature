@@ -8,8 +8,7 @@ describe("generateSummary", () => {
       chat: vi.fn().mockResolvedValue({ content: "   " }),
     };
 
-    await expect(generateSummary(aiClient, "历史内容"))
-      .rejects.toThrow("压缩摘要为空");
+    await expect(generateSummary(aiClient, "历史内容")).rejects.toThrow("压缩摘要为空");
   });
 
   it("propagates provider failures without converting them to summary text", async () => {

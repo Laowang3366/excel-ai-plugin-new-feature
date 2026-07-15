@@ -25,8 +25,9 @@ export async function eraseManagedUserData(
 ): Promise<UserDataEraseReport> {
   const root = path.resolve(dataPath);
   await assertSafeDataRoot(root);
-  const removeDirectory = options.removeDirectory ?? ((directory) =>
-    fs.promises.rm(directory, { recursive: true, force: false }));
+  const removeDirectory =
+    options.removeDirectory ??
+    ((directory) => fs.promises.rm(directory, { recursive: true, force: false }));
   const report: UserDataEraseReport = { erasedCategories: [], errors: [] };
 
   for (const category of MANAGED_DATA_DIRECTORIES) {

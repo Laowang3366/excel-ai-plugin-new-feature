@@ -31,9 +31,15 @@ if (sha256.toLowerCase() !== manifest.installer.sha256.toLowerCase()) {
   throw new Error("安装包 SHA-256 与更新清单不一致");
 }
 
-console.log(JSON.stringify({
-  version: manifest.version,
-  artifact: path.basename(artifactPath),
-  size: stat.size,
-  sha256,
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      version: manifest.version,
+      artifact: path.basename(artifactPath),
+      size: stat.size,
+      sha256,
+    },
+    null,
+    2,
+  ),
+);

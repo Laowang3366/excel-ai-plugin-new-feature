@@ -26,7 +26,11 @@ import {
 import { MAX_WINDOW_OPACITY, normalizeWindowOpacity } from "./settingsValues";
 
 export { API_FORMATS, PROVIDER_TEMPLATES } from "./settingsProviderTemplates";
-export type { ProviderCategory, ProviderTemplate, ReasoningOption } from "./settingsProviderTemplates";
+export type {
+  ProviderCategory,
+  ProviderTemplate,
+  ReasoningOption,
+} from "./settingsProviderTemplates";
 export { MAX_WINDOW_OPACITY, MIN_WINDOW_OPACITY, normalizeWindowOpacity } from "./settingsValues";
 
 /** 固定的文件夹 */
@@ -160,7 +164,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
 
   loadSettings: async () => {
     try {
-      const allSettings = await ipcApi.settings.getAll() as Record<string, any>;
+      const allSettings = (await ipcApi.settings.getAll()) as Record<string, any>;
       const loaded = buildLoadedSettingsState(allSettings);
 
       set({
@@ -168,7 +172,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
         isLoading: false,
         isConfigured: checkProviderConfigured(
           loaded.patch.providers ?? get().providers,
-          loaded.patch.activeProviderId ?? get().activeProviderId
+          loaded.patch.activeProviderId ?? get().activeProviderId,
         ),
       });
       if (loaded.migratedProviders) {
@@ -303,9 +307,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   updatePinnedFolder: (folderPath: string, patch: Partial<PinnedFolder>) => {
     const { pinnedFolders } = get();
     set({
-      pinnedFolders: pinnedFolders.map((f) =>
-        f.path === folderPath ? { ...f, ...patch } : f
-      ),
+      pinnedFolders: pinnedFolders.map((f) => (f.path === folderPath ? { ...f, ...patch } : f)),
     });
     savePartial(["pinnedFolders"], get);
   },

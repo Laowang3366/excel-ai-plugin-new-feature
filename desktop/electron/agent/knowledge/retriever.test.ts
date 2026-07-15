@@ -24,7 +24,10 @@ function entry(overrides: Partial<KnowledgeEntry> = {}): KnowledgeEntry {
   };
 }
 
-function createHarness(options?: { vectorResults?: KnowledgeResult[]; keywordResults?: KnowledgeEntry[] }) {
+function createHarness(options?: {
+  vectorResults?: KnowledgeResult[];
+  keywordResults?: KnowledgeEntry[];
+}) {
   const vectorResults = options?.vectorResults ?? [
     { entry: entry({ id: "vector-1", content: "Dynamic array formula guide" }), score: 0.92 },
   ];
@@ -48,7 +51,7 @@ function createHarness(options?: { vectorResults?: KnowledgeResult[]; keywordRes
   const retriever = new Retriever(
     store as unknown as SqliteStore,
     embedder as unknown as EmbeddingService,
-    { candidateCount: 20, defaultTopK: 2, minScore: 0.2 }
+    { candidateCount: 20, defaultTopK: 2, minScore: 0.2 },
   );
 
   return { retriever, store, embedder };
@@ -65,19 +68,15 @@ describe("Retriever", () => {
       pathFilter: ["/knowledge/formula.md"],
     });
 
-    expect(store.searchByVector).toHaveBeenCalledWith(
-      [1, 0, 0],
-      20,
-      {
-        embeddingProfile: {
-          provider: "openai",
-          model: "text-embedding-3-small",
-          dimensions: 3,
-        },
-        sourceFilter: ["document"],
-        pathFilter: ["/knowledge/formula.md"],
-      }
-    );
+    expect(store.searchByVector).toHaveBeenCalledWith([1, 0, 0], 20, {
+      embeddingProfile: {
+        provider: "openai",
+        model: "text-embedding-3-small",
+        dimensions: 3,
+      },
+      sourceFilter: ["document"],
+      pathFilter: ["/knowledge/formula.md"],
+    });
   });
 
   it("filters low vector scores before applying topK", async () => {
@@ -108,7 +107,7 @@ describe("Retriever", () => {
     expect(store.searchByKeyword).toHaveBeenCalledWith(
       expect.arrayContaining(["dynamic array formula", "dynamic", "array", "formula"]),
       2,
-      { sourceFilter: ["document"], pathFilter: undefined }
+      { sourceFilter: ["document"], pathFilter: undefined },
     );
     expect(results).toEqual([{ entry: expect.objectContaining({ id: "keyword-1" }), score: 0 }]);
   });

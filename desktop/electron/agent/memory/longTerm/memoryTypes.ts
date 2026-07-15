@@ -56,9 +56,7 @@ export function normalizeMemoryWriteInput(
   const content = normalizeUserMemoryText(input.content, "记忆内容");
   if (!content) throw new Error("记忆内容不能为空");
   if (content.length > 1000) throw new Error("记忆内容不能超过 1000 字");
-  const summary = input.summary
-    ? normalizeUserMemoryText(input.summary, "记忆摘要")
-    : undefined;
+  const summary = input.summary ? normalizeUserMemoryText(input.summary, "记忆摘要") : undefined;
   const namespace = normalizeNamespace(input.namespace);
   if (input.kind === "tool_success_profile" && input.source !== "telemetry") {
     throw new Error("tool_success_profile 只能由内部遥测写入");
@@ -90,9 +88,15 @@ function normalizeUserMemoryText(value: string, label: string): string {
     throw new Error(`${label}必须是单行纯文本`);
   }
   if (
-    /```|<\/?(?:system|assistant|user|tool)\b|\[(?:system|assistant|user|tool)\]|^\s*#{1,6}\s/i.test(normalized)
-    || /ignore\s+(?:all\s+)?previous\s+instructions|you\s+are\s+now|bypass\s+(?:approval|policy)/i.test(normalized)
-    || /忽略(?:以上|之前|先前)(?:所有)?(?:指令|提示)|绕过(?:审批|策略)|关闭(?:审批|安全策略)/.test(normalized)
+    /```|<\/?(?:system|assistant|user|tool)\b|\[(?:system|assistant|user|tool)\]|^\s*#{1,6}\s/i.test(
+      normalized,
+    ) ||
+    /ignore\s+(?:all\s+)?previous\s+instructions|you\s+are\s+now|bypass\s+(?:approval|policy)/i.test(
+      normalized,
+    ) ||
+    /忽略(?:以上|之前|先前)(?:所有)?(?:指令|提示)|绕过(?:审批|策略)|关闭(?:审批|安全策略)/.test(
+      normalized,
+    )
   ) {
     throw new Error(`${label}包含不允许的指令或角色标记`);
   }

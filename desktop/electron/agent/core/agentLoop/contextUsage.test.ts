@@ -52,15 +52,13 @@ describe("contextUsage prompt history helpers", () => {
     });
 
     expect(items.map((item) => item.id)).toEqual(["compact", "completed", "active"]);
-    expect(collectPromptTurnItemGroups({
-      activeThread: createThread([completedTurn]),
-      activeTurn,
-      compactedHistory: compacted,
-    }).map((group) => group.map((item) => item.id))).toEqual([
-      ["compact"],
-      ["completed"],
-      ["active"],
-    ]);
+    expect(
+      collectPromptTurnItemGroups({
+        activeThread: createThread([completedTurn]),
+        activeTurn,
+        compactedHistory: compacted,
+      }).map((group) => group.map((item) => item.id)),
+    ).toEqual([["compact"], ["completed"], ["active"]]);
   });
 
   it("builds bounded context usage payload from prompt groups", () => {

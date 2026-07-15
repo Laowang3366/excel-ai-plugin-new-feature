@@ -1,20 +1,8 @@
 import type { createAIClient } from "../../providers/aiClient";
-import type {
-  AgentTurnCallbacks,
-  Thread,
-  Turn,
-  TurnItem,
-} from "../../shared/types";
+import type { AgentTurnCallbacks, Thread, Turn, TurnItem } from "../../shared/types";
 import { mergeTokenUsage } from "../../shared/types";
-import {
-  collectStreamEvents,
-  type StreamParams,
-  type StreamResult,
-} from "./streamCollector";
-import {
-  runAIRequestWithRetry,
-  type AIRequestRetryConfig,
-} from "./aiRequestRetry";
+import { collectStreamEvents, type StreamParams, type StreamResult } from "./streamCollector";
+import { runAIRequestWithRetry, type AIRequestRetryConfig } from "./aiRequestRetry";
 
 type AIClient = ReturnType<typeof createAIClient>;
 type StreamResultWithErrorItem = StreamResult & { errorItem?: TurnItem };
@@ -47,11 +35,8 @@ export async function collectRoundStream(input: {
     config: input.retryConfig,
     signal: input.signal,
     canRetry: () => !hasVisibleOutput,
-    operation: () => collectStreamEvents(
-      input.aiClient.streamChat(input.streamParams),
-      callbacks,
-      input.round
-    ),
+    operation: () =>
+      collectStreamEvents(input.aiClient.streamChat(input.streamParams), callbacks, input.round),
   });
 }
 

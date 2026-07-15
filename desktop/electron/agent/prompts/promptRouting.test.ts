@@ -33,32 +33,40 @@ describe("resolvePromptScenarios", () => {
   });
 
   it("loads the macro workflow only for persistent macro tasks", () => {
-    expect(resolvePromptScenarios({ content: "在 Excel 工作表创建 VBA 宏并绑定按钮" })).toEqual(new Set(["macro"]));
+    expect(resolvePromptScenarios({ content: "在 Excel 工作表创建 VBA 宏并绑定按钮" })).toEqual(
+      new Set(["macro"]),
+    );
     expect(resolvePromptScenarios({ content: "运行现有宏" })).toContain("macro");
-    expect(resolvePromptScenarios({ content: "把几个单元格作为控制按钮，点击按钮切换基础数据" })).toContain("macro");
+    expect(
+      resolvePromptScenarios({ content: "把几个单元格作为控制按钮，点击按钮切换基础数据" }),
+    ).toContain("macro");
     expect(resolvePromptScenarios({ content: "用脚本临时整理文件" })).not.toContain("macro");
   });
 });
 
 describe("resolveOfficeAdvancedIntents", () => {
   it("does not upgrade ordinary Excel edits or generic queries", () => {
-    expect(resolveOfficeAdvancedIntents({ content: "把 A1:C20 写入数据并做固定汇总" }))
-      .toEqual(new Set());
-    expect(resolveOfficeAdvancedIntents({ content: "查询表格数据后整理结果" }))
-      .toEqual(new Set());
+    expect(resolveOfficeAdvancedIntents({ content: "把 A1:C20 写入数据并做固定汇总" })).toEqual(
+      new Set(),
+    );
+    expect(resolveOfficeAdvancedIntents({ content: "查询表格数据后整理结果" })).toEqual(new Set());
   });
 
   it("recognizes explicit refreshable ETL requests", () => {
-    expect(resolveOfficeAdvancedIntents({ content: "用 Power Query 合并三个外部 CSV" }))
-      .toEqual(new Set(["refreshable-etl"]));
-    expect(resolveOfficeAdvancedIntents({ content: "建立多数据源可刷新的 ETL" }))
-      .toEqual(new Set(["refreshable-etl"]));
-    expect(resolveOfficeAdvancedIntents({ content: "refresh external sources with ETL" }))
-      .toEqual(new Set(["refreshable-etl"]));
+    expect(resolveOfficeAdvancedIntents({ content: "用 Power Query 合并三个外部 CSV" })).toEqual(
+      new Set(["refreshable-etl"]),
+    );
+    expect(resolveOfficeAdvancedIntents({ content: "建立多数据源可刷新的 ETL" })).toEqual(
+      new Set(["refreshable-etl"]),
+    );
+    expect(resolveOfficeAdvancedIntents({ content: "refresh external sources with ETL" })).toEqual(
+      new Set(["refreshable-etl"]),
+    );
   });
 
   it("recognizes explicit interactive pivot requests", () => {
-    expect(resolveOfficeAdvancedIntents({ content: "创建数据透视表并添加切片器" }))
-      .toEqual(new Set(["interactive-pivot"]));
+    expect(resolveOfficeAdvancedIntents({ content: "创建数据透视表并添加切片器" })).toEqual(
+      new Set(["interactive-pivot"]),
+    );
   });
 });

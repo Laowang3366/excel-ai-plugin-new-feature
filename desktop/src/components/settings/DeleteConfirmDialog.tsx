@@ -30,7 +30,11 @@ export interface DeleteConfirmDialogProps {
 // 组件实现
 // ============================================================
 
-export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({ name, onConfirm, onCancel }) => {
+export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
+  name,
+  onConfirm,
+  onCancel,
+}) => {
   const { language } = useSettingsStore();
   const text = MODEL_TEXT[language];
 
@@ -39,14 +43,20 @@ export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({ name, 
       <div className="dialog delete-confirm-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h3>{text.deleteTitle}</h3>
-          <button className="dialog-close" onClick={onCancel}><X size={16} /></button>
+          <button className="dialog-close" onClick={onCancel}>
+            <X size={16} />
+          </button>
         </div>
         <div className="dialog-body">
           <p>{text.deleteMessage(name)}</p>
         </div>
         <div className="dialog-actions">
-          <button className="btn-secondary" onClick={onCancel}>{text.cancel}</button>
-          <button className="btn-danger" onClick={onConfirm}>{text.delete}</button>
+          <button className="btn-secondary" onClick={onCancel}>
+            {text.cancel}
+          </button>
+          <button className="btn-danger" onClick={onConfirm}>
+            {text.delete}
+          </button>
         </div>
       </div>
     </div>

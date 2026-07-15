@@ -68,26 +68,34 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
     pointerEvent: "mousedown",
   });
 
-  const actions = useMemo(() => ([
-    { id: "newThread", label: text.sidebar.newThread },
-    { id: "addFolder", label: text.sidebar.addFolder },
-    { id: "settings", label: text.sidebar.settings },
-  ]), [text]);
+  const actions = useMemo(
+    () => [
+      { id: "newThread", label: text.sidebar.newThread },
+      { id: "addFolder", label: text.sidebar.addFolder },
+      { id: "settings", label: text.sidebar.settings },
+    ],
+    [text],
+  );
 
-  const results = useMemo(() => buildSidebarSearchResults({
-    query,
-    threads,
-    folders,
-    folderFiles,
-    actions,
-  }), [actions, folderFiles, folders, query, threads]);
+  const results = useMemo(
+    () =>
+      buildSidebarSearchResults({
+        query,
+        threads,
+        folders,
+        folderFiles,
+        actions,
+      }),
+    [actions, folderFiles, folders, query, threads],
+  );
 
   if (!open) return null;
 
   const showThreads = tab === "all" || tab === "threads";
   const showFiles = tab === "all" || tab === "files";
   const showActions = tab === "all" || tab === "actions";
-  const hasResults = results.threads.length > 0 || results.files.length > 0 || results.actions.length > 0;
+  const hasResults =
+    results.threads.length > 0 || results.files.length > 0 || results.actions.length > 0;
 
   const runAction = (id: string) => {
     if (id === "newThread") onCreateNewThread();
@@ -98,7 +106,11 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
 
   return (
     <div className="sidebar-search-overlay">
-      <div className="sidebar-search-palette" ref={cardRef} onClick={(event) => event.stopPropagation()}>
+      <div
+        className="sidebar-search-palette"
+        ref={cardRef}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="sidebar-search-header">
           <div className="sidebar-search-input-row">
             <Search size={18} />
@@ -121,12 +133,14 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
         </div>
 
         <div className="sidebar-search-tabs">
-          {([
-            ["all", text.sidebar.searchAll],
-            ["threads", text.sidebar.searchThreads],
-            ["files", text.sidebar.searchFiles],
-            ["actions", text.sidebar.searchActions],
-          ] as const).map(([key, label]) => (
+          {(
+            [
+              ["all", text.sidebar.searchAll],
+              ["threads", text.sidebar.searchThreads],
+              ["files", text.sidebar.searchFiles],
+              ["actions", text.sidebar.searchActions],
+            ] as const
+          ).map(([key, label]) => (
             <button
               key={key}
               className={`sidebar-search-tab${tab === key ? " active" : ""}`}
@@ -152,10 +166,16 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
                 >
                   <MessageSquare size={16} />
                   <span className="sidebar-search-result-main">
-                    <span className="sidebar-search-result-title">{thread.name || thread.preview || text.chat.newChat}</span>
-                    {folder && <span className="sidebar-search-result-subtitle">{folder.name}</span>}
+                    <span className="sidebar-search-result-title">
+                      {thread.name || thread.preview || text.chat.newChat}
+                    </span>
+                    {folder && (
+                      <span className="sidebar-search-result-subtitle">{folder.name}</span>
+                    )}
                   </span>
-                  <span className="sidebar-search-result-meta">{formatTime(thread.updatedAt, language)}</span>
+                  <span className="sidebar-search-result-meta">
+                    {formatTime(thread.updatedAt, language)}
+                  </span>
                 </button>
               ))}
             </section>
@@ -187,7 +207,12 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
             <section className="sidebar-search-section">
               <div className="sidebar-search-section-title">{text.sidebar.searchActions}</div>
               {results.actions.map((action) => {
-                const Icon = action.id === "newThread" ? PenLine : action.id === "addFolder" ? FolderOpen : Settings;
+                const Icon =
+                  action.id === "newThread"
+                    ? PenLine
+                    : action.id === "addFolder"
+                      ? FolderOpen
+                      : Settings;
                 return (
                   <button
                     key={action.id}
@@ -204,7 +229,9 @@ export const SidebarSearchPalette: React.FC<SidebarSearchPaletteProps> = ({
             </section>
           )}
 
-          {!hasResults && <div className="sidebar-search-empty">{text.sidebar.noSearchResults}</div>}
+          {!hasResults && (
+            <div className="sidebar-search-empty">{text.sidebar.noSearchResults}</div>
+          )}
         </div>
       </div>
     </div>

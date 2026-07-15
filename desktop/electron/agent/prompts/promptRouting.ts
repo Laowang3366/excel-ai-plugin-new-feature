@@ -1,4 +1,5 @@
-export type PromptScenario = "formula" | "ocr-invoice" | "office-tools" | "general-office" | "macro";
+export type PromptScenario =
+  "formula" | "ocr-invoice" | "office-tools" | "general-office" | "macro";
 
 export interface PromptAttachment {
   fileName?: string;
@@ -72,11 +73,12 @@ export function resolvePromptScenarios(context: PromptRoutingContext): Set<Promp
 
   if (!isFormula) {
     if (
-      !isMacro && (moduleName.includes("代码") ||
-      moduleName.includes("报告") ||
-      advancedOfficeIntents.size > 0 ||
-      OFFICE_INTENT_PATTERN.test(content) ||
-      context.attachments?.some(isOfficeAttachment))
+      !isMacro &&
+      (moduleName.includes("代码") ||
+        moduleName.includes("报告") ||
+        advancedOfficeIntents.size > 0 ||
+        OFFICE_INTENT_PATTERN.test(content) ||
+        context.attachments?.some(isOfficeAttachment))
     ) {
       scenarios.add("office-tools");
     }
@@ -94,7 +96,10 @@ function getAttachmentName(attachment: PromptAttachment): string {
 }
 
 function isImageOrPdfAttachment(attachment: PromptAttachment): boolean {
-  return attachment.fileType === "image" || IMAGE_OR_PDF_ATTACHMENT_PATTERN.test(getAttachmentName(attachment));
+  return (
+    attachment.fileType === "image" ||
+    IMAGE_OR_PDF_ATTACHMENT_PATTERN.test(getAttachmentName(attachment))
+  );
 }
 
 function isOfficeAttachment(attachment: PromptAttachment): boolean {

@@ -53,7 +53,8 @@ export const KNOWLEDGE_TEXT = {
     title: "Knowledge Base",
     desc: "Manage local knowledge base that provides workbook structure, field meanings, and other context to the AI assistant.",
     enableTitle: "Enable Knowledge Base",
-    enableHint: "When enabled, the AI automatically retrieves relevant knowledge and injects it into conversation context.",
+    enableHint:
+      "When enabled, the AI automatically retrieves relevant knowledge and injects it into conversation context.",
     sourcesTitle: "Knowledge Sources",
     sourcesDesc: "Indexed files that the AI references during conversations.",
     noSources: "No knowledge sources yet. Click below to add files or folders.",
@@ -112,7 +113,10 @@ export function formatKnowledgeFolderIndexSuccess(
     .replace("{count}", String(count));
 }
 
-export function formatKnowledgeTime(timestamp: number, language: KnowledgeSettingsLanguage): string {
+export function formatKnowledgeTime(
+  timestamp: number,
+  language: KnowledgeSettingsLanguage,
+): string {
   return new Date(timestamp).toLocaleString(language === "zh-CN" ? "zh-CN" : "en-US");
 }
 

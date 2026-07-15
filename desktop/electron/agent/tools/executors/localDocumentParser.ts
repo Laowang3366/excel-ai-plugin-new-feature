@@ -22,7 +22,15 @@ export interface LocalParsedDocument {
 }
 
 const TEXT_EXTENSIONS = new Set([".txt", ".md", ".csv"]);
-const KNOWLEDGE_PARSER_EXTENSIONS = new Set([".xlsx", ".xlsm", ".docx", ".pptx", ".csv", ".md", ".txt"]);
+const KNOWLEDGE_PARSER_EXTENSIONS = new Set([
+  ".xlsx",
+  ".xlsm",
+  ".docx",
+  ".pptx",
+  ".csv",
+  ".md",
+  ".txt",
+]);
 const LOCAL_UNSUPPORTED_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -80,18 +88,22 @@ async function parseFileLocally(filePath: string): Promise<LocalParsedDocument> 
 async function parseWithKnowledgeParser(
   filePath: string,
   filename: string,
-  ext: string
+  ext: string,
 ): Promise<LocalParsedDocument> {
   try {
     const parser = new DocumentParser();
     const chunks = await parser.parseAsync(filePath);
-    const text = chunks.map((chunk) => {
-      const title = chunk.metadata.sheetName
-        ? `### ${chunk.metadata.sheetName}`
-        : `### ${chunk.sourceName}`;
-      return `${title}\n${chunk.content}`;
-    }).join("\n\n");
-    const rows = chunks.flatMap((chunk) => chunk.metadata.rows ?? extractRowsFromChunk(chunk.content));
+    const text = chunks
+      .map((chunk) => {
+        const title = chunk.metadata.sheetName
+          ? `### ${chunk.metadata.sheetName}`
+          : `### ${chunk.sourceName}`;
+        return `${title}\n${chunk.content}`;
+      })
+      .join("\n\n");
+    const rows = chunks.flatMap(
+      (chunk) => chunk.metadata.rows ?? extractRowsFromChunk(chunk.content),
+    );
     const warnings: string[] = [];
     if (!text.trim()) {
       warnings.push(`${filename}: 本地解析未提取到可用文本。`);
@@ -125,7 +137,7 @@ function parsePlainTextFallback(
   filePath: string,
   filename: string,
   ext: string,
-  originalError: unknown
+  originalError: unknown,
 ): LocalParsedDocument {
   try {
     const text = fs.readFileSync(filePath, "utf8");

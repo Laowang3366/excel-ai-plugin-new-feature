@@ -7,7 +7,9 @@ interface ProviderStateInput {
   activeProviderId: string;
 }
 
-export function getProviderTemplate(provider: Pick<AiProviderConfig, "provider">): ProviderTemplate | undefined {
+export function getProviderTemplate(
+  provider: Pick<AiProviderConfig, "provider">,
+): ProviderTemplate | undefined {
   return PROVIDER_TEMPLATES.find((template) => template.provider === provider.provider);
 }
 
@@ -32,7 +34,10 @@ export function buildUpdatedProviderState(
   id: string,
   patch: Partial<AiProviderConfig>,
 ): ProviderStateInput & { isConfigured: boolean } {
-  const nextProvider = normalizeProviderConfig({ ...state.providers[id], ...patch } as AiProviderConfig);
+  const nextProvider = normalizeProviderConfig({
+    ...state.providers[id],
+    ...patch,
+  } as AiProviderConfig);
   const providers = {
     ...state.providers,
     [id]: nextProvider,
@@ -69,9 +74,12 @@ export function buildRemovedProviderState(
 ): ProviderStateInput & { isConfigured: boolean } {
   const { [id]: _removed, ...providers } = state.providers;
   const remainingIds = Object.keys(providers);
-  const activeProviderId = state.activeProviderId === id
-    ? (remainingIds.length > 0 ? remainingIds[0] : "")
-    : state.activeProviderId;
+  const activeProviderId =
+    state.activeProviderId === id
+      ? remainingIds.length > 0
+        ? remainingIds[0]
+        : ""
+      : state.activeProviderId;
 
   return {
     providers,

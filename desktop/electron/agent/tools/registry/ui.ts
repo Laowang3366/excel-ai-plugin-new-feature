@@ -9,14 +9,26 @@ import type { ToolDefinition } from "../../shared/types";
 /** 添加工作表控件 */
 const UI_ADD_CONTROL_DEF: ToolDefinition = {
   name: "ui.addControl",
-  description: "在工作表上创建或更新控件。button 使用支持 OnAction 和 Application.Caller 的窗体按钮，并在创建后回读校验宏绑定；其余类型使用 ActiveX。需要点击回调时必须使用 button，并先用 macro.write(language=vba) 安装宏",
+  description:
+    "在工作表上创建或更新控件。button 使用支持 OnAction 和 Application.Caller 的窗体按钮，并在创建后回读校验宏绑定；其余类型使用 ActiveX。需要点击回调时必须使用 button，并先用 macro.write(language=vba) 安装宏",
   parameters: {
     type: "object",
     properties: {
       sheetName: { type: "string", description: "工作表名称" },
       controlType: {
         type: "string",
-        enum: ["button", "dropdown", "checkbox", "listbox", "spinner", "scrollbar", "label", "textbox", "optionbutton", "groupbox"],
+        enum: [
+          "button",
+          "dropdown",
+          "checkbox",
+          "listbox",
+          "spinner",
+          "scrollbar",
+          "label",
+          "textbox",
+          "optionbutton",
+          "groupbox",
+        ],
         description: "控件类型",
       },
       name: { type: "string", description: "控件名称" },
@@ -25,7 +37,10 @@ const UI_ADD_CONTROL_DEF: ToolDefinition = {
       width: { type: "number", description: "宽度(磅)" },
       height: { type: "number", description: "高度(磅)" },
       caption: { type: "string", description: "显示文本" },
-      macroName: { type: "string", description: "button 点击时执行的 VBA 宏，建议写为 模块名.入口名；仅 button 支持" },
+      macroName: {
+        type: "string",
+        description: "button 点击时执行的 VBA 宏，建议写为 模块名.入口名；仅 button 支持",
+      },
       linkedCell: { type: "string", description: "链接单元格（如 A1，控件值变化时写入该单元格）" },
     },
     required: ["sheetName", "controlType", "name", "left", "top", "width", "height"],
@@ -54,7 +69,8 @@ const UI_REMOVE_CONTROL_DEF: ToolDefinition = {
 /** 列出工作表控件 */
 const UI_LIST_CONTROLS_DEF: ToolDefinition = {
   name: "ui.listControls",
-  description: "列出工作表上的窗体按钮和 ActiveX 控件，返回名称、类型、位置及按钮 OnAction。创建按钮后必须调用本工具确认宏绑定",
+  description:
+    "列出工作表上的窗体按钮和 ActiveX 控件，返回名称、类型、位置及按钮 OnAction。创建按钮后必须调用本工具确认宏绑定",
   parameters: {
     type: "object",
     properties: {
@@ -69,7 +85,8 @@ const UI_LIST_CONTROLS_DEF: ToolDefinition = {
 /** 创建 UserForm 窗体 */
 const UI_CREATE_FORM_DEF: ToolDefinition = {
   name: "ui.createForm",
-  description: "创建 VBA UserForm 窗体，可添加按钮、文本框、标签等控件并绑定事件处理代码。用于创建交互式对话框、数据录入窗体、设置面板等",
+  description:
+    "创建 VBA UserForm 窗体，可添加按钮、文本框、标签等控件并绑定事件处理代码。用于创建交互式对话框、数据录入窗体、设置面板等",
   parameters: {
     type: "object",
     properties: {
@@ -83,7 +100,11 @@ const UI_CREATE_FORM_DEF: ToolDefinition = {
         items: {
           type: "object",
           properties: {
-            type: { type: "string", description: "控件类型: CommandButton/TextBox/Label/ComboBox/ListBox/CheckBox/OptionButton/Frame" },
+            type: {
+              type: "string",
+              description:
+                "控件类型: CommandButton/TextBox/Label/ComboBox/ListBox/CheckBox/OptionButton/Frame",
+            },
             name: { type: "string", description: "控件名称" },
             caption: { type: "string", description: "显示文本" },
             left: { type: "number", description: "左边距" },
@@ -105,11 +126,16 @@ const UI_CREATE_FORM_DEF: ToolDefinition = {
 /** 添加自定义菜单项 */
 const UI_ADD_MENU_DEF: ToolDefinition = {
   name: "ui.addMenu",
-  description: "在 Excel 菜单栏、右键菜单或工具栏中添加自定义菜单项，点击时执行指定宏。用于创建快捷操作入口、自定义工具菜单",
+  description:
+    "在 Excel 菜单栏、右键菜单或工具栏中添加自定义菜单项，点击时执行指定宏。用于创建快捷操作入口、自定义工具菜单",
   parameters: {
     type: "object",
     properties: {
-      menuBar: { type: "string", enum: ["worksheet", "cell", "toolbar"], description: "菜单位置：worksheet(工作表菜单栏)、cell(单元格右键菜单)、toolbar(工具栏)" },
+      menuBar: {
+        type: "string",
+        enum: ["worksheet", "cell", "toolbar"],
+        description: "菜单位置：worksheet(工作表菜单栏)、cell(单元格右键菜单)、toolbar(工具栏)",
+      },
       caption: { type: "string", description: "菜单项显示文本" },
       macroName: { type: "string", description: "点击时执行的宏名称" },
       beforeId: { type: "number", description: "插入位置（可选）" },

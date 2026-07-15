@@ -25,7 +25,9 @@ export async function startCompactionProgress(input: {
   const tokensBefore = estimateItemsTokens(items);
   const retryCount = Math.max(
     0,
-    Math.floor(compactionConfig.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount ?? 0)
+    Math.floor(
+      compactionConfig.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount ?? 0,
+    ),
   );
   const timestamp = Date.now();
   const progress: CompactProgressItem = {
@@ -130,6 +132,11 @@ export async function archiveRolloutIfConfigured(input: {
       minBytes: input.threshold,
     });
   } catch (error) {
-    compactionLogger.warn("压缩冷 rollout JSONL 失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
+    compactionLogger.warn(
+      "压缩冷 rollout JSONL 失败",
+      error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { error: String(error) },
+    );
   }
 }

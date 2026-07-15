@@ -13,7 +13,7 @@ interface TurnActionContext {
 
 function removeThreadFlag(
   flags: Record<string, boolean>,
-  threadId: string | null
+  threadId: string | null,
 ): Record<string, boolean> {
   if (!threadId) return flags;
   return Object.fromEntries(Object.entries(flags).filter(([id]) => id !== threadId));
@@ -22,7 +22,7 @@ function removeThreadFlag(
 function markThreadStopped(
   threads: ThreadMetadata[],
   threadId: string | null,
-  status: "interrupted" | "failed" | "completed" = "interrupted"
+  status: "interrupted" | "failed" | "completed" = "interrupted",
 ): ThreadMetadata[] {
   if (!threadId) return threads;
   return threads.map((thread) =>
@@ -33,7 +33,7 @@ function markThreadStopped(
           lastTurnStatus: status,
           updatedAt: Date.now(),
         }
-      : thread
+      : thread,
   );
 }
 
@@ -50,7 +50,7 @@ function createClientId(): string {
 export async function sendMessageAction(
   { set, get }: TurnActionContext,
   content: string,
-  attachments?: FileAttachment[]
+  attachments?: FileAttachment[],
 ) {
   const state = get();
   const clientId = createClientId();
@@ -135,7 +135,7 @@ export async function sendMessageAction(
 export async function resumeFromInterruptionAction(
   { set, get }: TurnActionContext,
   content: string,
-  attachments?: FileAttachment[]
+  attachments?: FileAttachment[],
 ) {
   const clientId = createClientId();
   const threadReady = await ensureAgentThread(get().activeThreadId);
@@ -188,13 +188,12 @@ export async function interruptTurnAction({ set, get }: TurnActionContext) {
 
   try {
     const result = await ipcApi.agent.interrupt(activeThreadId);
-    const isAlreadyStopped =
-      !result.success && result.error === "没有正在运行的 Agent";
+    const isAlreadyStopped = !result.success && result.error === "没有正在运行的 Agent";
     if (!result.success && !isAlreadyStopped) {
       set((state) => ({
         pendingInterruptThreadIds: removeThreadFlag(
           state.pendingInterruptThreadIds,
-          activeThreadId
+          activeThreadId,
         ),
         error: "停止当前任务失败，请稍后重试",
       }));
@@ -202,10 +201,7 @@ export async function interruptTurnAction({ set, get }: TurnActionContext) {
     }
   } catch {
     set((state) => ({
-      pendingInterruptThreadIds: removeThreadFlag(
-        state.pendingInterruptThreadIds,
-        activeThreadId
-      ),
+      pendingInterruptThreadIds: removeThreadFlag(state.pendingInterruptThreadIds, activeThreadId),
       error: "停止当前任务失败，请稍后重试",
     }));
     return;
@@ -214,10 +210,7 @@ export async function interruptTurnAction({ set, get }: TurnActionContext) {
   set((state) => {
     const threadStatePatch = {
       runningThreadIds: removeThreadFlag(state.runningThreadIds, activeThreadId),
-      pendingInterruptThreadIds: removeThreadFlag(
-        state.pendingInterruptThreadIds,
-        activeThreadId
-      ),
+      pendingInterruptThreadIds: removeThreadFlag(state.pendingInterruptThreadIds, activeThreadId),
       stoppedThreadIds: activeThreadId
         ? { ...state.stoppedThreadIds, [activeThreadId]: true }
         : state.stoppedThreadIds,

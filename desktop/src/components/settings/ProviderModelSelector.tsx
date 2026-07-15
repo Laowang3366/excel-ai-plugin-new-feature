@@ -56,26 +56,21 @@ export const ProviderModelSelector: React.FC<ProviderModelSelectorProps> = ({
     );
   }
 
-  const optionValues = kind === "aggregation"
-    ? modelConfigs.map((modelConfig) => modelConfig.name)
-    : modelOptions;
+  const optionValues =
+    kind === "aggregation" ? modelConfigs.map((modelConfig) => modelConfig.name) : modelOptions;
   const shouldPreserveCurrentValue =
     preserveCurrentValue && value.length > 0 && !optionValues.includes(value);
 
   return (
     <div className="model-select-wrapper">
-      <select
-        className="form-input model-select"
-        value={value}
-        onChange={handleChange}
-      >
+      <select className="form-input model-select" value={value} onChange={handleChange}>
         {showEmptyOption && renderNoModelOption(noModelLabel)}
         {optionValues.map((modelName) => (
-          <option key={modelName} value={modelName}>{modelName}</option>
+          <option key={modelName} value={modelName}>
+            {modelName}
+          </option>
         ))}
-        {shouldPreserveCurrentValue && (
-          <option value={value}>{value}</option>
-        )}
+        {shouldPreserveCurrentValue && <option value={value}>{value}</option>}
       </select>
       <ChevronDown size={14} className="select-arrow" />
     </div>

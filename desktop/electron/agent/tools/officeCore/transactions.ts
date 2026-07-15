@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 
 export interface OfficeBackupRecord {
@@ -42,12 +51,19 @@ export async function createOfficeBackup(input: {
     size: sourceStat.size,
   };
   await copyFile(source, backupPath);
-  await writeFile(path.join(input.backupRoot, `${id}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  await writeFile(
+    path.join(input.backupRoot, `${id}.json`),
+    `${JSON.stringify(record, null, 2)}\n`,
+    "utf8",
+  );
   await pruneOfficeBackups(input.backupRoot, { protectedIds: [id] });
   return record;
 }
 
-export async function listOfficeBackups(backupRoot: string, sourcePath?: string): Promise<OfficeBackupRecord[]> {
+export async function listOfficeBackups(
+  backupRoot: string,
+  sourcePath?: string,
+): Promise<OfficeBackupRecord[]> {
   let names: string[];
   try {
     names = await readdir(backupRoot);
@@ -56,16 +72,24 @@ export async function listOfficeBackups(backupRoot: string, sourcePath?: string)
   }
   const normalizedSource = sourcePath ? path.resolve(sourcePath) : undefined;
   const root = path.resolve(backupRoot);
-  const records = await Promise.all(names.filter((name) => name.endsWith(".json")).map(async (name) => {
-    try {
-      const record = JSON.parse(await readFile(path.join(root, name), "utf8")) as OfficeBackupRecord;
-      return isManagedBackupRecord(root, name, record) ? record : undefined;
-    } catch {
-      return undefined;
-    }
-  }));
+  const records = await Promise.all(
+    names
+      .filter((name) => name.endsWith(".json"))
+      .map(async (name) => {
+        try {
+          const record = JSON.parse(
+            await readFile(path.join(root, name), "utf8"),
+          ) as OfficeBackupRecord;
+          return isManagedBackupRecord(root, name, record) ? record : undefined;
+        } catch {
+          return undefined;
+        }
+      }),
+  );
   return records
-    .filter((record): record is OfficeBackupRecord => Boolean(record?.backupPath && record?.sourcePath))
+    .filter((record): record is OfficeBackupRecord =>
+      Boolean(record?.backupPath && record?.sourcePath),
+    )
     .filter((record) => !normalizedSource || path.resolve(record.sourcePath) === normalizedSource)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
@@ -85,11 +109,17 @@ export async function restoreOfficeBackup(input: {
   const id = path.parse(backupPath).name;
   let record: OfficeBackupRecord;
   try {
-    record = JSON.parse(await readFile(path.join(backupRoot, `${id}.json`), "utf8")) as OfficeBackupRecord;
+    record = JSON.parse(
+      await readFile(path.join(backupRoot, `${id}.json`), "utf8"),
+    ) as OfficeBackupRecord;
   } catch {
     throw new Error("Office 事务备份元数据不存在或已损坏");
   }
-  if (record.id !== id || !samePath(record.backupPath, backupPath) || !samePath(record.sourcePath, destination)) {
+  if (
+    record.id !== id ||
+    !samePath(record.backupPath, backupPath) ||
+    !samePath(record.sourcePath, destination)
+  ) {
     throw new Error("Office 事务备份与目标文件不匹配");
   }
   const temporary = `${destination}.${randomUUID()}.restore.tmp`;
@@ -133,13 +163,11 @@ export async function pruneOfficeBackups(
     const createdAt = Date.parse(record.createdAt);
     const protectedRecord = protectedIds.has(record.id);
     if (
-      protectedRecord
-      || (
-        createdAt >= cutoff
-        && kept < maxEntries
-        && sourceCount < maxPerSource
-        && keptBytes + record.size <= maxBytes
-      )
+      protectedRecord ||
+      (createdAt >= cutoff &&
+        kept < maxEntries &&
+        sourceCount < maxPerSource &&
+        keptBytes + record.size <= maxBytes)
     ) {
       kept++;
       keptBytes += record.size;
@@ -183,13 +211,14 @@ function isManagedBackupRecord(
 ): boolean {
   const id = path.basename(metadataName, ".json");
   if (
-    record?.id !== id
-    || typeof record.backupPath !== "string"
-    || typeof record.sourcePath !== "string"
-    || !Number.isFinite(record.size)
-    || record.size < 0
-    || !Number.isFinite(Date.parse(record.createdAt))
-  ) return false;
+    record?.id !== id ||
+    typeof record.backupPath !== "string" ||
+    typeof record.sourcePath !== "string" ||
+    !Number.isFinite(record.size) ||
+    record.size < 0 ||
+    !Number.isFinite(Date.parse(record.createdAt))
+  )
+    return false;
 
   const backupPath = path.resolve(record.backupPath);
   if (!samePath(path.dirname(backupPath), backupRoot)) return false;

@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AgentLoopManager } from "./agentRuntime";
 
-function loop(threadId: string | null, options: { running?: boolean; resume?: () => Promise<boolean> } = {}) {
+function loop(
+  threadId: string | null,
+  options: { running?: boolean; resume?: () => Promise<boolean> } = {},
+) {
   let activeThread = threadId ? { metadata: { threadId } as Record<string, unknown> } : null;
   return {
     getThread: vi.fn(() => activeThread),
@@ -12,7 +15,9 @@ function loop(threadId: string | null, options: { running?: boolean; resume?: ()
       if (resumed) activeThread = { metadata: { threadId: target } };
       return resumed;
     }),
-    resetThread: vi.fn(async () => { activeThread = null; }),
+    resetThread: vi.fn(async () => {
+      activeThread = null;
+    }),
     interrupt: vi.fn(),
   };
 }
@@ -21,9 +26,10 @@ describe("AgentLoopManager", () => {
   it("deduplicates concurrent loads for the same unloaded thread", async () => {
     let finishResume!: () => void;
     const created = loop(null, {
-      resume: () => new Promise<boolean>((resolve) => {
-        finishResume = () => resolve(true);
-      }),
+      resume: () =>
+        new Promise<boolean>((resolve) => {
+          finishResume = () => resolve(true);
+        }),
     });
     const createLoop = vi.fn(() => created as any);
     const manager = new AgentLoopManager(createLoop, loop(null) as any);
@@ -54,9 +60,16 @@ describe("AgentLoopManager", () => {
     const secondLoop = loop("thread-2");
     const manager = new AgentLoopManager(vi.fn(), loop(null) as any);
 
-    const first = manager.runWithTurnLock(firstLoop as any, () => new Promise<void>((resolve) => { release = resolve; }));
-    await expect(manager.runWithTurnLock(secondLoop as any, async () => undefined))
-      .rejects.toThrow("当前已有会话正在执行");
+    const first = manager.runWithTurnLock(
+      firstLoop as any,
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await expect(manager.runWithTurnLock(secondLoop as any, async () => undefined)).rejects.toThrow(
+      "当前已有会话正在执行",
+    );
     release();
     await first;
     await expect(manager.runWithTurnLock(secondLoop as any, async () => "ok")).resolves.toBe("ok");

@@ -25,12 +25,10 @@ export function AddProviderDialogActions({
 }: AddProviderDialogActionsProps) {
   return (
     <>
-      <button className="btn-secondary" onClick={onCancel}>{cancelLabel}</button>
-      <button
-        className="btn-primary"
-        onClick={onAdd}
-        disabled={!canAdd}
-      >
+      <button className="btn-secondary" onClick={onCancel}>
+        {cancelLabel}
+      </button>
+      <button className="btn-primary" onClick={onAdd} disabled={!canAdd}>
         {addLabel}
       </button>
       <ProviderTestButton
@@ -76,7 +74,9 @@ export function EditProviderDialogActions({
         onClick={onTest}
       />
       <div className="dialog-actions-right">
-        <button className="btn-secondary" onClick={onCancel}>{cancelLabel}</button>
+        <button className="btn-secondary" onClick={onCancel}>
+          {cancelLabel}
+        </button>
         <button className="btn-primary" onClick={onSave}>
           {saveLabel}
         </button>

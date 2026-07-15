@@ -47,10 +47,16 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
 }) => {
   const [dataSourceRanges, setDataSourceRanges] = useState<string[]>(draft?.dataSourceRanges ?? []);
   const [dataSourceInput, setDataSourceInput] = useState(draft?.dataSourceInput ?? "");
-  const [referenceSampleRange, setReferenceSampleRange] = useState(draft?.referenceSampleRange ?? "");
-  const [referenceSampleMode, setReferenceSampleMode] = useState<ReferenceSampleMode>(draft?.referenceSampleMode ?? "partial");
+  const [referenceSampleRange, setReferenceSampleRange] = useState(
+    draft?.referenceSampleRange ?? "",
+  );
+  const [referenceSampleMode, setReferenceSampleMode] = useState<ReferenceSampleMode>(
+    draft?.referenceSampleMode ?? "partial",
+  );
   const [outputRange, setOutputRange] = useState(draft?.outputRange ?? "");
-  const [hostEnvironment, setHostEnvironment] = useState<HostEnvironment>(draft?.hostEnvironment ?? "unknown");
+  const [hostEnvironment, setHostEnvironment] = useState<HostEnvironment>(
+    draft?.hostEnvironment ?? "unknown",
+  );
   const [task, setTask] = useState(draft?.task ?? "");
 
   useEffect(() => {
@@ -89,9 +95,7 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
       const rangeStr = await pickExcelRange();
       if (rangeStr) {
         if (field === "datasource") {
-          setDataSourceRanges((prev) =>
-            prev.includes(rangeStr) ? prev : [...prev, rangeStr]
-          );
+          setDataSourceRanges((prev) => (prev.includes(rangeStr) ? prev : [...prev, rangeStr]));
         } else if (field === "reference") {
           setReferenceSampleRange(rangeStr);
         } else {
@@ -111,15 +115,17 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
 
   // 组装提交内容
   const handleSubmit = () => {
-    onSubmit(buildFormulaTaskPayload({
-      dataSourceRanges,
-      dataSourceInput,
-      referenceSampleRange,
-      referenceSampleMode,
-      outputRange,
-      hostEnvironment,
-      task,
-    }));
+    onSubmit(
+      buildFormulaTaskPayload({
+        dataSourceRanges,
+        dataSourceInput,
+        referenceSampleRange,
+        referenceSampleMode,
+        outputRange,
+        hostEnvironment,
+        task,
+      }),
+    );
   };
 
   return (
@@ -127,10 +133,7 @@ export const FormulaTaskComposerPanel: React.FC<FormulaTaskComposerPanelProps> =
       {!embedded && (
         <div className="task-composer-title">
           <Hash size={16} /> 生成公式
-          <button
-            className="task-close-btn"
-            onClick={onClose}
-          >
+          <button className="task-close-btn" onClick={onClose}>
             <X size={14} />
           </button>
         </div>

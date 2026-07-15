@@ -14,7 +14,7 @@ function mix(a, b, t) {
   return rgb(
     Math.round(a.r + (b.r - a.r) * t),
     Math.round(a.g + (b.g - a.g) * t),
-    Math.round(a.b + (b.b - a.b) * t)
+    Math.round(a.b + (b.b - a.b) * t),
   );
 }
 
@@ -64,8 +64,16 @@ function verticalGradient(canvas, top, bottom) {
 function drawGridMark(canvas, x, y, cell, gap, colorA, colorB) {
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
-      const isAccent = (row === 0 && col === 0) || (row === 1 && col === 2) || (row === 2 && col === 1);
-      fillRect(canvas, x + col * (cell + gap), y + row * (cell + gap), cell, cell, isAccent ? colorA : colorB);
+      const isAccent =
+        (row === 0 && col === 0) || (row === 1 && col === 2) || (row === 2 && col === 1);
+      fillRect(
+        canvas,
+        x + col * (cell + gap),
+        y + row * (cell + gap),
+        cell,
+        cell,
+        isAccent ? colorA : colorB,
+      );
     }
   }
 }
@@ -144,10 +152,18 @@ function drawIconCanvas(size) {
       const top = y - margin;
       const bottom = size - margin - 1 - y;
       const inCorner =
-        (left >= radius || top >= radius || (left - radius) ** 2 + (top - radius) ** 2 <= radius ** 2) &&
-        (right >= radius || top >= radius || (right - radius) ** 2 + (top - radius) ** 2 <= radius ** 2) &&
-        (left >= radius || bottom >= radius || (left - radius) ** 2 + (bottom - radius) ** 2 <= radius ** 2) &&
-        (right >= radius || bottom >= radius || (right - radius) ** 2 + (bottom - radius) ** 2 <= radius ** 2);
+        (left >= radius ||
+          top >= radius ||
+          (left - radius) ** 2 + (top - radius) ** 2 <= radius ** 2) &&
+        (right >= radius ||
+          top >= radius ||
+          (right - radius) ** 2 + (top - radius) ** 2 <= radius ** 2) &&
+        (left >= radius ||
+          bottom >= radius ||
+          (left - radius) ** 2 + (bottom - radius) ** 2 <= radius ** 2) &&
+        (right >= radius ||
+          bottom >= radius ||
+          (right - radius) ** 2 + (bottom - radius) ** 2 <= radius ** 2);
       if (inCorner) setPixel(canvas, x, y, color);
     }
   }
@@ -157,19 +173,18 @@ function drawIconCanvas(size) {
   const gap = Math.max(1, Math.round(size * 0.035));
   const cell = Math.floor((gridSize - gap * 2) / 3);
   const start = Math.round((size - (cell * 3 + gap * 2)) / 2);
-  drawGridMark(
-    canvas,
-    start,
-    start,
-    cell,
-    gap,
-    rgb(239, 255, 248),
-    rgb(155, 226, 190)
-  );
+  drawGridMark(canvas, start, start, cell, gap, rgb(239, 255, 248), rgb(155, 226, 190));
 
   const shine = rgb(255, 255, 255);
   for (let i = 0; i < Math.max(1, Math.round(size * 0.018)); i++) {
-    fillRect(canvas, margin + Math.round(size * 0.12), margin + Math.round(size * 0.1) + i, Math.round(size * 0.42), 1, shine);
+    fillRect(
+      canvas,
+      margin + Math.round(size * 0.12),
+      margin + Math.round(size * 0.1) + i,
+      Math.round(size * 0.42),
+      1,
+      shine,
+    );
   }
   return canvas;
 }
@@ -280,7 +295,8 @@ function drawIco(filePath) {
   const images = sizes.map((size) => ({ size, data: encodeIcoImage(drawIconCanvas(size)) }));
   const headerSize = 6;
   const dirSize = 16 * images.length;
-  const totalSize = headerSize + dirSize + images.reduce((sum, image) => sum + image.data.length, 0);
+  const totalSize =
+    headerSize + dirSize + images.reduce((sum, image) => sum + image.data.length, 0);
   const buffer = Buffer.alloc(totalSize);
 
   buffer.writeUInt16LE(0, 0);

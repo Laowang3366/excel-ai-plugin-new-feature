@@ -46,8 +46,8 @@ describe("executeTool", () => {
     ]);
     const result = await executeTool(
       "range.read",
-      "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}",
-      executors
+      '{"sheetName":"Sheet1","range":"A1"}',
+      executors,
     );
 
     expect(result).toEqual({ success: true, data: "ok" });
@@ -62,8 +62,8 @@ describe("executeTool", () => {
 
     const result = await executeTool(
       "ocr_parseDocument",
-      "{\"filePaths\":[\"C:\\\\Users\\\\29721\\\\Pictures\\\\image.png\"]}",
-      executors
+      '{"filePaths":["C:\\\\Users\\\\29721\\\\Pictures\\\\image.png"]}',
+      executors,
     );
 
     expect(result).toEqual({ success: true, data: "parsed" });
@@ -72,17 +72,17 @@ describe("executeTool", () => {
 
   it("rejects malformed and undeclared arguments before calling the executor", async () => {
     const execute = vi.fn(async () => ({ success: true }));
-    const executors = new Map<string, ToolExecutor>([["range.read", { name: "range.read", execute }]]);
+    const executors = new Map<string, ToolExecutor>([
+      ["range.read", { name: "range.read", execute }],
+    ]);
 
     await expect(executeTool("range.read", "[]", executors)).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("根节点必须为对象"),
     });
-    await expect(executeTool(
-      "range.read",
-      '{"sheetName":"Sheet1","range":"A1","unexpected":true}',
-      executors,
-    )).resolves.toMatchObject({
+    await expect(
+      executeTool("range.read", '{"sheetName":"Sheet1","range":"A1","unexpected":true}', executors),
+    ).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("未声明参数"),
     });
@@ -125,7 +125,7 @@ describe("processToolCalls", () => {
     const appended: TurnItem[] = [];
 
     await processToolCalls(
-      [{ id: "call-1", name: "range.clear", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" }],
+      [{ id: "call-1", name: "range.clear", arguments: '{"sheetName":"Sheet1","range":"A1"}' }],
       new Map([["call-1", activeItem]]),
       turn,
       new Map([["range.clear", { name: "range.clear", execute }]]),
@@ -136,7 +136,7 @@ describe("processToolCalls", () => {
       callbacks,
       vi.fn(async (_threadId, _turnId, item) => {
         appended.push(item);
-      })
+      }),
     );
 
     expect(execute).not.toHaveBeenCalled();
@@ -157,7 +157,13 @@ describe("processToolCalls", () => {
     const turn = createTurn();
 
     await processToolCalls(
-      [{ id: "call-invalid", name: "range.clear", arguments: '{"sheetName":"Sheet1","range":"A1","unknown":1}' }],
+      [
+        {
+          id: "call-invalid",
+          name: "range.clear",
+          arguments: '{"sheetName":"Sheet1","range":"A1","unknown":1}',
+        },
+      ],
       new Map(),
       turn,
       new Map([["range.clear", { name: "range.clear", execute }]]),
@@ -168,10 +174,16 @@ describe("processToolCalls", () => {
 
     expect(requestToolApproval).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
-    expect(turn.items).toEqual(expect.arrayContaining([
-      expect.objectContaining({ type: "tool_call", status: "failed" }),
-      expect.objectContaining({ type: "tool_result", isError: true, result: expect.stringContaining("未声明参数") }),
-    ]));
+    expect(turn.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "tool_call", status: "failed" }),
+        expect.objectContaining({
+          type: "tool_result",
+          isError: true,
+          result: expect.stringContaining("未声明参数"),
+        }),
+      ]),
+    );
   });
 
   it("creates a fallback tool_call item when the stream did not create one", async () => {
@@ -180,13 +192,13 @@ describe("processToolCalls", () => {
     const callbacks = createCallbacks();
 
     await processToolCalls(
-      [{ id: "call-2", name: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" }],
+      [{ id: "call-2", name: "range.read", arguments: '{"sheetName":"Sheet1","range":"A1"}' }],
       new Map(),
       turn,
       new Map([["range.read", { name: "range.read", execute }]]),
       { permissionMode: "confirm_all" },
       callbacks,
-      vi.fn(async () => {})
+      vi.fn(async () => {}),
     );
 
     expect(turn.items[0]).toMatchObject({
@@ -215,7 +227,7 @@ describe("processToolCalls", () => {
       new Map([["selection.get", { name: "selection.get", execute }]]),
       { permissionMode: "confirm_all" },
       createCallbacks(),
-      vi.fn(async () => {})
+      vi.fn(async () => {}),
     );
 
     expect(turn.items[1]).toMatchObject({
@@ -232,25 +244,27 @@ describe("processToolCalls", () => {
     const logToolExecution = vi.fn(async () => {});
 
     await (processToolCalls as any)(
-      [{ id: "call-log", name: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" }],
+      [{ id: "call-log", name: "range.read", arguments: '{"sheetName":"Sheet1","range":"A1"}' }],
       new Map(),
       turn,
       new Map([["range.read", { name: "range.read", execute }]]),
       { permissionMode: "confirm_all" },
       createCallbacks(),
       vi.fn(async () => {}),
-      logToolExecution
+      logToolExecution,
     );
 
-    expect(logToolExecution).toHaveBeenCalledWith(expect.objectContaining({
-      threadId: "thread-1",
-      turnId: "turn-1",
-      toolCallId: "call-log",
-      toolName: "range.read",
-      status: "success",
-      resultSummary: summarizeForLog({ rows: 1 }),
-      argumentsSummary: summarizeForLog({ sheetName: "Sheet1", range: "A1" }),
-    }));
+    expect(logToolExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-1",
+        turnId: "turn-1",
+        toolCallId: "call-log",
+        toolName: "range.read",
+        status: "success",
+        resultSummary: summarizeForLog({ rows: 1 }),
+        argumentsSummary: summarizeForLog({ sheetName: "Sheet1", range: "A1" }),
+      }),
+    );
     const logCalls = logToolExecution.mock.calls as unknown as Array<[{ durationMs: number }]>;
     const loggedRecord = logCalls[0]?.[0];
     expect(loggedRecord?.durationMs).toBeGreaterThanOrEqual(0);
@@ -268,21 +282,23 @@ describe("processToolCalls", () => {
     const callbacks = createCallbacks();
 
     await processToolCalls(
-      [{
-        id: "call-hidden-pivot",
-        name: "office.action.apply",
-        arguments: JSON.stringify({
-          app: "excel",
-          action: "insert",
-          operation: "createPivotTable",
-          filePath: "C:\\books\\a.xlsx",
-          target: "range:Sheet1!A1:D20",
-          params: {
-            advancedIntent: "interactive-pivot",
-            rowFields: ["部门"],
-          },
-        }),
-      }],
+      [
+        {
+          id: "call-hidden-pivot",
+          name: "office.action.apply",
+          arguments: JSON.stringify({
+            app: "excel",
+            action: "insert",
+            operation: "createPivotTable",
+            filePath: "C:\\books\\a.xlsx",
+            target: "range:Sheet1!A1:D20",
+            params: {
+              advancedIntent: "interactive-pivot",
+              rowFields: ["部门"],
+            },
+          }),
+        },
+      ],
       new Map(),
       turn,
       new Map([["office.action.apply", { name: "office.action.apply", execute }]]),
@@ -292,13 +308,15 @@ describe("processToolCalls", () => {
     );
 
     expect(execute).not.toHaveBeenCalled();
-    expect(turn.items).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        type: "tool_result",
-        isError: true,
-        result: expect.stringContaining("工具参数校验失败"),
-      }),
-    ]));
+    expect(turn.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "tool_result",
+          isError: true,
+          result: expect.stringContaining("工具参数校验失败"),
+        }),
+      ]),
+    );
   });
 
   it("allows the same advanced operation when the user explicitly requested it", async () => {
@@ -312,21 +330,23 @@ describe("processToolCalls", () => {
     const execute = vi.fn(async () => ({ success: true, data: { created: true } }));
 
     await processToolCalls(
-      [{
-        id: "call-visible-pivot",
-        name: "office.action.apply",
-        arguments: JSON.stringify({
-          app: "excel",
-          action: "insert",
-          operation: "createPivotTable",
-          filePath: "C:\\books\\a.xlsx",
-          target: "range:Sheet1!A1:D20",
-          params: {
-            advancedIntent: "interactive-pivot",
-            rowFields: ["部门"],
-          },
-        }),
-      }],
+      [
+        {
+          id: "call-visible-pivot",
+          name: "office.action.apply",
+          arguments: JSON.stringify({
+            app: "excel",
+            action: "insert",
+            operation: "createPivotTable",
+            filePath: "C:\\books\\a.xlsx",
+            target: "range:Sheet1!A1:D20",
+            params: {
+              advancedIntent: "interactive-pivot",
+              rowFields: ["部门"],
+            },
+          }),
+        },
+      ],
       new Map(),
       turn,
       new Map([["office.action.apply", { name: "office.action.apply", execute }]]),
@@ -343,7 +363,12 @@ describe("processToolCalls", () => {
       type: "tool_call",
       id: "call-3",
       toolName: "office.action.apply",
-      arguments: { app: "excel", action: "style", operation: "formatChart", filePath: "C:\\books\\a.xlsx" },
+      arguments: {
+        app: "excel",
+        action: "style",
+        operation: "formatChart",
+        filePath: "C:\\books\\a.xlsx",
+      },
       status: "pending",
       timestamp: 1000,
     };
@@ -351,7 +376,8 @@ describe("processToolCalls", () => {
       {
         id: "call-3",
         name: "office.action.apply",
-        arguments: "{\"app\":\"excel\",\"action\":\"style\",\"operation\":\"formatChart\",\"filePath\":\"C:\\\\books\\\\a.xlsx\"}",
+        arguments:
+          '{"app":"excel","action":"style","operation":"formatChart","filePath":"C:\\\\books\\\\a.xlsx"}',
       },
     ];
 
@@ -359,13 +385,21 @@ describe("processToolCalls", () => {
       toolCalls,
       new Map([["call-3", activeItem]]),
       createTurn(activeItem),
-      new Map([["office.action.apply", { name: "office.action.apply", execute: vi.fn(async () => ({ success: true, data: "ok" })) }]]),
+      new Map([
+        [
+          "office.action.apply",
+          {
+            name: "office.action.apply",
+            execute: vi.fn(async () => ({ success: true, data: "ok" })),
+          },
+        ],
+      ]),
       {
         permissionMode: "normal",
         requestToolApproval: vi.fn(async () => ({ approved: true, alwaysAllow: true })),
       },
       createCallbacks(),
-      vi.fn(async () => {})
+      vi.fn(async () => {}),
     );
 
     expect(getAlwaysAllowedTools().has("office.action.apply")).toBe(true);
@@ -380,7 +414,7 @@ describe("processToolCalls", () => {
         {
           id: "call-ocr",
           name: "ocr_parseDocument",
-          arguments: "{\"filePaths\":[\"C:\\\\Users\\\\29721\\\\Pictures\\\\image.png\"]}",
+          arguments: '{"filePaths":["C:\\\\Users\\\\29721\\\\Pictures\\\\image.png"]}',
         },
       ],
       new Map(),
@@ -391,16 +425,19 @@ describe("processToolCalls", () => {
         requestToolApproval: vi.fn(async () => ({ approved: true })),
       },
       createCallbacks(),
-      vi.fn(async () => {})
+      vi.fn(async () => {}),
     );
 
-    expect(execute).toHaveBeenCalledWith({
-      filePaths: ["C:\\Users\\29721\\Pictures\\image.png"],
-    }, {
-      threadId: "thread-1",
-      turnId: "turn-1",
-      userMessages: [],
-    });
+    expect(execute).toHaveBeenCalledWith(
+      {
+        filePaths: ["C:\\Users\\29721\\Pictures\\image.png"],
+      },
+      {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        userMessages: [],
+      },
+    );
     expect(turn.items[0]).toMatchObject({
       type: "tool_call",
       toolName: "ocr.parseDocument",
@@ -429,23 +466,29 @@ describe("processToolCalls", () => {
       throw error;
     });
 
-    await expect(processToolCalls(
-      [
-        { id: "call-first", name: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" },
-        { id: "call-second", name: "selection.get", arguments: "{}" },
-      ],
-      new Map(),
-      turn,
-      new Map([
-        ["range.read", { name: "range.read", execute: firstExecute }],
-        ["selection.get", { name: "selection.get", execute: secondExecute }],
-      ]),
-      { permissionMode: "confirm_all" },
-      createCallbacks(),
-      vi.fn(async () => {}),
-      undefined,
-      throwIfAborted
-    )).rejects.toMatchObject({ name: "AbortError" });
+    await expect(
+      processToolCalls(
+        [
+          {
+            id: "call-first",
+            name: "range.read",
+            arguments: '{"sheetName":"Sheet1","range":"A1"}',
+          },
+          { id: "call-second", name: "selection.get", arguments: "{}" },
+        ],
+        new Map(),
+        turn,
+        new Map([
+          ["range.read", { name: "range.read", execute: firstExecute }],
+          ["selection.get", { name: "selection.get", execute: secondExecute }],
+        ]),
+        { permissionMode: "confirm_all" },
+        createCallbacks(),
+        vi.fn(async () => {}),
+        undefined,
+        throwIfAborted,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
 
     expect(firstExecute).toHaveBeenCalledOnce();
     expect(secondExecute).not.toHaveBeenCalled();

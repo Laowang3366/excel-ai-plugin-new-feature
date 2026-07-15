@@ -13,8 +13,14 @@
   justify-content: center;
 }
 
-.composer-action-btn:hover { color: var(--primary); background: var(--primary-light); }
-.composer-action-btn.active { color: var(--primary); background: var(--primary-light); }
+.composer-action-btn:hover {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+.composer-action-btn.active {
+  color: var(--primary);
+  background: var(--primary-light);
+}
 
 .composer-action-btn.permission-btn {
   gap: 6px;
@@ -101,17 +107,27 @@
   flex-shrink: 0;
 }
 
-.connection-indicator.connected .connection-dot { background: var(--success); }
-.connection-indicator.disconnected .connection-dot { background: var(--text-faint); }
+.connection-indicator.connected .connection-dot {
+  background: var(--success);
+}
+.connection-indicator.disconnected .connection-dot {
+  background: var(--text-faint);
+}
 
 .connection-dot.pulse {
   animation: pulse-success 1.5s ease-out;
 }
 
 @keyframes pulse-success {
-  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
-  70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
 }
 
 .connection-failed {
@@ -119,9 +135,16 @@
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 .composer-popover-wrapper {
@@ -158,8 +181,14 @@
   text-align: left;
 }
 
-.popover-item:hover { background: var(--primary-light); color: var(--primary); }
-.popover-item.active { color: var(--primary); font-weight: 600; }
+.popover-item:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+.popover-item.active {
+  color: var(--primary);
+  font-weight: 600;
+}
 
 .popover-item.permission-option.permission-normal {
   color: var(--success);
@@ -205,7 +234,10 @@
   justify-content: center;
 }
 
-.composer-btn:hover { color: var(--primary); background: var(--primary-light); }
+.composer-btn:hover {
+  color: var(--primary);
+  background: var(--primary-light);
+}
 
 .btn-send-circle {
   width: 34px;

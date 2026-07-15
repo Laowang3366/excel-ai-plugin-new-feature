@@ -47,11 +47,17 @@ describe("bridgeRegistry lifecycle", () => {
 
   it("disconnects Excel and releases owned Word and PowerPoint apps", async () => {
     const bridges = getOrCreateOfficeBridges();
-    const disconnectExcel = vi.spyOn(bridges.excelBridge, "disconnect").mockResolvedValue(undefined);
+    const disconnectExcel = vi
+      .spyOn(bridges.excelBridge, "disconnect")
+      .mockResolvedValue(undefined);
     vi.spyOn(bridges.wordBridge, "isConnected").mockReturnValue(true);
     vi.spyOn(bridges.presentationBridge, "isConnected").mockReturnValue(true);
-    const saveWord = vi.spyOn(bridges.wordBridge, "saveDocument").mockResolvedValue({ success: true });
-    const savePresentation = vi.spyOn(bridges.presentationBridge, "savePresentation").mockResolvedValue({ success: true });
+    const saveWord = vi
+      .spyOn(bridges.wordBridge, "saveDocument")
+      .mockResolvedValue({ success: true });
+    const savePresentation = vi
+      .spyOn(bridges.presentationBridge, "savePresentation")
+      .mockResolvedValue({ success: true });
 
     await disconnectOfficeBridges();
 

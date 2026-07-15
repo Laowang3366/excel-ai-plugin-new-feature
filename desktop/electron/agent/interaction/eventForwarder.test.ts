@@ -29,12 +29,14 @@ describe("eventForwarder stream delta batching", () => {
   });
 
   it("merges adjacent stream deltas with the same stream identity", () => {
-    expect(mergeStreamDeltas([
-      { delta: "思", itemType: "reasoning", roundId: 1, threadId: "t" },
-      { delta: "考", itemType: "reasoning", roundId: 1, threadId: "t" },
-      { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "t" },
-      { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "t" },
-    ])).toEqual([
+    expect(
+      mergeStreamDeltas([
+        { delta: "思", itemType: "reasoning", roundId: 1, threadId: "t" },
+        { delta: "考", itemType: "reasoning", roundId: 1, threadId: "t" },
+        { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "t" },
+        { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "t" },
+      ]),
+    ).toEqual([
       { delta: "思考", itemType: "reasoning", roundId: 1, threadId: "t" },
       { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "t" },
       { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "t" },

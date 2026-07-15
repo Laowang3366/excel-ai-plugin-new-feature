@@ -35,18 +35,16 @@ export function appendLongTermMemoryContext(
   );
   if (visible.length === 0) return prompt;
 
-  const memoryData = visible
-    .slice(0, 8)
-    .map((memory) => ({
-      kind: memory.kind,
-      content: memory.content,
-      provenance: {
-        userConfirmed: true,
-        sourceThreadId: memory.sourceThreadId,
-        sourceEventId: memory.sourceEventId,
-        citations: memory.citations || [],
-      },
-    }));
+  const memoryData = visible.slice(0, 8).map((memory) => ({
+    kind: memory.kind,
+    content: memory.content,
+    provenance: {
+      userConfirmed: true,
+      sourceThreadId: memory.sourceThreadId,
+      sourceEventId: memory.sourceEventId,
+      citations: memory.citations || [],
+    },
+  }));
   return [
     prompt,
     "",

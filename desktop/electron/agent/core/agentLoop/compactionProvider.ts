@@ -27,7 +27,7 @@ export interface RemoteCompactionProviderConfig {
 
 export function createCompactionProvider(
   aiClient: { chat: (params: any) => Promise<{ content?: string }> },
-  config?: CompactionConfig
+  config?: CompactionConfig,
 ): CompactionProvider {
   if (config?.compactionProvider === "remote" && config.remoteCompactUrl) {
     return createRemoteCompactionProvider({
@@ -39,9 +39,9 @@ export function createCompactionProvider(
   return createLocalCompactionProvider(aiClient);
 }
 
-export function createLocalCompactionProvider(
-  aiClient: { chat: (params: any) => Promise<{ content?: string }> }
-): CompactionProvider {
+export function createLocalCompactionProvider(aiClient: {
+  chat: (params: any) => Promise<{ content?: string }>;
+}): CompactionProvider {
   return {
     generateSummary(input) {
       return generateSummary(aiClient, input.historyPrompt, input.config);
@@ -50,7 +50,7 @@ export function createLocalCompactionProvider(
 }
 
 export function createRemoteCompactionProvider(
-  config: RemoteCompactionProviderConfig
+  config: RemoteCompactionProviderConfig,
 ): CompactionProvider {
   return {
     async generateSummary(input) {
@@ -76,10 +76,8 @@ export function createRemoteCompactionProvider(
         throw new Error(`远程压缩失败 (${response.status}): ${formatRemoteError(text)}`);
       }
 
-      const json = await response.json() as any;
-      const summary = json.summary
-        || json.content
-        || json.choices?.[0]?.message?.content;
+      const json = (await response.json()) as any;
+      const summary = json.summary || json.content || json.choices?.[0]?.message?.content;
       if (typeof summary !== "string" || !summary.trim()) {
         throw new Error("远程压缩返回空摘要");
       }
@@ -89,6 +87,9 @@ export function createRemoteCompactionProvider(
 }
 
 function formatRemoteError(text: string): string {
-  const compact = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const compact = text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return (compact || text).slice(0, 240);
 }

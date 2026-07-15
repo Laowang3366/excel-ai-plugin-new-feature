@@ -14,7 +14,7 @@ import type { CompactionConfig } from "../../shared/types";
  */
 export function buildSessionCompactionConfig(
   globalConfig: CompactionConfig,
-  sessionContextWindowSize: number
+  sessionContextWindowSize: number,
 ): CompactionConfig {
   const globalWindow = globalConfig.contextWindowSize || 128_000;
   const thresholdPercent = globalConfig.autoCompactTokenThreshold / globalWindow;

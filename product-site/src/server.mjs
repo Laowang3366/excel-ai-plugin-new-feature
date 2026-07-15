@@ -6,7 +6,12 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 
-import { clearAdminSession, hasValidAdminSession, setAdminSession, verifyPassword } from "./auth.mjs";
+import {
+  clearAdminSession,
+  hasValidAdminSession,
+  setAdminSession,
+  verifyPassword,
+} from "./auth.mjs";
 import { loadConfig } from "./config.mjs";
 import { createAnalyticsDatabase } from "./database.mjs";
 import { createReleaseStore } from "./releaseStore.mjs";
@@ -18,14 +23,16 @@ export async function buildServer(overrides = {}) {
     trustProxy: overrides.trustProxy ?? "127.0.0.1",
     bodyLimit: 64 * 1024,
   });
-  const analytics = overrides.analytics ?? createAnalyticsDatabase(config.databasePath, {
-    analyticsSalt: config.analyticsSalt,
-    retentionDays: config.analyticsRetentionDays,
-    ipRotationDays: config.analyticsIpRotationDays,
-    onMaintenanceError(error) {
-      app.log.warn({ error }, "download analytics maintenance failed");
-    },
-  });
+  const analytics =
+    overrides.analytics ??
+    createAnalyticsDatabase(config.databasePath, {
+      analyticsSalt: config.analyticsSalt,
+      retentionDays: config.analyticsRetentionDays,
+      ipRotationDays: config.analyticsIpRotationDays,
+      onMaintenanceError(error) {
+        app.log.warn({ error }, "download analytics maintenance failed");
+      },
+    });
   const releases = createReleaseStore(config.releasesDir);
 
   await app.register(cookie, { secret: config.cookieSecret });
@@ -88,12 +95,21 @@ export async function buildServer(overrides = {}) {
           request.log.warn({ error }, "download analytics write failed");
         }
       }
-      reply.header("Content-Type", "application/vnd.microsoft.portable-executable");
-      reply.header("Content-Disposition", `attachment; filename="${installer.fileName}"`);
+      reply.header(
+        "Content-Type",
+        "application/vnd.microsoft.portable-executable",
+      );
+      reply.header(
+        "Content-Disposition",
+        `attachment; filename="${installer.fileName}"`,
+      );
       reply.header("Content-Length", installer.size);
       reply.header("Cache-Control", "private, no-store");
       if (config.useAccelRedirect) {
-        reply.header("X-Accel-Redirect", `/_wenge_releases/${encodeURIComponent(installer.fileName)}`);
+        reply.header(
+          "X-Accel-Redirect",
+          `/_wenge_releases/${encodeURIComponent(installer.fileName)}`,
+        );
         return reply.send();
       }
       return reply.send(installer.stream());
@@ -102,40 +118,67 @@ export async function buildServer(overrides = {}) {
     }
   });
 
-  app.post("/api/admin/login", { config: { rateLimit: { max: 8, timeWindow: "15 minutes", keyGenerator: (request) => `admin:${request.ip}` } } }, async (request, reply) => {
-    const password = typeof request.body?.password === "string" ? request.body.password : "";
-    if (!(await verifyPassword(password, config.adminPasswordHash))) {
-      return reply.code(401).send({ error: "账号或密码错误" });
-    }
-    setAdminSession(reply);
-    return { success: true };
-  });
+  app.post(
+    "/api/admin/login",
+    {
+      config: {
+        rateLimit: {
+          max: 8,
+          timeWindow: "15 minutes",
+          keyGenerator: (request) => `admin:${request.ip}`,
+        },
+      },
+    },
+    async (request, reply) => {
+      const password =
+        typeof request.body?.password === "string" ? request.body.password : "";
+      if (!(await verifyPassword(password, config.adminPasswordHash))) {
+        return reply.code(401).send({ error: "账号或密码错误" });
+      }
+      setAdminSession(reply);
+      return { success: true };
+    },
+  );
 
   const requireAdmin = async (request, reply) => {
-    if (!hasValidAdminSession(request)) return reply.code(401).send({ error: "未登录" });
+    if (!hasValidAdminSession(request))
+      return reply.code(401).send({ error: "未登录" });
   };
 
-  app.post("/api/admin/logout", { preHandler: requireAdmin }, async (_request, reply) => {
-    clearAdminSession(reply);
-    return { success: true };
-  });
-  app.get("/api/admin/session", { preHandler: requireAdmin }, async () => ({ authenticated: true }));
+  app.post(
+    "/api/admin/logout",
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      clearAdminSession(reply);
+      return { success: true };
+    },
+  );
+  app.get("/api/admin/session", { preHandler: requireAdmin }, async () => ({
+    authenticated: true,
+  }));
   app.get("/api/admin/stats", { preHandler: requireAdmin }, async (request) => {
     return analytics.getStats(request.query?.days);
   });
-  app.get("/api/admin/release", { preHandler: requireAdmin }, async (_request, reply) => {
-    try {
-      return await releases.readPublicRelease();
-    } catch {
-      return reply.code(404).send({ error: "暂无可用版本" });
-    }
-  });
+  app.get(
+    "/api/admin/release",
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      try {
+        return await releases.readPublicRelease();
+      } catch {
+        return reply.code(404).send({ error: "暂无可用版本" });
+      }
+    },
+  );
 
   app.get("/admin", async (_request, reply) => reply.redirect("/admin/"));
   return { app, config };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(import.meta.filename)
+) {
   const { app, config } = await buildServer();
   await app.listen({ host: config.host, port: config.port });
 }

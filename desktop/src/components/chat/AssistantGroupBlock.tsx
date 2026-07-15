@@ -38,8 +38,14 @@ import { ChevronRight, ChevronDown } from "../common/IconMap";
  * 比较两个 group 是否相等（基于 items 内部引用，避免流式增量导致已完成组重渲染）
  */
 function assistantGroupEqual(
-  prev: { group: { kind: "assistant"; items: TurnItem[]; previousUserTimestamp?: number }; isLatest?: boolean },
-  next: { group: { kind: "assistant"; items: TurnItem[]; previousUserTimestamp?: number }; isLatest?: boolean }
+  prev: {
+    group: { kind: "assistant"; items: TurnItem[]; previousUserTimestamp?: number };
+    isLatest?: boolean;
+  },
+  next: {
+    group: { kind: "assistant"; items: TurnItem[]; previousUserTimestamp?: number };
+    isLatest?: boolean;
+  },
 ): boolean {
   if (prev.isLatest !== next.isLatest) return false;
   const a = prev.group.items;
@@ -63,11 +69,11 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
   const text = getAppText(language);
   const timelineItems = group.items;
   const hasFinalMessage = timelineItems.some(
-    (item) => item.type === "assistant_message" && item.phase === "final"
+    (item) => item.type === "assistant_message" && item.phase === "final",
   );
   const itemDurations = useMemo(
     () => getItemDurationSeconds(timelineItems, group.previousUserTimestamp),
-    [timelineItems, group.previousUserTimestamp]
+    [timelineItems, group.previousUserTimestamp],
   );
   const formattedElapsed = formatDuration(sumDurations(itemDurations), language);
 
@@ -80,7 +86,7 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
     for (const item of timelineItems) {
       if (item.type === "tool_call") {
         const result = timelineItems.find(
-          (c) => c.type === "tool_result" && c.toolCallId === item.id
+          (c) => c.type === "tool_result" && c.toolCallId === item.id,
         );
         if (result?.type === "tool_result") {
           ids.add(result.id);
@@ -106,16 +112,21 @@ export const AssistantGroupBlock = React.memo(function AssistantGroupBlock({
         title={detailsCollapsed ? text.chat.expandTurnDetails : text.chat.collapseTurnDetails}
       >
         <span className="assistant-work-label">{text.chat.turnDuration}</span>
-        {formattedElapsed && (
-          <span className="assistant-work-duration">{formattedElapsed}</span>
-        )}
+        {formattedElapsed && <span className="assistant-work-duration">{formattedElapsed}</span>}
         <span className="assistant-work-toggle">
           {detailsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
 
       {timelineItems.map((item) =>
-        renderItem(item, { ...group, items: timelineItems }, detailsCollapsed, renderedToolResultIds, itemDurations, language)
+        renderItem(
+          item,
+          { ...group, items: timelineItems },
+          detailsCollapsed,
+          renderedToolResultIds,
+          itemDurations,
+          language,
+        ),
       )}
     </div>
   );
@@ -152,11 +163,11 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
   const timelineItems = group.items;
   const itemDurations = useMemo(
     () => getItemDurationSeconds(timelineItems, group.previousUserTimestamp),
-    [timelineItems, group.previousUserTimestamp]
+    [timelineItems, group.previousUserTimestamp],
   );
   const liveElapsedSeconds = useMemo(
     () => getLiveTurnDurationSeconds(timelineItems, group.previousUserTimestamp, nowTimestamp),
-    [timelineItems, group.previousUserTimestamp, nowTimestamp]
+    [timelineItems, group.previousUserTimestamp, nowTimestamp],
   );
   const formattedElapsed = formatDuration(liveElapsedSeconds, language);
 
@@ -173,7 +184,7 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
     for (const item of timelineItems) {
       if (item.type === "tool_call") {
         const result = timelineItems.find(
-          (c) => c.type === "tool_result" && c.toolCallId === item.id
+          (c) => c.type === "tool_result" && c.toolCallId === item.id,
         );
         if (result?.type === "tool_result") {
           ids.add(result.id);
@@ -187,15 +198,9 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
   // 让用户实时看到完整进度。Turn 完成后切换到 AssistantGroupBlock 时才自动折叠。
   return (
     <div className="assistant-group streaming">
-      <button
-        className="assistant-work-summary"
-        onClick={() => {}}
-        type="button"
-      >
+      <button className="assistant-work-summary" onClick={() => {}} type="button">
         <span className="assistant-work-label">{text.chat.turnDuration}</span>
-        {formattedElapsed && (
-          <span className="assistant-work-duration">{formattedElapsed}</span>
-        )}
+        {formattedElapsed && <span className="assistant-work-duration">{formattedElapsed}</span>}
         <span className="assistant-work-toggle">
           <ChevronDown size={14} />
         </span>
@@ -203,7 +208,14 @@ export const StreamingAssistantGroupBlock = React.memo(function StreamingAssista
 
       {/* 已完成轮次的 items — 流式期间全部展开 */}
       {timelineItems.map((item) =>
-        renderItem(item, { ...group, items: timelineItems }, false, renderedToolResultIds, itemDurations, language)
+        renderItem(
+          item,
+          { ...group, items: timelineItems },
+          false,
+          renderedToolResultIds,
+          itemDurations,
+          language,
+        ),
       )}
 
       {/* 当前流式轮次：思考过程在前，正文片段在后 — 始终可见 */}
@@ -247,7 +259,7 @@ function renderItem(
     case "tool_call": {
       if (detailsCollapsed) return null;
       const result = group.items.find(
-        (candidate) => candidate.type === "tool_result" && candidate.toolCallId === item.id
+        (candidate) => candidate.type === "tool_result" && candidate.toolCallId === item.id,
       );
       if (result?.type === "tool_result") {
         // renderedToolResultIds 已由 useMemo 预计算，此处不再 mutation

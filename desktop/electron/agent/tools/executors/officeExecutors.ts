@@ -16,8 +16,14 @@ import {
   officeActionOperationError,
   officeAdvancedOperationError,
 } from "../officeCore/operationPolicy";
-import type { OfficeActionApp, OfficeActionEngine, OfficeActionInput, OfficeActionKind } from "../officeCore/types";
+import type {
+  OfficeActionApp,
+  OfficeActionEngine,
+  OfficeActionInput,
+  OfficeActionKind,
+} from "../officeCore/types";
 import { addOfficeReliabilityExecutors } from "./officeReliabilityExecutors";
+import { addOfficeWordExecutors } from "./officeWordExecutors";
 import { validateArgs } from "./validation";
 import { omitVersionMetadata, toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 
@@ -31,14 +37,22 @@ export interface OfficeExecutorDeps {
   transactionRoot?: string;
 }
 
-function addToolAlias(target: Map<string, ToolExecutor>, alias: string, canonicalName: string): void {
+function addToolAlias(
+  target: Map<string, ToolExecutor>,
+  alias: string,
+  canonicalName: string,
+): void {
   const executor = target.get(canonicalName);
   if (!executor || target.has(alias)) return;
   target.set(alias, { ...executor, name: alias });
 }
 
-export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: OfficeExecutorDeps): void {
-  const { excelBridge, wordBridge, presentationBridge, officeActionBridge, officeDocumentBridge } = deps;
+export function addOfficeExecutors(
+  target: Map<string, ToolExecutor>,
+  deps: OfficeExecutorDeps,
+): void {
+  const { excelBridge, wordBridge, presentationBridge, officeActionBridge, officeDocumentBridge } =
+    deps;
 
   target.set("office.connection.status", {
     name: "office.connection.status",
@@ -51,103 +65,46 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
           const status = await excelBridge.detectStatus();
           return { success: true, data: toModelFacingSpreadsheetMetadata(status) };
         }
-        return { success: true, data: { connected: false, host: "unknown", error: "Excel bridge not available" } };
+        return {
+          success: true,
+          data: { connected: false, host: "unknown", error: "Excel bridge not available" },
+        };
       }
       if (app === "word") {
-        const detectStatus = (wordBridge as { detectStatus?: () => Promise<unknown> } | undefined)?.detectStatus;
+        const detectStatus = (wordBridge as { detectStatus?: () => Promise<unknown> } | undefined)
+          ?.detectStatus;
         if (typeof detectStatus === "function") {
           return { success: true, data: omitVersionMetadata(await detectStatus.call(wordBridge)) };
         }
-        return { success: true, data: { connected: false, host: "unknown", error: "Word bridge not available" } };
+        return {
+          success: true,
+          data: { connected: false, host: "unknown", error: "Word bridge not available" },
+        };
       }
       if (app === "presentation") {
-        const detectStatus = (presentationBridge as { detectStatus?: () => Promise<unknown> } | undefined)?.detectStatus;
+        const detectStatus = (
+          presentationBridge as { detectStatus?: () => Promise<unknown> } | undefined
+        )?.detectStatus;
         if (typeof detectStatus === "function") {
-          return { success: true, data: omitVersionMetadata(await detectStatus.call(presentationBridge)) };
+          return {
+            success: true,
+            data: omitVersionMetadata(await detectStatus.call(presentationBridge)),
+          };
         }
-        return { success: true, data: { connected: false, host: "unknown", error: "Presentation bridge not available" } };
+        return {
+          success: true,
+          data: { connected: false, host: "unknown", error: "Presentation bridge not available" },
+        };
       }
       return { success: false, error: "参数 app 必须是 excel、word 或 presentation" };
     },
   });
 
   if (wordBridge) {
-    target.set("word.open", {
-      name: "word.open",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { filePath: "string" });
-        if (err) return { success: false, error: err };
-        const filePath = args.filePath as string;
-        const result = await wordBridge.openDocument(filePath);
-        if (!result.success && officeActionBridge) {
-          const fallback = await inspectFileWithOpenXml(officeActionBridge, "word", filePath, result.error);
-          if (fallback) return fallback;
-        }
-        return { success: result.success, data: result, error: result.error };
-      },
-    });
-
-    target.set("word.inspect", {
-      name: "word.inspect",
-      execute: async (_args: Record<string, unknown>) => {
-        const result = await wordBridge.inspectDocument();
-        return { success: true, data: result };
-      },
-    });
-
-    target.set("word.readText", {
-      name: "word.readText",
-      execute: async (args: Record<string, unknown>) => {
-        const maxChars = typeof args.maxChars === "number" ? args.maxChars : undefined;
-        const result = await wordBridge.readText(maxChars);
-        return { success: true, data: result };
-      },
-    });
-
-    target.set("word.insertText", {
-      name: "word.insertText",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { text: "string" });
-        if (err) return { success: false, error: err };
-        const result = await wordBridge.insertText(args.text as string, args.position as string | undefined);
-        return { success: true, data: result };
-      },
-    });
-
-    target.set("word.insertHeading", {
-      name: "word.insertHeading",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { text: "string" });
-        if (err) return { success: false, error: err };
-        const result = await wordBridge.insertHeading(
-          args.text as string,
-          typeof args.level === "number" ? args.level : undefined,
-          args.position as string | undefined
-        );
-        return { success: true, data: result };
-      },
-    });
-
-    target.set("word.replaceText", {
-      name: "word.replaceText",
-      execute: async (args: Record<string, unknown>) => {
-        const err = validateArgs(args, { findText: "string", replaceText: "string" });
-        if (err) return { success: false, error: err };
-        const result = await wordBridge.replaceText(
-          args.findText as string,
-          args.replaceText as string,
-          typeof args.matchCase === "boolean" ? args.matchCase : undefined
-        );
-        return { success: true, data: result };
-      },
-    });
-
-    target.set("word.save", {
-      name: "word.save",
-      execute: async (args: Record<string, unknown>) => {
-        const result = await wordBridge.saveDocument(args.saveAsPath as string | undefined);
-        return { success: result.success, data: result, error: result.error };
-      },
+    addOfficeWordExecutors(target, {
+      wordBridge,
+      officeActionBridge,
+      inspectFileWithOpenXml,
     });
   }
 
@@ -164,7 +121,7 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
             officeActionBridge,
             "presentation",
             filePath,
-            result.error
+            result.error,
           );
           if (fallback) return fallback;
         }
@@ -196,7 +153,7 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
         const result = await presentationBridge.addSlide(
           args.title as string | undefined,
           args.body as string | undefined,
-          args.layout as string | undefined
+          args.layout as string | undefined,
         );
         return { success: true, data: result };
       },
@@ -211,7 +168,7 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
           args.slideIndex as number,
           args.text as string,
           args.shapeName as string | undefined,
-          typeof args.shapeIndex === "number" ? args.shapeIndex : undefined
+          typeof args.shapeIndex === "number" ? args.shapeIndex : undefined,
         );
         return { success: true, data: result };
       },
@@ -225,7 +182,7 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
         const result = await presentationBridge.replaceText(
           args.findText as string,
           args.replaceText as string,
-          typeof args.matchCase === "boolean" ? args.matchCase : undefined
+          typeof args.matchCase === "boolean" ? args.matchCase : undefined,
         );
         return { success: true, data: result };
       },
@@ -234,7 +191,9 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
     target.set("presentation.save", {
       name: "presentation.save",
       execute: async (args: Record<string, unknown>) => {
-        const result = await presentationBridge.savePresentation(args.saveAsPath as string | undefined);
+        const result = await presentationBridge.savePresentation(
+          args.saveAsPath as string | undefined,
+        );
         return { success: result.success, data: result, error: result.error };
       },
     });
@@ -243,19 +202,21 @@ export function addOfficeExecutors(target: Map<string, ToolExecutor>, deps: Offi
   if (officeActionBridge) {
     target.set("office.action.inspect", {
       name: "office.action.inspect",
-      execute: async (args: Record<string, unknown>) => executeOfficeAction(args, officeActionBridge, "inspect"),
+      execute: async (args: Record<string, unknown>) =>
+        executeOfficeAction(args, officeActionBridge, "inspect"),
     });
 
     target.set("office.action.apply", {
       name: "office.action.apply",
-      execute: async (args: Record<string, unknown>) => executeOfficeAction(args, officeActionBridge),
+      execute: async (args: Record<string, unknown>) =>
+        executeOfficeAction(args, officeActionBridge),
     });
 
     target.set("office.action.validate", {
       name: "office.action.validate",
-      execute: async (args: Record<string, unknown>) => executeOfficeAction(args, officeActionBridge, "validate"),
+      execute: async (args: Record<string, unknown>) =>
+        executeOfficeAction(args, officeActionBridge, "validate"),
     });
-
   }
 
   addOfficeReliabilityExecutors(target, {
@@ -276,7 +237,7 @@ async function inspectFileWithOpenXml(
   officeActionBridge: OfficeActionBridge,
   app: "word" | "presentation",
   filePath: string,
-  openError?: string
+  openError?: string,
 ) {
   const inspection = await officeActionBridge.executeAction({
     app,
@@ -305,12 +266,14 @@ function isOfficeActionApp(value: unknown): value is OfficeActionApp {
 }
 
 function isOfficeActionKind(value: unknown): value is OfficeActionKind {
-  return value === "inspect" ||
+  return (
+    value === "inspect" ||
     value === "edit" ||
     value === "style" ||
     value === "insert" ||
     value === "snapshot" ||
-    value === "validate";
+    value === "validate"
+  );
 }
 
 function isOfficeActionEngine(value: unknown): value is OfficeActionEngine {
@@ -320,7 +283,7 @@ function isOfficeActionEngine(value: unknown): value is OfficeActionEngine {
 async function executeOfficeAction(
   args: Record<string, unknown>,
   officeActionBridge: OfficeActionBridge,
-  defaultAction?: OfficeActionKind
+  defaultAction?: OfficeActionKind,
 ) {
   const err = validateArgs(args, { app: "string", operation: "string" });
   if (err) return { success: false, error: err };
@@ -333,7 +296,10 @@ async function executeOfficeAction(
   }
   const action = defaultAction || args.action;
   if (!isOfficeActionKind(action)) {
-    return { success: false, error: "参数 action 必须是 inspect、edit、style、insert、snapshot 或 validate" };
+    return {
+      success: false,
+      error: "参数 action 必须是 inspect、edit、style、insert、snapshot 或 validate",
+    };
   }
   const operation = args.operation as string;
   const operationError = officeActionOperationError(action, operation);
@@ -361,6 +327,8 @@ async function executeOfficeAction(
   return {
     success,
     data: result,
-    ...(success ? {} : { error: result.summary || `Office action returned status: ${result.status}` }),
+    ...(success
+      ? {}
+      : { error: result.summary || `Office action returned status: ${result.status}` }),
   };
 }

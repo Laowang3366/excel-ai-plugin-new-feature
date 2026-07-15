@@ -13,7 +13,9 @@ HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\exc
   });
 
   it("returns undefined when the registry value is absent", () => {
-    expect(parseRegistryDefaultValue("ERROR: The system was unable to find the key")).toBeUndefined();
+    expect(
+      parseRegistryDefaultValue("ERROR: The system was unable to find the key"),
+    ).toBeUndefined();
   });
 
   it("launches the WPS spreadsheet process used by the connection bridge", () => {

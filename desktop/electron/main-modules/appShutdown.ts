@@ -35,7 +35,8 @@ export function createAppShutdownController(options: AppShutdownControllerOption
     if (cleanupStarted) return;
     cleanupStarted = true;
 
-    void options.cleanup()
+    void options
+      .cleanup()
       .catch((error) => options.onCleanupError?.(error))
       .finally(() => {
         cleanupCompleted = true;

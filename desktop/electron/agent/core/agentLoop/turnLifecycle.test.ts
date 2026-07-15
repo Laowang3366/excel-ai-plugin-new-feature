@@ -48,7 +48,9 @@ describe("TurnState", () => {
     const state = new TurnState();
     state.activeThread = { metadata: { threadId: "t1" }, turns: [] } as unknown as Thread;
     state.activeTurn = createTurn("t1");
-    state.compactedHistory = [{ type: "assistant_message", id: "m1", content: "old", timestamp: 1 }];
+    state.compactedHistory = [
+      { type: "assistant_message", id: "m1", content: "old", timestamp: 1 },
+    ];
 
     state.resetForNextThread("C:/work");
 
@@ -108,7 +110,12 @@ describe("threadLifecycle", () => {
 
     const result = await createAgentThread({
       sessionStore: sessionStore as any,
-      aiConfig: { provider: "openai", model: "model-a", contextWindowSize: 64_000, compHash: "chat-v1" } as any,
+      aiConfig: {
+        provider: "openai",
+        model: "model-a",
+        contextWindowSize: 64_000,
+        compHash: "chat-v1",
+      } as any,
       folderId: "C:/work",
     });
 
@@ -119,7 +126,15 @@ describe("threadLifecycle", () => {
 
   it("loads compacted history and re-registers rollout paths", async () => {
     const compactedHistory: TurnItem[] = [
-      { type: "compacted", id: "c1", summary: "摘要", tokensBefore: 100, tokensAfter: 10, reason: "auto_token_limit", timestamp: 1 },
+      {
+        type: "compacted",
+        id: "c1",
+        summary: "摘要",
+        tokensBefore: 100,
+        tokensAfter: 10,
+        reason: "auto_token_limit",
+        timestamp: 1,
+      },
     ];
     const thread: Thread = {
       metadata: {

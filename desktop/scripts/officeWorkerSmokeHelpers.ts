@@ -1,7 +1,10 @@
 import { DotNetOfficeActionBridge } from "../electron/agent/officeWorker/dotNetOfficeActionBridge";
 import { DotNetOfficeDocumentBridge } from "../electron/agent/officeWorker/dotNetOfficeDocumentBridge";
 import { DotNetOpenXmlBridge } from "../electron/agent/officeWorker/dotNetOpenXmlBridge";
-import { disposeOfficeWorkerClient, getOfficeWorkerClient } from "../electron/agent/officeWorker/officeWorkerClient";
+import {
+  disposeOfficeWorkerClient,
+  getOfficeWorkerClient,
+} from "../electron/agent/officeWorker/officeWorkerClient";
 import type {
   OfficeActionApp,
   OfficeActionInput,
@@ -25,7 +28,9 @@ export function applyWordAdvancedAction(input: FileActionInput): Promise<OfficeA
   return executeFileAction("word", input);
 }
 
-export function applyPresentationAdvancedAction(input: FileActionInput): Promise<OfficeActionResult> {
+export function applyPresentationAdvancedAction(
+  input: FileActionInput,
+): Promise<OfficeActionResult> {
   return executeFileAction("presentation", input);
 }
 
@@ -66,7 +71,10 @@ export function disposeOfficeWorker(): Promise<void> {
   return disposeOfficeWorkerClient();
 }
 
-function executeFileAction(app: OfficeActionApp, input: FileActionInput): Promise<OfficeActionResult> {
+function executeFileAction(
+  app: OfficeActionApp,
+  input: FileActionInput,
+): Promise<OfficeActionResult> {
   return openXmlBridge.executeAction!({
     ...input,
     app,
@@ -75,7 +83,17 @@ function executeFileAction(app: OfficeActionApp, input: FileActionInput): Promis
 }
 
 function defaultAction(operation: string): OfficeActionKind {
-  if (operation.startsWith("create") || operation.startsWith("add") || operation.startsWith("append")) return "insert";
-  if (operation.startsWith("apply") || operation.startsWith("style") || operation === "setHeaderFooter") return "style";
+  if (
+    operation.startsWith("create") ||
+    operation.startsWith("add") ||
+    operation.startsWith("append")
+  )
+    return "insert";
+  if (
+    operation.startsWith("apply") ||
+    operation.startsWith("style") ||
+    operation === "setHeaderFooter"
+  )
+    return "style";
   return "edit";
 }

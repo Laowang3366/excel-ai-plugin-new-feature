@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { USER_DATA_ERASE_CONFIRMATION } from "./userDataErase";
-import {
-  runUserDataErase,
-  type UserDataEraseCoordinatorDeps,
-} from "./userDataEraseCoordinator";
+import { runUserDataErase, type UserDataEraseCoordinatorDeps } from "./userDataEraseCoordinator";
 
 describe("user data erase coordinator", () => {
   it("requires exact confirmation and refuses active data operations or agents", async () => {
@@ -28,21 +25,39 @@ describe("user data erase coordinator", () => {
   it("quiesces runtimes, clears settings, erases managed data, and restores in order", async () => {
     const calls: string[] = [];
     const coordinator = deps({
-      setBusy: (value) => { calls.push(`busy:${value}`); },
+      setBusy: (value) => {
+        calls.push(`busy:${value}`);
+      },
       getSessionStore: vi.fn(() => ({
-        suspendWrites: () => { calls.push("suspend"); },
-        resumeWrites: () => { calls.push("resume"); },
-        flushRolloutWrites: async () => { calls.push("flush"); },
+        suspendWrites: () => {
+          calls.push("suspend");
+        },
+        resumeWrites: () => {
+          calls.push("resume");
+        },
+        flushRolloutWrites: async () => {
+          calls.push("flush");
+        },
       })),
-      resetAgents: async () => { calls.push("reset-agents"); },
-      closeStateRuntime: async () => { calls.push("close-state"); },
-      resetKnowledgeRuntime: () => { calls.push("reset-knowledge"); },
-      clearSettings: () => { calls.push("clear-settings"); },
+      resetAgents: async () => {
+        calls.push("reset-agents");
+      },
+      closeStateRuntime: async () => {
+        calls.push("close-state");
+      },
+      resetKnowledgeRuntime: () => {
+        calls.push("reset-knowledge");
+      },
+      clearSettings: () => {
+        calls.push("clear-settings");
+      },
       eraseManagedData: async () => {
         calls.push("erase");
         return { erasedCategories: ["sessions"], errors: [] };
       },
-      restoreRuntimes: async () => { calls.push("restore"); },
+      restoreRuntimes: async () => {
+        calls.push("restore");
+      },
     });
 
     await expect(runUserDataErase(USER_DATA_ERASE_CONFIRMATION, coordinator)).resolves.toEqual({
@@ -51,8 +66,17 @@ describe("user data erase coordinator", () => {
       errors: [],
     });
     expect(calls).toEqual([
-      "busy:true", "suspend", "flush", "reset-agents", "close-state",
-      "reset-knowledge", "clear-settings", "erase", "restore", "resume", "busy:false",
+      "busy:true",
+      "suspend",
+      "flush",
+      "reset-agents",
+      "close-state",
+      "reset-knowledge",
+      "clear-settings",
+      "erase",
+      "restore",
+      "resume",
+      "busy:false",
     ]);
   });
 
@@ -62,10 +86,14 @@ describe("user data erase coordinator", () => {
         erasedCategories: ["knowledge"],
         errors: ["sessions: access denied"],
       }),
-      restoreRuntimes: async () => { throw new Error("runtime unavailable"); },
+      restoreRuntimes: async () => {
+        throw new Error("runtime unavailable");
+      },
     });
 
-    await expect(runUserDataErase(USER_DATA_ERASE_CONFIRMATION, coordinator)).resolves.toMatchObject({
+    await expect(
+      runUserDataErase(USER_DATA_ERASE_CONFIRMATION, coordinator),
+    ).resolves.toMatchObject({
       success: false,
       erasedCategories: ["settings", "knowledge"],
       error: expect.stringContaining("runtime unavailable"),
@@ -74,10 +102,14 @@ describe("user data erase coordinator", () => {
 
   it("reports cleared settings when managed directory erasure throws", async () => {
     const coordinator = deps({
-      eraseManagedData: async () => { throw new Error("data root unavailable"); },
+      eraseManagedData: async () => {
+        throw new Error("data root unavailable");
+      },
     });
 
-    await expect(runUserDataErase(USER_DATA_ERASE_CONFIRMATION, coordinator)).resolves.toMatchObject({
+    await expect(
+      runUserDataErase(USER_DATA_ERASE_CONFIRMATION, coordinator),
+    ).resolves.toMatchObject({
       success: false,
       erasedCategories: ["settings"],
       error: expect.stringContaining("data root unavailable"),

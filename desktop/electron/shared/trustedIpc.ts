@@ -1,9 +1,4 @@
-import {
-  ipcMain,
-  type BrowserWindow,
-  type IpcMainEvent,
-  type IpcMainInvokeEvent,
-} from "electron";
+import { ipcMain, type BrowserWindow, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
 
 import { createIpcRateLimiter } from "./ipcRateLimiter";
 
@@ -18,7 +13,7 @@ export function configureTrustedIpcSender(ref: MainWindowRef): void {
 
 export function isTrustedRendererUrl(
   url: string,
-  devServerUrl = process.env.VITE_DEV_SERVER_URL
+  devServerUrl = process.env.VITE_DEV_SERVER_URL,
 ): boolean {
   try {
     const candidate = new URL(url);
@@ -37,7 +32,7 @@ export function isTrustedRendererUrl(
 export function isTrustedIpcSender(
   event: Pick<IpcMainInvokeEvent, "sender" | "senderFrame">,
   getMainWindow: MainWindowRef | null = mainWindowRef,
-  devServerUrl = process.env.VITE_DEV_SERVER_URL
+  devServerUrl = process.env.VITE_DEV_SERVER_URL,
 ): boolean {
   const mainWindow = getMainWindow?.();
   if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
@@ -53,7 +48,7 @@ export function isTrustedIpcSender(
 }
 
 export function assertTrustedIpcSender(
-  event: Pick<IpcMainInvokeEvent, "sender" | "senderFrame">
+  event: Pick<IpcMainInvokeEvent, "sender" | "senderFrame">,
 ): void {
   if (!isTrustedIpcSender(event)) {
     throw new Error("unauthorized_ipc_sender");
@@ -63,7 +58,7 @@ export function assertTrustedIpcSender(
 export const trustedIpcMain = {
   handle<TArgs extends unknown[], TResult>(
     channel: string,
-    listener: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult
+    listener: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult,
   ): void {
     ipcMain.handle(channel, (event, ...args) => {
       assertTrustedIpcSender(event);
@@ -73,7 +68,7 @@ export const trustedIpcMain = {
   },
   on<TArgs extends unknown[]>(
     channel: string,
-    listener: (event: IpcMainEvent, ...args: TArgs) => void
+    listener: (event: IpcMainEvent, ...args: TArgs) => void,
   ): void {
     ipcMain.on(channel, (event, ...args) => {
       assertTrustedIpcSender(event);

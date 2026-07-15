@@ -52,10 +52,7 @@ export function parseStageOneOutput(output: string): ExtractedMemoryCandidate[] 
   const candidates: ExtractedMemoryCandidate[] = [];
   for (const raw of memories) {
     const memory = raw as StageOneMemoryShape;
-    if (
-      typeof memory.kind !== "string" ||
-      !isToolWritableMemoryKind(memory.kind)
-    ) continue;
+    if (typeof memory.kind !== "string" || !isToolWritableMemoryKind(memory.kind)) continue;
     if (typeof memory.content !== "string") continue;
 
     const content = memory.content.trim();

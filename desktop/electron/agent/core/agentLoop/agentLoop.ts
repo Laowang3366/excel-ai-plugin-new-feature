@@ -11,9 +11,7 @@ import {
   DEFAULT_COMPACTION_CONFIG,
 } from "../../shared/types";
 
-import {
-  buildResumeContext,
-} from "../../memory/compaction";
+import { buildResumeContext } from "../../memory/compaction";
 
 import { getToolDefinitions as getToolDefs } from "./toolExecutor";
 import { buildSessionCompactionConfig } from "./sessionCompactionConfig";
@@ -28,10 +26,7 @@ import {
   persistThreadSnapshot as persistThreadSnapshotHelper,
   scheduleTurnMemoryExtraction as scheduleTurnMemoryExtractionHelper,
 } from "./threadRuntime";
-import {
-  runAutoCompaction,
-  runMidTurnCompaction,
-} from "./compactionRunner";
+import { runAutoCompaction, runMidTurnCompaction } from "./compactionRunner";
 import {
   resetThreadSession,
   resumeThreadSession,
@@ -43,9 +38,7 @@ import {
   interruptCurrentTurn,
   scheduleQueuedTurnsDrain,
 } from "./queuedTurns";
-import {
-  applyCompactionConfigUpdate,
-} from "./configUpdates";
+import { applyCompactionConfigUpdate } from "./configUpdates";
 import { generateCompactionSummary as generateCompactionSummaryWithRetry } from "./compactionSummary";
 import { createCompactionRunnerDeps } from "./compactionRunnerDeps";
 import {
@@ -62,15 +55,20 @@ export type { AgentLoopConfig } from "./agentLoopConfig";
 const agentLoopLogger = createLogger("AgentLoop");
 
 export class AgentLoop extends AgentLoopBase {
-
   private get threadSessionDeps() {
     return {
       turnState: this.turnState,
       sessionStore: this.sessionStore,
       threadStateManager: this.threadStateManager,
-      setActiveThread: (thread: Thread | null) => { this.turnState.activeThread = thread; },
-      setActiveTurn: (turn: Turn | null) => { this.turnState.activeTurn = turn; },
-      setCompactedHistory: (history: TurnItem[] | null) => { this.turnState.compactedHistory = history; },
+      setActiveThread: (thread: Thread | null) => {
+        this.turnState.activeThread = thread;
+      },
+      setActiveTurn: (turn: Turn | null) => {
+        this.turnState.activeTurn = turn;
+      },
+      setCompactedHistory: (history: TurnItem[] | null) => {
+        this.turnState.compactedHistory = history;
+      },
       publishThreadStatus: () => this.publishThreadStatus(),
       scheduleIdleThreadUnload: () => this.scheduleIdleThreadUnload(),
       clearIdleUnloadTimer: () => this.clearIdleUnloadTimer(),
@@ -114,14 +112,16 @@ export class AgentLoop extends AgentLoopBase {
     });
   }
 
-  async runTurn(
-    input: AgentTurnInput,
-    callbacks: AgentTurnCallbacks
-  ): Promise<Turn> {
+  async runTurn(input: AgentTurnInput, callbacks: AgentTurnCallbacks): Promise<Turn> {
     return runTurnFlow({
-      turnInput: input, callbacks, turnState: this.turnState,
-      sessionStore: this.sessionStore, threadStateManager: this.threadStateManager,
-      setAutoDrainInputQueue: (enabled) => { this.autoDrainInputQueue = enabled; },
+      turnInput: input,
+      callbacks,
+      turnState: this.turnState,
+      sessionStore: this.sessionStore,
+      threadStateManager: this.threadStateManager,
+      setAutoDrainInputQueue: (enabled) => {
+        this.autoDrainInputQueue = enabled;
+      },
       shouldDrainInputQueue: () => this.autoDrainInputQueue && this.inputQueue.size() > 0,
       scheduleInputQueueDrain: () => this.scheduleInputQueueDrain(),
       startThread: () => this.startThread(),
@@ -144,9 +144,14 @@ export class AgentLoop extends AgentLoopBase {
     });
   }
 
-  async interrupt(requestId: ConnectionRequestId = `interrupt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`): Promise<void> {
+  async interrupt(
+    requestId: ConnectionRequestId = `interrupt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  ): Promise<void> {
     await interruptCurrentTurn({
-      requestId, pendingInterruptQueue: this.pendingInterruptQueue, inputQueue: this.inputQueue, turnState: this.turnState,
+      requestId,
+      pendingInterruptQueue: this.pendingInterruptQueue,
+      inputQueue: this.inputQueue,
+      turnState: this.turnState,
       disableAutoDrain: () => {
         this.autoDrainInputQueue = false;
       },
@@ -158,7 +163,9 @@ export class AgentLoop extends AgentLoopBase {
       autoDrainInputQueue: this.autoDrainInputQueue,
       isDrainingInputQueue: this.isDrainingInputQueue,
       isRunning: this.turnState.isRunning,
-      setDraining: (isDraining) => { this.isDrainingInputQueue = isDraining; },
+      setDraining: (isDraining) => {
+        this.isDrainingInputQueue = isDraining;
+      },
       drain: () => this.drainInputQueue(),
     });
   }
@@ -169,9 +176,17 @@ export class AgentLoop extends AgentLoopBase {
       isRunning: () => this.turnState.isRunning,
       autoDrainInputQueue: () => this.autoDrainInputQueue,
       runTurn: (input, callbacks) => this.runTurn(input, callbacks),
-      setDraining: (isDraining) => { this.isDrainingInputQueue = isDraining; },
+      setDraining: (isDraining) => {
+        this.isDrainingInputQueue = isDraining;
+      },
       scheduleDrain: () => this.scheduleInputQueueDrain(),
-      onTurnError: (error) => agentLoopLogger.warn("执行排队输入失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) }),
+      onTurnError: (error) =>
+        agentLoopLogger.warn(
+          "执行排队输入失败",
+          error instanceof Error
+            ? { message: error.message, stack: error.stack }
+            : { error: String(error) },
+        ),
     });
   }
 
@@ -222,7 +237,7 @@ export class AgentLoop extends AgentLoopBase {
     turn: Turn,
     callbacks: AgentTurnCallbacks,
     input: AgentTurnInput,
-    resumeContext?: string
+    resumeContext?: string,
   ): Promise<void> {
     await runAgentLoopWithDeps({
       turn,
@@ -263,9 +278,8 @@ export class AgentLoop extends AgentLoopBase {
 
   private getSessionCompactionConfig(thread = this.turnState.activeThread): CompactionConfig {
     const globalConfig = this.config.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
-    const contextWindowSize = thread?.metadata.contextWindowSize
-      || globalConfig.contextWindowSize
-      || 128_000;
+    const contextWindowSize =
+      thread?.metadata.contextWindowSize || globalConfig.contextWindowSize || 128_000;
     return buildSessionCompactionConfig(globalConfig, contextWindowSize);
   }
 
@@ -282,7 +296,7 @@ export class AgentLoop extends AgentLoopBase {
   private async performAutoCompaction(
     thread: Thread,
     reason: CompactionReason,
-    callbacks: AgentTurnCallbacks
+    callbacks: AgentTurnCallbacks,
   ): Promise<void> {
     await runAutoCompaction({
       thread,
@@ -292,10 +306,7 @@ export class AgentLoop extends AgentLoopBase {
     });
   }
 
-  private async performMidTurnCompaction(
-    turn: Turn,
-    callbacks: AgentTurnCallbacks
-  ): Promise<void> {
+  private async performMidTurnCompaction(turn: Turn, callbacks: AgentTurnCallbacks): Promise<void> {
     await runMidTurnCompaction({
       turn,
       callbacks,
@@ -310,7 +321,9 @@ export class AgentLoop extends AgentLoopBase {
       generateCompactionSummary: (prompt: string) => this.generateCompactionSummary(prompt),
       getSessionCompactionConfig: () => this.getSessionCompactionConfig(),
       archiveRolloutAfterBytes: this.config.compactionConfig?.archiveRolloutAfterBytes,
-      setCompactedHistory: (history: TurnItem[]) => { this.turnState.compactedHistory = history; },
+      setCompactedHistory: (history: TurnItem[]) => {
+        this.turnState.compactedHistory = history;
+      },
       getActiveThread: () => this.turnState.activeThread,
       compactionConfig: this.config.compactionConfig,
     });
@@ -334,15 +347,17 @@ export class AgentLoop extends AgentLoopBase {
 
   private emitContextUsage(
     callbacks: AgentTurnCallbacks,
-    requestContext?: { systemPrompt?: string; tools?: ToolDefinition[] }
+    requestContext?: { systemPrompt?: string; tools?: ToolDefinition[] },
   ): void {
-    callbacks.onEvent(buildContextUsageEvent({
-      groups: this.getTurnItemGroups(),
-      activeThread: this.turnState.activeThread,
-      compactionConfig: this.config.compactionConfig,
-      systemPrompt: requestContext?.systemPrompt,
-      tools: requestContext?.tools ?? getToolDefs(this.config.toolExecutors),
-    }));
+    callbacks.onEvent(
+      buildContextUsageEvent({
+        groups: this.getTurnItemGroups(),
+        activeThread: this.turnState.activeThread,
+        compactionConfig: this.config.compactionConfig,
+        systemPrompt: requestContext?.systemPrompt,
+        tools: requestContext?.tools ?? getToolDefs(this.config.toolExecutors),
+      }),
+    );
   }
 
   updateCompactionConfig(config: CompactionConfig): void {
@@ -360,7 +375,7 @@ export class AgentLoop extends AgentLoopBase {
   async resumeFromInterruption(
     userMessage: string,
     callbacks: AgentTurnCallbacks,
-    attachments?: import("../../shared/types").FileAttachment[]
+    attachments?: import("../../shared/types").FileAttachment[],
   ): Promise<Turn> {
     const allItems = this.getAllTurnItems();
     const resumeContext = buildResumeContext(allItems);
@@ -372,7 +387,7 @@ export class AgentLoop extends AgentLoopBase {
         isResume: true,
         resumeContext,
       },
-      callbacks
+      callbacks,
     );
   }
 }

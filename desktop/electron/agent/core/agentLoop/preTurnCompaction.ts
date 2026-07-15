@@ -15,9 +15,8 @@ export function buildPreTurnCompactionPlan(input: {
   pendingReason: CompactionReason | null;
 }): { config: CompactionConfig; reason: CompactionReason | null } {
   const globalConfig = input.globalConfig ?? DEFAULT_COMPACTION_CONFIG;
-  const sessionContextWindowSize = input.thread.metadata.contextWindowSize
-    || globalConfig.contextWindowSize
-    || 128_000;
+  const sessionContextWindowSize =
+    input.thread.metadata.contextWindowSize || globalConfig.contextWindowSize || 128_000;
   const config = buildSessionCompactionConfig(globalConfig, sessionContextWindowSize);
 
   if (input.pendingReason && config.enabled && input.items.length > 0) {

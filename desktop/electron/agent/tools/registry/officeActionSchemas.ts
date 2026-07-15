@@ -184,12 +184,13 @@ export function withOfficeOperationDiscriminator(
   const properties = asSchema(baseSchema.properties);
   const required = Array.isArray(baseSchema.required) ? baseSchema.required : [];
   const variants = operations.flatMap((operation) =>
-    OPERATION_PARAM_SCHEMAS
-      .filter((definition) => definition.operation === operation)
-      .map((definition) => operationVariant(baseSchema, properties, required, definition)),
+    OPERATION_PARAM_SCHEMAS.filter((definition) => definition.operation === operation).map(
+      (definition) => operationVariant(baseSchema, properties, required, definition),
+    ),
   );
   const ordinaryOperations = operations.filter(
-    (operation) => !OPERATION_PARAM_SCHEMAS.some((definition) => definition.operation === operation),
+    (operation) =>
+      !OPERATION_PARAM_SCHEMAS.some((definition) => definition.operation === operation),
   );
   if (ordinaryOperations.length > 0) {
     variants.push({

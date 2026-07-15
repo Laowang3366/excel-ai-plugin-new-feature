@@ -35,7 +35,8 @@ interface ModelEntry {
 }
 
 export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettings }) => {
-  const { providers, activeProviderId, setActiveProvider, updateProvider, language } = useSettingsStore();
+  const { providers, activeProviderId, setActiveProvider, updateProvider, language } =
+    useSettingsStore();
   const [open, setOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -67,7 +68,7 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
       const horizontalOffset = 8;
       const left = Math.min(
         Math.max(buttonRect.left - horizontalOffset, sidePadding),
-        window.innerWidth - dropdownWidth - sidePadding
+        window.innerWidth - dropdownWidth - sidePadding,
       );
       const bottom = window.innerHeight - buttonRect.top + 8;
       const availableHeight = Math.max(180, buttonRect.top - 18);
@@ -100,14 +101,17 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
     const provider = providers[providerId];
     const patch: Record<string, unknown> = { model: modelId };
     if (provider) {
-      const template = PROVIDER_TEMPLATES.find(t => t.provider === provider.provider);
+      const template = PROVIDER_TEMPLATES.find((t) => t.provider === provider.provider);
       const modelConfig = provider.modelConfigs?.find((item) => item.name === modelId);
       const optionValues = resolveReasoningOptionValues(
         { ...provider, model: modelId },
         template,
         modelConfig,
       );
-      const defaultMode = defaultReasoningModeForOptions(optionValues, template?.defaultReasoningMode);
+      const defaultMode = defaultReasoningModeForOptions(
+        optionValues,
+        template?.defaultReasoningMode,
+      );
       patch.reasoningMode = coerceReasoningMode(
         modelConfig?.reasoningMode || provider.reasoningMode,
         optionValues,
@@ -148,11 +152,13 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
         groupedModels.push({
           providerId: provider.id,
           providerName: provider.name,
-          models: [{
-            modelId: provider.model,
-            providerId: provider.id,
-            providerName: provider.name,
-          }],
+          models: [
+            {
+              modelId: provider.model,
+              providerId: provider.id,
+              providerName: provider.name,
+            },
+          ],
         });
       }
     } else {
@@ -180,10 +186,10 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
         onClick={() => setOpen(!open)}
         title={text.modelSwitch.switchModel}
       >
-        <span className="model-qs-name">
-          {currentModelName}
+        <span className="model-qs-name">{currentModelName}</span>
+        <span className="model-qs-arrow">
+          <ChevronDown size={12} />
         </span>
-        <span className="model-qs-arrow"><ChevronDown size={12} /></span>
       </button>
 
       {open && (
@@ -224,7 +230,11 @@ export const ModelQuickSwitch: React.FC<ModelQuickSwitchProps> = ({ onOpenSettin
                             onClick={() => handleSelectModel(entry.providerId, entry.modelId)}
                           >
                             <span className="model-qs-option-name">{entry.modelId}</span>
-                            {isActive && <span className="model-qs-option-check"><Check size={13} /></span>}
+                            {isActive && (
+                              <span className="model-qs-option-check">
+                                <Check size={13} />
+                              </span>
+                            )}
                           </button>
                         );
                       })}

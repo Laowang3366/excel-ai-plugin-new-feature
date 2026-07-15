@@ -74,11 +74,14 @@ describe("EmbeddingService", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => {
       fetchCount++;
-      return new Response(JSON.stringify({
-        data: [{ embedding: [0.1, 0.2, 0.3] }],
-        model: "text-embedding-3-small",
-        usage: { prompt_tokens: 4, total_tokens: 4 },
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          data: [{ embedding: [0.1, 0.2, 0.3] }],
+          model: "text-embedding-3-small",
+          usage: { prompt_tokens: 4, total_tokens: 4 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     };
 
     try {
@@ -105,9 +108,12 @@ describe("EmbeddingService", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (url: any) => {
       requestedUrls.push(String(url));
-      return new Response(JSON.stringify({
-        data: [{ embedding: [0.1, 0.2, 0.3] }],
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          data: [{ embedding: [0.1, 0.2, 0.3] }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     };
 
     try {
@@ -141,7 +147,7 @@ describe("EmbeddingService", () => {
     globalThis.fetch = async () => {
       return new Response(
         `<html><body><div data-component="top">404</div><script>window.__NEXT_DATA__={}</script></body></html>`,
-        { status: 404, headers: { "Content-Type": "text/html" } }
+        { status: 404, headers: { "Content-Type": "text/html" } },
       );
     };
 
@@ -165,14 +171,14 @@ describe("EmbeddingService", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => {
       fetchCount++;
-      return new Response(JSON.stringify({
-        data: [
-          { embedding: [0.1, 0.2, 0.3] },
-          { embedding: [0.4, 0.5, 0.6] },
-        ],
-        model: "text-embedding-3-small",
-        usage: { prompt_tokens: 8, total_tokens: 8 },
-      }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          data: [{ embedding: [0.1, 0.2, 0.3] }, { embedding: [0.4, 0.5, 0.6] }],
+          model: "text-embedding-3-small",
+          usage: { prompt_tokens: 8, total_tokens: 8 },
+        }),
+        { status: 200 },
+      );
     };
 
     try {
@@ -201,10 +207,13 @@ describe("EmbeddingService", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async () => {
       fetchCount++;
-      return new Response(JSON.stringify({
-        data: [{ embedding: [0.1, 0.2, 0.3] }],
-        model: "text-embedding-3-small",
-      }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          data: [{ embedding: [0.1, 0.2, 0.3] }],
+          model: "text-embedding-3-small",
+        }),
+        { status: 200 },
+      );
     };
 
     try {
@@ -413,7 +422,7 @@ describe("SqliteStore", () => {
         id: randomUUID(),
         chunkIndex: i,
         content: `条目 ${i}`,
-      })
+      }),
     );
 
     store.bulkInsert(entries);
@@ -465,8 +474,20 @@ describe("SqliteStore", () => {
 
   it("should filter vector search by source", () => {
     store.bulkInsert([
-      sampleEntry({ id: "id-1", source: "workbook", sourcePath: "/test/a.xlsx", content: "A", embedding: [1, 0, 0] }),
-      sampleEntry({ id: "id-2", source: "document", sourcePath: "/test/b.txt", content: "B", embedding: [1, 0, 0] }),
+      sampleEntry({
+        id: "id-1",
+        source: "workbook",
+        sourcePath: "/test/a.xlsx",
+        content: "A",
+        embedding: [1, 0, 0],
+      }),
+      sampleEntry({
+        id: "id-2",
+        source: "document",
+        sourcePath: "/test/b.txt",
+        content: "B",
+        embedding: [1, 0, 0],
+      }),
     ]);
 
     const results = store.searchByVector([1, 0, 0], 10, { sourceFilter: ["workbook"] });
@@ -620,11 +641,19 @@ describe("DocumentParser", () => {
     fs.writeFileSync(tmpPath, "fixture");
     officeWorkerInvoke.mockResolvedValueOnce({
       filePath: tmpPath,
-      chunks: [{
-        content: "【表头】Name | Age\nAda | 36",
-        sourceType: "xlsx",
-        metadata: { sheetName: "People", tableRange: "A1:B2", headers: ["Name", "Age"], rowCount: 1, colCount: 2 },
-      }],
+      chunks: [
+        {
+          content: "【表头】Name | Age\nAda | 36",
+          sourceType: "xlsx",
+          metadata: {
+            sheetName: "People",
+            tableRange: "A1:B2",
+            headers: ["Name", "Age"],
+            rowCount: 1,
+            colCount: 2,
+          },
+        },
+      ],
     });
 
     try {
@@ -657,13 +686,17 @@ describe("DocumentParser", () => {
 
   it("should parse a JSON file into searchable paths", () => {
     const tmpPath = path.join(os.tmpdir(), `test-${Date.now()}.json`);
-    fs.writeFileSync(tmpPath, JSON.stringify({
-      formula: {
-        name: "区域汇总公式",
-        target: "汇总表!B2",
-      },
-      fields: ["区域", "销售额"],
-    }), "utf-8");
+    fs.writeFileSync(
+      tmpPath,
+      JSON.stringify({
+        formula: {
+          name: "区域汇总公式",
+          target: "汇总表!B2",
+        },
+        fields: ["区域", "销售额"],
+      }),
+      "utf-8",
+    );
 
     try {
       const chunks = parser.parse(tmpPath);
@@ -681,11 +714,13 @@ describe("DocumentParser", () => {
     fs.writeFileSync(tmpPath, "fixture");
     officeWorkerInvoke.mockResolvedValueOnce({
       filePath: tmpPath,
-      chunks: [{
-        content: "区域汇总公式说明\n公式应该写入汇总表锚点单元格。",
-        sourceType: "docx",
-        metadata: { rowCount: 2 },
-      }],
+      chunks: [
+        {
+          content: "区域汇总公式说明\n公式应该写入汇总表锚点单元格。",
+          sourceType: "docx",
+          metadata: { rowCount: 2 },
+        },
+      ],
     });
 
     try {
@@ -705,8 +740,16 @@ describe("DocumentParser", () => {
     officeWorkerInvoke.mockResolvedValueOnce({
       filePath: tmpPath,
       chunks: [
-        { content: "【幻灯片 1】\n知识库演示页\n支持提取 PPT 文本", sourceType: "pptx", metadata: { slideNumber: 1, rowCount: 2 } },
-        { content: "【幻灯片 2】\n第二页内容", sourceType: "pptx", metadata: { slideNumber: 2, rowCount: 1 } },
+        {
+          content: "【幻灯片 1】\n知识库演示页\n支持提取 PPT 文本",
+          sourceType: "pptx",
+          metadata: { slideNumber: 1, rowCount: 2 },
+        },
+        {
+          content: "【幻灯片 2】\n第二页内容",
+          sourceType: "pptx",
+          metadata: { slideNumber: 2, rowCount: 1 },
+        },
       ],
     });
 
@@ -815,8 +858,9 @@ describe("TextChunker", () => {
   });
 
   it("should split markdown by headings", () => {
-    const sections = Array.from({ length: 5 }, (_, i) =>
-      `## 第${i + 1}节\n\n这是第${i + 1}节的内容描述。`
+    const sections = Array.from(
+      { length: 5 },
+      (_, i) => `## 第${i + 1}节\n\n这是第${i + 1}节的内容描述。`,
     );
     const content = sections.join("\n\n");
 
@@ -865,8 +909,7 @@ describe("KnowledgeIndexer", () => {
     });
 
     // Mock embedder to return fixed vectors
-    embedder.embedBatch = async (texts: string[]) =>
-      texts.map(() => [0.1, 0.2, 0.3]);
+    embedder.embedBatch = async (texts: string[]) => texts.map(() => [0.1, 0.2, 0.3]);
 
     embedder.embed = async () => [0.1, 0.2, 0.3];
 
@@ -896,7 +939,11 @@ describe("KnowledgeIndexer", () => {
 
   it("should keep keyword-searchable entries when embedding is unavailable", async () => {
     const tmpPath = path.join(os.tmpdir(), `test-keyword-only-${Date.now()}.csv`);
-    fs.writeFileSync(tmpPath, "主题,说明\n区域汇总公式,区域汇总公式应该只写到锚点单元格\n", "utf-8");
+    fs.writeFileSync(
+      tmpPath,
+      "主题,说明\n区域汇总公式,区域汇总公式应该只写到锚点单元格\n",
+      "utf-8",
+    );
     embedder.embedBatch = vi.fn(async () => {
       throw new Error("Embedding API 请求失败 (404)");
     });
@@ -955,9 +1002,7 @@ describe("KnowledgeIndexer", () => {
         model: "text-embedding-v2",
         dimensions: 3,
       });
-      embedder.embedBatch = vi.fn(async (texts: string[]) =>
-        texts.map(() => [0.4, 0.5, 0.6])
-      );
+      embedder.embedBatch = vi.fn(async (texts: string[]) => texts.map(() => [0.4, 0.5, 0.6]));
 
       const r2 = await indexer.indexFile(tmpPath);
       expect(r2.success).toBe(true);
@@ -1142,9 +1187,9 @@ describe("Retriever", () => {
   });
 
   it("should filter by low score threshold", async () => {
-    const strictRetriever = new (await import("./retriever")).Retriever(
-      store, embedder, { minScore: 0.9 }
-    );
+    const strictRetriever = new (await import("./retriever")).Retriever(store, embedder, {
+      minScore: 0.9,
+    });
 
     const results = await strictRetriever.search({ text: "销售", topK: 3 });
     // 只有完全匹配的才能超过 0.9

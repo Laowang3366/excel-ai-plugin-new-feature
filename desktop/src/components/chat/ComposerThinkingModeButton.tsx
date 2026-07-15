@@ -32,10 +32,18 @@ export function resolveComposerThinkingModeState({
   const activeProvider = providers[activeProviderId];
   if (!activeProvider) return null;
 
-  const activeTemplate = templates.find((template) => template.provider === activeProvider.provider);
+  const activeTemplate = templates.find(
+    (template) => template.provider === activeProvider.provider,
+  );
   const activeModel = activeProvider.model || "";
-  const activeModelConfig = (activeProvider.modelConfigs || []).find((modelConfig) => modelConfig.name === activeModel);
-  const reasoningOptionValues = resolveReasoningOptionValues(activeProvider, activeTemplate, activeModelConfig);
+  const activeModelConfig = (activeProvider.modelConfigs || []).find(
+    (modelConfig) => modelConfig.name === activeModel,
+  );
+  const reasoningOptionValues = resolveReasoningOptionValues(
+    activeProvider,
+    activeTemplate,
+    activeModelConfig,
+  );
   const options = buildReasoningOptions(reasoningOptionValues, language);
   if (options.length === 0) return null;
 
@@ -100,7 +108,10 @@ export const ComposerThinkingModeButton: React.FC<ComposerThinkingModeButtonProp
         <ChevronDown size={13} />
       </button>
       {open && (
-        <div className="composer-popover thinking-mode-popover" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="composer-popover thinking-mode-popover"
+          onClick={(event) => event.stopPropagation()}
+        >
           {state.options.map((option) => (
             <button
               key={option.value}

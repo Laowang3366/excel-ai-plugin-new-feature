@@ -54,13 +54,7 @@ describe("threadRuntime helpers", () => {
       threadId: "thread-1",
       clientId: "client-1",
     });
-    expect(streamDeltas[0]).toEqual([
-      "delta",
-      "assistant_message",
-      2,
-      "thread-1",
-      "client-1",
-    ]);
+    expect(streamDeltas[0]).toEqual(["delta", "assistant_message", 2, "thread-1", "client-1"]);
   });
 
   it("persists thread snapshot and runtime when stores are present", async () => {
@@ -85,10 +79,10 @@ describe("threadRuntime helpers", () => {
     });
 
     expect(stateRuntimeStore.upsertThreadSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: "thread-1" })
+      expect.objectContaining({ threadId: "thread-1" }),
     );
     expect(stateRuntimeStore.updateThreadRuntime).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: "thread-1", status: "active" })
+      expect.objectContaining({ threadId: "thread-1", status: "active" }),
     );
   });
 

@@ -140,13 +140,21 @@ function validateOptionalMemoryArgs(
   args: Record<string, unknown>,
   keys: Array<"namespace" | "summary" | "confidence" | "kind" | "limit">,
 ): string | null {
-  if (keys.includes("namespace") && args.namespace !== undefined && typeof args.namespace !== "string") {
+  if (
+    keys.includes("namespace") &&
+    args.namespace !== undefined &&
+    typeof args.namespace !== "string"
+  ) {
     return "参数 namespace 必须是 string";
   }
   if (keys.includes("summary") && args.summary !== undefined && typeof args.summary !== "string") {
     return "参数 summary 必须是 string";
   }
-  if (keys.includes("confidence") && args.confidence !== undefined && typeof args.confidence !== "number") {
+  if (
+    keys.includes("confidence") &&
+    args.confidence !== undefined &&
+    typeof args.confidence !== "number"
+  ) {
     return "参数 confidence 必须是 number";
   }
   if (keys.includes("kind") && args.kind !== undefined && typeof args.kind !== "string") {

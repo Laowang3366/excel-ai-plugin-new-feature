@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  DEFAULT_COMPACT_PROMPT,
-  getCompactionPromptTemplate,
-} from "./compactionPrompt";
+import { DEFAULT_COMPACT_PROMPT, getCompactionPromptTemplate } from "./compactionPrompt";
 
 describe("compactionPrompt", () => {
   it("loads the default compaction prompt from the prompt template", () => {

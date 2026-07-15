@@ -270,12 +270,15 @@ export function useComposer(draftKey = "new") {
     setInputTextState(limitComposerInput(value));
   }, []);
 
-  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputText(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 220) + "px";
-  }, [setInputText]);
+  const handleTextareaChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setInputText(e.target.value);
+      const el = e.target;
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 220) + "px";
+    },
+    [setInputText],
+  );
 
   // 粘贴文件/图片
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {

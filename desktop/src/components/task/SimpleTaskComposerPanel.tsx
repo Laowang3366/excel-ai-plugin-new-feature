@@ -82,13 +82,17 @@ export const SimpleTaskComposerPanel: React.FC<SimpleTaskComposerPanelProps> = (
       </div>
       <button
         className="task-submit-btn"
-        onClick={() => onSubmit(buildSimpleTaskPayload({
-          prefix: text.simplePrefixes[intent],
-          rangeLabel: text.dataSourceRange,
-          requirementLabel: text.requirement,
-          range,
-          task,
-        }))}
+        onClick={() =>
+          onSubmit(
+            buildSimpleTaskPayload({
+              prefix: text.simplePrefixes[intent],
+              rangeLabel: text.dataSourceRange,
+              requirementLabel: text.requirement,
+              range,
+              task,
+            }),
+          )
+        }
       >
         {text.sendToAi}
       </button>

@@ -1,12 +1,6 @@
 import type { LongTermMemoryStore } from "../../memory/longTerm/memoryStore";
-import type {
-  CompactionConfig,
-  ToolExecutor,
-} from "../../shared/types";
-import type {
-  AIClientConfig,
-  ReasoningMode,
-} from "../../providers/aiClient";
+import type { CompactionConfig, ToolExecutor } from "../../shared/types";
+import type { AIClientConfig, ReasoningMode } from "../../providers/aiClient";
 import type { AIRequestPhase, AIRequestRetryConfig } from "./aiRequestRetry";
 import type { CompactionProvider } from "./compactionProvider";
 

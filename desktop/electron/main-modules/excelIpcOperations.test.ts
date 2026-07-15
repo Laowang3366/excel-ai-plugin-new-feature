@@ -14,9 +14,9 @@ describe("Excel IPC operations", () => {
       inspectWorkbook: vi.fn().mockRejectedValue(new Error("workbook unavailable")),
     };
 
-    await expect(readExcelRangeForIpc(bridge as any, "Sheet1", "A1"))
-      .rejects.toThrow("COM disconnected");
-    await expect(inspectExcelWorkbookForIpc(bridge as any))
-      .rejects.toThrow("workbook unavailable");
+    await expect(readExcelRangeForIpc(bridge as any, "Sheet1", "A1")).rejects.toThrow(
+      "COM disconnected",
+    );
+    await expect(inspectExcelWorkbookForIpc(bridge as any)).rejects.toThrow("workbook unavailable");
   });
 });

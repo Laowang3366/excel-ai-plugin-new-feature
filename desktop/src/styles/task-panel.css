@@ -45,7 +45,9 @@
   background: var(--bg-primary);
   transition: border-color 0.15s;
 }
-.task-field-input:focus { border-color: var(--primary-border); }
+.task-field-input:focus {
+  border-color: var(--primary-border);
+}
 
 .task-field-textarea {
   width: 100%;
@@ -60,15 +62,21 @@
   background: var(--bg-primary);
   transition: border-color 0.15s;
 }
-.task-field-textarea:focus { border-color: var(--primary-border); }
+.task-field-textarea:focus {
+  border-color: var(--primary-border);
+}
 
 /* ---- 选区行 ---- */
 
 .range-input-row {
-  display: flex; gap: 6px; align-items: center;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
-.range-input-row .task-field-input { flex: 1; }
+.range-input-row .task-field-input {
+  flex: 1;
+}
 
 .btn-pick-range {
   height: 34px;
@@ -91,36 +99,53 @@
 /* ---- 选区 Chip ---- */
 
 .range-chips {
-  display: flex; flex-wrap: wrap; gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-top: 6px;
 }
 
 .range-chip {
-  display: flex; align-items: center; gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   height: 26px;
   padding: 0 8px 0 10px;
   border-radius: var(--radius-full);
   background: var(--bg-blue-tint);
-  font-size: 12px; color: var(--primary);
+  font-size: 12px;
+  color: var(--primary);
   font-weight: 500;
 }
 
 .range-chip-remove {
-  background: none; border: none;
-  cursor: pointer; font-size: 14px;
-  color: var(--text-faint); padding: 0 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-faint);
+  padding: 0 2px;
   line-height: 1;
 }
-.range-chip-remove:hover { color: var(--danger); }
+.range-chip-remove:hover {
+  color: var(--danger);
+}
 
 /* ---- 复选框 ---- */
 
 .task-field-checkbox {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 13px; color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
   cursor: pointer;
 }
-.task-field-checkbox input { width: 16px; height: 16px; accent-color: var(--primary); }
+.task-field-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
 
 /* ---- 提交按钮 ---- */
 
@@ -145,10 +170,12 @@
 /* ---- 代码面板：并排字段行 + 选择按钮组 ---- */
 
 .task-field-row {
-  display: flex; gap: 12px;
+  display: flex;
+  gap: 12px;
 }
 .task-field--half {
-  flex: 1; min-width: 0;
+  flex: 1;
+  min-width: 0;
 }
 .task-field-row--stacked {
   flex-direction: column;
@@ -157,7 +184,8 @@
   width: 100%;
 }
 .task-select-group {
-  display: flex; gap: 4px;
+  display: flex;
+  gap: 4px;
   background: var(--bg-tint);
   border-radius: var(--radius-md);
   padding: 3px;
@@ -205,32 +233,57 @@
   background: var(--primary-light);
 }
 .ocr-drop-content {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 .ocr-drop-content p {
-  margin: 0; font-size: 13px; color: var(--text-muted);
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .ocr-file-list {
-  margin-top: 8px; display: flex; flex-direction: column; gap: 4px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .ocr-file-item {
-  display: flex; align-items: center; gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 8px;
   background: var(--bg-tint);
   border-radius: var(--radius-sm);
   font-size: 12px;
 }
-.ocr-file-icon { font-size: 14px; }
-.ocr-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
-.ocr-file-remove {
-  background: none; border: none; cursor: pointer;
-  font-size: 12px; color: var(--text-faint); padding: 0 2px;
+.ocr-file-icon {
+  font-size: 14px;
 }
-.ocr-file-remove:hover { color: var(--danger); }
+.ocr-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.ocr-file-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+.ocr-file-remove:hover {
+  color: var(--danger);
+}
 
 .ocr-errors {
-  padding: 8px; background: var(--danger-bg);
+  padding: 8px;
+  background: var(--danger-bg);
   border-radius: var(--radius-sm);
   margin: 8px 0;
 }
@@ -238,15 +291,26 @@
 /* ---- OCR 字段选择 ---- */
 
 .task-field-label-row {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 6px;
 }
-.task-field-actions { display: flex; gap: 8px; }
-.task-link-btn {
-  background: none; border: none; cursor: pointer;
-  font-size: 11px; color: var(--primary); padding: 0;
+.task-field-actions {
+  display: flex;
+  gap: 8px;
 }
-.task-link-btn:hover { text-decoration: underline; }
+.task-link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--primary);
+  padding: 0;
+}
+.task-link-btn:hover {
+  text-decoration: underline;
+}
 .task-link-btn--inline {
   margin-top: 6px;
   color: var(--text-muted);
@@ -254,28 +318,43 @@
 }
 
 .ocr-field-grid {
-  display: flex; flex-wrap: wrap; gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .ocr-field-checkbox {
-  display: flex; align-items: center; gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 8px;
   background: var(--bg-tint);
   border-radius: var(--radius-sm);
-  font-size: 12px; color: var(--text-secondary);
-  cursor: pointer; transition: all 0.15s;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
 }
-.ocr-field-checkbox:hover { background: var(--primary-light); }
-.ocr-field-checkbox input { width: 14px; height: 14px; accent-color: var(--primary); }
+.ocr-field-checkbox:hover {
+  background: var(--primary-light);
+}
+.ocr-field-checkbox input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+}
 
 /* ---- OCR 预览表格 ---- */
 
 .ocr-preview-table-wrapper {
-  max-height: 200px; overflow: auto;
+  max-height: 200px;
+  overflow: auto;
   border: 1px solid var(--border-card);
   border-radius: var(--radius-sm);
 }
 .ocr-preview-table {
-  width: 100%; border-collapse: collapse; font-size: 11px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
 }
 .ocr-preview-table th {
   background: var(--bg-tint);

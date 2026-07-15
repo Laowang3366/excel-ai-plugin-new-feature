@@ -55,12 +55,22 @@ describe("local data maintenance", () => {
         "running",
         OLD,
       );
-      const template = path.join(workflowRoot, "templates", "55555555-5555-4555-8555-555555555555.json");
+      const template = path.join(
+        workflowRoot,
+        "templates",
+        "55555555-5555-4555-8555-555555555555.json",
+      );
       await writeFiles([[template, "{}"]]);
 
       const report = await runLocalDataMaintenance(root, { now: NOW });
 
-      await expectMissing(oldLog, oldBackup.dataPath, oldBackup.metadataPath, oldTransaction, oldWorkflow);
+      await expectMissing(
+        oldLog,
+        oldBackup.dataPath,
+        oldBackup.metadataPath,
+        oldTransaction,
+        oldWorkflow,
+      );
       await expectPresent(
         currentLog,
         unrelatedLog,
@@ -84,7 +94,10 @@ describe("local data maintenance", () => {
     try {
       const currentLog = path.join(root, "logs", "app-2026-07-15.log");
       const previousLog = path.join(root, "logs", "app-2026-07-14.log");
-      await writeFiles([[currentLog, "current"], [previousLog, "previous"]]);
+      await writeFiles([
+        [currentLog, "current"],
+        [previousLog, "previous"],
+      ]);
 
       const workflowRoot = path.join(root, "office-automation", "workflows");
       const pausedWorkflow = await writeWorkflow(
@@ -136,22 +149,28 @@ async function writeBackup(root: string, id: string, createdAt: string) {
   const dataPath = path.join(root, `${id}.xlsx`);
   const metadataPath = path.join(root, `${id}.json`);
   await writeFile(dataPath, "backup");
-  await writeFile(metadataPath, `${JSON.stringify({
-    id,
-    app: "excel",
-    operation: "writeRange",
-    sourcePath: path.join(root, "source.xlsx"),
-    backupPath: dataPath,
-    createdAt,
-    size: 6,
-  })}\n`);
+  await writeFile(
+    metadataPath,
+    `${JSON.stringify({
+      id,
+      app: "excel",
+      operation: "writeRange",
+      sourcePath: path.join(root, "source.xlsx"),
+      backupPath: dataPath,
+      createdAt,
+      size: 6,
+    })}\n`,
+  );
   return { dataPath, metadataPath };
 }
 
 async function writeTransaction(root: string, id: string, status: string, updatedAt: string) {
   const directory = path.join(root, id);
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, "transaction.json"), `${JSON.stringify({ id, status, updatedAt })}\n`);
+  await writeFile(
+    path.join(directory, "transaction.json"),
+    `${JSON.stringify({ id, status, updatedAt })}\n`,
+  );
   await writeFile(path.join(directory, "snapshot.bin"), "snapshot");
   return directory;
 }
@@ -159,12 +178,15 @@ async function writeTransaction(root: string, id: string, status: string, update
 async function writeWorkflow(root: string, id: string, status: string, updatedAt: string) {
   await mkdir(root, { recursive: true });
   const filePath = path.join(root, `${id}.json`);
-  await writeFile(filePath, `${JSON.stringify({
-    id,
-    status,
-    updatedAt,
-    ...(status === "running" ? { leaseExpiresAt: "2026-07-16T00:00:00.000Z" } : {}),
-  })}\n`);
+  await writeFile(
+    filePath,
+    `${JSON.stringify({
+      id,
+      status,
+      updatedAt,
+      ...(status === "running" ? { leaseExpiresAt: "2026-07-16T00:00:00.000Z" } : {}),
+    })}\n`,
+  );
   return filePath;
 }
 

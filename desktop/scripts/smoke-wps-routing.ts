@@ -9,7 +9,10 @@ import {
   applyWordAdvancedAction,
   disposeOfficeWorker,
 } from "./officeWorkerSmokeHelpers";
-import type { OfficeActionInput, OfficeActionResult } from "../electron/agent/tools/officeCore/types";
+import type {
+  OfficeActionInput,
+  OfficeActionResult,
+} from "../electron/agent/tools/officeCore/types";
 
 async function main(): Promise<void> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "wengge-wps-routing-"));
@@ -23,15 +26,33 @@ async function main(): Promise<void> {
     const bridge = new OfficeComActionBridge();
     const checks: Array<{ action: OfficeActionInput; expectedProgIds: string[] }> = [
       {
-        action: { app: "excel", action: "inspect", operation: "inspectPrintSettings", filePath: excelPath, params: { host: "wps" } },
+        action: {
+          app: "excel",
+          action: "inspect",
+          operation: "inspectPrintSettings",
+          filePath: excelPath,
+          params: { host: "wps" },
+        },
         expectedProgIds: ["ket.application"],
       },
       {
-        action: { app: "word", action: "inspect", operation: "inspectDocumentFormatting", filePath: wordPath, params: { host: "wps" } },
+        action: {
+          app: "word",
+          action: "inspect",
+          operation: "inspectDocumentFormatting",
+          filePath: wordPath,
+          params: { host: "wps" },
+        },
         expectedProgIds: ["kwps.application", "wps.application"],
       },
       {
-        action: { app: "presentation", action: "inspect", operation: "inspectPresentationTheme", filePath: presentationPath, params: { host: "wps" } },
+        action: {
+          app: "presentation",
+          action: "inspect",
+          operation: "inspectPresentationTheme",
+          filePath: presentationPath,
+          params: { host: "wps" },
+        },
         expectedProgIds: ["wpp.application", "kwpp.application"],
       },
     ];
@@ -41,24 +62,50 @@ async function main(): Promise<void> {
       const result = await bridge.executeAction(check.action);
       assertDone(result, `${check.action.app} WPS 路由检查`);
       const progId = String(asRecord(result.data).progId || "").toLowerCase();
-      if (!check.expectedProgIds.includes(progId)) throw new Error(`${check.action.app} 未使用预期 WPS COM: ${progId || "unknown"}`);
+      if (!check.expectedProgIds.includes(progId))
+        throw new Error(`${check.action.app} 未使用预期 WPS COM: ${progId || "unknown"}`);
       routes.push({ app: check.action.app, progId });
       logStage(`${check.action.app} WPS 路由通过: ${progId}`);
     }
-    process.stdout.write(`${JSON.stringify({ ok: true, createdBeforeWpsOpen: true, routes }, null, 2)}\n`);
+    process.stdout.write(
+      `${JSON.stringify({ ok: true, createdBeforeWpsOpen: true, routes }, null, 2)}\n`,
+    );
   } finally {
     await disposeOfficeWorker();
     await rm(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 300 });
   }
 }
 
-async function createFixtures(excelPath: string, wordPath: string, presentationPath: string): Promise<void> {
+async function createFixtures(
+  excelPath: string,
+  wordPath: string,
+  presentationPath: string,
+): Promise<void> {
   const results = await Promise.all([
-    applyExcelAdvancedAction({ operation: "createWorkbook", filePath: excelPath, params: { sheetNames: ["Sheet1"], values: [["Name", "Value"], ["WPS", 1]] } }),
-    applyWordAdvancedAction({ operation: "createDocument", filePath: wordPath, params: { title: "WPS 路由测试", paragraphs: ["文件先创建，再由 WPS 打开。"] } }),
-    applyPresentationAdvancedAction({ operation: "createPresentation", filePath: presentationPath, params: { title: "WPS 路由测试" } }),
+    applyExcelAdvancedAction({
+      operation: "createWorkbook",
+      filePath: excelPath,
+      params: {
+        sheetNames: ["Sheet1"],
+        values: [
+          ["Name", "Value"],
+          ["WPS", 1],
+        ],
+      },
+    }),
+    applyWordAdvancedAction({
+      operation: "createDocument",
+      filePath: wordPath,
+      params: { title: "WPS 路由测试", paragraphs: ["文件先创建，再由 WPS 打开。"] },
+    }),
+    applyPresentationAdvancedAction({
+      operation: "createPresentation",
+      filePath: presentationPath,
+      params: { title: "WPS 路由测试" },
+    }),
   ]);
-  for (const [index, result] of results.entries()) assertDone(result, `创建 WPS 路由夹具 ${index + 1}`);
+  for (const [index, result] of results.entries())
+    assertDone(result, `创建 WPS 路由夹具 ${index + 1}`);
 }
 
 function assertDone(result: OfficeActionResult, label: string): void {
@@ -66,7 +113,9 @@ function assertDone(result: OfficeActionResult, label: string): void {
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function logStage(message: string): void {
@@ -76,7 +125,9 @@ function logStage(message: string): void {
 void main().then(
   () => process.exit(0),
   (error) => {
-    process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+    process.stderr.write(
+      `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+    );
     process.exit(1);
   },
 );

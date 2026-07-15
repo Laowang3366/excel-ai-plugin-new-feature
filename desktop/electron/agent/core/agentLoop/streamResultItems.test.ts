@@ -60,13 +60,11 @@ describe("emitStreamResultItems", () => {
       "assistant_message",
       "tool_call",
     ]);
-    expect(events.map((event) => (event as { type: string; item?: { type: string } }).item?.type ?? "none")).toEqual([
-      "reasoning",
-      "reasoning",
-      "assistant_message",
-      "assistant_message",
-      "tool_call",
-    ]);
+    expect(
+      events.map(
+        (event) => (event as { type: string; item?: { type: string } }).item?.type ?? "none",
+      ),
+    ).toEqual(["reasoning", "reasoning", "assistant_message", "assistant_message", "tool_call"]);
     expect(turn.items[1]).toMatchObject({
       type: "assistant_message",
       phase: "commentary",

@@ -41,7 +41,9 @@ export class DotNetOfficeDocumentBridge implements OfficeDocumentManagerBridge {
     return this.client.invoke("office.objects.activate", input);
   }
 
-  prepareTransaction(filePaths: string[]): ReturnType<OfficeDocumentManagerBridge["prepareTransaction"]> {
+  prepareTransaction(
+    filePaths: string[],
+  ): ReturnType<OfficeDocumentManagerBridge["prepareTransaction"]> {
     return this.client.invoke("office.transaction.prepare", { filePaths });
   }
 

@@ -26,7 +26,8 @@ import { KnowledgeSettings } from "./settings/KnowledgeSettings";
 import { OpenSourceSettings } from "./settings/OpenSourceSettings";
 import { UpdateSettings } from "./settings/UpdateSettings";
 
-export type SettingsSection = "profile" | "general" | "model" | "usage" | "updates" | "knowledge" | "opensource";
+export type SettingsSection =
+  "profile" | "general" | "model" | "usage" | "updates" | "knowledge" | "opensource";
 
 const SETTINGS_TEXT = {
   "zh-CN": {
@@ -81,7 +82,11 @@ interface SettingsPageProps {
   sidebarCollapsed?: boolean;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, initialSection = "general", sidebarCollapsed = false }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({
+  onBack,
+  initialSection = "general",
+  sidebarCollapsed = false,
+}) => {
   const [section, setSection] = useState<SettingsSection>(initialSection);
   const { isLoading, language, loadSettings } = useSettingsStore();
   const text = SETTINGS_TEXT[language];
@@ -104,7 +109,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, initialSecti
   }
 
   return (
-    <div className={`settings-shell ${sidebarCollapsed ? "settings-sidebar-collapsed" : ""}`} lang={language}>
+    <div
+      className={`settings-shell ${sidebarCollapsed ? "settings-sidebar-collapsed" : ""}`}
+      lang={language}
+    >
       {/* 设置侧栏 */}
       <aside className="settings-sidebar">
         <button className="settings-back-btn" onClick={onBack} title={text.back}>
@@ -141,7 +149,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack, initialSecti
   );
 };
 
-function ProfileSettings({ text }: { text: typeof SETTINGS_TEXT["zh-CN"] | typeof SETTINGS_TEXT["en-US"] }) {
+function ProfileSettings({
+  text,
+}: {
+  text: (typeof SETTINGS_TEXT)["zh-CN"] | (typeof SETTINGS_TEXT)["en-US"];
+}) {
   return (
     <div className="settings-section-content">
       <h2>{text.profileTitle}</h2>

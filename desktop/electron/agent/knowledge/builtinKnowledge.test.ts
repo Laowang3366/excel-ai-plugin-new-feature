@@ -31,7 +31,8 @@ describe("indexBuiltinKnowledge", () => {
       deleteSource: vi.fn(async () => undefined),
       listSources: vi.fn(() => [
         {
-          sourcePath: "C:\\old-app\\public\\knowledge\\excel-wps-formula-problem-solving-methodology.md",
+          sourcePath:
+            "C:\\old-app\\public\\knowledge\\excel-wps-formula-problem-solving-methodology.md",
           sourceName: "excel-wps-formula-problem-solving-methodology.md",
         },
         {

@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  parseStageOneOutput,
-  shouldIgnoreCandidateContent,
-} from "./memoryExtraction";
+import { parseStageOneOutput, shouldIgnoreCandidateContent } from "./memoryExtraction";
 
 describe("memory extraction", () => {
   it("ignores temporary path candidate content", () => {
     expect(
-      shouldIgnoreCandidateContent(
-        "临时路径 C:\\Users\\wfq\\AppData\\Local\\Temp\\make.py",
-      ),
+      shouldIgnoreCandidateContent("临时路径 C:\\Users\\wfq\\AppData\\Local\\Temp\\make.py"),
     ).toBe(true);
   });
 
@@ -102,18 +97,14 @@ describe("memory extraction", () => {
   });
 
   it("ignores TSV table dumps without blocking ordinary preferences", () => {
-    expect(
-      shouldIgnoreCandidateContent("姓名\t部门\t金额\n张三\t销售\t10\n李四\t财务\t20"),
-    ).toBe(true);
+    expect(shouldIgnoreCandidateContent("姓名\t部门\t金额\n张三\t销售\t10\n李四\t财务\t20")).toBe(
+      true,
+    );
 
-    expect(
-      shouldIgnoreCandidateContent("我偏好先用稳定的文件级编辑，再考虑脚本"),
-    ).toBe(false);
+    expect(shouldIgnoreCandidateContent("我偏好先用稳定的文件级编辑，再考虑脚本")).toBe(false);
   });
 
   it("ignores CSV table dumps", () => {
-    expect(
-      shouldIgnoreCandidateContent("姓名,部门,金额\n张三,销售,10\n李四,财务,20"),
-    ).toBe(true);
+    expect(shouldIgnoreCandidateContent("姓名,部门,金额\n张三,销售,10\n李四,财务,20")).toBe(true);
   });
 });

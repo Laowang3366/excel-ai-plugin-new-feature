@@ -9,12 +9,7 @@ import type { AppLanguage, PermissionMode } from "../store/settingsStore";
 import type { TurnItem } from "../electronApi";
 import { ipcApi } from "../services/ipcApi";
 import { getAppText } from "../i18n";
-import {
-  Shield,
-  ShieldCheck,
-  ShieldX,
-  MessageSquare,
-} from "../components/common/IconMap";
+import { Shield, ShieldCheck, ShieldX, MessageSquare } from "../components/common/IconMap";
 
 // ============================================================
 // 消息分组
@@ -24,7 +19,9 @@ import {
  * 将消息列表中连续的助手相关条目（reasoning, assistant_message, tool_call, tool_result）
  * 分组到一个容器中，以便它们共享宽度、实现对齐。
  */
-export function groupAssistantItems(items: TurnItem[]): Array<
+export function groupAssistantItems(
+  items: TurnItem[],
+): Array<
   | { kind: "single"; items: [TurnItem] }
   | { kind: "assistant"; items: TurnItem[]; previousUserTimestamp?: number }
 > {
@@ -73,12 +70,18 @@ export function groupAssistantItems(items: TurnItem[]): Array<
 // 时长计算
 // ============================================================
 
-export function getElapsedSeconds(startTimestamp: number | undefined, endTimestamp: number): number | undefined {
+export function getElapsedSeconds(
+  startTimestamp: number | undefined,
+  endTimestamp: number,
+): number | undefined {
   if (!startTimestamp || endTimestamp <= startTimestamp) return undefined;
   return Math.max(1, Math.round((endTimestamp - startTimestamp) / 1000));
 }
 
-export function getItemDurationSeconds(items: TurnItem[], startTimestamp: number | undefined): Map<string, number> {
+export function getItemDurationSeconds(
+  items: TurnItem[],
+  startTimestamp: number | undefined,
+): Map<string, number> {
   const durations = new Map<string, number>();
   let cursorTimestamp = startTimestamp;
 
@@ -105,7 +108,7 @@ export function sumDurations(durations: Map<string, number>): number | undefined
 export function getLiveTurnDurationSeconds(
   items: TurnItem[],
   startTimestamp: number | undefined,
-  nowTimestamp: number
+  nowTimestamp: number,
 ): number | undefined {
   const completedDuration = sumDurations(getItemDurationSeconds(items, startTimestamp)) ?? 0;
   const lastItemTimestamp = [...items].reverse().find((item) => item.timestamp)?.timestamp;
@@ -114,7 +117,10 @@ export function getLiveTurnDurationSeconds(
   return total > 0 ? total : undefined;
 }
 
-export function formatDuration(totalSeconds: number | undefined, language: AppLanguage): string | undefined {
+export function formatDuration(
+  totalSeconds: number | undefined,
+  language: AppLanguage,
+): string | undefined {
   if (totalSeconds === undefined) return undefined;
   const text = getAppText(language);
   if (totalSeconds < 60) return text.time.seconds(totalSeconds);
@@ -130,11 +136,7 @@ export function formatDuration(totalSeconds: number | undefined, language: AppLa
 // 标题与选区
 // ============================================================
 
-const MODULE_INTERNAL_LINE_PREFIXES = [
-  "模块指令：",
-  "交付要求：",
-  "交付方式：",
-];
+const MODULE_INTERNAL_LINE_PREFIXES = ["模块指令：", "交付要求：", "交付方式："];
 
 const MODULE_INTERNAL_EXACT_LINES = new Set([
   "数据源选区：未指定，请读取工作簿快照后自主判断。",
@@ -144,8 +146,14 @@ const MODULE_INTERNAL_EXACT_LINES = new Set([
 ]);
 
 function isTaskModulePayload(lines: string[]): boolean {
-  return lines.some((line) => line.trim().length > 0) &&
-    (lines.find((line) => line.trim().length > 0)?.trim().startsWith("【功能模块：") ?? false);
+  return (
+    lines.some((line) => line.trim().length > 0) &&
+    (lines
+      .find((line) => line.trim().length > 0)
+      ?.trim()
+      .startsWith("【功能模块：") ??
+      false)
+  );
 }
 
 function isHiddenModuleLine(line: string, taskModulePayload: boolean): boolean {

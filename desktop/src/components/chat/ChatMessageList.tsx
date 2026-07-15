@@ -66,10 +66,15 @@ export function isUserScrollPauseActive(params: {
   pauseMs?: number;
 }): boolean {
   if (params.lastUserScrollAwayAt <= 0) return false;
-  return params.now - params.lastUserScrollAwayAt < (params.pauseMs ?? USER_SCROLL_AUTO_FOLLOW_PAUSE_MS);
+  return (
+    params.now - params.lastUserScrollAwayAt < (params.pauseMs ?? USER_SCROLL_AUTO_FOLLOW_PAUSE_MS)
+  );
 }
 
-export function getVisibleMessageItems<T>(messages: T[], limit = MAX_RENDERED_MESSAGE_ITEMS): {
+export function getVisibleMessageItems<T>(
+  messages: T[],
+  limit = MAX_RENDERED_MESSAGE_ITEMS,
+): {
   visibleMessages: T[];
   hiddenCount: number;
 } {
@@ -89,10 +94,7 @@ function StreamingFallbackOutput() {
 
   return (
     <div className="streaming-output">
-      <StreamingReasoning
-        reasoning={streamingReasoning}
-        autoCollapse={Boolean(streamingContent)}
-      />
+      <StreamingReasoning reasoning={streamingReasoning} autoCollapse={Boolean(streamingContent)} />
       <StreamingContent content={streamingContent} />
     </div>
   );
@@ -157,7 +159,10 @@ export function ChatMessageList({ onFillInput }: ChatMessageListProps) {
 
   const prevMessageCount = useRef(messages.length);
   useEffect(() => {
-    if (messages.length > prevMessageCount.current && (!isStreaming || shouldFollowLatestRef.current)) {
+    if (
+      messages.length > prevMessageCount.current &&
+      (!isStreaming || shouldFollowLatestRef.current)
+    ) {
       scrollToLatest("smooth");
     }
     prevMessageCount.current = messages.length;
@@ -170,11 +175,13 @@ export function ChatMessageList({ onFillInput }: ChatMessageListProps) {
         now: Date.now(),
         lastUserScrollAwayAt: lastUserScrollAwayAtRef.current,
       });
-      if (shouldRunScheduledAutoScroll({
-        isStreaming,
-        shouldFollowLatest: shouldFollowLatestRef.current,
-        userScrollPauseActive,
-      })) {
+      if (
+        shouldRunScheduledAutoScroll({
+          isStreaming,
+          shouldFollowLatest: shouldFollowLatestRef.current,
+          userScrollPauseActive,
+        })
+      ) {
         scrollToLatest("auto");
         return;
       }
@@ -189,14 +196,15 @@ export function ChatMessageList({ onFillInput }: ChatMessageListProps) {
 
   const { visibleMessages, hiddenCount } = useMemo(
     () => getVisibleMessageItems(messages),
-    [messages]
+    [messages],
   );
 
   // 使用 messages.length + 最后一条消息 id 作为分组缓存依赖，
   // 比依赖整个 messages 数组更稳定（数组引用每次 store 更新都会变）
   const groupKey = useMemo(
-    () => `${visibleMessages.length}-${visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].id : "empty"}`,
-    [visibleMessages]
+    () =>
+      `${visibleMessages.length}-${visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].id : "empty"}`,
+    [visibleMessages],
   );
   const groups = useMemo(() => {
     return groupAssistantItems(visibleMessages);
@@ -205,89 +213,85 @@ export function ChatMessageList({ onFillInput }: ChatMessageListProps) {
 
   return (
     <div className="chat-messages-shell">
-    <div
-      className="chat-messages"
-      ref={messagesContainerRef}
-      onScroll={updateScrollState}
-      onWheelCapture={(event) => {
-        if (event.deltaY < 0) {
-          pauseAutoFollowForUserScroll();
-        }
-      }}
-    >
-      {hiddenCount > 0 && (
-        <div className="message-window-notice">
-          已隐藏较早的 {hiddenCount} 条消息以保持界面流畅，完整记录仍保存在会话历史中。
-        </div>
-      )}
-      {groups.map((group, gi) => {
-        if (group.kind === "single") {
-          const item = group.items[0];
-          switch (item.type) {
-            case "user_message":
-              return <MessageBubble key={item.id} item={item} />;
-            case "error":
-              return (
-                <div key={item.id} className="error-bubble"><AlertTriangle size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> {item.message}</div>
-              );
-            case "compacted":
-              return <CompactionNotice key={item.id} item={item} />;
-            case "compact_progress":
-              return <CompactionNotice key={item.id} item={item} />;
-            default:
-              return null;
+      <div
+        className="chat-messages"
+        ref={messagesContainerRef}
+        onScroll={updateScrollState}
+        onWheelCapture={(event) => {
+          if (event.deltaY < 0) {
+            pauseAutoFollowForUserScroll();
           }
-        }
-
-        // 仅当最后一个分组是助手组时，才将其渲染为 StreamingAssistantGroupBlock。
-        // 否则（例如第二轮对话，最后一个分组是新用户消息），助手组属于已完成轮次，
-        // 应作为普通 AssistantGroupBlock 渲染，streaming 输出走 fallback。
-        const isLastGroup = gi === groups.length - 1;
-        if (isStreaming && isLastGroup && group.kind === "assistant") {
-          return (
-            <StreamingAssistantGroupBlock
-              key={`ag-${gi}`}
-              group={group}
-            />
-          );
-        }
-        return <AssistantGroupBlock key={`ag-${gi}`} group={group} />;
-      })}
-
-      {/* streaming fallback：当最后一个分组不是助手组时（通常是新用户消息后），
-          将流式输出渲染在所有消息之后，确保不会跑到用户消息上方 */}
-      {isStreaming && (groups.length === 0 || groups[groups.length - 1].kind === "single") && (
-        <StreamingFallbackOutput />
-      )}
-
-      {compactionNotice && <CompactionNotice message={compactionNotice} />}
-
-      {lastInterruptContext && turnStatus === "interrupted" && (
-        <ResumeHint
-          message={lastInterruptContext}
-          onFillInput={onFillInput}
-        />
-      )}
-
-      {error && (
-        <div className="error-banner" onClick={clearError}>
-          <XCircle size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> {error} <span className="dismiss">{text.chat.dismiss}</span>
-        </div>
-      )}
-
-      <div ref={messagesEndRef} />
-    </div>
-    {showJumpToLatest && (
-      <button
-        type="button"
-        className="jump-to-latest-btn"
-        onClick={() => scrollToLatest("smooth")}
-        title="回到最新内容"
-        aria-label="回到最新内容"
+        }}
       >
-        <ArrowDown size={18} />
-      </button>
-    )}
+        {hiddenCount > 0 && (
+          <div className="message-window-notice">
+            已隐藏较早的 {hiddenCount} 条消息以保持界面流畅，完整记录仍保存在会话历史中。
+          </div>
+        )}
+        {groups.map((group, gi) => {
+          if (group.kind === "single") {
+            const item = group.items[0];
+            switch (item.type) {
+              case "user_message":
+                return <MessageBubble key={item.id} item={item} />;
+              case "error":
+                return (
+                  <div key={item.id} className="error-bubble">
+                    <AlertTriangle size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />{" "}
+                    {item.message}
+                  </div>
+                );
+              case "compacted":
+                return <CompactionNotice key={item.id} item={item} />;
+              case "compact_progress":
+                return <CompactionNotice key={item.id} item={item} />;
+              default:
+                return null;
+            }
+          }
+
+          // 仅当最后一个分组是助手组时，才将其渲染为 StreamingAssistantGroupBlock。
+          // 否则（例如第二轮对话，最后一个分组是新用户消息），助手组属于已完成轮次，
+          // 应作为普通 AssistantGroupBlock 渲染，streaming 输出走 fallback。
+          const isLastGroup = gi === groups.length - 1;
+          if (isStreaming && isLastGroup && group.kind === "assistant") {
+            return <StreamingAssistantGroupBlock key={`ag-${gi}`} group={group} />;
+          }
+          return <AssistantGroupBlock key={`ag-${gi}`} group={group} />;
+        })}
+
+        {/* streaming fallback：当最后一个分组不是助手组时（通常是新用户消息后），
+          将流式输出渲染在所有消息之后，确保不会跑到用户消息上方 */}
+        {isStreaming && (groups.length === 0 || groups[groups.length - 1].kind === "single") && (
+          <StreamingFallbackOutput />
+        )}
+
+        {compactionNotice && <CompactionNotice message={compactionNotice} />}
+
+        {lastInterruptContext && turnStatus === "interrupted" && (
+          <ResumeHint message={lastInterruptContext} onFillInput={onFillInput} />
+        )}
+
+        {error && (
+          <div className="error-banner" onClick={clearError}>
+            <XCircle size={14} style={{ verticalAlign: "middle", marginRight: 4 }} /> {error}{" "}
+            <span className="dismiss">{text.chat.dismiss}</span>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+      {showJumpToLatest && (
+        <button
+          type="button"
+          className="jump-to-latest-btn"
+          onClick={() => scrollToLatest("smooth")}
+          title="回到最新内容"
+          aria-label="回到最新内容"
+        >
+          <ArrowDown size={18} />
+        </button>
+      )}
     </div>
   );
 }

@@ -60,7 +60,10 @@ const TOOL_PREFIX_ICONS: Record<string, LucideIcon> = {
   "sheet.": ClipboardList,
 };
 
-const ToolCallDisplay: React.FC<{ item: ToolCallItem; result?: ToolResultItem }> = ({ item, result }) => {
+const ToolCallDisplay: React.FC<{ item: ToolCallItem; result?: ToolResultItem }> = ({
+  item,
+  result,
+}) => {
   const { language } = useSettingsStore();
   const [expanded, setExpanded] = useState(false);
 
@@ -81,13 +84,14 @@ const ToolCallDisplay: React.FC<{ item: ToolCallItem; result?: ToolResultItem }>
 
   return (
     <div className={`tool-call-bubble status-${displayStatus}`}>
-      <div
-        className="tool-call-header"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <span className="tool-status"><StatusIcon size={14} /></span>
+      <div className="tool-call-header" onClick={() => setExpanded(!expanded)}>
+        <span className="tool-status">
+          <StatusIcon size={14} />
+        </span>
         <span className="tool-name">{statusLabel}</span>
-        <span className="tool-toggle">{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
+        <span className="tool-toggle">
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </span>
       </div>
       {expanded && (
         <div className="tool-detail-card">
@@ -97,9 +101,7 @@ const ToolCallDisplay: React.FC<{ item: ToolCallItem; result?: ToolResultItem }>
             <code>{displayToolName}</code>
           </div>
           <pre>{JSON.stringify(item.arguments, null, 2)}</pre>
-          {result && (
-            <pre>{formatToolResult(result)}</pre>
-          )}
+          {result && <pre>{formatToolResult(result)}</pre>}
         </div>
       )}
     </div>
@@ -121,9 +123,8 @@ function getToolStatusLabel(status: string, language: AppLanguage): string {
 }
 
 function formatToolResult(item: ToolResultItem): string {
-  const resultStr = typeof item.result === "string"
-    ? item.result
-    : JSON.stringify(item.result, null, 2);
+  const resultStr =
+    typeof item.result === "string" ? item.result : JSON.stringify(item.result, null, 2);
   return item.isError ? resultStr : resultStr || "(completed with no output)";
 }
 
@@ -132,20 +133,19 @@ const ToolResultDisplay: React.FC<{ item: ToolResultItem }> = ({ item }) => {
   const text = getAppText(language);
   const [expanded, setExpanded] = useState(false);
 
-  const resultStr = typeof item.result === "string"
-    ? item.result
-    : JSON.stringify(item.result, null, 2);
+  const resultStr =
+    typeof item.result === "string" ? item.result : JSON.stringify(item.result, null, 2);
 
   // 截断过长的结果
   const isTruncated = resultStr.length > 500;
-  const displayResult = isTruncated && !expanded
-    ? resultStr.slice(0, 500) + "..."
-    : resultStr;
+  const displayResult = isTruncated && !expanded ? resultStr.slice(0, 500) + "..." : resultStr;
 
   return (
     <div className={`tool-result-bubble ${item.isError ? "error" : "success"}`}>
       <div className="tool-result-header" onClick={() => setExpanded(!expanded)}>
-        <span className="tool-result-icon">{item.isError ? <AlertTriangle size={14} /> : <Check size={14} />}</span>
+        <span className="tool-result-icon">
+          {item.isError ? <AlertTriangle size={14} /> : <Check size={14} />}
+        </span>
         <span className="tool-result-label">
           {item.isError ? text.assistant.toolError : text.assistant.toolResult}
         </span>

@@ -11,15 +11,15 @@ export function ensureSourceSummaries(db: SqliteDatabase): void {
          MIN(indexed_at) as first_indexed,
          MAX(indexed_at) as last_indexed
        FROM knowledge_entries
-       GROUP BY source_path, source_name, source_type`
+       GROUP BY source_path, source_name, source_type`,
     )
     .all() as Record<string, any>[];
 
   if (rows.length === 0) return;
 
-  const existingRows = db
-    .prepare("SELECT source_path FROM knowledge_sources")
-    .all() as Array<{ source_path: string }>;
+  const existingRows = db.prepare("SELECT source_path FROM knowledge_sources").all() as Array<{
+    source_path: string;
+  }>;
   const existing = new Set(existingRows.map((row) => row.source_path));
 
   const insert = db.prepare(
@@ -28,7 +28,7 @@ export function ensureSourceSummaries(db: SqliteDatabase): void {
        first_indexed, last_indexed, file_hash)
      VALUES
       (?, ?, ?, ?,
-       ?, ?, ?)`
+       ?, ?, ?)`,
   );
 
   runSqliteTransaction(db, () => {
@@ -41,7 +41,7 @@ export function ensureSourceSummaries(db: SqliteDatabase): void {
         row.entry_count,
         row.first_indexed,
         row.last_indexed,
-        ""
+        "",
       );
     }
   });

@@ -19,7 +19,7 @@ describe("createDocumentDismissHandlers", () => {
     });
 
     handlers.handlePointerEvent({
-      target: { closest: (selector: string) => selector === ".menu" ? {} : null },
+      target: { closest: (selector: string) => (selector === ".menu" ? {} : null) },
     } as unknown as MouseEvent);
 
     expect(onDismiss).not.toHaveBeenCalled();

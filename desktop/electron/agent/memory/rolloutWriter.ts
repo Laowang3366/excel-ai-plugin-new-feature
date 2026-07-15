@@ -91,9 +91,7 @@ export class AsyncRolloutWriter {
       try {
         const entries = [...batches.entries()];
         const results = await Promise.allSettled(
-          entries.map(([filePath, lines]) =>
-            this.writeBatch(filePath, lines.join(""))
-          )
+          entries.map(([filePath, lines]) => this.writeBatch(filePath, lines.join(""))),
         );
         const failed: Array<[string, string[]]> = [];
         let firstError: unknown;

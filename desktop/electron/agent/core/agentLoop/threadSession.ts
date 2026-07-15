@@ -1,11 +1,5 @@
 import type { AIClientConfig } from "../../providers/aiClient";
-import type {
-  CompactionConfig,
-  Thread,
-  ThreadId,
-  Turn,
-  TurnItem,
-} from "../../shared/types";
+import type { CompactionConfig, Thread, ThreadId, Turn, TurnItem } from "../../shared/types";
 import type { SessionStore } from "../../memory/sessionStore";
 import type { ThreadStateManager } from "./threadStateManager";
 import type { TurnState } from "./turnState";

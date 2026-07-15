@@ -12,7 +12,9 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
@@ -35,10 +37,17 @@ body {
 
 .chat-messages::-webkit-scrollbar,
 .settings-page::-webkit-scrollbar,
-.sidebar-content::-webkit-scrollbar { width: 4px; }
+.sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
 .chat-messages::-webkit-scrollbar-track,
 .settings-page::-webkit-scrollbar-track,
-.sidebar-content::-webkit-scrollbar-track { background: transparent; }
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
 .chat-messages::-webkit-scrollbar-thumb,
 .settings-page::-webkit-scrollbar-thumb,
-.sidebar-content::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 2px; }
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 2px;
+}

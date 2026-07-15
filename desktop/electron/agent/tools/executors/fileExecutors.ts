@@ -42,7 +42,11 @@ export function addFileExecutors(target: Map<string, ToolExecutor>, deps: FileEx
 
       if (deps.sessionFolderPath) {
         const folderName = deps.sessionFolderPath.split(/[\\/]/).pop() || "当前工作文件夹";
-        results.unshift({ name: `当前工作文件夹（${folderName}）`, key: "current_folder", path: deps.sessionFolderPath });
+        results.unshift({
+          name: `当前工作文件夹（${folderName}）`,
+          key: "current_folder",
+          path: deps.sessionFolderPath,
+        });
       }
 
       if (results.length === 0) {

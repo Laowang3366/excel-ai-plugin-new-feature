@@ -45,7 +45,7 @@ function buildFrozenStreamingItems(current: ChatState, beforeItemId: string) {
 
 function findFrozenStreamingIndex(
   messages: ChatState["messages"],
-  item: ChatState["messages"][number]
+  item: ChatState["messages"][number],
 ): number {
   if (item.type === "reasoning") {
     const completedText = textOf(item.rawContent);
@@ -53,7 +53,7 @@ function findFrozenStreamingIndex(
       (message) =>
         message.type === "reasoning" &&
         message.id.startsWith(FROZEN_REASONING_PREFIX) &&
-        textOf(message.rawContent) === completedText
+        textOf(message.rawContent) === completedText,
     );
   }
 
@@ -62,7 +62,7 @@ function findFrozenStreamingIndex(
       (message) =>
         message.type === "assistant_message" &&
         message.id.startsWith(FROZEN_MESSAGE_PREFIX) &&
-        message.content === item.content
+        message.content === item.content,
     );
   }
 
@@ -71,7 +71,7 @@ function findFrozenStreamingIndex(
 
 /**
  * 处理 Agent 事件，返回需要应用到 store 的状态 patches。
- * 
+ *
  * 参考 Codex 事件驱动模型：
  * - 所有消息只从 item_completed 事件产出
  * - turn_completed 只清理流式状态，不创建消息
@@ -80,12 +80,12 @@ function findFrozenStreamingIndex(
 export function handleAgentEvent(
   event: AgentEvent,
   current: ChatState,
-  patches: Array<Partial<ChatState>>
+  patches: Array<Partial<ChatState>>,
 ): Array<Partial<ChatState>> {
   const isPendingInterruptEvent = Boolean(
     event.type === "turn_interrupted" &&
     event.threadId &&
-    current.pendingInterruptThreadIds[event.threadId]
+    current.pendingInterruptThreadIds[event.threadId],
   );
 
   if (event.threadId) {
@@ -99,18 +99,14 @@ export function handleAgentEvent(
         stoppedThreadIds: stoppedRest,
       });
     } else if (
-      (
-        event.type === "turn_completed" ||
+      (event.type === "turn_completed" ||
         event.type === "turn_interrupted" ||
-        event.type === "turn_failed"
-      ) &&
+        event.type === "turn_failed") &&
       !isPendingInterruptEvent
     ) {
       const { [event.threadId]: _completedThread, ...rest } = current.runningThreadIds;
-      const {
-        [event.threadId]: _pendingInterrupt,
-        ...pendingInterruptRest
-      } = current.pendingInterruptThreadIds;
+      const { [event.threadId]: _pendingInterrupt, ...pendingInterruptRest } =
+        current.pendingInterruptThreadIds;
       patches.push({
         runningThreadIds: rest,
         pendingInterruptThreadIds: pendingInterruptRest,
@@ -119,10 +115,10 @@ export function handleAgentEvent(
   }
 
   const matchesActiveThread = Boolean(
-    event.threadId && current.activeThreadId && event.threadId === current.activeThreadId
+    event.threadId && current.activeThreadId && event.threadId === current.activeThreadId,
   );
   const matchesPendingClient = Boolean(
-    event.clientId && current.activeClientId && event.clientId === current.activeClientId
+    event.clientId && current.activeClientId && event.clientId === current.activeClientId,
   );
 
   if (event.threadId) {
@@ -137,9 +133,10 @@ export function handleAgentEvent(
   switch (event.type) {
     case "turn_started":
       patches.push({
-        activeThreadId: !current.activeThreadId && matchesPendingClient && event.threadId
-          ? event.threadId
-          : current.activeThreadId,
+        activeThreadId:
+          !current.activeThreadId && matchesPendingClient && event.threadId
+            ? event.threadId
+            : current.activeThreadId,
         activeTurnId: event.turnId,
         turnStatus: "in_progress",
         isStreaming: true,
@@ -193,24 +190,26 @@ export function handleAgentEvent(
 
     case "item_started":
       if (event.item.type === "tool_call") {
-        patches.push((() => {
-          const exists = current.messages.some((m) => m.id === event.item.id);
-          // tool_call 到达时立即清空流式缓冲，让 UI 从"思考态"切到"工具态"
-          // 避免 reasoning streamDelta 和 item_completed 在两个 IPC 通道
-          // 不同步导致 UI 卡在思考态
-          const patch: Partial<ChatState> = {};
-          if (!exists) {
-            patch.messages = [
-              ...current.messages,
-              ...buildFrozenStreamingItems(current, event.item.id),
-              event.item,
-            ];
-          }
-          // 只有确实有思考过才清，避免纯文本情形被误清
-          if (current.streamingReasoning) patch.streamingReasoning = "";
-          if (current.streamingContent) patch.streamingContent = "";
-          return patch;
-        })());
+        patches.push(
+          (() => {
+            const exists = current.messages.some((m) => m.id === event.item.id);
+            // tool_call 到达时立即清空流式缓冲，让 UI 从"思考态"切到"工具态"
+            // 避免 reasoning streamDelta 和 item_completed 在两个 IPC 通道
+            // 不同步导致 UI 卡在思考态
+            const patch: Partial<ChatState> = {};
+            if (!exists) {
+              patch.messages = [
+                ...current.messages,
+                ...buildFrozenStreamingItems(current, event.item.id),
+                event.item,
+              ];
+            }
+            // 只有确实有思考过才清，避免纯文本情形被误清
+            if (current.streamingReasoning) patch.streamingReasoning = "";
+            if (current.streamingContent) patch.streamingContent = "";
+            return patch;
+          })(),
+        );
       }
       if (event.item.type === "compact_progress") {
         const exists = current.messages.some((m) => m.id === event.item.id);

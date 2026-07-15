@@ -77,7 +77,10 @@ describe("buildSidebarSearchResults", () => {
     });
 
     expect(results.threads.map((item) => item.thread.threadId)).toEqual(["t-report", "t-old"]);
-    expect(results.files.map((item) => item.file.fileName)).toEqual(["预算表.xlsx", "销售报告.docx"]);
+    expect(results.files.map((item) => item.file.fileName)).toEqual([
+      "预算表.xlsx",
+      "销售报告.docx",
+    ]);
     expect(results.actions.map((item) => item.id)).toEqual(["newThread", "addFolder"]);
   });
 });

@@ -23,7 +23,12 @@ export function createDocumentDismissHandlers(options: DocumentDismissOptions) {
     handlePointerEvent(event: MouseEvent) {
       const target = event.target as EventTarget | null;
       const closest = (target as Element | null)?.closest;
-      if (target && typeof closest === "function" && ignoreSelectors.some((selector) => closest.call(target, selector))) return;
+      if (
+        target &&
+        typeof closest === "function" &&
+        ignoreSelectors.some((selector) => closest.call(target, selector))
+      )
+        return;
       if (target && boundaryRefs.some((ref) => ref.current?.contains(target as Node))) return;
       onDismiss();
     },

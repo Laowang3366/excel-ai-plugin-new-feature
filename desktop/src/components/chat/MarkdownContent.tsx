@@ -78,15 +78,17 @@ export function normalizeVisibleMarkdown(content: string): string {
   const lines = content.split("\n");
   let inFence = false;
 
-  return lines.map((line) => {
-    if (/^\s*```/.test(line)) {
-      inFence = !inFence;
-      return line;
-    }
-    if (inFence) return line;
+  return lines
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) return line;
 
-    return line.replace(/^(\s*)#{1,6}(?:\s+|(?=[^\s#]))/, "$1");
-  }).join("\n");
+      return line.replace(/^(\s*)#{1,6}(?:\s+|(?=[^\s#]))/, "$1");
+    })
+    .join("\n");
 }
 
 interface CopyFeedbackButtonProps {
@@ -96,7 +98,12 @@ interface CopyFeedbackButtonProps {
   title: string;
 }
 
-export function CopyFeedbackButton({ className, copiedTitle, textToCopy, title }: CopyFeedbackButtonProps) {
+export function CopyFeedbackButton({
+  className,
+  copiedTitle,
+  textToCopy,
+  title,
+}: CopyFeedbackButtonProps) {
   const [copied, setCopied] = useState(false);
   const resetTimerRef = useRef<number | null>(null);
 

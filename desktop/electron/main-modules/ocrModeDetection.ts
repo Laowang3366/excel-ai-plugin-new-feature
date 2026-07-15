@@ -29,7 +29,10 @@ export function isLikelyInvoiceFileList(filePaths: string[]): boolean {
   return filePaths.some((filePath) => /发票|invoice|fapiao|票据/i.test(path.basename(filePath)));
 }
 
-export function buildInvoiceResultFromPlainText(content: string, filename: string): OcrVisionResult {
+export function buildInvoiceResultFromPlainText(
+  content: string,
+  filename: string,
+): OcrVisionResult {
   const document: MineruParsedDocument = {
     filename,
     text: content.trim(),

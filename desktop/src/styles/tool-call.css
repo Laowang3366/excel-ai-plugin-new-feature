@@ -6,20 +6,30 @@
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow: visible; max-width: 100%;
-  width: 100%; min-width: 200px;
+  overflow: visible;
+  max-width: 100%;
+  width: 100%;
+  min-width: 200px;
   font-size: 13px;
   animation: fadeIn 0.2s ease;
   padding: 14px 0 0;
 }
-.tool-call-bubble.status-running { border-color: var(--border-default); background: transparent; }
-.tool-call-bubble.status-failed { border-color: var(--border-default); background: transparent; }
+.tool-call-bubble.status-running {
+  border-color: var(--border-default);
+  background: transparent;
+}
+.tool-call-bubble.status-failed {
+  border-color: var(--border-default);
+  background: transparent;
+}
 
 .tool-call-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0; cursor: pointer; user-select: none;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
   color: var(--text-faint);
   font-size: 13px;
   line-height: 18px;
@@ -130,16 +140,27 @@
   background: transparent;
   border: none;
   border-radius: 0;
-  max-width: 100%; width: 100%; font-size: 13px;
+  max-width: 100%;
+  width: 100%;
+  font-size: 13px;
   animation: fadeIn 0.2s ease;
   padding: 14px 0 0;
 }
-.tool-result-bubble.error { border-color: var(--border-default); background: transparent; }
-.tool-result-bubble.success { border-color: var(--border-default); background: transparent; }
+.tool-result-bubble.error {
+  border-color: var(--border-default);
+  background: transparent;
+}
+.tool-result-bubble.success {
+  border-color: var(--border-default);
+  background: transparent;
+}
 
 .tool-result-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0; cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  cursor: pointer;
   color: var(--text-faint);
   font-size: 13px;
   line-height: 18px;

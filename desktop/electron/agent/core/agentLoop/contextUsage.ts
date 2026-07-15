@@ -52,9 +52,8 @@ export function buildContextUsageEvent(input: {
   tools: ToolDefinition[];
 }) {
   const config = input.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
-  const contextWindowSize = input.activeThread?.metadata?.contextWindowSize
-    || config.contextWindowSize
-    || 128_000;
+  const contextWindowSize =
+    input.activeThread?.metadata?.contextWindowSize || config.contextWindowSize || 128_000;
   const estimatedTokens = estimateRequestTokens({
     messages: turnItemGroupsToChatMessages(input.groups),
     systemPrompt: input.systemPrompt,

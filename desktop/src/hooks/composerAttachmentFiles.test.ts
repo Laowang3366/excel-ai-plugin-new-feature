@@ -35,7 +35,10 @@ describe("composerAttachmentFiles", () => {
   });
 
   it("uses local file paths before writing temporary files", async () => {
-    const file = createFile("report.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    const file = createFile(
+      "report.xlsx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
     mockedFileApi.getPathForFile.mockReturnValue("D:\\docs\\report.xlsx");
 
     await expect(resolveDroppedFiles([file])).resolves.toEqual([

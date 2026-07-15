@@ -1,25 +1,45 @@
 /* ---- 表单 ---- */
 
-.settings-section { margin-bottom: 24px; }
-.settings-section h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-.section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+.settings-section {
+  margin-bottom: 24px;
+}
+.settings-section h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.section-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
 
-.form-group { margin-bottom: 14px; }
+.form-group {
+  margin-bottom: 14px;
+}
 .form-group label {
-  display: block; font-size: 13px; font-weight: 600;
-  margin-bottom: 4px; color: var(--text-muted);
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text-muted);
 }
 
 .form-input {
-  width: 100%; padding: 8px 12px;
+  width: 100%;
+  padding: 8px 12px;
   border: 1px solid var(--border-input);
   border-radius: var(--radius-sm);
-  font-size: 14px; font-family: inherit;
-  outline: none; transition: border-color 0.15s;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
   background: var(--bg-primary);
   color: var(--text-primary);
 }
-.form-input:focus { border-color: var(--primary-border); }
+.form-input:focus {
+  border-color: var(--primary-border);
+}
 
 .form-input::placeholder {
   color: var(--text-faint);
@@ -34,7 +54,12 @@ select.form-input option {
   color: var(--text-primary);
 }
 
-.form-hint { font-size: 12px; color: var(--text-faint); margin-top: 2px; display: block; }
+.form-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  display: block;
+}
 
 .settings-card {
   background: var(--bg-primary);
@@ -266,40 +291,72 @@ select.form-input option {
   border-color: #94a3b8;
 }
 
-.input-with-toggle { display: flex; gap: 4px; }
-.input-with-toggle .form-input { flex: 1; }
+.input-with-toggle {
+  display: flex;
+  gap: 4px;
+}
+.input-with-toggle .form-input {
+  flex: 1;
+}
 
 .toggle-visibility {
   background: var(--bg-tint);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  cursor: pointer; padding: 4px 8px; font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
 }
 
 .checkbox-group label {
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
 }
-.checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
+.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
 
 /* ---- 单选组 ---- */
 
-.radio-group { display: flex; flex-direction: column; gap: 8px; }
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
 .radio-option {
-  display: flex; gap: 10px;
+  display: flex;
+  gap: 10px;
   padding: 10px 14px;
   border: 2px solid var(--border-card);
   border-radius: var(--radius-md);
-  cursor: pointer; transition: all 0.15s;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 .radio-option.active {
   border-color: var(--primary);
   background: var(--primary-light);
 }
-.radio-option:hover { border-color: var(--primary-border); }
-.radio-option input[type="radio"] { margin-top: 4px; accent-color: var(--primary); }
-.radio-option strong { font-size: 14px; display: block; }
-.radio-option p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.radio-option:hover {
+  border-color: var(--primary-border);
+}
+.radio-option input[type="radio"] {
+  margin-top: 4px;
+  accent-color: var(--primary);
+}
+.radio-option strong {
+  font-size: 14px;
+  display: block;
+}
+.radio-option p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
 
 /* ---- 显示设置 ---- */
 
@@ -309,143 +366,10 @@ select.form-input option {
   border-top: 1px solid var(--border-default);
 }
 
-
 /* ============================================================
    ExecPolicy 设置页
    ============================================================ */
 
 .settings-action-btn .spin {
   animation: spin 1s linear infinite;
-}
-.update-version-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 28px;
-}
-
-.update-version-row > div {
-  min-width: 120px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.update-version-row span {
-  color: var(--text-faint);
-  font-size: 12px;
-}
-
-.update-version-row strong {
-  color: var(--text-primary);
-  font-size: 20px;
-}
-
-.update-status {
-  min-height: 40px;
-  margin-top: 20px;
-  border-top: 1px solid var(--border-default);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.update-status-up-to-date {
-  color: var(--success);
-}
-
-.update-status-error {
-  color: var(--danger);
-}
-
-.update-progress {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--border-default);
-}
-
-.update-progress > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--primary);
-  transition: width 0.2s ease;
-}
-
-.update-actions {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.update-actions .btn-primary,
-.update-actions .btn-secondary {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 8px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.update-check-btn {
-  min-width: 112px;
-  justify-content: center;
-  background: var(--primary-light);
-  border-color: var(--primary-border);
-  color: var(--primary);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
-.update-check-btn svg {
-  flex: 0 0 auto;
-  transition: transform 0.18s ease;
-}
-
-.update-check-btn:hover:not(:disabled) {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--text-white);
-  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.2);
-  transform: translateY(-1px);
-}
-
-.update-check-btn:hover:not(:disabled) svg:not(.spin) {
-  transform: rotate(28deg);
-}
-
-.update-check-btn:active:not(:disabled) {
-  box-shadow: var(--shadow-sm);
-  transform: translateY(0);
-}
-
-.update-check-btn:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.update-check-btn:disabled {
-  opacity: 0.62;
-  cursor: wait;
-}
-
-.update-release-notes h3 {
-  margin: 0 0 12px;
-}
-
-.update-release-notes ul {
-  margin: 0;
-  padding-left: 20px;
-  color: var(--text-secondary);
-  line-height: 1.8;
-}
-
-.update-release-notes p {
-  margin: 0;
-  color: var(--text-faint);
-  font-size: 13px;
 }

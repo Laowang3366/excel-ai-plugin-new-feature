@@ -1,18 +1,8 @@
 import type { AIClientConfig } from "../../providers/aiClient";
 import { createAIClient } from "../../providers/aiClient";
-import type {
-  CompactionConfig,
-  CompactionReason,
-  Thread,
-} from "../../shared/types";
-import {
-  createCompactionProvider,
-  type CompactionProvider,
-} from "./compactionProvider";
-import {
-  isModelCompHashCompatible,
-  resolveModelCompHash,
-} from "./modelCompHash";
+import type { CompactionConfig, CompactionReason, Thread } from "../../shared/types";
+import { createCompactionProvider, type CompactionProvider } from "./compactionProvider";
+import { isModelCompHashCompatible, resolveModelCompHash } from "./modelCompHash";
 
 type AIClient = ReturnType<typeof createAIClient>;
 
@@ -47,7 +37,10 @@ export function applyAIConfigUpdate(input: {
   let pendingReason: CompactionReason | null = null;
   if (input.activeThread && !isModelCompHashCompatible(previous, input.nextConfig)) {
     pendingReason = "model_changed";
-  } else if (input.activeThread && previous.contextWindowSize !== input.nextConfig.contextWindowSize) {
+  } else if (
+    input.activeThread &&
+    previous.contextWindowSize !== input.nextConfig.contextWindowSize
+  ) {
     pendingReason = "context_window_changed";
   }
 
@@ -71,15 +64,16 @@ export function applyCompactionConfigUpdate(input: {
   const compactionProvider = input.usesCustomCompactionProvider
     ? undefined
     : createCompactionProvider(input.aiClient, input.nextConfig);
-  const pendingReason = input.activeThread && previousWindow !== input.nextConfig.contextWindowSize
-    ? "context_window_changed"
-    : null;
+  const pendingReason =
+    input.activeThread && previousWindow !== input.nextConfig.contextWindowSize
+      ? "context_window_changed"
+      : null;
   return { compactionProvider, pendingReason };
 }
 
 export function mergePendingCompactionReason(
   current: CompactionReason | null,
-  next: CompactionReason | null
+  next: CompactionReason | null,
 ): CompactionReason | null {
   if (!next) return current;
   if (current === "model_changed" && next === "context_window_changed") {

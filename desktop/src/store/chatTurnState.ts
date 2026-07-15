@@ -19,13 +19,15 @@ function removeActiveStoppedThread(state: TurnStartBaseState): ChatState["stoppe
   if (!state.activeThreadId) {
     return state.stoppedThreadIds;
   }
-  return Object.fromEntries(Object.entries(state.stoppedThreadIds).filter(([id]) => id !== state.activeThreadId));
+  return Object.fromEntries(
+    Object.entries(state.stoppedThreadIds).filter(([id]) => id !== state.activeThreadId),
+  );
 }
 
 export function buildTurnStartPatch(
   state: TurnStartBaseState,
   clientId: string,
-  extraPatch: Partial<Pick<ChatState, "compactionNotice" | "lastInterruptContext">> = {}
+  extraPatch: Partial<Pick<ChatState, "compactionNotice" | "lastInterruptContext">> = {},
 ): TurnStartPatch {
   return {
     isStreaming: true,

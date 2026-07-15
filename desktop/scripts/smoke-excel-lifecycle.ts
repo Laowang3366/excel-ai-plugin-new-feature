@@ -2,7 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { DotNetOfficeActionBridge as OfficeComActionBridge, applyExcelAdvancedAction, disposeOfficeWorker } from "./officeWorkerSmokeHelpers";
+import {
+  DotNetOfficeActionBridge as OfficeComActionBridge,
+  applyExcelAdvancedAction,
+  disposeOfficeWorker,
+} from "./officeWorkerSmokeHelpers";
 
 async function main(): Promise<void> {
   process.env.WENGGE_OFFICE_SMOKE = "1";
@@ -13,7 +17,12 @@ async function main(): Promise<void> {
     const fixture = await applyExcelAdvancedAction({
       operation: "createWorkbook",
       filePath,
-      params: { values: [["项目", "金额"], ["测试", 100]] },
+      params: {
+        values: [
+          ["项目", "金额"],
+          ["测试", 100],
+        ],
+      },
     });
     if (fixture.status !== "done") throw new Error(fixture.error || fixture.summary);
 
@@ -39,6 +48,8 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+  );
   process.exitCode = 1;
 });

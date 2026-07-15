@@ -10,16 +10,18 @@ import {
 describe("knowledgeSettingsText", () => {
   it("formats indexed source counts", () => {
     expect(formatKnowledgeSourceStats(KNOWLEDGE_TEXT["en-US"], 3, 42)).toBe(
-      "3 sources indexed, 42 knowledge entries"
+      "3 sources indexed, 42 knowledge entries",
     );
   });
 
   it("summarizes folder indexing results", () => {
-    expect(formatKnowledgeFolderIndexSuccess(KNOWLEDGE_TEXT["en-US"], [
-      { success: true, entryCount: 2 },
-      { success: false, entryCount: 0 },
-      { success: true, entryCount: 5 },
-    ])).toBe("Folder indexed: 2 succeeded, 1 failed, 7 entries");
+    expect(
+      formatKnowledgeFolderIndexSuccess(KNOWLEDGE_TEXT["en-US"], [
+        { success: true, entryCount: 2 },
+        { success: false, entryCount: 0 },
+        { success: true, entryCount: 5 },
+      ]),
+    ).toBe("Folder indexed: 2 succeeded, 1 failed, 7 entries");
   });
 
   it("maps known source types and preserves unknown types", () => {

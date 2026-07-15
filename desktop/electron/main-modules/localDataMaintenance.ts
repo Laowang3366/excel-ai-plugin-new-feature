@@ -64,7 +64,10 @@ export async function runLocalDataMaintenance(
 
   await captureMaintenanceErrors(report, "logs", async () => {
     const entries = await collectLogEntries(path.join(root, "logs"), now);
-    mergeReport(report, await pruneManagedEntries(path.join(root, "logs"), entries, policy.logs, now));
+    mergeReport(
+      report,
+      await pruneManagedEntries(path.join(root, "logs"), entries, policy.logs, now),
+    );
   });
 
   await captureMaintenanceErrors(report, "office-backups", async () => {
@@ -83,7 +86,10 @@ export async function runLocalDataMaintenance(
   await captureMaintenanceErrors(report, "office-transactions", async () => {
     const transactionRoot = path.join(root, "office-automation", "transactions");
     const entries = await collectTransactionEntries(transactionRoot, now);
-    mergeReport(report, await pruneManagedEntries(transactionRoot, entries, policy.transactions, now));
+    mergeReport(
+      report,
+      await pruneManagedEntries(transactionRoot, entries, policy.transactions, now),
+    );
   });
 
   await captureMaintenanceErrors(report, "office-workflows", async () => {
@@ -103,19 +109,20 @@ export function startLocalDataMaintenance(options: {
 }): () => void {
   const intervalMs = options.intervalMs ?? 6 * 60 * 60 * 1000;
   let running = false;
-  const runMaintenance = guardDataOperation(
-    options.isDataMaintenanceInProgress,
-    () => runLocalDataMaintenance(options.getDataPath()),
+  const runMaintenance = guardDataOperation(options.isDataMaintenanceInProgress, () =>
+    runLocalDataMaintenance(options.getDataPath()),
   );
   const timer = setInterval(() => {
     if (running || options.isDataMaintenanceInProgress?.()) return;
     running = true;
     void runMaintenance()
       .then((report) => options.onReport?.(report))
-      .catch((error) => options.onReport?.({
-        ...emptyReport(),
-        errors: [errorMessage(error)],
-      }))
+      .catch((error) =>
+        options.onReport?.({
+          ...emptyReport(),
+          errors: [errorMessage(error)],
+        }),
+      )
       .finally(() => {
         running = false;
       });
@@ -154,17 +161,20 @@ async function collectTransactionEntries(root: string, now: number): Promise<Man
     if (!entry.isDirectory() || !UUID_PATTERN.test(entry.name)) continue;
     const entryPath = path.join(root, entry.name);
     try {
-      const record = JSON.parse(await readFile(path.join(entryPath, "transaction.json"), "utf8")) as {
+      const record = JSON.parse(
+        await readFile(path.join(entryPath, "transaction.json"), "utf8"),
+      ) as {
         id?: string;
         status?: string;
         updatedAt?: string;
       };
       const updatedAt = Date.parse(record.updatedAt || "");
       if (
-        record.id !== entry.name
-        || !TRANSACTION_STATUSES.has(record.status || "")
-        || !Number.isFinite(updatedAt)
-      ) continue;
+        record.id !== entry.name ||
+        !TRANSACTION_STATUSES.has(record.status || "") ||
+        !Number.isFinite(updatedAt)
+      )
+        continue;
       const recentPending = record.status === "pending" && updatedAt >= now - 90 * DAY_MS;
       result.push({
         entryPath,
@@ -198,12 +208,13 @@ async function collectWorkflowEntries(root: string, now: number): Promise<Manage
       };
       const updatedAt = Date.parse(record.updatedAt || "");
       if (
-        record.id !== id
-        || !WORKFLOW_STATUSES.has(record.status || "")
-        || !Number.isFinite(updatedAt)
-      ) continue;
-      const activeRunning = record.status === "running"
-        && Date.parse(record.leaseExpiresAt || "") > now;
+        record.id !== id ||
+        !WORKFLOW_STATUSES.has(record.status || "") ||
+        !Number.isFinite(updatedAt)
+      )
+        continue;
+      const activeRunning =
+        record.status === "running" && Date.parse(record.leaseExpiresAt || "") > now;
       const info = await stat(entryPath);
       result.push({
         entryPath,
@@ -234,10 +245,9 @@ async function pruneManagedEntries(
 
   for (const entry of sorted) {
     const expired = entry.updatedAt < cutoff && !entry.protectedFromExpiry;
-    const overQuota = (
-      keptEntries >= limits.maxEntries
-      || keptBytes + entry.size > limits.maxBytes
-    ) && !entry.protectedFromQuota;
+    const overQuota =
+      (keptEntries >= limits.maxEntries || keptBytes + entry.size > limits.maxBytes) &&
+      !entry.protectedFromQuota;
     if (!expired && !overQuota) {
       keptEntries++;
       keptBytes += entry.size;

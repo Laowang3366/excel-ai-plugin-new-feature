@@ -13,7 +13,10 @@ const templates: ProviderTemplate[] = [
     defaultContextWindowSize: 256000,
     apiFormat: "responses",
     category: "direct",
-    reasoningOptions: [{ value: "off", label: "Off" }, { value: "medium", label: "Medium" }],
+    reasoningOptions: [
+      { value: "off", label: "Off" },
+      { value: "medium", label: "Medium" },
+    ],
     defaultReasoningMode: "medium",
   },
 ];
@@ -34,12 +37,14 @@ function provider(patch: Partial<AiProviderConfig> = {}): AiProviderConfig {
 
 describe("resolveComposerThinkingModeState", () => {
   it("returns null when the active provider is missing", () => {
-    expect(resolveComposerThinkingModeState({
-      providers: {},
-      activeProviderId: "missing",
-      templates,
-      language: "en-US",
-    })).toBeNull();
+    expect(
+      resolveComposerThinkingModeState({
+        providers: {},
+        activeProviderId: "missing",
+        templates,
+        language: "en-US",
+      }),
+    ).toBeNull();
   });
 
   it("uses per-model reasoning mode before provider-level mode", () => {

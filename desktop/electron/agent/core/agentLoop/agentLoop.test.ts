@@ -14,7 +14,7 @@ const aiClientMocks = vi.hoisted(() => ({
 
 vi.mock("../../providers/aiClient", async () => {
   const actual = await vi.importActual<typeof import("../../providers/aiClient")>(
-    "../../providers/aiClient"
+    "../../providers/aiClient",
   );
   return {
     ...actual,
@@ -127,9 +127,7 @@ describe("processToolCalls", () => {
       items: [activeItem],
       startedAt: 1000,
     };
-    const toolCalls: ToolCallInfo[] = [
-      { id: "call-1", name: "workbook.inspect", arguments: "{}" },
-    ];
+    const toolCalls: ToolCallInfo[] = [{ id: "call-1", name: "workbook.inspect", arguments: "{}" }];
     const executors = new Map<string, ToolExecutor>([
       [
         "workbook.inspect",
@@ -143,11 +141,9 @@ describe("processToolCalls", () => {
     ]);
     const callbacks: AgentTurnCallbacks = { onEvent: vi.fn() };
     const appended: TurnItem[] = [];
-    const sessionStoreAppend = vi.fn(
-      async (_threadId: string, _turnId: string, item: TurnItem) => {
-        appended.push(item);
-      }
-    );
+    const sessionStoreAppend = vi.fn(async (_threadId: string, _turnId: string, item: TurnItem) => {
+      appended.push(item);
+    });
 
     await processToolCalls(
       toolCalls,
@@ -156,11 +152,11 @@ describe("processToolCalls", () => {
       executors,
       { permissionMode: "confirm_all" },
       callbacks,
-      sessionStoreAppend
+      sessionStoreAppend,
     );
 
     const resultItem = turn.items.find(
-      (item) => item.type === "tool_result" && item.toolCallId === "call-1"
+      (item) => item.type === "tool_result" && item.toolCallId === "call-1",
     );
 
     expect(activeItem.status).toBe("failed");
@@ -173,7 +169,6 @@ describe("processToolCalls", () => {
     });
     expect(appended).toContain(resultItem);
   });
-
 });
 
 // ============================================================
@@ -219,15 +214,15 @@ describe("AgentLoop mid-turn compaction", () => {
           ["range.read", { name: "range.read", execute: vi.fn(async () => ({ success: true })) }],
         ]),
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "hi" }, callbacks);
 
     expect(aiClientMocks.streamChatParams[0].tools.length).toBeGreaterThan(0);
-    const usage = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "context_usage"
-    )?.[0];
+    const usage = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(([event]) => event.type === "context_usage")?.[0];
     expect(usage).toMatchObject({
       type: "context_usage",
       contextWindowSize: 100_000,
@@ -244,7 +239,12 @@ describe("AgentLoop mid-turn compaction", () => {
       if (streamCallCount === 1) {
         return streamEvents([
           { type: "tool_call_begin", toolCallId: "call-1", toolName: "range.read" },
-          { type: "tool_call_end", toolCallId: "call-1", toolName: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" },
+          {
+            type: "tool_call_end",
+            toolCallId: "call-1",
+            toolName: "range.read",
+            arguments: '{"sheetName":"Sheet1","range":"A1"}',
+          },
           { type: "done", finishReason: "tool_calls" },
         ]);
       }
@@ -282,7 +282,7 @@ describe("AgentLoop mid-turn compaction", () => {
           ],
         ]),
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: userContent }, { onEvent: vi.fn() });
@@ -325,7 +325,7 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "触发采样重试" }, { onEvent: vi.fn() });
@@ -355,12 +355,12 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
-    await expect(
-      loop.runTurn({ content: "中断不应重试" }, { onEvent: vi.fn() })
-    ).rejects.toBe(abortError);
+    await expect(loop.runTurn({ content: "中断不应重试" }, { onEvent: vi.fn() })).rejects.toBe(
+      abortError,
+    );
     expect(aiClientMocks.client.streamChat).toHaveBeenCalledTimes(1);
   });
 
@@ -413,10 +413,13 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
         toolExecutors: new Map<string, ToolExecutor>([
-          ["range.read", { name: "range.read", execute: vi.fn(async () => ({ success: true, data: "ok" })) }],
+          [
+            "range.read",
+            { name: "range.read", execute: vi.fn(async () => ({ success: true, data: "ok" })) },
+          ],
         ]),
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     try {
@@ -441,7 +444,12 @@ describe("AgentLoop mid-turn compaction", () => {
       if (streamCallCount === 1) {
         return streamEvents([
           { type: "tool_call_begin", toolCallId: "call-1", toolName: "range.read" },
-          { type: "tool_call_end", toolCallId: "call-1", toolName: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" },
+          {
+            type: "tool_call_end",
+            toolCallId: "call-1",
+            toolName: "range.read",
+            arguments: '{"sheetName":"Sheet1","range":"A1"}',
+          },
           { type: "done", finishReason: "tool_calls" },
         ]);
       }
@@ -481,20 +489,24 @@ describe("AgentLoop mid-turn compaction", () => {
           ],
         ]),
       },
-      sessionStore
+      sessionStore,
     );
 
     await loop.runTurn({ content: "触发压缩" }, callbacks);
 
-    const started = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "item_started" && event.item.type === "compact_progress"
-    )?.[0];
-    const completed = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "item_completed" && event.item.type === "compact_progress"
-    )?.[0];
-    const compactStarted = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "thread_compact_started"
-    )?.[0];
+    const started = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(
+        ([event]) => event.type === "item_started" && event.item.type === "compact_progress",
+      )?.[0];
+    const completed = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(
+        ([event]) => event.type === "item_completed" && event.item.type === "compact_progress",
+      )?.[0];
+    const compactStarted = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(([event]) => event.type === "thread_compact_started")?.[0];
 
     expect(compactStarted).toMatchObject({
       type: "thread_compact_started",
@@ -531,7 +543,7 @@ describe("AgentLoop mid-turn compaction", () => {
           reason: "auto_token_limit",
           status: "started",
         }),
-      ])
+      ]),
     );
   });
 
@@ -543,7 +555,12 @@ describe("AgentLoop mid-turn compaction", () => {
       if (streamCallCount === 1) {
         return streamEvents([
           { type: "tool_call_begin", toolCallId: "call-1", toolName: "range.read" },
-          { type: "tool_call_end", toolCallId: "call-1", toolName: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" },
+          {
+            type: "tool_call_end",
+            toolCallId: "call-1",
+            toolName: "range.read",
+            arguments: '{"sheetName":"Sheet1","range":"A1"}',
+          },
           { type: "done", finishReason: "tool_calls" },
         ]);
       }
@@ -583,7 +600,7 @@ describe("AgentLoop mid-turn compaction", () => {
           ],
         ]),
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "触发压缩重试" }, { onEvent: vi.fn() });
@@ -618,7 +635,7 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "先建立历史" }, callbacks);
@@ -631,16 +648,20 @@ describe("AgentLoop mid-turn compaction", () => {
     });
     await loop.runTurn({ content: "模型切换后继续" }, callbacks);
 
-    const compactStarted = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "thread_compact_started"
-        && event.params.reason === "model_changed"
-    );
+    const compactStarted = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(
+        ([event]) =>
+          event.type === "thread_compact_started" && event.params.reason === "model_changed",
+      );
     expect(compactStarted).toBeDefined();
-    expect(aiClientMocks.client.chat).toHaveBeenCalledWith(expect.objectContaining({
-      messages: expect.arrayContaining([
-        expect.objectContaining({ content: expect.stringContaining("先建立历史") }),
-      ]),
-    }));
+    expect(aiClientMocks.client.chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({ content: expect.stringContaining("先建立历史") }),
+        ]),
+      }),
+    );
   });
 
   it("skips model-change compaction when compHash is unchanged", async () => {
@@ -670,7 +691,7 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "先建立历史" }, callbacks);
@@ -684,10 +705,12 @@ describe("AgentLoop mid-turn compaction", () => {
     });
     await loop.runTurn({ content: "同兼容族继续" }, callbacks);
 
-    const compactStarted = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "thread_compact_started"
-        && event.params.reason === "model_changed"
-    );
+    const compactStarted = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(
+        ([event]) =>
+          event.type === "thread_compact_started" && event.params.reason === "model_changed",
+      );
     expect(compactStarted).toBeUndefined();
     expect(aiClientMocks.client.chat).not.toHaveBeenCalled();
   });
@@ -720,7 +743,7 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "先建立历史" }, callbacks);
@@ -734,10 +757,12 @@ describe("AgentLoop mid-turn compaction", () => {
     });
     await loop.runTurn({ content: "兼容性变化后继续" }, callbacks);
 
-    const compactStarted = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "thread_compact_started"
-        && event.params.reason === "model_changed"
-    );
+    const compactStarted = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(
+        ([event]) =>
+          event.type === "thread_compact_started" && event.params.reason === "model_changed",
+      );
     expect(compactStarted).toBeDefined();
   });
 
@@ -768,7 +793,7 @@ describe("AgentLoop mid-turn compaction", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     await loop.runTurn({ content: "先建立历史" }, callbacks);
@@ -780,10 +805,13 @@ describe("AgentLoop mid-turn compaction", () => {
     });
     await loop.runTurn({ content: "窗口变化后继续" }, callbacks);
 
-    const compactStarted = vi.mocked(callbacks.onEvent).mock.calls.find(
-      ([event]) => event.type === "thread_compact_started"
-        && event.params.reason === "context_window_changed"
-    );
+    const compactStarted = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.find(
+        ([event]) =>
+          event.type === "thread_compact_started" &&
+          event.params.reason === "context_window_changed",
+      );
     expect(compactStarted).toBeDefined();
   });
 });
@@ -813,7 +841,7 @@ describe("AgentLoop thread idle unload", () => {
         permissionMode: "confirm_all",
         threadIdleUnloadMs: 1_000,
       },
-      sessionStore
+      sessionStore,
     );
 
     const threadId = await loop.startThread();
@@ -852,22 +880,22 @@ describe("AgentLoop thread idle unload", () => {
         threadIdleUnloadMs: 1_000,
       },
       sessionStore,
-      stateRuntimeStore as any
+      stateRuntimeStore as any,
     );
 
     const threadId = await loop.startThread();
 
     expect(stateRuntimeStore.upsertThreadSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId })
+      expect.objectContaining({ threadId }),
     );
     expect(stateRuntimeStore.updateThreadRuntime).toHaveBeenLastCalledWith(
-      expect.objectContaining({ threadId, status: "active" })
+      expect.objectContaining({ threadId, status: "active" }),
     );
 
     await loop.sweepIdleThread(Number.MAX_SAFE_INTEGER);
 
     expect(stateRuntimeStore.updateThreadRuntime).toHaveBeenLastCalledWith(
-      expect.objectContaining({ threadId, status: "unloaded" })
+      expect.objectContaining({ threadId, status: "unloaded" }),
     );
   });
 
@@ -894,7 +922,7 @@ describe("AgentLoop thread idle unload", () => {
       },
       sessionStore,
       undefined,
-      watchManager
+      watchManager,
     );
 
     const threadId = await loop.startThread();
@@ -955,7 +983,7 @@ describe("AgentLoop input queue", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     const firstRun = loop.runTurn({ content: "先分析 Sheet1" }, callbacks);
@@ -1004,7 +1032,7 @@ describe("AgentLoop input queue", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     const runResult = loop.runTurn({ content: "先保持运行" }, callbacks).catch((error) => error);
@@ -1048,14 +1076,16 @@ describe("AgentLoop input queue", () => {
         },
         permissionMode: "confirm_all",
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
     const runResult = loop.runTurn({ content: "运行后中断" }, callbacks).catch((error) => error);
     await waitForEvent(callbacks, "turn_started");
 
     const interruptResult = loop.interrupt("request-race");
-    expect(() => loop.enqueueTurn({ content: "不应该自动恢复" }, callbacks)).toThrow("Agent 正在中断中");
+    expect(() => loop.enqueueTurn({ content: "不应该自动恢复" }, callbacks)).toThrow(
+      "Agent 正在中断中",
+    );
 
     await interruptResult;
     await expect(runResult).resolves.toMatchObject({ name: "AbortError" });
@@ -1096,19 +1126,24 @@ describe("AgentLoop input queue", () => {
         },
         permissionMode: "confirm_all",
         toolExecutors: new Map<string, ToolExecutor>([
-          ["range.read", {
-            name: "range.read",
-            execute: vi.fn(async () => {
-              await toolCanFinish;
-              return { success: true, data: "ok" };
-            }),
-          }],
+          [
+            "range.read",
+            {
+              name: "range.read",
+              execute: vi.fn(async () => {
+                await toolCanFinish;
+                return { success: true, data: "ok" };
+              }),
+            },
+          ],
         ]),
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
-    const runResult = loop.runTurn({ content: "执行慢工具后停止" }, callbacks).catch((error) => error);
+    const runResult = loop
+      .runTurn({ content: "执行慢工具后停止" }, callbacks)
+      .catch((error) => error);
     await waitForEvent(callbacks, "turn_started");
     await waitForEvent(callbacks, "item_started");
 
@@ -1118,9 +1153,9 @@ describe("AgentLoop input queue", () => {
     await interruptResult;
     await expect(runResult).resolves.toMatchObject({ name: "AbortError" });
     expect(aiClientMocks.client.streamChat).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(callbacks.onEvent).mock.calls.some(
-      ([event]) => event.type === "turn_interrupted"
-    )).toBe(true);
+    expect(
+      vi.mocked(callbacks.onEvent).mock.calls.some(([event]) => event.type === "turn_interrupted"),
+    ).toBe(true);
   });
 });
 
@@ -1162,10 +1197,12 @@ describe("AgentLoop interrupt queue", () => {
         permissionMode: "confirm_all",
         toolExecutors: new Map<string, ToolExecutor>(),
       },
-      createMemorySessionStore()
+      createMemorySessionStore(),
     );
 
-    const runResult = loop.runTurn({ content: "开始后等待中断" }, callbacks).catch((error) => error);
+    const runResult = loop
+      .runTurn({ content: "开始后等待中断" }, callbacks)
+      .catch((error) => error);
     await waitForEvent(callbacks, "turn_started");
 
     const interruptResult = loop.interrupt("request-1");
@@ -1188,12 +1225,12 @@ async function waitForEvent(callbacks: AgentTurnCallbacks, eventType: string): P
 async function waitForEventCount(
   callbacks: AgentTurnCallbacks,
   eventType: string,
-  count: number
+  count: number,
 ): Promise<void> {
   for (let i = 0; i < 40; i++) {
-    const actual = vi.mocked(callbacks.onEvent).mock.calls.filter(
-      ([event]) => event.type === eventType
-    ).length;
+    const actual = vi
+      .mocked(callbacks.onEvent)
+      .mock.calls.filter(([event]) => event.type === eventType).length;
     if (actual >= count) return;
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
@@ -1245,10 +1282,12 @@ describe("shouldRequireApproval", () => {
 
   it("confirm_all: dangerous, destructive, egress and unknown tools still require approval", () => {
     expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("sheet.operation", "confirm_all", {
-      threadId: "thread-1",
-      arguments: { operation: "delete", sheetName: "Sheet1" },
-    })).toBe(true);
+    expect(
+      shouldRequireApproval("sheet.operation", "confirm_all", {
+        threadId: "thread-1",
+        arguments: { operation: "delete", sheetName: "Sheet1" },
+      }),
+    ).toBe(true);
     expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(true);
     expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
     expect(shouldRequireApproval("web.search", "confirm_all")).toBe(true);

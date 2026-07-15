@@ -25,6 +25,8 @@
 @import "./chat.css";
 @import "./feature-sidebar-panel.css";
 @import "./office-automation.css";
+@import "./office-automation-documents.css";
+@import "./office-automation-workflows.css";
 /* 消息气泡 */
 @import "./message-bubble.css";
 /* 图片附件预览 */
@@ -54,8 +56,10 @@
 /* 设置页面 */
 @import "./settings-layout.css";
 @import "./settings.css";
+@import "./settings-update.css";
 @import "./open-source-settings.css";
 @import "./usage-stats.css";
+@import "./usage-stats-charts.css";
 @import "./knowledge-settings.css";
 /* 模型配置 + 供应商卡片 + 模板选择 */
 @import "./model-config.css";

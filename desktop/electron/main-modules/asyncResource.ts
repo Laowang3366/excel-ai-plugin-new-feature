@@ -32,7 +32,7 @@ export class AsyncResource<T> {
     const pending = this.initializing;
     const active = this.instance;
     this.closing = (async () => {
-      const instance = active ?? await pending;
+      const instance = active ?? (await pending);
       if (instance) await this.dispose(instance);
     })().finally(() => {
       this.instance = null;

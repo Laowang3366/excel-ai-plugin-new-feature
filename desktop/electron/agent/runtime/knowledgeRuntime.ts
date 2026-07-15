@@ -53,7 +53,11 @@ export async function initializeKnowledgeRuntime(
 
   if (!knowledgeStore) {
     try {
-      const candidate = await createKnowledgeRuntime(aiConfig, dataRoot, isRemoteDataProcessingEnabled);
+      const candidate = await createKnowledgeRuntime(
+        aiConfig,
+        dataRoot,
+        isRemoteDataProcessingEnabled,
+      );
       activateKnowledgeRuntime(candidate, signature);
     } catch (e) {
       knowledgeRuntimeError = formatKnowledgeRuntimeError(e);
@@ -101,7 +105,11 @@ export async function reloadKnowledgeRuntime(
 ): Promise<KnowledgeRuntimeState> {
   const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
   try {
-    const candidate = await createKnowledgeRuntime(aiConfig, dataRoot, isRemoteDataProcessingEnabled);
+    const candidate = await createKnowledgeRuntime(
+      aiConfig,
+      dataRoot,
+      isRemoteDataProcessingEnabled,
+    );
     activateKnowledgeRuntime(candidate, signature);
   } catch (error) {
     knowledgeRuntimeError = formatKnowledgeRuntimeError(error);

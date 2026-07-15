@@ -9,8 +9,12 @@
   margin-bottom: 2px;
 }
 
-.sidebar-thread-item:hover { background: var(--bg-tint); }
-.sidebar-thread-item.active { background: var(--primary-light); }
+.sidebar-thread-item:hover {
+  background: var(--bg-tint);
+}
+.sidebar-thread-item.active {
+  background: var(--primary-light);
+}
 
 .thread-item-main {
   display: flex;

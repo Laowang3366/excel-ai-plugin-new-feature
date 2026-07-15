@@ -34,16 +34,19 @@ function createThread(items: TurnItem[] = []): Thread {
       updatedAt: 1,
       modelProvider: "test",
     },
-    turns: items.length > 0
-      ? [{
-        threadId: "thread-1",
-        turnId: "turn-old",
-        status: "completed",
-        startedAt: 1,
-        completedAt: 2,
-        items,
-      }]
-      : [],
+    turns:
+      items.length > 0
+        ? [
+            {
+              threadId: "thread-1",
+              turnId: "turn-old",
+              status: "completed",
+              startedAt: 1,
+              completedAt: 2,
+              items,
+            },
+          ]
+        : [],
   };
 }
 
@@ -72,13 +75,23 @@ function createDeps(input: {
     sessionStore,
     getAllTurnItems: () => input.allItems,
     generateCompactionSummary: vi.fn().mockResolvedValue("压缩摘要"),
-    startCompactionProgress: vi.fn().mockImplementation((_threadId, reason) => Promise.resolve(createProgress(reason))),
-    completeCompactionProgress: vi.fn().mockImplementation((_progress, tokensBefore, tokensAfter, summary, callbacks) => {
-      callbacks.onEvent({
-        type: "item_completed",
-        item: { type: "compact_progress", status: "completed", tokensBefore, tokensAfter, summary },
-      });
-    }),
+    startCompactionProgress: vi
+      .fn()
+      .mockImplementation((_threadId, reason) => Promise.resolve(createProgress(reason))),
+    completeCompactionProgress: vi
+      .fn()
+      .mockImplementation((_progress, tokensBefore, tokensAfter, summary, callbacks) => {
+        callbacks.onEvent({
+          type: "item_completed",
+          item: {
+            type: "compact_progress",
+            status: "completed",
+            tokensBefore,
+            tokensAfter,
+            summary,
+          },
+        });
+      }),
     failCompactionProgress: vi.fn().mockResolvedValue(undefined),
     archiveRolloutIfConfigured: vi.fn().mockResolvedValue(undefined),
     setCompactedHistory: (history: TurnItem[]) => input.compactedHistory.push(history),
@@ -117,7 +130,11 @@ describe("compactionRunner", () => {
     expect(compactedHistory).toHaveLength(1);
     expect(deps.sessionStore.appendRolloutItems).toHaveBeenCalledWith("thread-1", [
       expect.objectContaining({ type: "compacted", summary: "压缩摘要" }),
-      expect.objectContaining({ type: "compact_params", reason: "auto_pre_turn", status: "completed" }),
+      expect.objectContaining({
+        type: "compact_params",
+        reason: "auto_pre_turn",
+        status: "completed",
+      }),
     ]);
     expect(events).toEqual([
       expect.objectContaining({
@@ -154,7 +171,9 @@ describe("compactionRunner", () => {
     expect(thread.turns).toEqual([]);
     expect(compactedHistory[0].some((item) => item.id === "u-current")).toBe(false);
     expect(deps.archiveRolloutIfConfigured).toHaveBeenCalledWith("thread-1");
-    expect(events.some((event) => (event as { type?: string }).type === "context_compacted")).toBe(true);
+    expect(events.some((event) => (event as { type?: string }).type === "context_compacted")).toBe(
+      true,
+    );
   });
 
   it("keeps pre-turn history unchanged when summary generation fails", async () => {
@@ -167,12 +186,14 @@ describe("compactionRunner", () => {
     const failure = new Error("summary failed");
     deps.generateCompactionSummary.mockRejectedValueOnce(failure);
 
-    await expect(runAutoCompaction({
-      thread,
-      reason: "auto_pre_turn",
-      callbacks: createCallbacks(events),
-      deps,
-    })).rejects.toBe(failure);
+    await expect(
+      runAutoCompaction({
+        thread,
+        reason: "auto_pre_turn",
+        callbacks: createCallbacks(events),
+        deps,
+      }),
+    ).rejects.toBe(failure);
 
     expect(thread.turns).toBe(originalTurns);
     expect(compactedHistory).toEqual([]);
@@ -202,11 +223,13 @@ describe("compactionRunner", () => {
     const failure = new Error("summary failed");
     deps.generateCompactionSummary.mockRejectedValueOnce(failure);
 
-    await expect(runMidTurnCompaction({
-      turn,
-      callbacks: createCallbacks(events),
-      deps,
-    })).rejects.toBe(failure);
+    await expect(
+      runMidTurnCompaction({
+        turn,
+        callbacks: createCallbacks(events),
+        deps,
+      }),
+    ).rejects.toBe(failure);
 
     expect(turn.items).toBe(originalItems);
     expect(thread.turns).toBe(originalTurns);

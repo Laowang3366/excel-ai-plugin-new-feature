@@ -5,7 +5,12 @@
  * 负责消费 AI streamChat 的事件流，收集文本、推理、工具调用等数据。
  */
 
-import { type AIStreamEvent, type ChatMessage, type ReasoningMode, type TokenUsage } from "../../providers/aiClient";
+import {
+  type AIStreamEvent,
+  type ChatMessage,
+  type ReasoningMode,
+  type TokenUsage,
+} from "../../providers/aiClient";
 import { type AgentTurnCallbacks, type ToolCallItem, type TurnItem } from "../../shared/types";
 import { isRetriableAIRequestError } from "./aiRequestRetry";
 
@@ -65,7 +70,7 @@ export interface ToolCallInfo {
 export async function collectStreamEvents(
   streamIterable: AsyncIterable<AIStreamEvent>,
   callbacks: AgentTurnCallbacks,
-  roundId?: number
+  roundId?: number,
 ): Promise<StreamResult> {
   const result: StreamResult = {
     assistantContent: "",
@@ -97,7 +102,7 @@ export async function collectStreamEvents(
         result.reasoningSummary.push(event.delta);
         break;
       }
-case "tool_call_begin": {
+      case "tool_call_begin": {
         pendingToolCallArgs.set(event.toolCallId, "");
         pendingToolCallNames.set(event.toolCallId, event.toolName);
 
@@ -163,7 +168,7 @@ case "tool_call_begin": {
           timestamp: Date.now(),
         };
         // 通过特殊的 error 字段传递给调用方
-        result.assistantContent = "";  // 清空，标记有错误
+        result.assistantContent = ""; // 清空，标记有错误
         (result as any).errorItem = errorItem;
         return result;
       }

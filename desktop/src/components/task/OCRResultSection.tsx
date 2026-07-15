@@ -39,7 +39,8 @@ export const OCRResultSection: React.FC<OCRResultSectionProps> = ({
         <div className="ocr-errors">
           {result.errors.map((error, index) => (
             <p key={index} style={{ color: "var(--danger)", fontSize: 12 }}>
-              <AlertTriangle size={12} style={{ verticalAlign: "middle", marginRight: 4 }} /> {error}
+              <AlertTriangle size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />{" "}
+              {error}
             </p>
           ))}
         </div>
@@ -82,10 +83,7 @@ export const OCRResultSection: React.FC<OCRResultSectionProps> = ({
             onChange={(event) => onOutputRangeChange(event.target.value)}
             placeholder="如 Sheet1!A1"
           />
-          <button
-            className="btn-pick-range"
-            onClick={onPickRange}
-          >
+          <button className="btn-pick-range" onClick={onPickRange}>
             <Ruler size={13} /> 选区
           </button>
         </div>
@@ -128,9 +126,7 @@ export const OCRResultSection: React.FC<OCRResultSectionProps> = ({
         写入单元格
       </button>
       {writeStatus && (
-        <p style={{ marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
-          {writeStatus}
-        </p>
+        <p style={{ marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>{writeStatus}</p>
       )}
     </>
   );

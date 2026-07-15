@@ -7,12 +7,18 @@ describe("createThreadIpcApi", () => {
   it("forwards thread and thread graph calls", async () => {
     const runtimeStatus = vi.fn().mockResolvedValue({ status: "running", idleUnloadMs: 1000 });
     const upsertSpawnEdge = vi.fn().mockResolvedValue({ parentThreadId: "a", childThreadId: "b" });
-    const api = createThreadIpcApi(() => ({
-      thread: { runtimeStatus },
-      threadGraph: { upsertSpawnEdge },
-    } as unknown as IIpcApi));
+    const api = createThreadIpcApi(
+      () =>
+        ({
+          thread: { runtimeStatus },
+          threadGraph: { upsertSpawnEdge },
+        }) as unknown as IIpcApi,
+    );
 
-    await expect(api.thread.runtimeStatus()).resolves.toEqual({ status: "running", idleUnloadMs: 1000 });
+    await expect(api.thread.runtimeStatus()).resolves.toEqual({
+      status: "running",
+      idleUnloadMs: 1000,
+    });
     await expect(api.threadGraph.upsertSpawnEdge("a", "b", "demo")).resolves.toEqual({
       parentThreadId: "a",
       childThreadId: "b",
@@ -24,7 +30,10 @@ describe("createThreadIpcApi", () => {
     const api = createThreadIpcApi(() => null);
 
     await expect(api.thread.list()).resolves.toEqual([]);
-    await expect(api.thread.runtimeStatus()).resolves.toEqual({ status: "not_loaded", idleUnloadMs: 0 });
+    await expect(api.thread.runtimeStatus()).resolves.toEqual({
+      status: "not_loaded",
+      idleUnloadMs: 0,
+    });
     await expect(api.threadGraph.closeSpawnEdge("a", "b")).resolves.toBeNull();
     await expect(api.threadGraph.listDescendants("a")).resolves.toEqual([]);
   });

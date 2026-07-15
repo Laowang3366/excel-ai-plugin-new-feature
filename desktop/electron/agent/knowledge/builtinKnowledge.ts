@@ -8,9 +8,7 @@ import { resolveHotPatchPath } from "../../main-modules/hotPatchManager";
 const builtinKnowledgeLogger = createLogger("BuiltinKnowledge");
 
 const BUILTIN_KNOWLEDGE_MANIFEST = "builtin-knowledge.json";
-const RETIRED_BUILTIN_SOURCE_NAMES = new Set([
-  "excel-wps-formula-problem-solving-methodology.md",
-]);
+const RETIRED_BUILTIN_SOURCE_NAMES = new Set(["excel-wps-formula-problem-solving-methodology.md"]);
 interface BuiltinKnowledgeManifest {
   files?: Array<{
     path?: string;
@@ -84,7 +82,9 @@ function isBuiltinKnowledgePath(sourcePath: string): boolean {
   return sourcePath.replace(/\\/g, "/").toLowerCase().includes("/public/knowledge/");
 }
 
-function readBuiltinKnowledgeManifest(root: string): Array<{ path: string; sha256?: string }> | null {
+function readBuiltinKnowledgeManifest(
+  root: string,
+): Array<{ path: string; sha256?: string }> | null {
   const manifestPath = path.join(root, BUILTIN_KNOWLEDGE_MANIFEST);
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as BuiltinKnowledgeManifest;

@@ -28,10 +28,23 @@ interface ToolConfirmDialogProps {
   onCancel: () => void;
 }
 
-const RISK_CONFIG: Record<ToolRiskLevel, { label: string; color: string; bg: string; Icon: LucideIcon }> = {
+const RISK_CONFIG: Record<
+  ToolRiskLevel,
+  { label: string; color: string; bg: string; Icon: LucideIcon }
+> = {
   safe: { label: "安全", color: "var(--success-text)", bg: "var(--success-bg)", Icon: ShieldCheck },
-  moderate: { label: "中等风险", color: "var(--warning-text)", bg: "var(--warning-bg)", Icon: ShieldAlert },
-  dangerous: { label: "高风险", color: "var(--danger-text)", bg: "var(--danger-bg)", Icon: ShieldX },
+  moderate: {
+    label: "中等风险",
+    color: "var(--warning-text)",
+    bg: "var(--warning-bg)",
+    Icon: ShieldAlert,
+  },
+  dangerous: {
+    label: "高风险",
+    color: "var(--danger-text)",
+    bg: "var(--danger-bg)",
+    Icon: ShieldX,
+  },
 };
 
 export const ToolConfirmDialog: React.FC<ToolConfirmDialogProps> = ({
@@ -55,12 +68,11 @@ export const ToolConfirmDialog: React.FC<ToolConfirmDialogProps> = ({
       <div className="tool-confirm-dialog">
         {/* 标题栏 */}
         <div className="tool-confirm-header">
-          <span className="tool-confirm-icon"><Wrench size={16} /></span>
+          <span className="tool-confirm-icon">
+            <Wrench size={16} />
+          </span>
           <span className="tool-confirm-title">工具执行确认</span>
-          <span
-            className="tool-confirm-risk"
-            style={{ color: risk.color, background: risk.bg }}
-          >
+          <span className="tool-confirm-risk" style={{ color: risk.color, background: risk.bg }}>
             <RiskIcon size={13} /> {risk.label}
           </span>
         </div>
@@ -92,17 +104,11 @@ export const ToolConfirmDialog: React.FC<ToolConfirmDialogProps> = ({
             <X size={13} /> 取消
           </button>
           {pendingCall.canAlwaysAllow === true && (
-            <button
-              className="tool-confirm-always"
-              onClick={() => onConfirm(true)}
-            >
+            <button className="tool-confirm-always" onClick={() => onConfirm(true)}>
               <Check size={13} /> 始终允许
             </button>
           )}
-          <button
-            className="tool-confirm-approve"
-            onClick={() => onConfirm(false)}
-          >
+          <button className="tool-confirm-approve" onClick={() => onConfirm(false)}>
             <Check size={13} /> 确认执行
           </button>
         </div>

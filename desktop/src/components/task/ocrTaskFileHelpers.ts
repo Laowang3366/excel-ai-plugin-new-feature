@@ -17,8 +17,8 @@ export async function resolveOcrFilePaths(files: File[]): Promise<string[]> {
     const suffix = file.name.includes(".")
       ? `.${file.name.split(".").pop()}`
       : file.type === "application/pdf"
-      ? ".pdf"
-      : ".png";
+        ? ".pdf"
+        : ".png";
     const result = await ipcApi.file.writeTempFile({
       prefix: "ocr",
       suffix,
@@ -32,7 +32,9 @@ export async function resolveOcrFilePaths(files: File[]): Promise<string[]> {
   return paths;
 }
 
-export async function resolveWriteTarget(input: string): Promise<{ sheetName: string; range: string }> {
+export async function resolveWriteTarget(
+  input: string,
+): Promise<{ sheetName: string; range: string }> {
   const trimmed = input.trim();
   if (trimmed) {
     const parsed = parseSheetRange(trimmed);
@@ -57,13 +59,15 @@ export function parseSheetRange(value: string): { sheetName: string; range: stri
 
 export function isAcceptedOcrFile(file: File): boolean {
   const name = file.name.toLowerCase();
-  return ACCEPTED_OCR_MIME_TYPES.has(file.type) ||
+  return (
+    ACCEPTED_OCR_MIME_TYPES.has(file.type) ||
     name.endsWith(".pdf") ||
     name.endsWith(".png") ||
     name.endsWith(".jpg") ||
     name.endsWith(".jpeg") ||
     name.endsWith(".webp") ||
-    name.endsWith(".bmp");
+    name.endsWith(".bmp")
+  );
 }
 
 export function isLikelyInvoiceFile(file: File): boolean {

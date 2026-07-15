@@ -6,7 +6,8 @@ import path from "node:path";
 import Database from "better-sqlite3";
 
 const BACKUP_METADATA_VERSION = 1;
-const BACKUP_METADATA_PATTERN = /^analytics-\d{8}T\d{9}Z-[0-9a-f]{8}\.sqlite\.json$/u;
+const BACKUP_METADATA_PATTERN =
+  /^analytics-\d{8}T\d{9}Z-[0-9a-f]{8}\.sqlite\.json$/u;
 
 async function sha256File(filePath) {
   const hash = createHash("sha256");
@@ -25,13 +26,21 @@ async function fileExists(filePath) {
 
 function assertHealthyOpenDatabase(db) {
   const quickCheck = db.pragma("quick_check", { simple: true });
-  if (quickCheck !== "ok") throw new Error(`SQLite quick_check 失败: ${quickCheck}`);
-  const downloadsTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'downloads'").get();
+  if (quickCheck !== "ok")
+    throw new Error(`SQLite quick_check 失败: ${quickCheck}`);
+  const downloadsTable = db
+    .prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'downloads'",
+    )
+    .get();
   if (!downloadsTable) throw new Error("备份缺少 downloads 表");
 }
 
 function assertHealthyAnalyticsDatabase(databasePath) {
-  const db = new Database(databasePath, { readonly: true, fileMustExist: true });
+  const db = new Database(databasePath, {
+    readonly: true,
+    fileMustExist: true,
+  });
   try {
     assertHealthyOpenDatabase(db);
   } finally {
@@ -52,7 +61,10 @@ function finalizeBackupDatabase(databasePath) {
 async function writeJsonAtomically(filePath, value) {
   const temporaryPath = `${filePath}.tmp-${randomUUID()}`;
   try {
-    await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
     await fs.rename(temporaryPath, filePath);
   } catch (error) {
     await fs.rm(temporaryPath, { force: true });
@@ -69,13 +81,25 @@ async function pruneBackups(outputDir, retain) {
     try {
       const metadata = JSON.parse(await fs.readFile(metadataPath, "utf8"));
       const backupPath = path.join(outputDir, metadata.backupFile || "");
-      if (path.dirname(backupPath) !== outputDir || !(await fileExists(backupPath))) continue;
-      candidates.push({ backupPath, metadataPath, createdAt: Date.parse(metadata.createdAt) || 0 });
+      if (
+        path.dirname(backupPath) !== outputDir ||
+        !(await fileExists(backupPath))
+      )
+        continue;
+      candidates.push({
+        backupPath,
+        metadataPath,
+        createdAt: Date.parse(metadata.createdAt) || 0,
+      });
     } catch {
       // Unknown or incomplete files are preserved for manual inspection.
     }
   }
-  candidates.sort((left, right) => right.createdAt - left.createdAt || right.metadataPath.localeCompare(left.metadataPath));
+  candidates.sort(
+    (left, right) =>
+      right.createdAt - left.createdAt ||
+      right.metadataPath.localeCompare(left.metadataPath),
+  );
   for (const candidate of candidates.slice(retain)) {
     await fs.rm(candidate.backupPath, { force: true });
     await fs.rm(candidate.metadataPath, { force: true });
@@ -86,17 +110,26 @@ export async function verifyAnalyticsBackup(backupPath) {
   const resolvedBackupPath = path.resolve(backupPath);
   const metadataPath = `${resolvedBackupPath}.json`;
   const metadata = JSON.parse(await fs.readFile(metadataPath, "utf8"));
-  if (metadata.schemaVersion !== BACKUP_METADATA_VERSION) throw new Error("备份元数据版本不受支持");
-  if (metadata.backupFile !== path.basename(resolvedBackupPath)) throw new Error("备份元数据文件名不匹配");
+  if (metadata.schemaVersion !== BACKUP_METADATA_VERSION)
+    throw new Error("备份元数据版本不受支持");
+  if (metadata.backupFile !== path.basename(resolvedBackupPath))
+    throw new Error("备份元数据文件名不匹配");
   const stat = await fs.stat(resolvedBackupPath);
   if (metadata.size !== stat.size) throw new Error("备份大小校验失败");
-  if (metadata.sha256 !== await sha256File(resolvedBackupPath)) throw new Error("备份 SHA-256 校验失败");
+  if (metadata.sha256 !== (await sha256File(resolvedBackupPath)))
+    throw new Error("备份 SHA-256 校验失败");
   assertHealthyAnalyticsDatabase(resolvedBackupPath);
   return { backupPath: resolvedBackupPath, metadataPath, metadata };
 }
 
-export async function createAnalyticsBackup({ sourcePath, outputDir, retain = 14, now = Date.now }) {
-  if (!Number.isInteger(retain) || retain < 1 || retain > 365) throw new Error("retain 必须是 1-365 之间的整数");
+export async function createAnalyticsBackup({
+  sourcePath,
+  outputDir,
+  retain = 14,
+  now = Date.now,
+}) {
+  if (!Number.isInteger(retain) || retain < 1 || retain > 365)
+    throw new Error("retain 必须是 1-365 之间的整数");
   const resolvedSourcePath = path.resolve(sourcePath);
   const resolvedOutputDir = path.resolve(outputDir);
   await fs.mkdir(resolvedOutputDir, { recursive: true });
@@ -107,7 +140,10 @@ export async function createAnalyticsBackup({ sourcePath, outputDir, retain = 14
   const temporaryBackupPath = `${backupPath}.tmp`;
   const metadataPath = `${backupPath}.json`;
   try {
-    const source = new Database(resolvedSourcePath, { readonly: true, fileMustExist: true });
+    const source = new Database(resolvedSourcePath, {
+      readonly: true,
+      fileMustExist: true,
+    });
     try {
       await source.backup(temporaryBackupPath);
     } finally {
@@ -139,13 +175,18 @@ export async function createAnalyticsBackup({ sourcePath, outputDir, retain = 14
 export async function restoreAnalyticsBackup({ backupPath, targetPath }) {
   const verified = await verifyAnalyticsBackup(backupPath);
   const resolvedTargetPath = path.resolve(targetPath);
-  if (await fileExists(resolvedTargetPath)) throw new Error("恢复目标已存在；请先停止服务并移走当前数据库");
+  if (await fileExists(resolvedTargetPath))
+    throw new Error("恢复目标已存在；请先停止服务并移走当前数据库");
   await fs.mkdir(path.dirname(resolvedTargetPath), { recursive: true });
   const temporaryTargetPath = `${resolvedTargetPath}.restore-${randomUUID()}`;
   try {
-    await fs.copyFile(verified.backupPath, temporaryTargetPath, constants.COPYFILE_EXCL);
+    await fs.copyFile(
+      verified.backupPath,
+      temporaryTargetPath,
+      constants.COPYFILE_EXCL,
+    );
     assertHealthyAnalyticsDatabase(temporaryTargetPath);
-    if (await sha256File(temporaryTargetPath) !== verified.metadata.sha256) {
+    if ((await sha256File(temporaryTargetPath)) !== verified.metadata.sha256) {
       throw new Error("恢复副本 SHA-256 校验失败");
     }
     const handle = await fs.open(temporaryTargetPath, "r+");

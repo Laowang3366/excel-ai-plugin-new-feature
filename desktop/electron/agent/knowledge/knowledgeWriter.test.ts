@@ -28,7 +28,7 @@ describe("KnowledgeWriter", () => {
       {
         embedBatch: async (texts) => texts.map(() => [0.1, 0.2, 0.3]),
       },
-      { notesDir }
+      { notesDir },
     );
 
     const result = await writer.writeNote({
@@ -69,7 +69,7 @@ describe("KnowledgeWriter", () => {
           throw new Error("Embedding API 请求失败 (404)");
         },
       },
-      { notesDir }
+      { notesDir },
     );
 
     const result = await writer.writeNote({
@@ -104,7 +104,7 @@ describe("KnowledgeWriter", () => {
       {
         embedBatch: async (texts) => texts.map(() => [0.4, 0.5, 0.6]),
       },
-      { notesDir }
+      { notesDir },
     );
 
     const result = await writer.updateSource({
@@ -126,7 +126,11 @@ describe("KnowledgeWriter", () => {
       sourceName: "formula-rules.md",
       sourceType: "md",
       embedding: [0.4, 0.5, 0.6],
-      metadata: expect.objectContaining({ title: "Formula rules", tags: ["formula"], origin: "model" }),
+      metadata: expect.objectContaining({
+        title: "Formula rules",
+        tags: ["formula"],
+        origin: "model",
+      }),
     });
     expect(sources[0]).toMatchObject({
       sourcePath,
@@ -151,7 +155,7 @@ describe("KnowledgeWriter", () => {
       {
         embedBatch: async (texts) => texts.map(() => [0.7]),
       },
-      { notesDir }
+      { notesDir },
     );
 
     await writer.updateSource({
@@ -186,7 +190,7 @@ describe("KnowledgeWriter", () => {
       {
         embedBatch: async () => [],
       },
-      { notesDir }
+      { notesDir },
     );
 
     const result = await writer.deleteSource({ sourcePath });

@@ -17,19 +17,25 @@ export interface OcrResult {
 
 export function extractOcrFieldNames(result: OcrResult): string[] {
   if (result.kind === "invoice" && result.invoices.length > 0) {
-    return Array.from(new Set(result.invoices.flatMap((invoice) => Object.keys(invoice.fields || {}))));
+    return Array.from(
+      new Set(result.invoices.flatMap((invoice) => Object.keys(invoice.fields || {}))),
+    );
   }
   if (result.rows.length > 0) return result.rows[0];
   if (result.fields && Object.keys(result.fields).length > 0) return Object.keys(result.fields);
   if (result.invoices.length > 0) {
-    return Array.from(new Set(result.invoices.flatMap((invoice) => Object.keys(invoice.fields || {}))));
+    return Array.from(
+      new Set(result.invoices.flatMap((invoice) => Object.keys(invoice.fields || {}))),
+    );
   }
   return [];
 }
 
 export function canWriteOcrResult(result: OcrResult, selectedFields: string[]): boolean {
-  return selectedFields.length > 0 ||
-    (extractOcrFieldNames(result).length === 0 && Boolean(result.text.trim()));
+  return (
+    selectedFields.length > 0 ||
+    (extractOcrFieldNames(result).length === 0 && Boolean(result.text.trim()))
+  );
 }
 
 export function buildOcrWriteValues(result: OcrResult, selectedFields: string[]): string[][] {
@@ -39,7 +45,7 @@ export function buildOcrWriteValues(result: OcrResult, selectedFields: string[])
 
   if (result.kind === "invoice" && result.invoices.length > 0) {
     const rows = result.invoices.map((invoice) =>
-      selectedFields.map((field) => stringifyCell(invoice.fields[field] ?? ""))
+      selectedFields.map((field) => stringifyCell(invoice.fields[field] ?? "")),
     );
     return [selectedFields, ...rows];
   }

@@ -21,5 +21,9 @@ export async function sha256File(filePath) {
 }
 
 export function signManifest(unsignedManifest, privateKey) {
-  return sign(null, Buffer.from(canonicalJson(unsignedManifest), "utf8"), privateKey).toString("base64");
+  return sign(
+    null,
+    Buffer.from(canonicalJson(unsignedManifest), "utf8"),
+    privateKey,
+  ).toString("base64");
 }

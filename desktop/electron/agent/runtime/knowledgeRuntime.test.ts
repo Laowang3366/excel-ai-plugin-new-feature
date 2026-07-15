@@ -77,9 +77,11 @@ describe("knowledgeRuntime", () => {
 
     const runtime = await initializeKnowledgeRuntime(config, dataRoot);
     const sources = runtime.store?.listSources() ?? [];
-    expect(sources.some((source) =>
-      source.sourceName === "excel-wps-formula-problem-solving-methodology.md"
-    )).toBe(false);
+    expect(
+      sources.some(
+        (source) => source.sourceName === "excel-wps-formula-problem-solving-methodology.md",
+      ),
+    ).toBe(false);
     expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
   });
 

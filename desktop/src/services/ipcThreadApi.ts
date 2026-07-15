@@ -2,7 +2,9 @@ import type { IIpcApi } from "./ipcApiTypes";
 
 type RawIpcApiGetter = () => IIpcApi | null;
 
-export function createThreadIpcApi(getRaw: RawIpcApiGetter): Pick<IIpcApi, "thread" | "threadGraph"> {
+export function createThreadIpcApi(
+  getRaw: RawIpcApiGetter,
+): Pick<IIpcApi, "thread" | "threadGraph"> {
   return {
     thread: {
       list: async () => {

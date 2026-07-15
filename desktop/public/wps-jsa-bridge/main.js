@@ -5,12 +5,15 @@
   if (!config) return;
   var baseUrl = "http://127.0.0.1:" + config.port;
 
-  window.WenggeBridgeTabVisible = function () { return false; };
+  window.WenggeBridgeTabVisible = function () {
+    return false;
+  };
 
   function request(method, url, body, callback) {
-    var xhr = typeof WpsInvoke !== "undefined" && WpsInvoke.CreateXHR
-      ? WpsInvoke.CreateXHR()
-      : new XMLHttpRequest();
+    var xhr =
+      typeof WpsInvoke !== "undefined" && WpsInvoke.CreateXHR
+        ? WpsInvoke.CreateXHR()
+        : new XMLHttpRequest();
     var completed = false;
     function finish(status, text) {
       if (completed) return;
@@ -24,8 +27,12 @@
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) finish(xhr.status, xhr.responseText);
     };
-    xhr.onerror = function () { finish(0, ""); };
-    xhr.ontimeout = function () { finish(0, ""); };
+    xhr.onerror = function () {
+      finish(0, "");
+    };
+    xhr.ontimeout = function () {
+      finish(0, "");
+    };
     try {
       xhr.send(body === null ? null : JSON.stringify(body));
     } catch (_) {
@@ -49,15 +56,22 @@
   }
 
   function normalize(source) {
-    return String(source || "").replace(/\r\n?/g, "\n").replace(/\n+$/g, "").replace(/^\s+/, "");
+    return String(source || "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/\n+$/g, "")
+      .replace(/^\s+/, "");
   }
 
   function hasEntryPoint(source, entryPoint) {
     if (!entryPoint) return true;
     var name = String(entryPoint).split(".").pop();
     var escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    var pattern = "(?:^|\\n)\\s*(?:export\\s+)?(?:async\\s+)?function\\s+" + escaped +
-      "\\s*\\(|(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s+" + escaped + "\\s*=";
+    var pattern =
+      "(?:^|\\n)\\s*(?:export\\s+)?(?:async\\s+)?function\\s+" +
+      escaped +
+      "\\s*\\(|(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s+" +
+      escaped +
+      "\\s*=";
     return new RegExp(pattern, "m").test(source);
   }
 
@@ -69,7 +83,8 @@
       if (data.code) target.module.AddFromString(data.code);
       var source = readSource(target.module);
       if (normalize(source) !== normalize(data.code)) throw new Error("JSA 源码回读不一致");
-      if (!hasEntryPoint(source, data.entryPoint)) throw new Error("写入后找不到入口函数: " + data.entryPoint);
+      if (!hasEntryPoint(source, data.entryPoint))
+        throw new Error("写入后找不到入口函数: " + data.entryPoint);
       if (data.save) target.app.ActiveWorkbook.Save();
       return {
         componentName: target.component.Name || "",
@@ -77,11 +92,12 @@
         source: source,
         entryPointVerified: true,
         saved: data.save === true,
-        workbookName: target.app.ActiveWorkbook.Name || ""
+        workbookName: target.app.ActiveWorkbook.Name || "",
       };
     } catch (error) {
       try {
-        if (target.module.CountOfLines > 0) target.module.DeleteLines(1, target.module.CountOfLines);
+        if (target.module.CountOfLines > 0)
+          target.module.DeleteLines(1, target.module.CountOfLines);
         if (oldSource) target.module.AddFromString(oldSource);
       } catch (_) {
         // Keep the original write error when rollback also fails.
@@ -93,7 +109,10 @@
   function execute(command) {
     if (command.type === "detect") {
       var target = getCodeModule();
-      return { componentName: target.component.Name || "", workbookName: target.app.ActiveWorkbook.Name || "" };
+      return {
+        componentName: target.component.Name || "",
+        workbookName: target.app.ActiveWorkbook.Name || "",
+      };
     }
     if (command.type === "write") return writeCode(command.data || {});
     throw new Error("未知 JSA 桥接命令: " + command.type);
@@ -108,7 +127,11 @@
           command = JSON.parse(text);
           response = { id: command.id, ok: true, result: execute(command) };
         } catch (error) {
-          response = { id: command && command.id || "", ok: false, error: error.message || String(error) };
+          response = {
+            id: (command && command.id) || "",
+            ok: false,
+            error: error.message || String(error),
+          };
         }
         request("POST", "/response", response, function () {});
       }

@@ -9,11 +9,7 @@
 
 import { BrowserWindow } from "electron";
 import { trustedIpcMain as ipcMain } from "../../shared/trustedIpc";
-import {
-  ToolCancelInput,
-  ToolConfirmInput,
-  validateInput,
-} from "../../shared/ipcSchemas";
+import { ToolCancelInput, ToolConfirmInput, validateInput } from "../../shared/ipcSchemas";
 import type { AgentEvent } from "../shared/types";
 
 export const STREAM_DELTA_FORWARD_FLUSH_MS = 32;
@@ -27,10 +23,13 @@ export type StreamDeltaPayload = {
 };
 
 /** 挂起的工具审批：toolCallId → { resolve, reject } */
-export const pendingApprovals = new Map<string, {
-  resolve: (approved: boolean, alwaysAllow?: boolean) => void;
-  reject: (reason: string) => void;
-}>();
+export const pendingApprovals = new Map<
+  string,
+  {
+    resolve: (approved: boolean, alwaysAllow?: boolean) => void;
+    reject: (reason: string) => void;
+  }
+>();
 
 export function mergeStreamDeltas(deltas: StreamDeltaPayload[]): StreamDeltaPayload[] {
   const merged: StreamDeltaPayload[] = [];
@@ -89,7 +88,7 @@ export function createEventForwarder(mainWindowRef: () => BrowserWindow | null) 
       itemType: "assistant_message" | "reasoning",
       roundId?: number,
       threadId?: string,
-      clientId?: string
+      clientId?: string,
     ) => {
       pendingStreamDeltas.push({ delta, itemType, roundId, threadId, clientId });
       scheduleStreamDeltaFlush();
@@ -108,7 +107,7 @@ export function requestToolApproval(
     riskLevel: "safe" | "moderate" | "dangerous";
     description?: string;
     canAlwaysAllow?: boolean;
-  }
+  },
 ): Promise<{ approved: boolean; alwaysAllow?: boolean }> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {

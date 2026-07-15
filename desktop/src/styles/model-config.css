@@ -65,7 +65,9 @@
   border-radius: var(--radius-lg);
   margin-bottom: 12px;
   overflow: hidden;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .provider-card:hover {
   border-color: var(--primary-border);
@@ -451,7 +453,9 @@
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .btn-icon-danger:hover {
@@ -474,4 +478,3 @@
   color: var(--text-muted);
   margin-bottom: 8px;
 }
-

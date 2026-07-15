@@ -27,12 +27,14 @@ describe("turnRunner", () => {
     const input: AgentTurnInput = {
       content: "analyze this workbook",
       clientId: "client-message-1",
-      attachments: [{
-        filePath: "C:\\docs\\sample.xlsx",
-        fileName: "sample.xlsx",
-        fileType: "document",
-        size: 1024,
-      }],
+      attachments: [
+        {
+          filePath: "C:\\docs\\sample.xlsx",
+          fileName: "sample.xlsx",
+          fileType: "document",
+          size: 1024,
+        },
+      ],
     };
 
     const item = createUserMessageItem(input);

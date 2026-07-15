@@ -44,7 +44,9 @@
   gap: 8px;
   border: 1px solid var(--border-card);
   box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .welcome-chat .composer {
@@ -54,13 +56,17 @@
 
 .composer:focus-within {
   border-color: var(--primary-border);
-  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(79,70,229,0.08);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 3px rgba(79, 70, 229, 0.08);
 }
 
 .composer.drag-over {
   border-color: var(--primary);
   background: var(--primary-light);
-  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(79,70,229,0.15);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
 .composer-textarea {
@@ -192,7 +198,9 @@
   );
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
 }
 .compaction-slider:focus-visible {
   outline: 2px solid var(--primary-border);

@@ -39,17 +39,23 @@ export function AddProviderTemplateSelect({
         <option value="">{customProviderLabel}</option>
         <optgroup label={directProvidersLabel}>
           {directTemplates.map((template) => (
-            <option key={template.id} value={template.id}>{template.name}</option>
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
           ))}
         </optgroup>
         <optgroup label={aggregationProvidersLabel}>
           {aggregationTemplates.map((template) => (
-            <option key={template.id} value={template.id}>{template.name}</option>
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
           ))}
         </optgroup>
         <optgroup label={otherLabel}>
           {otherTemplates.map((template) => (
-            <option key={template.id} value={template.id}>{template.name}</option>
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
           ))}
         </optgroup>
       </select>

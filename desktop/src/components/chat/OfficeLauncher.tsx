@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { OfficeApplication } from "../../electronApi";
 import { ipcApi } from "../../services/ipcApi";
-import {
-  ChevronDown,
-  FileBarChart,
-  FileSpreadsheet,
-  FileText,
-} from "../common/IconMap";
+import { ChevronDown, FileBarChart, FileSpreadsheet, FileText } from "../common/IconMap";
 
 interface OfficeLauncherText {
   open: (application: string) => string;

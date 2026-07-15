@@ -35,7 +35,9 @@ describe("ThreadRepository", () => {
       expect(snapshot).toMatchObject({ name: "季度分析", folderId: "folder-new" });
 
       await repository.updateMetadata(thread.metadata.threadId, { name: "", folderId: undefined });
-      expect((await sessions.loadThread(thread.metadata.threadId))?.metadata.folderId).toBeUndefined();
+      expect(
+        (await sessions.loadThread(thread.metadata.threadId))?.metadata.folderId,
+      ).toBeUndefined();
       expect((await runtime.getThreadSnapshot(thread.metadata.threadId))?.folderId).toBeUndefined();
       await expect(runtime.findThreadNameByIdStr(thread.metadata.threadId)).resolves.toBeNull();
 

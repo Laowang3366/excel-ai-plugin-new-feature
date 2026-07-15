@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  isRetriableAIRequestError,
-  runAIRequestWithRetry,
-} from "./aiRequestRetry";
+import { isRetriableAIRequestError, runAIRequestWithRetry } from "./aiRequestRetry";
 
 describe("aiRequestRetry", () => {
   it("retries transient AI request failures before returning success", async () => {
@@ -40,7 +37,7 @@ describe("aiRequestRetry", () => {
           attempts += 1;
           throw abortError;
         },
-      })
+      }),
     ).rejects.toBe(abortError);
     expect(attempts).toBe(1);
   });
@@ -58,7 +55,7 @@ describe("aiRequestRetry", () => {
           attempts += 1;
           throw badRequest;
         },
-      })
+      }),
     ).rejects.toBe(badRequest);
     expect(attempts).toBe(1);
   });
@@ -76,7 +73,7 @@ describe("aiRequestRetry", () => {
           attempts += 1;
           throw upstreamError;
         },
-      })
+      }),
     ).rejects.toBe(upstreamError);
     expect(attempts).toBe(1);
   });
@@ -85,7 +82,9 @@ describe("aiRequestRetry", () => {
     expect(isRetriableAIRequestError(new TypeError("fetch failed"))).toBe(true);
     expect(isRetriableAIRequestError(new Error("read ECONNRESET"))).toBe(true);
     expect(isRetriableAIRequestError(new Error("ETIMEDOUT"))).toBe(true);
-    expect(isRetriableAIRequestError(new Error("API 请求失败 (502): 模型服务网关暂时不可用"))).toBe(true);
+    expect(isRetriableAIRequestError(new Error("API 请求失败 (502): 模型服务网关暂时不可用"))).toBe(
+      true,
+    );
   });
 
   it("waits with exponential backoff between retries", async () => {

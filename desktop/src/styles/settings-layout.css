@@ -56,7 +56,9 @@
   background: var(--border-default);
 }
 
-.settings-back-btn:hover { background: var(--primary-light); }
+.settings-back-btn:hover {
+  background: var(--primary-light);
+}
 
 .settings-sidebar-nav {
   display: flex;
@@ -99,8 +101,15 @@
   line-height: 18px;
 }
 
-.settings-sidebar-item:hover { background: var(--bg-tint); color: var(--primary); }
-.settings-sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+.settings-sidebar-item:hover {
+  background: var(--bg-tint);
+  color: var(--primary);
+}
+.settings-sidebar-item.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
 
 .settings-sidebar-collapsed .settings-sidebar {
   width: var(--sidebar-collapsed-width);
@@ -264,7 +273,11 @@
   margin-bottom: 20px;
 }
 
-.settings-header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+.settings-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
 
 .btn-back {
   padding: 6px 14px;
@@ -277,7 +290,11 @@
   transition: all 0.15s;
 }
 
-.btn-back:hover { background: var(--bg-tint); border-color: var(--primary-border); color: var(--primary); }
+.btn-back:hover {
+  background: var(--bg-tint);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
 
 .settings-grid {
   display: grid;
@@ -311,15 +328,19 @@
   transition: all 0.15s;
 }
 
-.profile-card:hover { border-color: var(--primary-border); }
+.profile-card:hover {
+  border-color: var(--primary-border);
+}
 
 .profile-card.active {
   border-color: #818cf8;
   background: #f5f7ff;
-  box-shadow: 0 6px 16px rgba(79,70,229,0.12);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.12);
 }
 
-.profile-card .provider-icon { font-size: 20px; }
+.profile-card .provider-icon {
+  font-size: 20px;
+}
 
 .profile-card .provider-name {
   font-size: 13px;
@@ -327,7 +348,9 @@
   color: var(--text-secondary);
 }
 
-.profile-card.active .provider-name { color: var(--primary); }
+.profile-card.active .provider-name {
+  color: var(--primary);
+}
 
 .profile-card .configured-dot {
   width: 8px;
@@ -338,7 +361,9 @@
   display: none;
 }
 
-.profile-card.configured .configured-dot { display: block; }
+.profile-card.configured .configured-dot {
+  display: block;
+}
 
 .editor-title {
   display: flex;

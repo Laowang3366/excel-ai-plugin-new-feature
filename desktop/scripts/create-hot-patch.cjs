@@ -26,7 +26,9 @@ function walk(directory) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.id || !args["base-version"] || !args.sequence || !args["expires-at"] || !args.output) {
-    throw new Error("用法: node scripts/create-hot-patch.cjs --id <id> --base-version <version> --sequence <n> --expires-at <ISO> --output <zip> [--include dist]");
+    throw new Error(
+      "用法: node scripts/create-hot-patch.cjs --id <id> --base-version <version> --sequence <n> --expires-at <ISO> --output <zip> [--include dist]",
+    );
   }
   const includes = args.include.length > 0 ? args.include : ALLOWED_ROOTS;
   for (const include of includes) {
@@ -56,15 +58,22 @@ async function main() {
   const outputPath = path.resolve(args.output);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, Buffer.from(zipSync(files, { level: 9 })));
-  fs.writeFileSync(`${outputPath}.json`, `${JSON.stringify({
-    id: args.id,
-    baseVersion: args["base-version"],
-    sequence: Number(args.sequence),
-    publishedAt: new Date().toISOString(),
-    expiresAt: new Date(args["expires-at"]).toISOString(),
-    fileCount,
-    files: fileManifest,
-  }, null, 2)}\n`);
+  fs.writeFileSync(
+    `${outputPath}.json`,
+    `${JSON.stringify(
+      {
+        id: args.id,
+        baseVersion: args["base-version"],
+        sequence: Number(args.sequence),
+        publishedAt: new Date().toISOString(),
+        expiresAt: new Date(args["expires-at"]).toISOString(),
+        fileCount,
+        files: fileManifest,
+      },
+      null,
+      2,
+    )}\n`,
+  );
   console.log(JSON.stringify({ outputPath, fileCount }, null, 2));
 }
 

@@ -13,13 +13,7 @@
 import type { FolderFileInfo } from "../../electronApi";
 import { getAppText } from "../../i18n";
 import type { AppLanguage } from "../../store/settingsStore";
-import {
-  Pin,
-  Trash2,
-  Zap,
-  Copy,
-  FolderOpen,
-} from "../common/IconMap";
+import { Pin, Trash2, Zap, Copy, FolderOpen } from "../common/IconMap";
 
 export interface FileContextMenuState {
   file: FolderFileInfo;
@@ -60,28 +54,40 @@ export function FileContextMenu({
     >
       <button
         className="thread-context-menu-item"
-        onClick={() => { onPinFile(state.file.filePath); onClose(); }}
+        onClick={() => {
+          onPinFile(state.file.filePath);
+          onClose();
+        }}
       >
         <Pin size={14} />
         <span>{state.isPinned ? text.sidebar.unpin : text.sidebar.pinToTop}</span>
       </button>
       <button
         className="thread-context-menu-item"
-        onClick={() => { onOpen(state.file.filePath); onClose(); }}
+        onClick={() => {
+          onOpen(state.file.filePath);
+          onClose();
+        }}
       >
         <Zap size={14} />
         <span>{text.sidebar.openFile}</span>
       </button>
       <button
         className="thread-context-menu-item"
-        onClick={() => { onCopyPath(state.file.filePath); onClose(); }}
+        onClick={() => {
+          onCopyPath(state.file.filePath);
+          onClose();
+        }}
       >
         <Copy size={14} />
         <span>{text.sidebar.copyPath}</span>
       </button>
       <button
         className="thread-context-menu-item"
-        onClick={() => { onRevealInExplorer(state.file.filePath); onClose(); }}
+        onClick={() => {
+          onRevealInExplorer(state.file.filePath);
+          onClose();
+        }}
       >
         <FolderOpen size={14} />
         <span>{text.sidebar.revealInExplorer}</span>
@@ -89,7 +95,10 @@ export function FileContextMenu({
       <div className="thread-context-menu-divider" />
       <button
         className="thread-context-menu-item danger"
-        onClick={() => { onDelete(state.file.filePath); onClose(); }}
+        onClick={() => {
+          onDelete(state.file.filePath);
+          onClose();
+        }}
       >
         <Trash2 size={14} />
         <span>{text.sidebar.deleteFile}</span>

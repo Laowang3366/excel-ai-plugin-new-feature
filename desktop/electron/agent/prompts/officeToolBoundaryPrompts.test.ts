@@ -63,5 +63,4 @@ describe("Office tool semantic boundaries", () => {
     expect(generalOfficePrompt).toContain("外部脚本");
     expect(generalOfficePrompt).toMatch(/可刷新、多来源 ETL/);
   });
-
 });

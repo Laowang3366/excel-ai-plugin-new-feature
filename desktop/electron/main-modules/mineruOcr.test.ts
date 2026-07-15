@@ -39,13 +39,9 @@ describe("mineruOcr", () => {
     tempFiles.push(filePath);
     fs.writeFileSync(filePath, "pdf");
 
-    const markdown = [
-      "# 发票",
-      "",
-      "| 字段 | 值 |",
-      "| --- | --- |",
-      "| 发票号码 | 001 |",
-    ].join("\n");
+    const markdown = ["# 发票", "", "| 字段 | 值 |", "| --- | --- |", "| 发票号码 | 001 |"].join(
+      "\n",
+    );
     const zipBuffer = Buffer.from(zipSync({ "sample/full.md": strToU8(markdown) }));
 
     // @MOCK_INTERFACE: simulates MinerU signed-url upload, polling, and zip download HTTP endpoints.
@@ -74,11 +70,13 @@ describe("mineruOcr", () => {
           code: 0,
           msg: "ok",
           data: {
-            extract_result: [{
-              file_name: "invoice.pdf",
-              state: "done",
-              full_zip_url: "https://download.example.com/result.zip",
-            }],
+            extract_result: [
+              {
+                file_name: "invoice.pdf",
+                state: "done",
+                full_zip_url: "https://download.example.com/result.zip",
+              },
+            ],
           },
         });
       }
@@ -94,15 +92,17 @@ describe("mineruOcr", () => {
       pollIntervalMs: 1,
     });
 
-    expect(result).toEqual([{
-      filename: "invoice.pdf",
-      text: expect.stringContaining("发票号码"),
-      rows: [
-        ["字段", "值"],
-        ["发票号码", "001"],
-      ],
-      fullZipUrl: "https://download.example.com/result.zip",
-    }]);
+    expect(result).toEqual([
+      {
+        filename: "invoice.pdf",
+        text: expect.stringContaining("发票号码"),
+        rows: [
+          ["字段", "值"],
+          ["发票号码", "001"],
+        ],
+        fullZipUrl: "https://download.example.com/result.zip",
+      },
+    ]);
   });
 
   it("parses files through MinerU Agent lightweight flow", async () => {
@@ -144,13 +144,10 @@ describe("mineruOcr", () => {
         });
       }
       if (url === "https://download.example.com/agent.md") {
-        return new Response([
-          "# 轻量解析",
-          "",
-          "| 字段 | 值 |",
-          "| --- | --- |",
-          "| 金额 | 100 |",
-        ].join("\n"), { status: 200 });
+        return new Response(
+          ["# 轻量解析", "", "| 字段 | 值 |", "| --- | --- |", "| 金额 | 100 |"].join("\n"),
+          { status: 200 },
+        );
       }
       throw new Error(`unexpected url: ${url}`);
     });
@@ -161,14 +158,16 @@ describe("mineruOcr", () => {
       pollIntervalMs: 1,
     });
 
-    expect(result).toEqual([{
-      filename: path.basename(filePath),
-      text: expect.stringContaining("金额"),
-      rows: [
-        ["字段", "值"],
-        ["金额", "100"],
-      ],
-    }]);
+    expect(result).toEqual([
+      {
+        filename: path.basename(filePath),
+        text: expect.stringContaining("金额"),
+        rows: [
+          ["字段", "值"],
+          ["金额", "100"],
+        ],
+      },
+    ]);
   });
 
   it("aborts a stalled polling request at the overall timeout", async () => {
@@ -176,28 +175,37 @@ describe("mineruOcr", () => {
     tempFiles.push(filePath);
     fs.writeFileSync(filePath, "pdf");
 
-    vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
-      if (url.endsWith("/api/v1/agent/parse/file")) {
-        return Promise.resolve(jsonResponse({
-          code: 0,
-          data: { task_id: "task-timeout", file_url: "https://upload.example.com/timeout" },
-        }));
-      }
-      if (url === "https://upload.example.com/timeout") {
-        return Promise.resolve(new Response("", { status: 200 }));
-      }
-      if (url.endsWith("/api/v1/agent/parse/task-timeout")) {
-        return new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
-        });
-      }
-      return Promise.reject(new Error(`unexpected url: ${url}`));
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (url.endsWith("/api/v1/agent/parse/file")) {
+          return Promise.resolve(
+            jsonResponse({
+              code: 0,
+              data: { task_id: "task-timeout", file_url: "https://upload.example.com/timeout" },
+            }),
+          );
+        }
+        if (url === "https://upload.example.com/timeout") {
+          return Promise.resolve(new Response("", { status: 200 }));
+        }
+        if (url.endsWith("/api/v1/agent/parse/task-timeout")) {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            );
+          });
+        }
+        return Promise.reject(new Error(`unexpected url: ${url}`));
+      }),
+    );
 
-    await expect(parseFilesWithMineruAgent([filePath], {
-      timeoutMs: 20,
-      pollIntervalMs: 1,
-    })).rejects.toThrow("MinerU 网络请求超时");
+    await expect(
+      parseFilesWithMineruAgent([filePath], {
+        timeoutMs: 20,
+        pollIntervalMs: 1,
+      }),
+    ).rejects.toThrow("MinerU 网络请求超时");
   });
 });
 

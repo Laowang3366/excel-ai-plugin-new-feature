@@ -14,19 +14,33 @@ describe("createOfficeActionBridge", () => {
     try {
       const officeFileBridge: OfficeFileBridge = {
         inspectFile: vi.fn(async () => ({ textPartCount: 2, textPreview: "季度销售报告" })),
-        replaceText: vi.fn(), inspectLayout: vi.fn(), inspectTable: vi.fn(), applyTableStyle: vi.fn(), snapshot: vi.fn(),
+        replaceText: vi.fn(),
+        inspectLayout: vi.fn(),
+        inspectTable: vi.fn(),
+        applyTableStyle: vi.fn(),
+        snapshot: vi.fn(),
       };
       const bridge = createOfficeActionBridge({ officeFileBridge });
 
       const passed = await bridge.executeAction({
-        app: "word", action: "validate", operation: "inspectFile", filePath,
+        app: "word",
+        action: "validate",
+        operation: "inspectFile",
+        filePath,
         params: { containsText: "销售报告", countPath: "textPartCount", expectedCount: 2 },
       });
       expect(passed.validation).toEqual(expect.objectContaining({ ok: true }));
-      expect(passed.validation?.checks.map(check => check.name)).toEqual(["file-exists", "contains-text", "expected-count"]);
+      expect(passed.validation?.checks.map((check) => check.name)).toEqual([
+        "file-exists",
+        "contains-text",
+        "expected-count",
+      ]);
 
       const failed = await bridge.executeAction({
-        app: "word", action: "validate", operation: "inspectFile", filePath,
+        app: "word",
+        action: "validate",
+        operation: "inspectFile",
+        filePath,
         params: { countPath: "textPartCount", expectedCount: 3 },
       });
       expect(failed.status).toBe("done");
@@ -274,28 +288,34 @@ describe("createOfficeActionBridge", () => {
     ["presentation", "style", "applyTheme"],
     ["presentation", "edit", "deleteSlides"],
     ["presentation", "insert", "addSlide"],
-  ] as const)("routes %s advanced action %s through the .NET Open XML bridge", async (app, action, operation) => {
-    const executeAction = vi.fn(async (input: OfficeActionInput) => ({
-      status: "done" as const,
-      engine: "openxml" as const,
-      app: input.app,
-      action: input.action,
-      operation: input.operation,
-      summary: "SDK action complete",
-      changes: [],
-    }));
-    const officeFileBridge = { executeAction } as unknown as OfficeFileBridge;
-    const bridge = createOfficeActionBridge({ officeFileBridge });
-    const input = {
-      app,
-      action,
-      operation,
-      filePath: "D:\\docs\\input.office",
-    };
+  ] as const)(
+    "routes %s advanced action %s through the .NET Open XML bridge",
+    async (app, action, operation) => {
+      const executeAction = vi.fn(async (input: OfficeActionInput) => ({
+        status: "done" as const,
+        engine: "openxml" as const,
+        app: input.app,
+        action: input.action,
+        operation: input.operation,
+        summary: "SDK action complete",
+        changes: [],
+      }));
+      const officeFileBridge = { executeAction } as unknown as OfficeFileBridge;
+      const bridge = createOfficeActionBridge({ officeFileBridge });
+      const input = {
+        app,
+        action,
+        operation,
+        filePath: "D:\\docs\\input.office",
+      };
 
-    await expect(bridge.executeAction(input)).resolves.toMatchObject({ status: "done", engine: "openxml" });
-    expect(executeAction).toHaveBeenCalledWith(input);
-  });
+      await expect(bridge.executeAction(input)).resolves.toMatchObject({
+        status: "done",
+        engine: "openxml",
+      });
+      expect(executeAction).toHaveBeenCalledWith(input);
+    },
+  );
 
   it("creates and restores a transaction backup for an in-place COM edit", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-action-transaction-"));
@@ -419,7 +439,11 @@ describe("createOfficeActionBridge", () => {
           };
         }),
       };
-      const bridge = createOfficeActionBridge({ officeComActionBridge, officeDocumentBridge, transactionRoot });
+      const bridge = createOfficeActionBridge({
+        officeComActionBridge,
+        officeDocumentBridge,
+        transactionRoot,
+      });
 
       const result = await bridge.executeAction({
         app: "excel",
@@ -448,9 +472,13 @@ describe("createOfficeActionBridge", () => {
 function createFileTransactionBridge(): OfficeDocumentManagerBridge {
   return {
     listDocuments: vi.fn(async () => []),
-    activateDocument: vi.fn(async () => { throw new Error("not used"); }),
+    activateDocument: vi.fn(async () => {
+      throw new Error("not used");
+    }),
     listObjects: vi.fn(async () => []),
-    activateObject: vi.fn(async () => { throw new Error("not used"); }),
+    activateObject: vi.fn(async () => {
+      throw new Error("not used");
+    }),
     prepareTransaction: vi.fn(async () => []),
     restoreTransactionFiles: vi.fn(async (files) => {
       for (const file of files) {

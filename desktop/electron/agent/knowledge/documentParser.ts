@@ -94,11 +94,13 @@ export class DocumentParser {
   private async parseExcel(
     filePath: string,
     sourceName: string,
-    sourceType: KnowledgeFileType
+    sourceType: KnowledgeFileType,
   ): Promise<RawChunk[]> {
     const stats = fs.statSync(filePath);
     if (stats.size > MAX_EXCEL_PARSE_BYTES) {
-      throw new Error(`Excel 文件过大，知识库索引最多支持 ${Math.floor(MAX_EXCEL_PARSE_BYTES / 1024 / 1024)}MB: ${sourceName}`);
+      throw new Error(
+        `Excel 文件过大，知识库索引最多支持 ${Math.floor(MAX_EXCEL_PARSE_BYTES / 1024 / 1024)}MB: ${sourceName}`,
+      );
     }
 
     return this.parseOpenXml(filePath, sourceName, sourceType);
@@ -229,16 +231,26 @@ export class DocumentParser {
   private getFileType(filePath: string): KnowledgeFileType {
     const ext = path.extname(filePath).toLowerCase();
     switch (ext) {
-      case ".xlsx": return "xlsx";
-      case ".xlsm": return "xlsm";
-      case ".xlsb": return "xlsb";
-      case ".csv": return "csv";
-      case ".json": return "json";
-      case ".docx": return "docx";
-      case ".pptx": return "pptx";
-      case ".md": return "md";
-      case ".txt": return "txt";
-      default: throw new Error(`不支持的文件扩展名: ${ext}`);
+      case ".xlsx":
+        return "xlsx";
+      case ".xlsm":
+        return "xlsm";
+      case ".xlsb":
+        return "xlsb";
+      case ".csv":
+        return "csv";
+      case ".json":
+        return "json";
+      case ".docx":
+        return "docx";
+      case ".pptx":
+        return "pptx";
+      case ".md":
+        return "md";
+      case ".txt":
+        return "txt";
+      default:
+        throw new Error(`不支持的文件扩展名: ${ext}`);
     }
   }
 }

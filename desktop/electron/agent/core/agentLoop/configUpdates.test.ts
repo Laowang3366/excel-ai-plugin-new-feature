@@ -10,7 +10,7 @@ import {
 
 vi.mock("../../providers/aiClient", async () => {
   const actual = await vi.importActual<typeof import("../../providers/aiClient")>(
-    "../../providers/aiClient"
+    "../../providers/aiClient",
   );
   return {
     ...actual,
@@ -99,6 +99,8 @@ describe("configUpdates", () => {
     expect(currentConfig.compactionConfig.contextWindowSize).toBe(500);
     expect(result.compactionProvider).toBeUndefined();
     expect(result.pendingReason).toBe("context_window_changed");
-    expect(mergePendingCompactionReason("model_changed", result.pendingReason)).toBe("model_changed");
+    expect(mergePendingCompactionReason("model_changed", result.pendingReason)).toBe(
+      "model_changed",
+    );
   });
 });

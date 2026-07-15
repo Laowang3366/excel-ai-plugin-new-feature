@@ -14,16 +14,20 @@ describe("streaming reasoning scroll behavior", () => {
   });
 
   test("calculates distance to bottom for the inner reasoning scroller", () => {
-    expect(getStreamingReasoningDistanceToBottom({
-      scrollHeight: 600,
-      scrollTop: 420,
-      clientHeight: 150,
-    })).toBe(30);
-    expect(getStreamingReasoningDistanceToBottom({
-      scrollHeight: 600,
-      scrollTop: 520,
-      clientHeight: 150,
-    })).toBe(0);
+    expect(
+      getStreamingReasoningDistanceToBottom({
+        scrollHeight: 600,
+        scrollTop: 420,
+        clientHeight: 150,
+      }),
+    ).toBe(30);
+    expect(
+      getStreamingReasoningDistanceToBottom({
+        scrollHeight: 600,
+        scrollTop: 520,
+        clientHeight: 150,
+      }),
+    ).toBe(0);
   });
 
   test("limits live reasoning rendering to a tail preview while keeping a notice", () => {

@@ -20,12 +20,7 @@ import {
   resolveWriteTarget,
 } from "./ocrTaskFileHelpers";
 
-export {
-  buildOcrPreviewRows,
-  buildOcrWriteValues,
-  canWriteOcrResult,
-  extractOcrFieldNames,
-};
+export { buildOcrPreviewRows, buildOcrWriteValues, canWriteOcrResult, extractOcrFieldNames };
 export type { OcrInvoiceItem, OcrResult } from "./ocrTaskResultHelpers";
 
 export type OcrMode = "image" | "invoice";
@@ -63,18 +58,21 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
   const [writeStatus, setWriteStatus] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const addOcrFiles = useCallback((newFiles: File[]) => {
-    const acceptedFiles = newFiles.filter(isAcceptedOcrFile);
-    if (acceptedFiles.length === 0) return;
-    const nextMode: OcrMode = acceptedFiles.some(isLikelyInvoiceFile) ? "invoice" : ocrMode;
-    const nextMaxFiles = nextMode === "invoice" ? 10 : 1;
-    if (nextMode !== ocrMode) {
-      setOcrMode(nextMode);
-    }
-    setFiles((prev) => [...prev, ...acceptedFiles].slice(0, nextMaxFiles));
-    setResult(null);
-    setWriteStatus("");
-  }, [ocrMode]);
+  const addOcrFiles = useCallback(
+    (newFiles: File[]) => {
+      const acceptedFiles = newFiles.filter(isAcceptedOcrFile);
+      if (acceptedFiles.length === 0) return;
+      const nextMode: OcrMode = acceptedFiles.some(isLikelyInvoiceFile) ? "invoice" : ocrMode;
+      const nextMaxFiles = nextMode === "invoice" ? 10 : 1;
+      if (nextMode !== ocrMode) {
+        setOcrMode(nextMode);
+      }
+      setFiles((prev) => [...prev, ...acceptedFiles].slice(0, nextMaxFiles));
+      setResult(null);
+      setWriteStatus("");
+    },
+    [ocrMode],
+  );
 
   useEffect(() => {
     onDraftChange?.({
@@ -86,23 +84,14 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
       outputRange,
       dragOver,
     });
-  }, [
-    ocrMode,
-    files,
-    recognizing,
-    result,
-    selectedFields,
-    outputRange,
-    dragOver,
-    onDraftChange,
-  ]);
+  }, [ocrMode, files, recognizing, result, selectedFields, outputRange, dragOver, onDraftChange]);
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       addOcrFiles(Array.from(e.target.files || []));
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
-    [addOcrFiles]
+    [addOcrFiles],
   );
 
   const handleDrop = useCallback(
@@ -111,7 +100,7 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
       setDragOver(false);
       addOcrFiles(Array.from(e.dataTransfer.files));
     },
-    [addOcrFiles]
+    [addOcrFiles],
   );
 
   useEffect(() => {
@@ -154,12 +143,11 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
     setSelectedFields([]);
 
     try {
-      const effectiveOcrMode: OcrMode = ocrMode === "invoice" || files.some(isLikelyInvoiceFile)
-        ? "invoice"
-        : "image";
+      const effectiveOcrMode: OcrMode =
+        ocrMode === "invoice" || files.some(isLikelyInvoiceFile) ? "invoice" : "image";
       const apiResult = await ipcApi.ocr.recognize(
         effectiveOcrMode,
-        await resolveOcrFilePaths(files)
+        await resolveOcrFilePaths(files),
       );
       if (apiResult) {
         setResult(apiResult as OcrResult);
@@ -186,7 +174,7 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
 
   const toggleField = useCallback((field: string) => {
     setSelectedFields((prev) =>
-      prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
+      prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field],
     );
   }, []);
 
@@ -219,7 +207,9 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
         throw new Error(writeResult.error || "写入失败");
       }
       setOutputRange(`${target.sheetName}!${target.range}`);
-      setWriteStatus(`已写入 ${values.length} 行 x ${Math.max(...values.map((row) => row.length))} 列`);
+      setWriteStatus(
+        `已写入 ${values.length} 行 x ${Math.max(...values.map((row) => row.length))} 列`,
+      );
     } catch (err: any) {
       setWriteStatus(err?.message || "写入失败");
     }
@@ -240,10 +230,7 @@ export const OCRTaskComposerPanel: React.FC<OCRTaskComposerPanelProps> = ({
       {!embedded && (
         <div className="task-composer-title">
           <FileScan size={16} /> OCR / 发票识别
-          <button
-            className="task-close-btn"
-            onClick={onClose}
-          >
+          <button className="task-close-btn" onClick={onClose}>
             <X size={14} />
           </button>
         </div>

@@ -8,11 +8,7 @@ import type {
 import type { SessionStore } from "../../memory/sessionStore";
 import type { ThreadStateManager } from "./threadStateManager";
 import type { TurnState } from "./turnState";
-import {
-  completeTurn,
-  createTurn,
-  createUserMessageItem,
-} from "./turnRunner";
+import { completeTurn, createTurn, createUserMessageItem } from "./turnRunner";
 
 export function beginTurnRun(turnState: TurnState): void {
   if (turnState.isRunning) {
@@ -36,7 +32,7 @@ export async function prepareThreadForTurn(input: {
   bindCallbacksToThread: (
     callbacks: AgentTurnCallbacks,
     threadId: ThreadId,
-    clientId?: string
+    clientId?: string,
   ) => AgentTurnCallbacks;
   callbacks: AgentTurnCallbacks;
   clientId?: string;
@@ -52,7 +48,11 @@ export async function prepareThreadForTurn(input: {
 
   return {
     thread,
-    callbacks: input.bindCallbacksToThread(input.callbacks, thread.metadata.threadId, input.clientId),
+    callbacks: input.bindCallbacksToThread(
+      input.callbacks,
+      thread.metadata.threadId,
+      input.clientId,
+    ),
   };
 }
 
@@ -98,7 +98,7 @@ export async function completeSuccessfulTurn(input: {
     await input.sessionStore.appendTurnUsage(
       input.thread.metadata.threadId,
       input.turn.turnId,
-      input.turn.tokenUsage
+      input.turn.tokenUsage,
     );
   }
   input.thread.turns.push(input.turn);

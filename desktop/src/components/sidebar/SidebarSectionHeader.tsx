@@ -1,9 +1,5 @@
 import React from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  ClipboardList,
-} from "../common/IconMap";
+import { ChevronDown, ChevronRight, ClipboardList } from "../common/IconMap";
 
 interface SidebarSectionHeaderProps {
   title: string;

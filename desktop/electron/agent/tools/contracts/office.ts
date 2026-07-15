@@ -11,7 +11,9 @@ import type { OfficeActionInput, OfficeActionResult } from "../officeCore/types"
  */
 export interface WordDocumentBridge {
   /** 打开已有 Word 文档 */
-  openDocument(filePath: string): Promise<{ success: boolean; documentName?: string; error?: string }>;
+  openDocument(
+    filePath: string,
+  ): Promise<{ success: boolean; documentName?: string; error?: string }>;
   /** 检查当前活动文档结构 */
   inspectDocument(): Promise<unknown>;
   /** 读取当前活动文档文本 */
@@ -31,7 +33,9 @@ export interface WordDocumentBridge {
  */
 export interface PresentationBridge {
   /** 打开已有演示文稿 */
-  openPresentation(filePath: string): Promise<{ success: boolean; presentationName?: string; error?: string }>;
+  openPresentation(
+    filePath: string,
+  ): Promise<{ success: boolean; presentationName?: string; error?: string }>;
   /** 检查当前活动演示文稿结构 */
   inspectPresentation(): Promise<unknown>;
   /** 读取指定幻灯片文本 */
@@ -39,7 +43,12 @@ export interface PresentationBridge {
   /** 添加幻灯片 */
   addSlide(title?: string, body?: string, layout?: string): Promise<unknown>;
   /** 设置形状文本 */
-  setShapeText(slideIndex: number, text: string, shapeName?: string, shapeIndex?: number): Promise<unknown>;
+  setShapeText(
+    slideIndex: number,
+    text: string,
+    shapeName?: string,
+    shapeIndex?: number,
+  ): Promise<unknown>;
   /** 在全部幻灯片文本形状中查找替换文本 */
   replaceText(findText: string, replaceText: string, matchCase?: boolean): Promise<unknown>;
   /** 保存当前活动演示文稿 */
@@ -139,21 +148,27 @@ export interface OfficeDocumentManagerBridge {
     instanceId?: string;
     locator: string;
   }): Promise<OfficeObjectInfo>;
-  prepareTransaction(filePaths: string[]): Promise<Array<{
-    app: OfficeActionInput["app"];
-    filePath: string;
-    wasDirty: boolean;
-    saved: boolean;
-    instanceId?: string;
-  }>>;
-  restoreTransactionFiles(files: Array<{
-    filePath: string;
-    existed: boolean;
-    snapshotPath?: string;
-  }>): Promise<Array<{
-    app: OfficeActionInput["app"];
-    filePath: string;
-    instanceId?: string;
-    reopened: boolean;
-  }>>;
+  prepareTransaction(filePaths: string[]): Promise<
+    Array<{
+      app: OfficeActionInput["app"];
+      filePath: string;
+      wasDirty: boolean;
+      saved: boolean;
+      instanceId?: string;
+    }>
+  >;
+  restoreTransactionFiles(
+    files: Array<{
+      filePath: string;
+      existed: boolean;
+      snapshotPath?: string;
+    }>,
+  ): Promise<
+    Array<{
+      app: OfficeActionInput["app"];
+      filePath: string;
+      instanceId?: string;
+      reopened: boolean;
+    }>
+  >;
 }

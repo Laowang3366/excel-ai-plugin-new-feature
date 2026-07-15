@@ -4,7 +4,7 @@ import { formatReasoningOptionLabels } from "../../utils/reasoningSupport";
 
 export function buildReasoningAutoHint(
   reasoningOptionValues: ReasoningMode[],
-  language: AppLanguage
+  language: AppLanguage,
 ): string {
   const labels = formatReasoningOptionLabels(reasoningOptionValues, language);
   return language === "zh-CN"

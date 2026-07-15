@@ -43,26 +43,32 @@ describe("taskComposerPayloads", () => {
   });
 
   it("builds report payloads for document and spreadsheet outputs", () => {
-    expect(buildReportTaskPayload({
-      range: "Sheet1!A1:F20",
-      task: "输出月度经营报告",
-      outputFormat: "word",
-      storagePath: "C:\\Users\\wfq\\Desktop",
-    })).toContain("创建 Word 文档");
+    expect(
+      buildReportTaskPayload({
+        range: "Sheet1!A1:F20",
+        task: "输出月度经营报告",
+        outputFormat: "word",
+        storagePath: "C:\\Users\\wfq\\Desktop",
+      }),
+    ).toContain("创建 Word 文档");
 
-    expect(buildReportTaskPayload({
-      range: "Sheet1!A1:F20",
-      task: "输出汇报 PPT",
-      outputFormat: "ppt",
-      storagePath: "C:\\Users\\wfq\\Desktop",
-    })).toContain("创建 PPT 文件");
+    expect(
+      buildReportTaskPayload({
+        range: "Sheet1!A1:F20",
+        task: "输出汇报 PPT",
+        outputFormat: "ppt",
+        storagePath: "C:\\Users\\wfq\\Desktop",
+      }),
+    ).toContain("创建 PPT 文件");
 
-    expect(buildReportTaskPayload({
-      range: "Sheet1!A1:F20",
-      task: "输出表格报告",
-      outputFormat: "excel",
-      storagePath: "",
-    })).toContain("在当前连接的 Excel/WPS 环境中新增或更新报告工作表");
+    expect(
+      buildReportTaskPayload({
+        range: "Sheet1!A1:F20",
+        task: "输出表格报告",
+        outputFormat: "excel",
+        storagePath: "",
+      }),
+    ).toContain("在当前连接的 Excel/WPS 环境中新增或更新报告工作表");
   });
 
   it("normalizes connected host names", () => {
@@ -70,5 +76,4 @@ describe("taskComposerPayloads", () => {
     expect(normalizeHostEnvironment({ connected: true, host: "excel" })).toBe("microsoft_excel");
     expect(normalizeHostEnvironment({ connected: false, host: "" })).toBe("unknown");
   });
-
 });

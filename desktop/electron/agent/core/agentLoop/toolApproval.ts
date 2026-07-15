@@ -29,10 +29,7 @@ const DESTRUCTIVE_OPERATIONS = new Set([
   "trash",
 ]);
 
-function getStringArgument(
-  args: Record<string, unknown>,
-  keys: readonly string[]
-): string | null {
+function getStringArgument(args: Record<string, unknown>, keys: readonly string[]): string | null {
   for (const key of keys) {
     const value = args[key];
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -42,33 +39,21 @@ function getStringArgument(
 
 function getOperation(args: Record<string, unknown>): string {
   return (
-    getStringArgument(args, ["operation", "command", "action", "mode"])?.toLowerCase() ??
-    "default"
+    getStringArgument(args, ["operation", "command", "action", "mode"])?.toLowerCase() ?? "default"
   );
 }
 
 function getStableTarget(args: Record<string, unknown>): string | null {
-  return getStringArgument(args, [
-    "filePath",
-    "workbookPath",
-    "documentPath",
-    "sourcePath",
-  ]);
+  return getStringArgument(args, ["filePath", "workbookPath", "documentPath", "sourcePath"]);
 }
 
-function isMandatoryApproval(
-  toolName: string,
-  args: Record<string, unknown>
-): boolean {
+function isMandatoryApproval(toolName: string, args: Record<string, unknown>): boolean {
   const toolDef = TOOL_DEFINITIONS_MAP.get(toolName);
   if (!toolDef) return true;
   const operation = getOperation(args);
   if ([...DESTRUCTIVE_OPERATIONS].some((token) => operation.includes(token))) return true;
-  if (
-    toolDef.riskLevel === "dangerous" ||
-    toolDef.isDataEgress ||
-    toolDef.requiresExplicitApproval
-  ) return true;
+  if (toolDef.riskLevel === "dangerous" || toolDef.isDataEgress || toolDef.requiresExplicitApproval)
+    return true;
   if (!toolDef.isFileDeletion) return false;
   return operation === "default";
 }
@@ -98,13 +83,15 @@ function hasActiveApproval(toolName: string, scope?: ToolApprovalScope): boolean
 }
 
 export function canAlwaysAllowTool(toolName: string, scope: ToolApprovalScope): boolean {
-  return !isMandatoryApproval(toolName, scope.arguments) && buildApprovalKey(toolName, scope) !== null;
+  return (
+    !isMandatoryApproval(toolName, scope.arguments) && buildApprovalKey(toolName, scope) !== null
+  );
 }
 
 export function shouldRequireApproval(
   toolName: string,
   permissionMode: ToolApprovalConfig["permissionMode"] = "normal",
-  scope?: ToolApprovalScope
+  scope?: ToolApprovalScope,
 ): boolean {
   const args = scope?.arguments ?? {};
   const toolDef = TOOL_DEFINITIONS_MAP.get(toolName);
@@ -132,16 +119,13 @@ export async function requestToolApproval(
     description?: string;
     canAlwaysAllow?: boolean;
   },
-  config: ToolApprovalConfig
+  config: ToolApprovalConfig,
 ): Promise<{ approved: boolean; alwaysAllow?: boolean }> {
   if (!config.requestToolApproval) return { approved: false };
   return config.requestToolApproval(params);
 }
 
-export function markToolAlwaysAllowed(
-  toolName: string,
-  scope?: ToolApprovalScope
-): boolean {
+export function markToolAlwaysAllowed(toolName: string, scope?: ToolApprovalScope): boolean {
   if (!scope || !canAlwaysAllowTool(toolName, scope)) return false;
   const key = buildApprovalKey(toolName, scope)!;
   alwaysAllowedScopes.set(key, Date.now() + APPROVAL_GRANT_TTL_MS);

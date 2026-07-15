@@ -19,9 +19,7 @@ export const OCRRecognizeButton: React.FC<OCRRecognizeButtonProps> = ({
       disabled={fileCount === 0 || recognizing}
       onClick={onRecognize}
     >
-      {recognizing
-        ? (ocrMode === "invoice" ? "识别并提取字段中..." : "识别中...")
-        : "开始识别"}
+      {recognizing ? (ocrMode === "invoice" ? "识别并提取字段中..." : "识别中...") : "开始识别"}
     </button>
   );
 };

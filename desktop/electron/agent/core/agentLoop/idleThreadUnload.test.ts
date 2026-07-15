@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  clearIdleThreadUnloadTimer,
-  scheduleIdleThreadUnload,
-} from "./idleThreadUnload";
+import { clearIdleThreadUnloadTimer, scheduleIdleThreadUnload } from "./idleThreadUnload";
 
 describe("idleThreadUnload", () => {
   afterEach(() => {

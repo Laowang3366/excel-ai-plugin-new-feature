@@ -31,9 +31,14 @@ export class DotNetWordBridge implements WordDocumentBridge {
     return this.status;
   }
 
-  async openDocument(filePath: string): Promise<{ success: boolean; documentName?: string; error?: string }> {
+  async openDocument(
+    filePath: string,
+  ): Promise<{ success: boolean; documentName?: string; error?: string }> {
     try {
-      const result = await this.client.invoke<{ success: boolean; documentName?: string }>("word.open", { filePath });
+      const result = await this.client.invoke<{ success: boolean; documentName?: string }>(
+        "word.open",
+        { filePath },
+      );
       if (result.success) await this.detectStatus();
       return result;
     } catch (error) {
@@ -92,9 +97,14 @@ export class DotNetPresentationBridge implements PresentationBridge {
     return this.status;
   }
 
-  async openPresentation(filePath: string): Promise<{ success: boolean; presentationName?: string; error?: string }> {
+  async openPresentation(
+    filePath: string,
+  ): Promise<{ success: boolean; presentationName?: string; error?: string }> {
     try {
-      const result = await this.client.invoke<{ success: boolean; presentationName?: string }>("presentation.open", { filePath });
+      const result = await this.client.invoke<{ success: boolean; presentationName?: string }>(
+        "presentation.open",
+        { filePath },
+      );
       if (result.success) await this.detectStatus();
       return result;
     } catch (error) {
@@ -114,8 +124,18 @@ export class DotNetPresentationBridge implements PresentationBridge {
     return this.client.invoke("presentation.addSlide", { title, body, layout });
   }
 
-  setShapeText(slideIndex: number, text: string, shapeName?: string, shapeIndex?: number): Promise<unknown> {
-    return this.client.invoke("presentation.setShapeText", { slideIndex, text, shapeName, shapeIndex });
+  setShapeText(
+    slideIndex: number,
+    text: string,
+    shapeName?: string,
+    shapeIndex?: number,
+  ): Promise<unknown> {
+    return this.client.invoke("presentation.setShapeText", {
+      slideIndex,
+      text,
+      shapeName,
+      shapeIndex,
+    });
   }
 
   replaceText(findText: string, replaceText: string, matchCase?: boolean): Promise<unknown> {

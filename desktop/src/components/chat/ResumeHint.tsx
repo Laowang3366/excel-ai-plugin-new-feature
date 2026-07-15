@@ -28,7 +28,9 @@ export const ResumeHint: React.FC<ResumeHintProps> = ({ message, onFillInput }) 
 
   return (
     <div className="resume-hint">
-      <div className="resume-hint-icon"><Info size={16} /></div>
+      <div className="resume-hint-icon">
+        <Info size={16} />
+      </div>
       <div className="resume-hint-content">
         <div className="resume-hint-text">{message}</div>
         <div className="resume-quick-actions">

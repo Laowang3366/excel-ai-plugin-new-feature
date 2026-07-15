@@ -52,9 +52,13 @@ const UPDATE_TEXT = {
   },
 } as const;
 
-function statusText(state: DesktopUpdateState, text: typeof UPDATE_TEXT["zh-CN"] | typeof UPDATE_TEXT["en-US"]): string {
+function statusText(
+  state: DesktopUpdateState,
+  text: (typeof UPDATE_TEXT)["zh-CN"] | (typeof UPDATE_TEXT)["en-US"],
+): string {
   if (state.phase === "checking") return text.checking;
-  if (state.phase === "downloading") return `${text.downloading} ${Math.round(state.progress ?? 0)}%`;
+  if (state.phase === "downloading")
+    return `${text.downloading} ${Math.round(state.progress ?? 0)}%`;
   if (state.phase === "applying") return text.applying;
   if (state.phase === "downloaded") return text.downloaded;
   if (state.phase === "available") return text.available;
@@ -83,7 +87,10 @@ export function UpdateSettings() {
     };
   }, []);
 
-  const isBusy = updateState?.phase === "checking" || updateState?.phase === "downloading" || updateState?.phase === "applying";
+  const isBusy =
+    updateState?.phase === "checking" ||
+    updateState?.phase === "downloading" ||
+    updateState?.phase === "applying";
   const notes = useMemo(() => updateState?.releaseNotes ?? [], [updateState?.releaseNotes]);
 
   const check = async () => {
@@ -129,7 +136,11 @@ export function UpdateSettings() {
         </div>
 
         <div className={`update-status update-status-${updateState?.phase ?? "idle"}`}>
-          {updateState?.phase === "up-to-date" ? <CheckCircle size={17} /> : <RefreshCw size={17} className={isBusy ? "spin" : ""} />}
+          {updateState?.phase === "up-to-date" ? (
+            <CheckCircle size={17} />
+          ) : (
+            <RefreshCw size={17} className={isBusy ? "spin" : ""} />
+          )}
           <span>{updateState ? statusText(updateState, text) : text.idle}</span>
         </div>
 
@@ -147,17 +158,30 @@ export function UpdateSettings() {
             disabled={Boolean(isBusy)}
             aria-busy={updateState?.phase === "checking"}
           >
-            <RefreshCw size={15} className={updateState?.phase === "checking" ? "spin" : undefined} />
+            <RefreshCw
+              size={15}
+              className={updateState?.phase === "checking" ? "spin" : undefined}
+            />
             {updateState?.phase === "checking" ? text.checking : text.check}
           </button>
           {updateState?.hotPatchAvailable && (
-            <button type="button" className="btn-primary" onClick={() => download("hotPatch")} disabled={Boolean(isBusy)}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => download("hotPatch")}
+              disabled={Boolean(isBusy)}
+            >
               <Download size={15} />
               {busyKind === "hotPatch" ? text.downloading : text.downloadPatch}
             </button>
           )}
           {updateState?.installerAvailable && (
-            <button type="button" className="btn-primary" onClick={() => download("installer")} disabled={Boolean(isBusy)}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => download("installer")}
+              disabled={Boolean(isBusy)}
+            >
               <Download size={15} />
               {busyKind === "installer" ? text.downloading : text.downloadInstaller}
             </button>
@@ -175,7 +199,11 @@ export function UpdateSettings() {
       <section className="settings-card update-release-notes">
         <h3>{text.releaseNotes}</h3>
         {notes.length > 0 ? (
-          <ul>{notes.map((note) => <li key={note}>{note}</li>)}</ul>
+          <ul>
+            {notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
         ) : (
           <p>{text.noReleaseNotes}</p>
         )}

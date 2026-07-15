@@ -1,7 +1,4 @@
-import {
-  DEFAULT_COMPACTION_CONFIG,
-  type CompactionConfig,
-} from "../../shared/types";
+import { DEFAULT_COMPACTION_CONFIG, type CompactionConfig } from "../../shared/types";
 import type { CompactionProvider } from "./compactionProvider";
 import {
   DEFAULT_COMPACT_RETRY_CONFIG,
@@ -16,7 +13,7 @@ export function buildCompactRetryConfig(input: {
   const config = input.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
   const retryCount = Math.max(
     0,
-    Math.floor(config.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount ?? 0)
+    Math.floor(config.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount ?? 0),
   );
   return {
     maxRetries: retryCount,

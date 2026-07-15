@@ -28,8 +28,12 @@ const COMPACT_SIZE = { width: 420, minWidth: 360, minHeight: 500 };
 const WORK_AREA_GAP = 16;
 const APP_DISPLAY_NAME = "文格 AI 助手";
 
-export function setIsQuitting(value: boolean): void { isQuitting = value; }
-export function getWindowDisplayMode(): WindowDisplayMode { return displayMode; }
+export function setIsQuitting(value: boolean): void {
+  isQuitting = value;
+}
+export function getWindowDisplayMode(): WindowDisplayMode {
+  return displayMode;
+}
 
 function getIconPath(): string {
   // 生产环境: extraResources 将 public/ 复制到 resources/public/
@@ -61,7 +65,7 @@ export function createWindow(
   /** 当关闭到托盘时需要重建窗口，此回调提供重建能力 */
   recreateWindow?: () => BrowserWindow,
   /** 窗口创建完成后回调，方便调用方保存引用 */
-  onCreated?: (mw: BrowserWindow) => void
+  onCreated?: (mw: BrowserWindow) => void,
 ): BrowserWindow {
   const initialTheme = getSettingsStore().get("theme") === "dark" ? "dark" : "light";
   const mw = new BrowserWindow({
@@ -144,7 +148,7 @@ export function createWindow(
 
 export function setWindowDisplayMode(
   mainWindow: BrowserWindow | null,
-  mode: WindowDisplayMode
+  mode: WindowDisplayMode,
 ): WindowDisplayMode {
   if (!mainWindow || mainWindow.isDestroyed()) return displayMode;
   if (displayMode === mode) return displayMode;
@@ -199,7 +203,7 @@ function applyCompactWindowMode(mainWindow: BrowserWindow): void {
 
 function notifyRendererDisplayModeChanged(
   mainWindow: BrowserWindow,
-  mode: WindowDisplayMode
+  mode: WindowDisplayMode,
 ): void {
   if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
   mainWindow.webContents.send("window:displayModeChanged", mode);
@@ -210,10 +214,12 @@ function requestRendererLayoutRefresh(mainWindow: BrowserWindow): void {
 
   const dispatchResize = () => {
     if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
-    void mainWindow.webContents.executeJavaScript(
-      "window.dispatchEvent(new Event('resize')); document.documentElement.offsetWidth;",
-      true
-    ).catch(() => undefined);
+    void mainWindow.webContents
+      .executeJavaScript(
+        "window.dispatchEvent(new Event('resize')); document.documentElement.offsetWidth;",
+        true,
+      )
+      .catch(() => undefined);
   };
 
   dispatchResize();
@@ -229,7 +235,7 @@ function getSideDockBounds(mainWindow: BrowserWindow, width: number): Electron.R
   const workArea = getCurrentWorkArea(mainWindow);
   const height = Math.max(
     COMPACT_SIZE.minHeight,
-    Math.min(760, workArea.height - WORK_AREA_GAP * 2)
+    Math.min(760, workArea.height - WORK_AREA_GAP * 2),
   );
   return {
     width,

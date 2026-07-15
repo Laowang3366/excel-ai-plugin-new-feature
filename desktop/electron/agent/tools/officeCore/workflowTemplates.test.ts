@@ -21,15 +21,28 @@ describe("Office workflow templates", () => {
   it("saves, updates, resolves by name, lists, and deletes templates", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "office-template-"));
     roots.push(root);
-    const steps = [{
-      app: "excel" as const,
-      action: "inspect" as const,
-      operation: "inspectCharts",
-      filePath: "{{vars.sourcePath}}",
-    }];
+    const steps = [
+      {
+        app: "excel" as const,
+        action: "inspect" as const,
+        operation: "inspectCharts",
+        filePath: "{{vars.sourcePath}}",
+      },
+    ];
 
-    const created = await saveOfficeWorkflowTemplate({ root, name: "月报", description: "生成月报", steps });
-    const updated = await saveOfficeWorkflowTemplate({ root, id: created.id, name: "月报", description: "更新说明", steps });
+    const created = await saveOfficeWorkflowTemplate({
+      root,
+      name: "月报",
+      description: "生成月报",
+      steps,
+    });
+    const updated = await saveOfficeWorkflowTemplate({
+      root,
+      id: created.id,
+      name: "月报",
+      description: "更新说明",
+      steps,
+    });
 
     expect(updated.id).toBe(created.id);
     expect(updated.createdAt).toBe(created.createdAt);
@@ -43,6 +56,8 @@ describe("Office workflow templates", () => {
   it("rejects invalid IDs before resolving template paths", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "office-template-"));
     roots.push(root);
-    await expect(deleteOfficeWorkflowTemplate(root, "../../outside")).rejects.toThrow("模板 ID 无效");
+    await expect(deleteOfficeWorkflowTemplate(root, "../../outside")).rejects.toThrow(
+      "模板 ID 无效",
+    );
   });
 });

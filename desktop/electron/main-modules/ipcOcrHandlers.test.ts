@@ -38,14 +38,16 @@ describe("ipc OCR remote-data policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getRuntimeSettingValue.mockReturnValue(false);
-    mocks.parseFilesLocally.mockResolvedValue([{
-      filename: "invoice.txt",
-      text: "发票号码 001\n价税合计 100.00",
-      rows: [],
-      provider: "local",
-      sourceType: "txt",
-      warnings: [],
-    }]);
+    mocks.parseFilesLocally.mockResolvedValue([
+      {
+        filename: "invoice.txt",
+        text: "发票号码 001\n价税合计 100.00",
+        rows: [],
+        provider: "local",
+        sourceType: "txt",
+        warnings: [],
+      },
+    ]);
   });
 
   it("uses local parsing and makes no remote call when remote processing is disabled", async () => {
@@ -63,20 +65,22 @@ describe("ipc OCR remote-data policy", () => {
 
   it("blocks sensitive OCR text before invoice AI extraction", async () => {
     mocks.getRuntimeSettingValue.mockReturnValue(true);
-    mocks.parseFilesLocally.mockResolvedValue([{
-      filename: "invoice.txt",
-      text: "发票号码 001\nsecret sk-1234567890abcdefghijklmnop",
-      rows: [],
-      provider: "local",
-      sourceType: "txt",
-      warnings: [],
-    }]);
+    mocks.parseFilesLocally.mockResolvedValue([
+      {
+        filename: "invoice.txt",
+        text: "发票号码 001\nsecret sk-1234567890abcdefghijklmnop",
+        rows: [],
+        provider: "local",
+        sourceType: "txt",
+        warnings: [],
+      },
+    ]);
 
     const result = await recognizeWithOcrFallbacks("invoice", ["C:\\docs\\invoice.txt"]);
 
     expect(mocks.createAIClient).not.toHaveBeenCalled();
-    expect(result.errors).toEqual(expect.arrayContaining([
-      expect.stringContaining("高置信敏感凭据"),
-    ]));
+    expect(result.errors).toEqual(
+      expect.arrayContaining([expect.stringContaining("高置信敏感凭据")]),
+    );
   });
 });

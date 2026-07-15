@@ -63,29 +63,39 @@ export function createOfficeIpcApi(getRaw: RawIpcApiGetter): Pick<IIpcApi, "exce
       automation: {
         documents: {
           list: async (app) => getRaw()?.office.automation?.documents.list(app) ?? ipcUnavailable(),
-          activate: async (input) => getRaw()?.office.automation?.documents.activate(input) ?? ipcUnavailable(),
+          activate: async (input) =>
+            getRaw()?.office.automation?.documents.activate(input) ?? ipcUnavailable(),
         },
         objects: {
-          list: async (input) => getRaw()?.office.automation?.objects.list(input) ?? ipcUnavailable(),
-          activate: async (input) => getRaw()?.office.automation?.objects.activate(input) ?? ipcUnavailable(),
+          list: async (input) =>
+            getRaw()?.office.automation?.objects.list(input) ?? ipcUnavailable(),
+          activate: async (input) =>
+            getRaw()?.office.automation?.objects.activate(input) ?? ipcUnavailable(),
         },
         workflows: {
           list: async () => getRaw()?.office.automation?.workflows.list() ?? ipcUnavailable(),
           get: async (id) => getRaw()?.office.automation?.workflows.get(id) ?? ipcUnavailable(),
-          cancel: async (id) => getRaw()?.office.automation?.workflows.cancel(id) ?? ipcUnavailable(),
-          resume: async (id) => getRaw()?.office.automation?.workflows.resume(id) ?? ipcUnavailable(),
+          cancel: async (id) =>
+            getRaw()?.office.automation?.workflows.cancel(id) ?? ipcUnavailable(),
+          resume: async (id) =>
+            getRaw()?.office.automation?.workflows.resume(id) ?? ipcUnavailable(),
         },
         templates: {
           list: async () => getRaw()?.office.automation?.templates.list() ?? ipcUnavailable(),
-          saveFromWorkflow: async (input) => getRaw()?.office.automation?.templates.saveFromWorkflow(input) ?? ipcUnavailable(),
-          delete: async (id) => getRaw()?.office.automation?.templates.delete(id) ?? ipcUnavailable(),
-          run: async (input) => getRaw()?.office.automation?.templates.run(input) ?? ipcUnavailable(),
+          saveFromWorkflow: async (input) =>
+            getRaw()?.office.automation?.templates.saveFromWorkflow(input) ?? ipcUnavailable(),
+          delete: async (id) =>
+            getRaw()?.office.automation?.templates.delete(id) ?? ipcUnavailable(),
+          run: async (input) =>
+            getRaw()?.office.automation?.templates.run(input) ?? ipcUnavailable(),
         },
         transactions: {
           list: async () => getRaw()?.office.automation?.transactions.list() ?? ipcUnavailable(),
           get: async (id) => getRaw()?.office.automation?.transactions.get(id) ?? ipcUnavailable(),
-          undo: async (id, force) => getRaw()?.office.automation?.transactions.undo(id, force) ?? ipcUnavailable(),
-          redo: async (id, force) => getRaw()?.office.automation?.transactions.redo(id, force) ?? ipcUnavailable(),
+          undo: async (id, force) =>
+            getRaw()?.office.automation?.transactions.undo(id, force) ?? ipcUnavailable(),
+          redo: async (id, force) =>
+            getRaw()?.office.automation?.transactions.redo(id, force) ?? ipcUnavailable(),
         },
       },
     },

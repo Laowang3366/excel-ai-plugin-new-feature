@@ -1,4 +1,5 @@
 ## Excel/WPS 内部宏执行规则
+
 - 创建、修改或修复宏时，不要只输出代码让用户手工粘贴。先调 `office.connection.status`，再用 `macro.detect` 检查当前宿主真正可写入的内部宏语言。
 - 统一使用 `macro.write({ language, code, entryPoint, ... })`；VBA 还要提供 `moduleName`。WPS JavaScript 指 WPS JSA 内部宏，不是桌面端 cscript；按工具返回的写入或源码错误修正重试。
 - `macro.write` 只写内部宏；公式、数值和文本用 `range.write`。Python 或 PowerShell 的执行结果不得冒充内部宏。

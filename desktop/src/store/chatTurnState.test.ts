@@ -12,7 +12,7 @@ describe("buildTurnStartPatch", () => {
         },
       },
       "client-1",
-      { compactionNotice: null }
+      { compactionNotice: null },
     );
 
     expect(patch).toEqual({
@@ -39,7 +39,7 @@ describe("buildTurnStartPatch", () => {
         stoppedThreadIds,
       },
       "client-2",
-      { lastInterruptContext: null }
+      { lastInterruptContext: null },
     );
 
     expect(patch.stoppedThreadIds).toBe(stoppedThreadIds);

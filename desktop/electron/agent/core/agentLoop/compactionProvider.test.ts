@@ -16,12 +16,14 @@ describe("LocalCompactionProvider", () => {
 
     await provider.generateSummary({ historyPrompt: "历史内容" });
 
-    expect(aiClient.chat).toHaveBeenCalledWith(expect.objectContaining({
-      messages: [
-        { role: "user", content: DEFAULT_COMPACT_PROMPT },
-        { role: "user", content: "历史内容" },
-      ],
-    }));
+    expect(aiClient.chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: "user", content: DEFAULT_COMPACT_PROMPT },
+          { role: "user", content: "历史内容" },
+        ],
+      }),
+    );
   });
 
   it("keeps compactPrompt overrides compatible with existing settings", async () => {
@@ -35,21 +37,29 @@ describe("LocalCompactionProvider", () => {
       config: { compactPrompt: "覆盖提示词" } as any,
     });
 
-    expect(aiClient.chat).toHaveBeenCalledWith(expect.objectContaining({
-      messages: [
-        { role: "user", content: "覆盖提示词" },
-        { role: "user", content: "历史内容" },
-      ],
-    }));
+    expect(aiClient.chat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: "user", content: "覆盖提示词" },
+          { role: "user", content: "历史内容" },
+        ],
+      }),
+    );
   });
 });
 
 describe("RemoteCompactionProvider", () => {
   it("posts compaction input to the remote endpoint and returns its summary", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
-      summary: "远程摘要",
-    }), { status: 200, headers: { "Content-Type": "application/json" } })) as any;
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            summary: "远程摘要",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as any;
 
     try {
       const provider = createRemoteCompactionProvider({
@@ -74,7 +84,7 @@ describe("RemoteCompactionProvider", () => {
             input: "历史内容",
             model: "compact-model",
           }),
-        })
+        }),
       );
     } finally {
       globalThis.fetch = originalFetch;
@@ -83,15 +93,18 @@ describe("RemoteCompactionProvider", () => {
 
   it("reports remote compaction failures with status and compact body", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => new Response("<html>not found</html>", { status: 404 })) as any;
+    globalThis.fetch = vi.fn(
+      async () => new Response("<html>not found</html>", { status: 404 }),
+    ) as any;
 
     try {
       const provider = createRemoteCompactionProvider({
         endpoint: "https://compact.example.test/v2",
       });
 
-      await expect(provider.generateSummary({ historyPrompt: "历史内容" }))
-        .rejects.toThrow("远程压缩失败 (404): not found");
+      await expect(provider.generateSummary({ historyPrompt: "历史内容" })).rejects.toThrow(
+        "远程压缩失败 (404): not found",
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -99,17 +112,24 @@ describe("RemoteCompactionProvider", () => {
 
   it("rejects successful remote responses that do not contain a summary", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
-      summary: "   ",
-    }), { status: 200, headers: { "Content-Type": "application/json" } })) as any;
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            summary: "   ",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as any;
 
     try {
       const provider = createRemoteCompactionProvider({
         endpoint: "https://compact.example.test/v2",
       });
 
-      await expect(provider.generateSummary({ historyPrompt: "历史内容" }))
-        .rejects.toThrow("远程压缩返回空摘要");
+      await expect(provider.generateSummary({ historyPrompt: "历史内容" })).rejects.toThrow(
+        "远程压缩返回空摘要",
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }

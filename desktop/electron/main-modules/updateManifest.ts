@@ -11,44 +11,67 @@ export const InstallerUpdateSchema = z.object({
   size: z.number().int().positive(),
 });
 
-export const HotPatchUpdateSchema = z.object({
-  id: z.string().min(1).max(128).regex(/^[0-9A-Za-z._-]+$/u),
-  baseVersion: z.string().regex(VERSION_PATTERN),
-  sequence: z.number().int().positive(),
-  publishedAt: z.string().datetime({ offset: true }),
-  expiresAt: z.string().datetime({ offset: true }),
-  url: z.string().url(),
-  sha256: z.string().regex(SHA256_PATTERN),
-  size: z.number().int().positive(),
-  files: z.array(z.object({
-    path: z.string().min(1).max(300),
+export const HotPatchUpdateSchema = z
+  .object({
+    id: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[0-9A-Za-z._-]+$/u),
+    baseVersion: z.string().regex(VERSION_PATTERN),
+    sequence: z.number().int().positive(),
+    publishedAt: z.string().datetime({ offset: true }),
+    expiresAt: z.string().datetime({ offset: true }),
+    url: z.string().url(),
     sha256: z.string().regex(SHA256_PATTERN),
-    size: z.number().int().nonnegative(),
-  }).strict()).min(1).max(2_000),
-  restartRequired: z.literal(true),
-}).strict();
+    size: z.number().int().positive(),
+    files: z
+      .array(
+        z
+          .object({
+            path: z.string().min(1).max(300),
+            sha256: z.string().regex(SHA256_PATTERN),
+            size: z.number().int().nonnegative(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(2_000),
+    restartRequired: z.literal(true),
+  })
+  .strict();
 
-export const HotPatchPolicySchema = z.object({
-  revokedPatchIds: z.array(
-    z.string().min(1).max(128).regex(/^[0-9A-Za-z._-]+$/u),
-  ).max(2_000),
-  minimumSafeSequenceByBaseVersion: z.record(
-    z.string().regex(VERSION_PATTERN),
-    z.number().int().nonnegative(),
-  ),
-}).strict();
+export const HotPatchPolicySchema = z
+  .object({
+    revokedPatchIds: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .max(128)
+          .regex(/^[0-9A-Za-z._-]+$/u),
+      )
+      .max(2_000),
+    minimumSafeSequenceByBaseVersion: z.record(
+      z.string().regex(VERSION_PATTERN),
+      z.number().int().nonnegative(),
+    ),
+  })
+  .strict();
 
-export const RemoteUpdateManifestSchema = z.object({
-  schemaVersion: z.literal(1),
-  channel: z.literal("stable"),
-  version: z.string().regex(VERSION_PATTERN),
-  publishedAt: z.string().datetime({ offset: true }),
-  releaseNotes: z.array(z.string().min(1).max(300)).max(30),
-  installer: InstallerUpdateSchema.optional(),
-  hotPatch: HotPatchUpdateSchema.optional(),
-  hotPatchPolicy: HotPatchPolicySchema.optional(),
-  signature: z.string().min(40),
-}).strict();
+export const RemoteUpdateManifestSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    channel: z.literal("stable"),
+    version: z.string().regex(VERSION_PATTERN),
+    publishedAt: z.string().datetime({ offset: true }),
+    releaseNotes: z.array(z.string().min(1).max(300)).max(30),
+    installer: InstallerUpdateSchema.optional(),
+    hotPatch: HotPatchUpdateSchema.optional(),
+    hotPatchPolicy: HotPatchPolicySchema.optional(),
+    signature: z.string().min(40),
+  })
+  .strict();
 
 export type InstallerUpdate = z.infer<typeof InstallerUpdateSchema>;
 export type HotPatchUpdate = z.infer<typeof HotPatchUpdateSchema>;

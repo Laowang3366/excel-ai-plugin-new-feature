@@ -7,7 +7,11 @@ import test from "node:test";
 
 import Database from "better-sqlite3";
 
-import { createAnalyticsBackup, restoreAnalyticsBackup, verifyAnalyticsBackup } from "../src/analyticsBackup.mjs";
+import {
+  createAnalyticsBackup,
+  restoreAnalyticsBackup,
+  verifyAnalyticsBackup,
+} from "../src/analyticsBackup.mjs";
 
 function openAnalyticsDatabase(databasePath) {
   const db = new Database(databasePath);
@@ -27,10 +31,12 @@ function openAnalyticsDatabase(databasePath) {
 }
 
 function insertDownload(db, version) {
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO downloads (downloaded_at, version, artifact, ip_hash, user_agent, referer)
     VALUES (?, ?, ?, ?, '', '')
-  `).run(Date.now(), version, `${version}.exe`, version.padEnd(64, "0"));
+  `,
+  ).run(Date.now(), version, `${version}.exe`, version.padEnd(64, "0"));
 }
 
 async function createTemporaryRoot(prefix) {
@@ -50,14 +56,21 @@ test("online backups restore a consistent snapshot without later writes", async 
   });
   insertDownload(writer, "before-backup");
 
-  const backup = await createAnalyticsBackup({ sourcePath, outputDir, now: () => Date.UTC(2026, 6, 15) });
+  const backup = await createAnalyticsBackup({
+    sourcePath,
+    outputDir,
+    now: () => Date.UTC(2026, 6, 15),
+  });
   insertDownload(writer, "after-backup");
   await verifyAnalyticsBackup(backup.backupPath);
   await restoreAnalyticsBackup({ backupPath: backup.backupPath, targetPath });
 
   const restored = new Database(targetPath, { readonly: true });
   try {
-    assert.deepEqual(restored.prepare("SELECT version FROM downloads ORDER BY id").all(), [{ version: "before-backup" }]);
+    assert.deepEqual(
+      restored.prepare("SELECT version FROM downloads ORDER BY id").all(),
+      [{ version: "before-backup" }],
+    );
   } finally {
     restored.close();
   }
@@ -70,7 +83,10 @@ test("backup verification rejects tampering even when metadata is rewritten", as
   const writer = openAnalyticsDatabase(sourcePath);
   insertDownload(writer, "1.0.0");
   writer.close();
-  const backup = await createAnalyticsBackup({ sourcePath, outputDir: path.join(root, "backups") });
+  const backup = await createAnalyticsBackup({
+    sourcePath,
+    outputDir: path.join(root, "backups"),
+  });
 
   const bytes = await fs.readFile(backup.backupPath);
   bytes.fill(0, 0, 16);
@@ -78,7 +94,10 @@ test("backup verification rejects tampering even when metadata is rewritten", as
   const metadata = JSON.parse(await fs.readFile(backup.metadataPath, "utf8"));
   metadata.sha256 = createHash("sha256").update(bytes).digest("hex");
   metadata.size = bytes.length;
-  await fs.writeFile(backup.metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
+  await fs.writeFile(
+    backup.metadataPath,
+    `${JSON.stringify(metadata, null, 2)}\n`,
+  );
 
   await assert.rejects(() => verifyAnalyticsBackup(backup.backupPath));
 });
@@ -104,7 +123,11 @@ test("backup retention removes only the oldest complete backup pairs", async (co
   const files = await fs.readdir(outputDir);
   assert.equal(files.filter((file) => file.endsWith(".sqlite")).length, 2);
   assert.equal(files.filter((file) => file.endsWith(".sqlite.json")).length, 2);
-  assert.equal(files.some((file) => file.includes("20260701")), false, JSON.stringify(files));
+  assert.equal(
+    files.some((file) => file.includes("20260701")),
+    false,
+    JSON.stringify(files),
+  );
 });
 
 test("restore refuses to overwrite an existing database", async (context) => {
@@ -113,7 +136,10 @@ test("restore refuses to overwrite an existing database", async (context) => {
   const sourcePath = path.join(root, "analytics.sqlite");
   const writer = openAnalyticsDatabase(sourcePath);
   writer.close();
-  const backup = await createAnalyticsBackup({ sourcePath, outputDir: path.join(root, "backups") });
+  const backup = await createAnalyticsBackup({
+    sourcePath,
+    outputDir: path.join(root, "backups"),
+  });
   const targetPath = path.join(root, "target.sqlite");
   await fs.writeFile(targetPath, "do-not-overwrite");
 

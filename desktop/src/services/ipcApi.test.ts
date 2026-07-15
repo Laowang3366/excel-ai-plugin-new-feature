@@ -47,8 +47,9 @@ describe("ipcApi wrapper", () => {
     setElectronApi({ app: { selectExportPath, exportUserData } });
 
     await expect(ipcApi.app.selectExportPath()).resolves.toMatchObject({ canceled: false });
-    await expect(ipcApi.app.exportUserData("C:\\exports\\wengge"))
-      .resolves.toMatchObject({ success: true });
+    await expect(ipcApi.app.exportUserData("C:\\exports\\wengge")).resolves.toMatchObject({
+      success: true,
+    });
     expect(exportUserData).toHaveBeenCalledWith("C:\\exports\\wengge");
   });
 
@@ -60,8 +61,9 @@ describe("ipcApi wrapper", () => {
     });
     setElectronApi({ app: { eraseUserData } });
 
-    await expect(ipcApi.app.eraseUserData({ confirmation: "ERASE LOCAL DATA" }))
-      .resolves.toMatchObject({ success: true });
+    await expect(
+      ipcApi.app.eraseUserData({ confirmation: "ERASE LOCAL DATA" }),
+    ).resolves.toMatchObject({ success: true });
     expect(eraseUserData).toHaveBeenCalledWith({ confirmation: "ERASE LOCAL DATA" });
   });
 
@@ -86,7 +88,9 @@ describe("ipcApi wrapper", () => {
   it("forwards Office automation document and transaction operations", async () => {
     const listDocuments = vi.fn().mockResolvedValue({ success: true, data: [] });
     const undo = vi.fn().mockResolvedValue({ success: true, data: { id: "tx", status: "undone" } });
-    setElectronApi({ office: { automation: { documents: { list: listDocuments }, transactions: { undo } } } });
+    setElectronApi({
+      office: { automation: { documents: { list: listDocuments }, transactions: { undo } } },
+    });
 
     await ipcApi.office.automation.documents.list("excel");
     await ipcApi.office.automation.transactions.undo("tx", true);
@@ -105,9 +109,9 @@ describe("ipcApi wrapper", () => {
     };
     const upsertSpawnEdge = vi.fn().mockResolvedValue(edge);
     const closeSpawnEdge = vi.fn().mockResolvedValue({ ...edge, status: "closed", closedAt: 2 });
-    const listDescendants = vi.fn().mockResolvedValue([
-      { threadId: "child", parentThreadId: "parent", depth: 1, edge },
-    ]);
+    const listDescendants = vi
+      .fn()
+      .mockResolvedValue([{ threadId: "child", parentThreadId: "parent", depth: 1, edge }]);
     setElectronApi({
       threadGraph: {
         upsertSpawnEdge,

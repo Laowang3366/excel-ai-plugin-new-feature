@@ -12,7 +12,8 @@ const HIGH_CONFIDENCE_SECRET_PATTERNS: Array<{
 }> = [
   {
     kind: "private-key",
-    source: "-----BEGIN ((?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY)-----[\\s\\S]*?-----END \\1-----",
+    source:
+      "-----BEGIN ((?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY)-----[\\s\\S]*?-----END \\1-----",
     flags: "i",
   },
   { kind: "aws-access-key", source: "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b", flags: "" },
@@ -49,9 +50,9 @@ export function findHighConfidenceSensitiveData(texts: string[]): string[] {
   const combined = texts.filter(Boolean).join("\n");
   if (!combined) return [];
 
-  return HIGH_CONFIDENCE_SECRET_PATTERNS
-    .filter(({ source, flags }) => new RegExp(source, flags).test(combined))
-    .map(({ kind }) => kind);
+  return HIGH_CONFIDENCE_SECRET_PATTERNS.filter(({ source, flags }) =>
+    new RegExp(source, flags).test(combined),
+  ).map(({ kind }) => kind);
 }
 
 export function redactSensitiveText(value: string, maxLength = 16_384): string {
@@ -65,8 +66,10 @@ export function redactSensitiveText(value: string, maxLength = 16_384): string {
 
 export function isSensitiveFieldName(fieldName: string): boolean {
   const normalized = fieldName.replace(/[^a-z0-9]/gi, "").toLowerCase();
-  return SENSITIVE_FIELD_NAMES.has(normalized)
-    || SENSITIVE_FIELD_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+  return (
+    SENSITIVE_FIELD_NAMES.has(normalized) ||
+    SENSITIVE_FIELD_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+  );
 }
 
 export function redactSensitiveValue(value: unknown): unknown {

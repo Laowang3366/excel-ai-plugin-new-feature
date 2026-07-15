@@ -10,7 +10,9 @@
   justify-content: space-between;
   padding: 2px 0;
   border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .sidebar-folder-header:hover {
@@ -35,7 +37,10 @@
   font-weight: 400;
 }
 
-.sidebar-folder-toggle:hover { background: transparent; color: var(--text-primary); }
+.sidebar-folder-toggle:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
 
 .sidebar-folder-toggle > svg {
   width: 14px;
@@ -94,9 +99,16 @@
   cursor: pointer;
 }
 
-.sidebar-folder-action-btn:hover { background: transparent; color: var(--text-primary); }
-.sidebar-folder-action-btn.active { color: var(--primary); }
-.sidebar-folder-action-btn.danger:hover { color: var(--danger); }
+.sidebar-folder-action-btn:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
+.sidebar-folder-action-btn.active {
+  color: var(--primary);
+}
+.sidebar-folder-action-btn.danger:hover {
+  color: var(--danger);
+}
 
 .sidebar-folder-action-btn.creating {
   color: var(--primary);
@@ -135,7 +147,10 @@
   cursor: pointer;
 }
 
-.sidebar-file-item:hover { background: var(--bg-tint); color: var(--text-primary); }
+.sidebar-file-item:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
 
 .sidebar-file-name {
   font-size: 13px;

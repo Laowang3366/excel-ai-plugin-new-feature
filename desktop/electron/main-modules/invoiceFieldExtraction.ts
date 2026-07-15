@@ -34,9 +34,23 @@ const INVOICE_ALIASES: Record<string, string[]> = {
   发票号码: ["发票号码", "发票号", "票据号码"],
   开票日期: ["开票日期", "发票日期", "日期"],
   购买方名称: ["购买方名称", "购方名称", "购买方", "购方"],
-  购买方税号: ["购买方税号", "购买方纳税人识别号", "购买方统一社会信用代码", "购方税号", "购方纳税人识别号", "购方统一社会信用代码"],
+  购买方税号: [
+    "购买方税号",
+    "购买方纳税人识别号",
+    "购买方统一社会信用代码",
+    "购方税号",
+    "购方纳税人识别号",
+    "购方统一社会信用代码",
+  ],
   销售方名称: ["销售方名称", "销方名称", "销售方", "销方"],
-  销售方税号: ["销售方税号", "销售方纳税人识别号", "销售方统一社会信用代码", "销方税号", "销方纳税人识别号", "销方统一社会信用代码"],
+  销售方税号: [
+    "销售方税号",
+    "销售方纳税人识别号",
+    "销售方统一社会信用代码",
+    "销方税号",
+    "销方纳税人识别号",
+    "销方统一社会信用代码",
+  ],
   金额: ["不含税金额", "合计金额", "金额"],
   税额: ["合计税额", "税额"],
   价税合计: ["价税合计", "小写金额", "小写", "合计"],
@@ -77,9 +91,7 @@ export function buildInvoiceFieldFallback(
       filename: document.filename,
       text: document.text,
       fields,
-      rows: Object.keys(fields).length > 0
-        ? buildRowsFromFields([fields])
-        : document.rows,
+      rows: Object.keys(fields).length > 0 ? buildRowsFromFields([fields]) : document.rows,
       error: document.error,
     };
   });
@@ -88,9 +100,13 @@ export function buildInvoiceFieldFallback(
   return {
     fields,
     invoices,
-    rows: Object.keys(fields).length > 0
-      ? buildRowsFromFields(invoices.map((invoice) => invoice.fields), Object.keys(fields))
-      : documents.flatMap((document) => document.rows),
+    rows:
+      Object.keys(fields).length > 0
+        ? buildRowsFromFields(
+            invoices.map((invoice) => invoice.fields),
+            Object.keys(fields),
+          )
+        : documents.flatMap((document) => document.rows),
   };
 }
 
@@ -98,19 +114,20 @@ export function buildRowsFromFields(
   fieldRows: Record<string, string>[],
   fieldOrder = INVOICE_FIELD_ORDER,
 ): string[][] {
-  const extraFields = fieldRows.flatMap((fields) => Object.keys(fields))
+  const extraFields = fieldRows
+    .flatMap((fields) => Object.keys(fields))
     .filter((field) => !fieldOrder.includes(field));
-  const headers = [...fieldOrder, ...Array.from(new Set(extraFields))]
-    .filter((field) => fieldRows.some((fields) => Object.prototype.hasOwnProperty.call(fields, field)));
+  const headers = [...fieldOrder, ...Array.from(new Set(extraFields))].filter((field) =>
+    fieldRows.some((fields) => Object.prototype.hasOwnProperty.call(fields, field)),
+  );
 
   if (headers.length === 0) return [];
-  return [
-    headers,
-    ...fieldRows.map((fields) => headers.map((field) => fields[field] ?? "")),
-  ];
+  return [headers, ...fieldRows.map((fields) => headers.map((field) => fields[field] ?? ""))];
 }
 
-export function mergeInvoiceFields(...sources: Array<Record<string, string> | undefined>): Record<string, string> {
+export function mergeInvoiceFields(
+  ...sources: Array<Record<string, string> | undefined>
+): Record<string, string> {
   const merged: Record<string, string> = {};
   for (const source of sources) {
     if (!source) continue;
@@ -158,7 +175,10 @@ function extractFromRows(rows: string[][], fields: Record<string, string>): void
 }
 
 function extractFromText(text: string, fields: Record<string, string>): void {
-  const lines = text.split(/\r?\n/).map((line) => cleanInvoiceValue(line)).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => cleanInvoiceValue(line))
+    .filter(Boolean);
   let context: PartyContext = null;
 
   for (const line of lines) {
@@ -267,6 +287,6 @@ function normalizeInvoiceLabel(value: string): string {
 function looksLikeFieldLabelOnly(value: string): boolean {
   const normalized = normalizeInvoiceLabel(value);
   return Object.values(INVOICE_ALIASES).some((aliases) =>
-    aliases.some((alias) => normalized === normalizeInvoiceLabel(alias))
+    aliases.some((alias) => normalized === normalizeInvoiceLabel(alias)),
   );
 }

@@ -10,14 +10,7 @@
 
 import type { PinnedFolder, AppLanguage } from "../../store/settingsStore";
 import { getAppText } from "../../i18n";
-import {
-  Trash2,
-  FolderOpen,
-  ChevronLeft,
-  ChevronRight,
-  Pin,
-  Pencil,
-} from "../common/IconMap";
+import { Trash2, FolderOpen, ChevronLeft, ChevronRight, Pin, Pencil } from "../common/IconMap";
 
 export interface ContextMenuState {
   threadId: string;
@@ -73,20 +66,14 @@ export function ThreadContextMenu({
             >
               {text.sidebar.delete}
             </button>
-            <button
-              className="thread-context-confirm"
-              onClick={onClose}
-            >
+            <button className="thread-context-confirm" onClick={onClose}>
               {text.sidebar.cancel}
             </button>
           </div>
         </>
       ) : contextMenu.showMoveMenu ? (
         <>
-          <button
-            className="thread-context-menu-item"
-            onClick={() => setShowMoveMenu(false)}
-          >
+          <button className="thread-context-menu-item" onClick={() => setShowMoveMenu(false)}>
             <ChevronLeft size={14} />
             <span>{text.sidebar.moveToFolder}</span>
           </button>
@@ -147,10 +134,7 @@ export function ThreadContextMenu({
             pinnedFolders.length > 0 && (
               <>
                 <div className="thread-context-menu-divider" />
-                <button
-                  className="thread-context-menu-item"
-                  onClick={() => setShowMoveMenu(true)}
-                >
+                <button className="thread-context-menu-item" onClick={() => setShowMoveMenu(true)}>
                   <FolderOpen size={14} />
                   <span>{text.sidebar.moveToFolder}</span>
                   <ChevronRight size={14} className="context-menu-arrow" />
@@ -159,10 +143,7 @@ export function ThreadContextMenu({
             )
           )}
           <div className="thread-context-menu-divider" />
-          <button
-            className="thread-context-menu-item danger"
-            onClick={() => setConfirming(true)}
-          >
+          <button className="thread-context-menu-item danger" onClick={() => setConfirming(true)}>
             <Trash2 size={14} />
             <span>{text.sidebar.deleteThread}</span>
           </button>

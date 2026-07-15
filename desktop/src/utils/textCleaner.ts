@@ -19,13 +19,13 @@
 function isCJK(char: string): boolean {
   const code = char.codePointAt(0)!;
   return (
-    (code >= 0x4e00 && code <= 0x9fff) ||   // CJK 统一汉字
-    (code >= 0x3400 && code <= 0x4dbf) ||   // CJK 扩展A
+    (code >= 0x4e00 && code <= 0x9fff) || // CJK 统一汉字
+    (code >= 0x3400 && code <= 0x4dbf) || // CJK 扩展A
     (code >= 0x20000 && code <= 0x2a6df) || // CJK 扩展B-F
-    (code >= 0xf900 && code <= 0xfaff) ||   // CJK 兼容汉字
+    (code >= 0xf900 && code <= 0xfaff) || // CJK 兼容汉字
     (code >= 0x2f800 && code <= 0x2fa1f) || // CJK 兼容补充
-    (code >= 0x3000 && code <= 0x303f) ||   // CJK 符号和标点（。、「」等）
-    (code >= 0xff00 && code <= 0xffef)      // 全角字符
+    (code >= 0x3000 && code <= 0x303f) || // CJK 符号和标点（。、「」等）
+    (code >= 0xff00 && code <= 0xffef) // 全角字符
   );
 }
 
@@ -54,8 +54,10 @@ function isPunctuation(char: string): boolean {
     code === 0xff1a || // ：
     code === 0xff1b || // ；
     code === 0xff1f || // ？
-    code === 0x201c || code === 0x201d || // ""
-    code === 0x2018 || code === 0x2019     // ''
+    code === 0x201c ||
+    code === 0x201d || // ""
+    code === 0x2018 ||
+    code === 0x2019 // ''
   );
 }
 
@@ -109,7 +111,8 @@ function cleanCJKSpaces(line: string): string {
     const ch = chars[i];
 
     // 遇到空格时，检查是否需要移除
-    if (ch === " " || ch === "\u3000") { // 半角空格或全角空格
+    if (ch === " " || ch === "\u3000") {
+      // 半角空格或全角空格
       const prevChar = result.length > 0 ? result[result.length - 1] : "";
       const nextChar = i + 1 < chars.length ? chars[i + 1] : "";
 
@@ -130,8 +133,7 @@ function cleanCJKSpaces(line: string): string {
 
       // 字母与数字之间（如 D 2, Sheet 2, A 1）→ 移除空格
       // 这是 token 级别分词的典型特征
-      if ((isAlpha(prevChar) && isDigit(nextChar)) ||
-          (isDigit(prevChar) && isAlpha(nextChar))) {
+      if ((isAlpha(prevChar) && isDigit(nextChar)) || (isDigit(prevChar) && isAlpha(nextChar))) {
         continue;
       }
 

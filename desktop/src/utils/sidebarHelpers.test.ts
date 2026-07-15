@@ -23,10 +23,26 @@ describe("sortSidebarItems", () => {
   ];
 
   it("sorts sidebar items by recent time and display name", () => {
-    expect(sortSidebarItems(items, "recentDesc", "en-US").map((item) => item.preview)).toEqual(["Gamma", "Beta", "Alpha"]);
-    expect(sortSidebarItems(items, "recentAsc", "en-US").map((item) => item.preview)).toEqual(["Alpha", "Beta", "Gamma"]);
-    expect(sortSidebarItems(items, "nameAsc", "en-US").map((item) => item.preview)).toEqual(["Alpha", "Beta", "Gamma"]);
-    expect(sortSidebarItems(items, "nameDesc", "en-US").map((item) => item.preview)).toEqual(["Gamma", "Beta", "Alpha"]);
+    expect(sortSidebarItems(items, "recentDesc", "en-US").map((item) => item.preview)).toEqual([
+      "Gamma",
+      "Beta",
+      "Alpha",
+    ]);
+    expect(sortSidebarItems(items, "recentAsc", "en-US").map((item) => item.preview)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ]);
+    expect(sortSidebarItems(items, "nameAsc", "en-US").map((item) => item.preview)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ]);
+    expect(sortSidebarItems(items, "nameDesc", "en-US").map((item) => item.preview)).toEqual([
+      "Gamma",
+      "Beta",
+      "Alpha",
+    ]);
   });
 });
 
@@ -34,15 +50,35 @@ describe("buildSidebarDerivedLists", () => {
   it("groups folder threads separately from ungrouped conversations", () => {
     const result = buildSidebarDerivedLists({
       threads: [
-        { threadId: "thread-1", preview: "Ungrouped", modelProvider: "test", createdAt: 1, updatedAt: 5 },
-        { threadId: "thread-2", preview: "Folder recent", modelProvider: "test", createdAt: 1, updatedAt: 20, folderId: "C:/Work" },
-        { threadId: "thread-3", preview: "Folder older", modelProvider: "test", createdAt: 1, updatedAt: 10, folderId: "C:/Work" },
+        {
+          threadId: "thread-1",
+          preview: "Ungrouped",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 5,
+        },
+        {
+          threadId: "thread-2",
+          preview: "Folder recent",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 20,
+          folderId: "C:/Work",
+        },
+        {
+          threadId: "thread-3",
+          preview: "Folder older",
+          modelProvider: "test",
+          createdAt: 1,
+          updatedAt: 10,
+          folderId: "C:/Work",
+        },
       ],
-      pinnedFolders: [
-        { path: "C:/Work", name: "Work", addedAt: 100 },
-      ],
+      pinnedFolders: [{ path: "C:/Work", name: "Work", addedAt: 100 }],
       folderFiles: {
-        "C:/Work": [{ fileName: "plan.docx", filePath: "C:/Work/plan.docx", size: 10, lastModified: 1 }],
+        "C:/Work": [
+          { fileName: "plan.docx", filePath: "C:/Work/plan.docx", size: 10, lastModified: 1 },
+        ],
       },
       projectSortMode: "recentDesc",
       conversationSortMode: "recentDesc",
@@ -51,7 +87,10 @@ describe("buildSidebarDerivedLists", () => {
 
     expect(result.ungroupedThreads.map((thread) => thread.threadId)).toEqual(["thread-1"]);
     expect(result.groupedByFolder).toHaveLength(1);
-    expect(result.groupedByFolder[0].threads.map((thread) => thread.threadId)).toEqual(["thread-2", "thread-3"]);
+    expect(result.groupedByFolder[0].threads.map((thread) => thread.threadId)).toEqual([
+      "thread-2",
+      "thread-3",
+    ]);
     expect(result.groupedByFolder[0].files.map((file) => file.fileName)).toEqual(["plan.docx"]);
     expect(result.hasProjectItems).toBe(true);
     expect(result.hasConversationItems).toBe(true);

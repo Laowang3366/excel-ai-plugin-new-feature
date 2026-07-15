@@ -8,9 +8,7 @@ import {
   buildEffectiveSystemPrompt,
 } from "./buildStreamParams";
 import { resolveMaxTokens } from "./maxTokens";
-import {
-  getToolDefinitions,
-} from "./toolExecutor";
+import { getToolDefinitions } from "./toolExecutor";
 import type { StreamParams } from "./streamCollector";
 
 export async function buildRoundStreamParams(input: {
@@ -46,11 +44,11 @@ export async function buildRoundStreamParams(input: {
     {
       content: input.turnInput.content,
       attachments: input.turnInput.attachments,
-    }
+    },
   );
   effectiveSystemPrompt = await appendRuntimeLongTermMemoryContext(
     effectiveSystemPrompt,
-    input.stateRuntimeStore
+    input.stateRuntimeStore,
   );
 
   const toolDefs = getToolDefinitions(input.toolExecutors, {

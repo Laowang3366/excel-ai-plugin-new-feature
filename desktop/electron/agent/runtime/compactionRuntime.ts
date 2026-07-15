@@ -1,7 +1,4 @@
-import {
-  DEFAULT_COMPACTION_CONFIG,
-  type CompactionConfig,
-} from "../shared/types";
+import { DEFAULT_COMPACTION_CONFIG, type CompactionConfig } from "../shared/types";
 
 export interface SavedCompactionConfig {
   enabled?: boolean;
@@ -36,10 +33,11 @@ export function buildCompactionConfig(params: {
 
   return {
     enabled: savedCompaction.enabled ?? true,
-    autoCompactTokenThreshold: Math.floor(params.contextWindowSize * compactionPercent / 100),
+    autoCompactTokenThreshold: Math.floor((params.contextWindowSize * compactionPercent) / 100),
     retainedUserMessageMaxTokens: savedCompaction.retainedUserMessageMaxTokens ?? 20_000,
     retainedRecentItemCount: savedCompaction.retainedRecentItemCount,
-    summaryRetryCount: savedCompaction.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount,
+    summaryRetryCount:
+      savedCompaction.summaryRetryCount ?? DEFAULT_COMPACTION_CONFIG.summaryRetryCount,
     summaryRetryBaseDelayMs: savedCompaction.summaryRetryBaseDelayMs,
     summaryRetryMaxDelayMs: savedCompaction.summaryRetryMaxDelayMs,
     summaryRetryBackoffFactor: savedCompaction.summaryRetryBackoffFactor,

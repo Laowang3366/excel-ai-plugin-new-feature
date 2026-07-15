@@ -39,20 +39,19 @@ function isPathInside(parentPath: string, childPath: string): boolean {
 }
 
 function compactPaths(paths: string[]): string[] {
-  return paths
-    .map((item) => typeof item === "string" ? item.trim() : "")
-    .filter(Boolean);
+  return paths.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
 }
 
 export function createPathAuthorizer(options: PathAuthorizerOptions): PathAuthorizer {
   const authorizedPaths = new Set<string>();
   const authorizedRoots = new Set<string>();
 
-  const getRuntimeRoots = () => compactPaths([
-    options.getDataPath(),
-    ...options.getPinnedFolders(),
-    ...(options.getExtraRoots?.() ?? []),
-  ]);
+  const getRuntimeRoots = () =>
+    compactPaths([
+      options.getDataPath(),
+      ...options.getPinnedFolders(),
+      ...(options.getExtraRoots?.() ?? []),
+    ]);
 
   return {
     authorizePath: (targetPath: string) => {

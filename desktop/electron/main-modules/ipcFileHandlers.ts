@@ -29,11 +29,17 @@ interface RegisterFileIpcHandlersOptions {
   isDataMaintenanceInProgress?: () => boolean;
 }
 
-export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthorizer: PathAuthorizer): Promise<FolderFileInfo[]> {
+export async function listAuthorizedOfficeFiles(
+  folderPath: string,
+  pathAuthorizer: PathAuthorizer,
+): Promise<FolderFileInfo[]> {
   const authorizedFolderPath = assertAuthorizedPath(pathAuthorizer, folderPath);
   const entries = await fs.promises.readdir(authorizedFolderPath, { withFileTypes: true });
   const files = entries
-    .filter((entry) => entry.isFile() && OFFICE_FILE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+    .filter(
+      (entry) =>
+        entry.isFile() && OFFICE_FILE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()),
+    )
     .map((entry) => {
       const fullPath = path.join(authorizedFolderPath, entry.name);
       pathAuthorizer.authorizePath(fullPath);
@@ -47,7 +53,7 @@ export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthoriz
       } catch {
         return { ...file, size: 0, lastModified: 0 };
       }
-    })
+    }),
   );
   results.sort((a, b) => a.fileName.localeCompare(b.fileName));
   return results;
@@ -55,7 +61,7 @@ export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthoriz
 
 export async function assertFileWithinIpcTransferLimit(
   filePath: string,
-  maxBytes = IPC_MAX_FILE_TRANSFER_BYTES
+  maxBytes = IPC_MAX_FILE_TRANSFER_BYTES,
 ): Promise<void> {
   const stat = await fs.promises.stat(filePath);
   if (!stat.isFile()) throw new Error("目标路径不是文件");
@@ -66,8 +72,10 @@ export async function assertFileWithinIpcTransferLimit(
 
 export async function writeManagedTempFile(
   data: unknown,
-  options: Pick<RegisterFileIpcHandlersOptions,
-    "getDataPath" | "pathAuthorizer" | "isDataMaintenanceInProgress">,
+  options: Pick<
+    RegisterFileIpcHandlersOptions,
+    "getDataPath" | "pathAuthorizer" | "isDataMaintenanceInProgress"
+  >,
 ): Promise<{ success: boolean; filePath?: string; error?: string }> {
   try {
     const input = validateInput(FileWriteTempFileInput, data);
@@ -96,7 +104,22 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
     const result = await dialog.showOpenDialog(mw, {
       properties: ["openFile"],
       filters: [
-        { name: "Documents", extensions: ["xlsx", "xls", "csv", "doc", "docx", "ppt", "pptx", "json", "txt", "pdf", "md"] },
+        {
+          name: "Documents",
+          extensions: [
+            "xlsx",
+            "xls",
+            "csv",
+            "doc",
+            "docx",
+            "ppt",
+            "pptx",
+            "json",
+            "txt",
+            "pdf",
+            "md",
+          ],
+        },
         { name: "All Files", extensions: ["*"] },
       ],
     });
@@ -109,9 +132,7 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
     if (!mw) return { canceled: true, filePaths: [] as string[] };
     const result = await dialog.showOpenDialog(mw, {
       properties: ["openFile"],
-      filters: [
-        { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] },
-      ],
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] }],
     });
     result.filePaths.forEach((filePath) => pathAuthorizer.authorizePath(filePath));
     return { canceled: result.canceled, filePaths: result.filePaths };
@@ -146,7 +167,7 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
         } catch {
           return [folderPath, []] as const;
         }
-      })
+      }),
     );
     return Object.fromEntries(entries);
   });
@@ -169,10 +190,18 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
       const buffer = await fs.promises.readFile(authorizedFilePath);
       const ext = path.extname(authorizedFilePath).toLowerCase().replace(".", "");
       const mimeMap: Record<string, string> = {
-        png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-        gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
-        pdf: "application/pdf", csv: "text/csv", json: "application/json",
-        txt: "text/plain", md: "text/markdown", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        gif: "image/gif",
+        webp: "image/webp",
+        bmp: "image/bmp",
+        pdf: "application/pdf",
+        csv: "text/csv",
+        json: "application/json",
+        txt: "text/plain",
+        md: "text/markdown",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         xls: "application/vnd.ms-excel",
         doc: "application/msword",
         docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

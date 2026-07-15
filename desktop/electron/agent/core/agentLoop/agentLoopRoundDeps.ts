@@ -1,8 +1,5 @@
 import type { ToolExecutor } from "../../shared/types";
-import {
-  runAgentLoopRounds,
-  type AgentLoopRunnerInput,
-} from "./agentLoopRunner";
+import { runAgentLoopRounds, type AgentLoopRunnerInput } from "./agentLoopRunner";
 import type { ToolApprovalConfig } from "./toolExecutor";
 
 type AgentLoopWithDepsInput = Omit<AgentLoopRunnerInput, "toolExecutors" | "approvalConfig"> & {

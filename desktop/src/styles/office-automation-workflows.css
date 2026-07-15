@@ -1,0 +1,204 @@
+.office-template-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.office-master-list,
+.office-template-list,
+.office-change-list,
+.office-step-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.office-step-row > span:last-child,
+.office-template-row > div:first-child {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.office-master-list strong,
+.office-master-list small,
+.office-template-row strong,
+.office-template-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.office-template-form select,
+.office-template-form input,
+.office-variables-field textarea {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.office-master-detail {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(150px, 35%) minmax(0, 1fr);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.office-master-list {
+  border-right: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+}
+.office-master-list > button {
+  width: 100%;
+  min-height: 52px;
+  padding: 7px 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.office-master-list > button.selected {
+  background: var(--bg-primary);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.office-master-list > button > span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.office-step-row {
+  min-height: 43px;
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.office-step-index {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  color: var(--text-faint);
+  font-size: 10px;
+}
+.office-step-index.done {
+  border-color: #16803c;
+  background: #16803c;
+  color: white;
+}
+.office-step-row em {
+  color: #b91c1c;
+  font-style: normal;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.office-step-row strong {
+  overflow-wrap: anywhere;
+}
+
+.office-force-confirm {
+  margin-bottom: 9px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, #d97706 40%, var(--border-default));
+  background: color-mix(in srgb, #d97706 8%, var(--bg-primary));
+  color: #a15c05;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 7px;
+}
+.office-force-confirm > span {
+  overflow-wrap: anywhere;
+}
+.office-force-confirm > div {
+  grid-column: 2;
+  display: flex;
+  gap: 6px;
+}
+.office-force-confirm button {
+  min-height: 25px;
+  padding: 0 7px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.office-force-confirm button.danger {
+  color: #b91c1c;
+}
+.office-change-list > div {
+  padding: 7px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--border-subtle);
+}
+.office-change-list small {
+  overflow-wrap: anywhere;
+}
+
+.office-template-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 7px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border-default);
+}
+.office-template-form select,
+.office-template-form input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+}
+.office-template-form .office-command {
+  width: max-content;
+}
+.office-variables-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+.office-variables-field textarea {
+  width: 100%;
+  min-height: 58px;
+  resize: vertical;
+  padding: 7px;
+  box-sizing: border-box;
+}
+.office-template-list {
+  flex: 1;
+}
+.office-template-row {
+  min-height: 52px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.office-template-row > div:last-child {
+  display: flex;
+  gap: 5px;
+}
+
+@media (max-width: 470px) {
+  .office-master-detail {
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+  .office-template-form {
+    grid-template-columns: 1fr;
+  }
+}

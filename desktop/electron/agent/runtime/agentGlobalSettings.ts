@@ -21,8 +21,9 @@ export function setAgentGlobalSettings(patch: Partial<AgentGlobalSettings>): voi
 
 export function setDynamicArrayFunctionsEnabled(value: unknown): void {
   setAgentGlobalSettings({
-    dynamicArrayFunctionsEnabled: typeof value === "boolean"
-      ? value
-      : DEFAULT_AGENT_GLOBAL_SETTINGS.dynamicArrayFunctionsEnabled,
+    dynamicArrayFunctionsEnabled:
+      typeof value === "boolean"
+        ? value
+        : DEFAULT_AGENT_GLOBAL_SETTINGS.dynamicArrayFunctionsEnabled,
   });
 }

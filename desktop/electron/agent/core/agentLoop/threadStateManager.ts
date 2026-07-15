@@ -1,8 +1,4 @@
-import type {
-  ThreadId,
-  ThreadRuntimeSnapshot,
-  ThreadRuntimeStatus,
-} from "../../shared/types";
+import type { ThreadId, ThreadRuntimeSnapshot, ThreadRuntimeStatus } from "../../shared/types";
 
 export const DEFAULT_THREAD_IDLE_UNLOAD_MS = 30 * 60 * 1000;
 

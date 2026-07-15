@@ -22,7 +22,8 @@ export function bindCallbacksToThread(input: {
 }): AgentTurnCallbacks {
   const { callbacks, threadId, clientId } = input;
   return {
-    onEvent: (event) => callbacks.onEvent({ ...event, threadId, clientId: event.clientId ?? clientId }),
+    onEvent: (event) =>
+      callbacks.onEvent({ ...event, threadId, clientId: event.clientId ?? clientId }),
     onStreamDelta: (delta, itemType, roundId) => {
       callbacks.onStreamDelta?.(delta, itemType, roundId, threadId, clientId);
     },
@@ -47,7 +48,12 @@ export async function persistThreadSnapshot(input: {
   try {
     await input.stateRuntimeStore.upsertThreadSnapshot(input.thread.metadata);
   } catch (error) {
-    threadRuntimeLogger.warn("写入线程状态快照失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
+    threadRuntimeLogger.warn(
+      "写入线程状态快照失败",
+      error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { error: String(error) },
+    );
   }
 }
 
@@ -58,9 +64,17 @@ export async function persistThreadRuntime(input: {
 }): Promise<void> {
   if (!input.stateRuntimeStore) return;
   try {
-    await input.stateRuntimeStore.updateThreadRuntime({ ...input.snapshot, threadId: input.threadId });
+    await input.stateRuntimeStore.updateThreadRuntime({
+      ...input.snapshot,
+      threadId: input.threadId,
+    });
   } catch (error) {
-    threadRuntimeLogger.warn("写入线程运行态失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
+    threadRuntimeLogger.warn(
+      "写入线程运行态失败",
+      error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { error: String(error) },
+    );
   }
 }
 
@@ -79,6 +93,11 @@ export function scheduleTurnMemoryExtraction(input: {
     thread,
     turn,
   }).catch((error) => {
-    threadRuntimeLogger.warn("自动写入长期记忆失败", error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
+    threadRuntimeLogger.warn(
+      "自动写入长期记忆失败",
+      error instanceof Error
+        ? { message: error.message, stack: error.stack }
+        : { error: String(error) },
+    );
   });
 }

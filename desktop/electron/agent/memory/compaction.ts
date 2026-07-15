@@ -158,14 +158,14 @@ export function estimateItemsTokens(items: TurnItem[]): number {
 export function collectUserMessages(items: TurnItem[]): UserMessageItem[] {
   return items.filter(
     (item): item is UserMessageItem =>
-      item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX)
+      item.type === "user_message" && !item.content.startsWith(SUMMARY_PREFIX),
   );
 }
 
 /** 判断是否需要压缩 */
 export function shouldCompact(
   items: TurnItem[],
-  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG
+  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG,
 ): boolean {
   if (!config.enabled) return false;
   const tokens = estimateItemsTokens(items);
@@ -183,7 +183,7 @@ export function shouldCompact(
 export function buildCompactedHistory(
   userMessages: UserMessageItem[],
   summaryText: string,
-  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG
+  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG,
 ): TurnItem[] {
   const maxTokens = config.retainedUserMessageMaxTokens;
   const maxItems = config.retainedRecentItemCount ?? Number.POSITIVE_INFINITY;
@@ -241,7 +241,7 @@ export function performCompaction(
   items: TurnItem[],
   summaryText: string,
   reason: CompactionReason,
-  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG
+  config: CompactionConfig = DEFAULT_COMPACTION_CONFIG,
 ): { compactedItem: CompactedItem; newHistory: TurnItem[] } {
   const tokensBefore = estimateItemsTokens(items);
   const userMessages = collectUserMessages(items);
@@ -288,9 +288,8 @@ export function historyToCompactPrompt(items: TurnItem[]): string {
         parts.push(`【工具调用】${item.toolName}(${JSON.stringify(item.arguments)})`);
         break;
       case "tool_result":
-        const resultStr = typeof item.result === "string"
-          ? item.result
-          : JSON.stringify(item.result, null, 2);
+        const resultStr =
+          typeof item.result === "string" ? item.result : JSON.stringify(item.result, null, 2);
         parts.push(`【工具结果】${item.isError ? "错误: " : ""}${resultStr.slice(0, 500)}`);
         break;
       case "compacted":
@@ -312,30 +311,35 @@ export function historyToCompactPrompt(items: TurnItem[]): string {
  */
 export function buildResumeContext(items: TurnItem[]): string {
   // 找到最后一条助手消息
-  const lastAssistant = [...items].reverse().find(
-    (item): item is AssistantMessageItem => item.type === "assistant_message"
-  );
+  const lastAssistant = [...items]
+    .reverse()
+    .find((item): item is AssistantMessageItem => item.type === "assistant_message");
 
   // 找到最后一个工具调用
-  const lastToolCall = [...items].reverse().find(
-    (item): item is import("../shared/types").ToolCallItem => item.type === "tool_call"
-  );
+  const lastToolCall = [...items]
+    .reverse()
+    .find((item): item is import("../shared/types").ToolCallItem => item.type === "tool_call");
 
   // 找到最后一个推理
-  const lastReasoning = [...items].reverse().find(
-    (item): item is import("../shared/types").ReasoningItem => item.type === "reasoning"
-  );
+  const lastReasoning = [...items]
+    .reverse()
+    .find((item): item is import("../shared/types").ReasoningItem => item.type === "reasoning");
 
   const parts: string[] = ["[中断恢复上下文]"];
 
   if (lastReasoning) {
-    parts.push(`AI 最后的思考：${lastReasoning.rawContent.join("") || lastReasoning.summaryText.join("\n")}`);
+    parts.push(
+      `AI 最后的思考：${lastReasoning.rawContent.join("") || lastReasoning.summaryText.join("\n")}`,
+    );
   }
 
   if (lastToolCall) {
-    const result = [...items].reverse().find(
-      (item): item is import("../shared/types").ToolResultItem => item.type === "tool_result" && item.toolCallId === lastToolCall.id
-    );
+    const result = [...items]
+      .reverse()
+      .find(
+        (item): item is import("../shared/types").ToolResultItem =>
+          item.type === "tool_result" && item.toolCallId === lastToolCall.id,
+      );
     parts.push(`最后执行的工具：${lastToolCall.toolName}`);
     if (result) {
       parts.push(`工具返回结果：${JSON.stringify(result.result).slice(0, 300)}`);

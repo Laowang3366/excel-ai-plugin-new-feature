@@ -7,22 +7,40 @@
   border: 1px solid var(--resume-border);
   border-radius: var(--radius-lg);
   padding: 12px;
-  display: flex; gap: 10px; align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   animation: fadeIn 0.3s ease;
   width: min(var(--chat-content-max-width), 100%);
 }
-.resume-hint-icon { font-size: 20px; flex-shrink: 0; }
-.resume-hint-content { flex: 1; }
-.resume-hint-text { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
-.resume-quick-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.resume-hint-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.resume-hint-content {
+  flex: 1;
+}
+.resume-hint-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.resume-quick-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 .resume-btn {
   padding: 6px 14px;
   border: 1px solid var(--resume-border);
   border-radius: var(--radius-full);
   background: var(--bg-primary);
-  cursor: pointer; font-size: 12px;
+  cursor: pointer;
+  font-size: 12px;
   transition: all 0.15s;
 }
-.resume-btn:hover { background: var(--resume-border); color: white; }
-
+.resume-btn:hover {
+  background: var(--resume-border);
+  color: white;
+}

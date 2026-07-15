@@ -55,7 +55,7 @@ describe("archiveRolloutSnapshotIfNeeded", () => {
 
 describe("spawnRolloutCompressionWorker", () => {
   it("zstd-compresses cold rollout JSONL files and skips active threads", async () => {
-      const tempDir = await mkdtemp(path.join(os.tmpdir(), "rollout-compress-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "rollout-compress-"));
     try {
       const coldPath = path.join(tempDir, "2026", "06", "28", "rollout-old-thread-cold.jsonl");
       const activePath = path.join(tempDir, "2026", "06", "29", "rollout-new-thread-active.jsonl");
@@ -100,7 +100,13 @@ describe("searchCompressedRolloutMatches", () => {
   it("searches zstd-compressed rollout JSONL files", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "rollout-search-compressed-"));
     try {
-      const sourcePath = path.join(tempDir, "2026", "06", "28", "rollout-old-thread-compressed.jsonl");
+      const sourcePath = path.join(
+        tempDir,
+        "2026",
+        "06",
+        "28",
+        "rollout-old-thread-compressed.jsonl",
+      );
       await mkdir(path.dirname(sourcePath), { recursive: true });
       const line = {
         timestamp: "2026-06-28T00:00:00.000Z",
@@ -116,7 +122,10 @@ describe("searchCompressedRolloutMatches", () => {
         },
       };
       const archivePath = `${sourcePath}.zst`;
-      await writeFile(archivePath, await zstdCompressAsync(Buffer.from(`${JSON.stringify(line)}\n`, "utf-8")));
+      await writeFile(
+        archivePath,
+        await zstdCompressAsync(Buffer.from(`${JSON.stringify(line)}\n`, "utf-8")),
+      );
 
       const matches = await searchCompressedRolloutMatches({
         sessionsRoot: tempDir,
@@ -140,9 +149,14 @@ describe("searchCompressedRolloutMatches", () => {
 });
 
 async function zstdCompressAsync(content: Buffer): Promise<Buffer> {
-  const compress = (zlib as typeof zlib & {
-    zstdCompress?: (buffer: Buffer, callback: (error: Error | null, result: Buffer) => void) => void;
-  }).zstdCompress;
+  const compress = (
+    zlib as typeof zlib & {
+      zstdCompress?: (
+        buffer: Buffer,
+        callback: (error: Error | null, result: Buffer) => void,
+      ) => void;
+    }
+  ).zstdCompress;
   if (!compress) {
     throw new Error("当前 Node 运行时不支持 zstd 压缩");
   }
@@ -156,9 +170,14 @@ async function zstdCompressAsync(content: Buffer): Promise<Buffer> {
 }
 
 async function zstdDecompressAsync(content: Buffer): Promise<Buffer> {
-  const decompress = (zlib as typeof zlib & {
-    zstdDecompress?: (buffer: Buffer, callback: (error: Error | null, result: Buffer) => void) => void;
-  }).zstdDecompress;
+  const decompress = (
+    zlib as typeof zlib & {
+      zstdDecompress?: (
+        buffer: Buffer,
+        callback: (error: Error | null, result: Buffer) => void,
+      ) => void;
+    }
+  ).zstdDecompress;
   if (!decompress) {
     throw new Error("当前 Node 运行时不支持 zstd 解压");
   }

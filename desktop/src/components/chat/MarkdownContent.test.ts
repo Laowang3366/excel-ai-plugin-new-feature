@@ -18,7 +18,7 @@ describe("MarkdownContent", () => {
           "|---|---|---:|",
           "| 1 | 王aa | 39,225,778 |",
         ].join("\n"),
-      })
+      }),
     );
 
     expect(html).toContain("<strong>分析报告</strong>");
@@ -30,11 +30,8 @@ describe("MarkdownContent", () => {
   test("removes visible heading markers from assistant text", () => {
     const html = renderToStaticMarkup(
       React.createElement(MarkdownContent, {
-        content: [
-          "### 总逻辑",
-          "####下一步",
-        ].join("\n"),
-      })
+        content: ["### 总逻辑", "####下一步"].join("\n"),
+      }),
     );
 
     expect(html).toContain("总逻辑");
@@ -43,12 +40,9 @@ describe("MarkdownContent", () => {
   });
 
   test("keeps hash characters inside fenced code blocks", () => {
-    const normalized = normalizeVisibleMarkdown([
-      "### 总逻辑",
-      "```python",
-      "# keep this comment",
-      "```",
-    ].join("\n"));
+    const normalized = normalizeVisibleMarkdown(
+      ["### 总逻辑", "```python", "# keep this comment", "```"].join("\n"),
+    );
 
     expect(normalized).toContain("总逻辑");
     expect(normalized).not.toContain("### 总逻辑");
@@ -59,7 +53,7 @@ describe("MarkdownContent", () => {
     const html = renderToStaticMarkup(
       React.createElement(MarkdownContent, {
         content: "[安全链接](https://example.com/path)",
-      })
+      }),
     );
 
     expect(html).toContain('href="https://example.com/path"');

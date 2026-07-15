@@ -16,9 +16,6 @@ export function resolveModelCompHash(config: AIClientConfig): string {
   return `${apiFormat}:${config.provider}:${model}`;
 }
 
-export function isModelCompHashCompatible(
-  previous: AIClientConfig,
-  next: AIClientConfig
-): boolean {
+export function isModelCompHashCompatible(previous: AIClientConfig, next: AIClientConfig): boolean {
   return resolveModelCompHash(previous) === resolveModelCompHash(next);
 }

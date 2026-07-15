@@ -24,35 +24,51 @@ describe("chat message list scroll behavior", () => {
   });
 
   test("calculates distance to the bottom without returning negative values", () => {
-    expect(getDistanceToBottom({ scrollHeight: 1000, scrollTop: 700, clientHeight: 200 })).toBe(100);
+    expect(getDistanceToBottom({ scrollHeight: 1000, scrollTop: 700, clientHeight: 200 })).toBe(
+      100,
+    );
     expect(getDistanceToBottom({ scrollHeight: 1000, scrollTop: 900, clientHeight: 200 })).toBe(0);
   });
 
   test("runs scheduled auto-scroll only while streaming and still following latest content", () => {
     expect(STREAM_AUTO_SCROLL_INTERVAL_MS).toBeGreaterThanOrEqual(1000);
-    expect(shouldRunScheduledAutoScroll({ isStreaming: true, shouldFollowLatest: true })).toBe(true);
-    expect(shouldRunScheduledAutoScroll({
-      isStreaming: true,
-      shouldFollowLatest: true,
-      userScrollPauseActive: true,
-    })).toBe(false);
-    expect(shouldRunScheduledAutoScroll({ isStreaming: true, shouldFollowLatest: false })).toBe(false);
-    expect(shouldRunScheduledAutoScroll({ isStreaming: false, shouldFollowLatest: true })).toBe(false);
+    expect(shouldRunScheduledAutoScroll({ isStreaming: true, shouldFollowLatest: true })).toBe(
+      true,
+    );
+    expect(
+      shouldRunScheduledAutoScroll({
+        isStreaming: true,
+        shouldFollowLatest: true,
+        userScrollPauseActive: true,
+      }),
+    ).toBe(false);
+    expect(shouldRunScheduledAutoScroll({ isStreaming: true, shouldFollowLatest: false })).toBe(
+      false,
+    );
+    expect(shouldRunScheduledAutoScroll({ isStreaming: false, shouldFollowLatest: true })).toBe(
+      false,
+    );
   });
 
   test("keeps auto-follow paused for a short window after the user scrolls away", () => {
-    expect(isUserScrollPauseActive({
-      now: 10_000,
-      lastUserScrollAwayAt: 0,
-    })).toBe(false);
-    expect(isUserScrollPauseActive({
-      now: 10_000,
-      lastUserScrollAwayAt: 10_000 - USER_SCROLL_AUTO_FOLLOW_PAUSE_MS + 1,
-    })).toBe(true);
-    expect(isUserScrollPauseActive({
-      now: 10_000,
-      lastUserScrollAwayAt: 10_000 - USER_SCROLL_AUTO_FOLLOW_PAUSE_MS,
-    })).toBe(false);
+    expect(
+      isUserScrollPauseActive({
+        now: 10_000,
+        lastUserScrollAwayAt: 0,
+      }),
+    ).toBe(false);
+    expect(
+      isUserScrollPauseActive({
+        now: 10_000,
+        lastUserScrollAwayAt: 10_000 - USER_SCROLL_AUTO_FOLLOW_PAUSE_MS + 1,
+      }),
+    ).toBe(true);
+    expect(
+      isUserScrollPauseActive({
+        now: 10_000,
+        lastUserScrollAwayAt: 10_000 - USER_SCROLL_AUTO_FOLLOW_PAUSE_MS,
+      }),
+    ).toBe(false);
   });
 
   test("keeps only the latest message items in the render window", () => {

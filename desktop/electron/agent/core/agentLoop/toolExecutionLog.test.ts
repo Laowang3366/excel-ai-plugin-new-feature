@@ -27,19 +27,23 @@ describe("toolExecutionLog", () => {
 
   it("redacts errors and metadata at the persistence boundary", async () => {
     const append = vi.fn(async (_record: ToolExecutionLogRecord) => undefined);
-    await logToolExecutionSafely(append, {
-      threadId: "thread-1",
-      turnId: "turn-1",
-      toolCallId: "call-1",
-      toolName: "web.search",
-      status: "error",
-      durationMs: 1,
-      timestamp: 1,
-      argumentsSummary: summarizeForLog({ query: CANARY }),
-      resultSummary: summarizeForLog({ success: false }),
-      error: `provider rejected ${CANARY}`,
-      metadata: { authorization: `Bearer ${CANARY}` },
-    }, { onEvent: vi.fn() });
+    await logToolExecutionSafely(
+      append,
+      {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        toolCallId: "call-1",
+        toolName: "web.search",
+        status: "error",
+        durationMs: 1,
+        timestamp: 1,
+        argumentsSummary: summarizeForLog({ query: CANARY }),
+        resultSummary: summarizeForLog({ success: false }),
+        error: `provider rejected ${CANARY}`,
+        metadata: { authorization: `Bearer ${CANARY}` },
+      },
+      { onEvent: vi.fn() },
+    );
 
     expect(append).toHaveBeenCalledOnce();
     const persisted = append.mock.calls[0]![0];

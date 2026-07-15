@@ -21,16 +21,14 @@ export function ProviderDialogFrame({
       <div className={`dialog ${dialogClassName}`} onClick={(event) => event.stopPropagation()}>
         <div className="dialog-header">
           <h3>{title}</h3>
-          <button className="dialog-close" onClick={onClose}><X size={16} /></button>
+          <button className="dialog-close" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
 
-        <div className="dialog-body">
-          {children}
-        </div>
+        <div className="dialog-body">{children}</div>
 
-        <div className="dialog-actions">
-          {actions}
-        </div>
+        <div className="dialog-actions">{actions}</div>
       </div>
     </div>
   );

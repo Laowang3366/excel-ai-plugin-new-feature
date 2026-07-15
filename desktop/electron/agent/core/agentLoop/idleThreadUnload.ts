@@ -2,9 +2,7 @@ import type { ThreadRuntimeSnapshot } from "../../shared/types";
 
 export type IdleThreadUnloadTimer = ReturnType<typeof setTimeout>;
 
-export function clearIdleThreadUnloadTimer(
-  timer: IdleThreadUnloadTimer | null
-): null {
+export function clearIdleThreadUnloadTimer(timer: IdleThreadUnloadTimer | null): null {
   if (timer) clearTimeout(timer);
   return null;
 }

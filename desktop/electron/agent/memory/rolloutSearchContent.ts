@@ -33,12 +33,9 @@ export function extractRolloutSearchContent(item: RolloutItem): string {
 
   if (item.type === "session_meta") {
     return redactSensitiveText(
-      [
-        item.meta.id,
-        item.meta.modelProvider,
-        item.meta.model,
-        item.meta.folderId,
-      ].filter(Boolean).join(" "),
+      [item.meta.id, item.meta.modelProvider, item.meta.model, item.meta.folderId]
+        .filter(Boolean)
+        .join(" "),
       100_000,
     );
   }

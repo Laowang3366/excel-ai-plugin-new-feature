@@ -13,7 +13,9 @@ export class DotNetExcelBridge implements ExcelConnectionBridge {
   constructor(private readonly client: OfficeWorkerClient = getOfficeWorkerClient()) {}
 
   get host(): "excel" | "wps" | "unknown" {
-    return this.status.host === "excel" || this.status.host === "wps" ? this.status.host : "unknown";
+    return this.status.host === "excel" || this.status.host === "wps"
+      ? this.status.host
+      : "unknown";
   }
 
   async isConnected(): Promise<boolean> {
@@ -50,7 +52,11 @@ export class DotNetExcelBridge implements ExcelConnectionBridge {
     return this.client.invoke("excel.workbook.inspect");
   }
 
-  readRange(sheetName: string, range: string, expand: RangeReadExpandMode = "none"): Promise<RangeReadResult> {
+  readRange(
+    sheetName: string,
+    range: string,
+    expand: RangeReadExpandMode = "none",
+  ): Promise<RangeReadResult> {
     return this.client.invoke("excel.range.read", { sheetName, range, expand });
   }
 
@@ -84,15 +90,28 @@ export class DotNetExcelBridge implements ExcelConnectionBridge {
     return this.client.invoke("excel.formula.context", { sheetName, range });
   }
 
-  sheetOperation(operation: string, sheetName: string, options?: Record<string, unknown>): Promise<unknown> {
-    return this.client.invoke("excel.sheet.operation", { operation, sheetName, options: options || {} });
+  sheetOperation(
+    operation: string,
+    sheetName: string,
+    options?: Record<string, unknown>,
+  ): Promise<unknown> {
+    return this.client.invoke("excel.sheet.operation", {
+      operation,
+      sheetName,
+      options: options || {},
+    });
   }
 
-  openWorkbook(filePath: string): Promise<{ success: boolean; workbookName?: string; error?: string }> {
+  openWorkbook(
+    filePath: string,
+  ): Promise<{ success: boolean; workbookName?: string; error?: string }> {
     return this.client.invoke("excel.workbook.open", { filePath });
   }
 
-  createWorkbook(filePath: string, sheetNames?: string[]): Promise<{ success: boolean; workbookName?: string; error?: string }> {
+  createWorkbook(
+    filePath: string,
+    sheetNames?: string[],
+  ): Promise<{ success: boolean; workbookName?: string; error?: string }> {
     return this.client.invoke("excel.workbook.create", { filePath, sheetNames: sheetNames || [] });
   }
 
@@ -100,7 +119,9 @@ export class DotNetExcelBridge implements ExcelConnectionBridge {
     return this.client.invoke("excel.workbook.save", { saveAsPath });
   }
 
-  switchWorkbook(workbookName: string): Promise<{ success: boolean; workbookName?: string; error?: string }> {
+  switchWorkbook(
+    workbookName: string,
+  ): Promise<{ success: boolean; workbookName?: string; error?: string }> {
     return this.client.invoke("excel.workbook.switch", { workbookName });
   }
 }

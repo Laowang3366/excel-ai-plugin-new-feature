@@ -55,11 +55,11 @@ export class AgentGraphStore {
   async upsertThreadSpawnEdge(
     parentThreadId: ThreadId,
     childThreadId: ThreadId,
-    input: ThreadSpawnEdgeInput = {}
+    input: ThreadSpawnEdgeInput = {},
   ): Promise<ThreadSpawnEdge> {
     const graph = await this.loadGraph();
     const existing = graph.edges.find(
-      (edge) => edge.parentThreadId === parentThreadId && edge.childThreadId === childThreadId
+      (edge) => edge.parentThreadId === parentThreadId && edge.childThreadId === childThreadId,
     );
 
     if (existing) {
@@ -87,11 +87,11 @@ export class AgentGraphStore {
   async closeThreadSpawnEdge(
     parentThreadId: ThreadId,
     childThreadId: ThreadId,
-    closedAt = Date.now()
+    closedAt = Date.now(),
   ): Promise<ThreadSpawnEdge | null> {
     const graph = await this.loadGraph();
     const edge = graph.edges.find(
-      (item) => item.parentThreadId === parentThreadId && item.childThreadId === childThreadId
+      (item) => item.parentThreadId === parentThreadId && item.childThreadId === childThreadId,
     );
     if (!edge) return null;
 
@@ -103,7 +103,7 @@ export class AgentGraphStore {
 
   async listThreadSpawnDescendants(
     parentThreadId: ThreadId,
-    options: ListThreadSpawnDescendantsOptions = {}
+    options: ListThreadSpawnDescendantsOptions = {},
   ): Promise<ThreadSpawnDescendant[]> {
     const graph = await this.loadGraph();
     const status = options.status ?? "all";

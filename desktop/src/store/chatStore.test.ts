@@ -70,12 +70,14 @@ describe("chatStore sendMessage", () => {
 
     await useChatStore.getState().sendMessage("等一下，用 Sheet2 的数据");
 
-    expect(ipcMocks.enqueueTurn).toHaveBeenCalledWith(expect.objectContaining({
-      content: "等一下，用 Sheet2 的数据",
-      attachments: undefined,
-      threadId: "thread-1",
-      isResume: false,
-    }));
+    expect(ipcMocks.enqueueTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "等一下，用 Sheet2 的数据",
+        attachments: undefined,
+        threadId: "thread-1",
+        isResume: false,
+      }),
+    );
     expect(ipcMocks.enqueueTurn.mock.calls[0][0].clientId).toMatch(/^client-/);
     expect(ipcMocks.startTurn).not.toHaveBeenCalled();
     expect(useChatStore.getState().error).toBeNull();
@@ -150,29 +152,33 @@ describe("chatStore switchThread", () => {
     const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
     const loadB = deferred<{ items: Array<Record<string, unknown>> }>();
     ipcMocks.loadThread.mockImplementation((threadId: string) =>
-      threadId === "thread-a" ? loadA.promise : loadB.promise
+      threadId === "thread-a" ? loadA.promise : loadB.promise,
     );
 
     const switchA = useChatStore.getState().switchThread("thread-a");
     const switchB = useChatStore.getState().switchThread("thread-b");
 
     loadB.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-b",
-        content: "会话 B",
-        timestamp: 2,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-b",
+          content: "会话 B",
+          timestamp: 2,
+        },
+      ],
     });
     await switchB;
 
     loadA.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-a",
-        content: "会话 A",
-        timestamp: 1,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-a",
+          content: "会话 A",
+          timestamp: 1,
+        },
+      ],
     });
     await switchA;
 
@@ -186,7 +192,7 @@ describe("chatStore switchThread", () => {
     const loadA = deferred<{ items: Array<Record<string, unknown>> }>();
     const loadB = deferred<{ items: Array<Record<string, unknown>> }>();
     ipcMocks.loadThread.mockImplementation((threadId: string) =>
-      threadId === "thread-a" ? loadA.promise : loadB.promise
+      threadId === "thread-a" ? loadA.promise : loadB.promise,
     );
 
     const switchA = useChatStore.getState().switchThread("thread-a");
@@ -207,24 +213,28 @@ describe("chatStore switchThread", () => {
     ipcMocks.newThread.mockResolvedValue({ success: true });
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const switchA = useChatStore.getState().switchThread("thread-a");
     await useChatStore.getState().createNewThread("D:\\work");
 
     loadA.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-a",
-        content: "会话 A",
-        timestamp: 1,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-a",
+          content: "会话 A",
+          timestamp: 1,
+        },
+      ],
     });
     await switchA;
 
@@ -240,24 +250,28 @@ describe("chatStore switchThread", () => {
     ipcMocks.listThreads.mockResolvedValue([]);
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const switchA = useChatStore.getState().switchThread("thread-a");
     await useChatStore.getState().deleteThread("thread-current");
 
     loadA.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-a",
-        content: "会话 A",
-        timestamp: 1,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-a",
+          content: "会话 A",
+          timestamp: 1,
+        },
+      ],
     });
     await switchA;
 
@@ -272,24 +286,28 @@ describe("chatStore switchThread", () => {
     ipcMocks.listThreads.mockResolvedValue([]);
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const switchA = useChatStore.getState().switchThread("thread-a");
     await useChatStore.getState().deleteThread("thread-a");
 
     loadA.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-a",
-        content: "会话 A",
-        timestamp: 1,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-a",
+          content: "会话 A",
+          timestamp: 1,
+        },
+      ],
     });
     await switchA;
 
@@ -306,24 +324,28 @@ describe("chatStore switchThread", () => {
     ipcMocks.listThreads.mockResolvedValue([]);
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const switchA = useChatStore.getState().switchThread("thread-a");
     await useChatStore.getState().deleteThread("thread-b");
 
     loadA.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-a",
-        content: "会话 A",
-        timestamp: 1,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-a",
+          content: "会话 A",
+          timestamp: 1,
+        },
+      ],
     });
     await switchA;
 
@@ -337,12 +359,14 @@ describe("chatStore switchThread", () => {
     const createRequest = deferred<{ success: boolean }>();
     ipcMocks.newThread.mockReturnValue(createRequest.promise);
     ipcMocks.loadThread.mockResolvedValue({
-      items: [{
-        type: "assistant_message",
-        id: "message-b",
-        content: "会话 B",
-        timestamp: 2,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-b",
+          content: "会话 B",
+          timestamp: 2,
+        },
+      ],
     });
 
     const createThread = useChatStore.getState().createNewThread("D:\\work");
@@ -363,21 +387,25 @@ describe("chatStore switchThread", () => {
     ipcMocks.deleteThread.mockReturnValue(deleteRequest.promise);
     ipcMocks.listThreads.mockResolvedValue([]);
     ipcMocks.loadThread.mockResolvedValue({
-      items: [{
-        type: "assistant_message",
-        id: "message-b",
-        content: "会话 B",
-        timestamp: 2,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-b",
+          content: "会话 B",
+          timestamp: 2,
+        },
+      ],
     });
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const deleteCurrent = useChatStore.getState().deleteThread("thread-current");
@@ -398,21 +426,25 @@ describe("chatStore switchThread", () => {
     ipcMocks.deleteThread.mockReturnValue(deleteRequest.promise);
     ipcMocks.listThreads.mockResolvedValue([]);
     ipcMocks.loadThread.mockResolvedValue({
-      items: [{
-        type: "assistant_message",
-        id: "message-b",
-        content: "会话 B",
-        timestamp: 2,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-b",
+          content: "会话 B",
+          timestamp: 2,
+        },
+      ],
     });
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const deleteB = useChatStore.getState().deleteThread("thread-b");
@@ -433,12 +465,14 @@ describe("chatStore switchThread", () => {
     ipcMocks.loadThread.mockReturnValue(loadB.promise);
     useChatStore.setState({
       activeThreadId: "thread-current",
-      messages: [{
-        type: "assistant_message",
-        id: "message-current",
-        content: "当前会话",
-        timestamp: 0,
-      }],
+      messages: [
+        {
+          type: "assistant_message",
+          id: "message-current",
+          content: "当前会话",
+          timestamp: 0,
+        },
+      ],
     });
 
     const deleteB = useChatStore.getState().deleteThread("thread-b");
@@ -447,12 +481,14 @@ describe("chatStore switchThread", () => {
     deleteRequest.resolve({ success: true });
     await deleteB;
     loadB.resolve({
-      items: [{
-        type: "assistant_message",
-        id: "message-b",
-        content: "会话 B",
-        timestamp: 2,
-      }],
+      items: [
+        {
+          type: "assistant_message",
+          id: "message-b",
+          content: "会话 B",
+          timestamp: 2,
+        },
+      ],
     });
     await switchB;
 
@@ -493,12 +529,14 @@ describe("chatStore stream delta handling", () => {
   });
 
   it("merges adjacent buffered stream deltas before updating store state", () => {
-    expect(mergeBufferedStreamDeltas([
-      { delta: "思", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
-      { delta: "考", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
-      { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "thread-1" },
-      { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "thread-1" },
-    ])).toEqual([
+    expect(
+      mergeBufferedStreamDeltas([
+        { delta: "思", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
+        { delta: "考", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
+        { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "thread-1" },
+        { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "thread-1" },
+      ]),
+    ).toEqual([
       { delta: "思考", itemType: "reasoning", roundId: 1, threadId: "thread-1" },
       { delta: "正文", itemType: "assistant_message", roundId: 1, threadId: "thread-1" },
       { delta: "新轮", itemType: "reasoning", roundId: 2, threadId: "thread-1" },
@@ -525,9 +563,11 @@ describe("chatStore interruptTurn", () => {
 
   it("keeps the conversation locked until the interrupt IPC confirms completion", async () => {
     let resolveInterrupt!: (value: { success: boolean }) => void;
-    ipcMocks.interrupt.mockReturnValue(new Promise((resolve) => {
-      resolveInterrupt = resolve;
-    }));
+    ipcMocks.interrupt.mockReturnValue(
+      new Promise((resolve) => {
+        resolveInterrupt = resolve;
+      }),
+    );
 
     const interruptResult = useChatStore.getState().interruptTurn();
     useChatStore.getState().handleAgentEvent({
@@ -592,9 +632,11 @@ describe("chatStore interruptTurn", () => {
 
   it("does not unlock a different thread selected while interrupt is pending", async () => {
     let resolveInterrupt!: (value: { success: boolean }) => void;
-    ipcMocks.interrupt.mockReturnValue(new Promise((resolve) => {
-      resolveInterrupt = resolve;
-    }));
+    ipcMocks.interrupt.mockReturnValue(
+      new Promise((resolve) => {
+        resolveInterrupt = resolve;
+      }),
+    );
 
     const interruptResult = useChatStore.getState().interruptTurn();
     useChatStore.setState({

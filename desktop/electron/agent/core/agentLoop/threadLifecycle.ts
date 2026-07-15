@@ -32,17 +32,18 @@ export async function createAgentThread(params: StartThreadParams): Promise<Thre
   const thread = await params.sessionStore.createThread(
     params.aiConfig.provider,
     params.aiConfig.model,
-    params.folderId
+    params.folderId,
   );
   const compactionConfig = params.compactionConfig ?? DEFAULT_COMPACTION_CONFIG;
-  thread.metadata.contextWindowSize = compactionConfig.contextWindowSize || params.aiConfig.contextWindowSize || 128_000;
+  thread.metadata.contextWindowSize =
+    compactionConfig.contextWindowSize || params.aiConfig.contextWindowSize || 128_000;
   thread.metadata.compHash = resolveModelCompHash(params.aiConfig);
   return thread;
 }
 
 export async function loadAgentThread(
   sessionStore: SessionStore,
-  threadId: ThreadId
+  threadId: ThreadId,
 ): Promise<ResumeThreadResult | null> {
   const thread = await sessionStore.loadThread(threadId);
   if (!thread) return null;

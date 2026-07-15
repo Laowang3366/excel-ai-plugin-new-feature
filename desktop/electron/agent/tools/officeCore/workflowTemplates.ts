@@ -37,7 +37,10 @@ export async function saveOfficeWorkflowTemplate(input: {
   return template;
 }
 
-export async function getOfficeWorkflowTemplate(root: string, idOrName: string): Promise<OfficeWorkflowTemplate> {
+export async function getOfficeWorkflowTemplate(
+  root: string,
+  idOrName: string,
+): Promise<OfficeWorkflowTemplate> {
   const byId = isUuid(idOrName) ? await readTemplate(root, idOrName) : undefined;
   if (byId) return byId;
   const byName = (await listOfficeWorkflowTemplates(root)).find((item) => item.name === idOrName);
@@ -48,10 +51,22 @@ export async function getOfficeWorkflowTemplate(root: string, idOrName: string):
 export async function listOfficeWorkflowTemplates(root: string): Promise<OfficeWorkflowTemplate[]> {
   const directory = templateRoot(root);
   let names: string[];
-  try { names = await readdir(directory); } catch { return []; }
-  const templates = await Promise.all(names.filter((name) => name.endsWith(".json")).map(async (name) => {
-    try { return await readTemplate(root, path.basename(name, ".json")); } catch { return undefined; }
-  }));
+  try {
+    names = await readdir(directory);
+  } catch {
+    return [];
+  }
+  const templates = await Promise.all(
+    names
+      .filter((name) => name.endsWith(".json"))
+      .map(async (name) => {
+        try {
+          return await readTemplate(root, path.basename(name, ".json"));
+        } catch {
+          return undefined;
+        }
+      }),
+  );
   return templates
     .filter((item): item is OfficeWorkflowTemplate => Boolean(item))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -60,8 +75,12 @@ export async function listOfficeWorkflowTemplates(root: string): Promise<OfficeW
 export async function deleteOfficeWorkflowTemplate(root: string, id: string): Promise<boolean> {
   validateId(id);
   const filePath = templatePath(root, id);
-  try { await rm(filePath); return true; } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return false;
+  try {
+    await rm(filePath);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
+      return false;
     throw error;
   }
 }
@@ -79,11 +98,15 @@ async function writeTemplate(root: string, template: OfficeWorkflowTemplate): Pr
 async function readTemplate(root: string, id: string): Promise<OfficeWorkflowTemplate | undefined> {
   validateId(id);
   try {
-    const template = JSON.parse(await readFile(templatePath(root, id), "utf8")) as OfficeWorkflowTemplate;
-    if (template.id !== id || !template.name || !Array.isArray(template.steps)) throw new Error("Office 工作流模板已损坏");
+    const template = JSON.parse(
+      await readFile(templatePath(root, id), "utf8"),
+    ) as OfficeWorkflowTemplate;
+    if (template.id !== id || !template.name || !Array.isArray(template.steps))
+      throw new Error("Office 工作流模板已损坏");
     return template;
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return undefined;
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
+      return undefined;
     throw error;
   }
 }

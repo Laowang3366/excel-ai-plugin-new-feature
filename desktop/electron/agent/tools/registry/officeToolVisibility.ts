@@ -26,7 +26,10 @@ export function filterToolDefinitionsForTurn(
         buildParamsDescription(allowPowerQuery, allowPivot),
       );
     }
-    if (definition.name === "office.action.inspect" || definition.name === "office.action.validate") {
+    if (
+      definition.name === "office.action.inspect" ||
+      definition.name === "office.action.validate"
+    ) {
       return withOperationVisibility(
         definition,
         filterAdvancedOperations(INSPECT_OPERATIONS, allowPowerQuery, allowPivot),
@@ -53,21 +56,22 @@ function withOperationVisibility(
   const params = asSchema(properties.params);
   return {
     ...definition,
-    parameters: withOfficeOperationDiscriminator({
-      ...definition.parameters,
-      properties: {
-        ...properties,
-        operation: {
-          ...operation,
-          type: "string",
-          enum: operations,
-          description: `本轮允许的 operation：${operations.join("、")}`,
+    parameters: withOfficeOperationDiscriminator(
+      {
+        ...definition.parameters,
+        properties: {
+          ...properties,
+          operation: {
+            ...operation,
+            type: "string",
+            enum: operations,
+            description: `本轮允许的 operation：${operations.join("、")}`,
+          },
+          ...(paramsDescription ? { params: { ...params, description: paramsDescription } } : {}),
         },
-        ...(paramsDescription
-          ? { params: { ...params, description: paramsDescription } }
-          : {}),
       },
-    }, operations),
+      operations,
+    ),
   };
 }
 
@@ -90,19 +94,22 @@ function withWorkflowOperationVisibility(
         ...properties,
         steps: {
           ...steps,
-          items: withOfficeOperationDiscriminator({
-            ...item,
-            properties: {
-              ...itemProperties,
-              operation: {
-                ...operation,
-                type: "string",
-                enum: operations,
-                description: `本轮工作流允许的 operation：${operations.join("、")}`,
+          items: withOfficeOperationDiscriminator(
+            {
+              ...item,
+              properties: {
+                ...itemProperties,
+                operation: {
+                  ...operation,
+                  type: "string",
+                  enum: operations,
+                  description: `本轮工作流允许的 operation：${operations.join("、")}`,
+                },
+                params: { ...params, description: paramsDescription },
               },
-              params: { ...params, description: paramsDescription },
             },
-          }, operations),
+            operations,
+          ),
         },
       },
     },
@@ -136,6 +143,6 @@ function buildParamsDescription(allowPowerQuery: boolean, allowPivot: boolean): 
 
 function asSchema(value: unknown): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, any>
+    ? (value as Record<string, any>)
     : {};
 }

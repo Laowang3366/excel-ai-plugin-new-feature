@@ -9,7 +9,8 @@ import type { ToolDefinition } from "../../shared/types";
 /** 读取范围数据 */
 const RANGE_READ_DEF: ToolDefinition = {
   name: "range.read",
-  description: "【只读】读取单元格数据，默认返回二维数组。单单元格读取且省略 expand 时会自动探测并返回完整动态数组溢出区，也可显式传 expand:\"spill\"；明确传 expand:\"none\" 可强制只读指定单元格。读取连续结果区可传 expand:\"currentRegion\"。注意：此工具不能写入或修改任何数据，写入请用 range.write",
+  description:
+    '【只读】读取单元格数据，默认返回二维数组。单单元格读取且省略 expand 时会自动探测并返回完整动态数组溢出区，也可显式传 expand:"spill"；明确传 expand:"none" 可强制只读指定单元格。读取连续结果区可传 expand:"currentRegion"。注意：此工具不能写入或修改任何数据，写入请用 range.write',
   parameters: {
     type: "object",
     properties: {
@@ -18,7 +19,8 @@ const RANGE_READ_DEF: ToolDefinition = {
       expand: {
         type: "string",
         enum: ["none", "spill", "currentArray", "currentRegion"],
-        description: "可选扩展读取模式。省略时单单元格自动探测 spill；none=只读指定范围；spill=从锚点读取动态数组溢出区；currentArray=读取传统数组区域；currentRegion=读取当前连续区域",
+        description:
+          "可选扩展读取模式。省略时单单元格自动探测 spill；none=只读指定范围；spill=从锚点读取动态数组溢出区；currentArray=读取传统数组区域；currentRegion=读取当前连续区域",
       },
     },
     required: ["sheetName", "range"],
@@ -30,7 +32,8 @@ const RANGE_READ_DEF: ToolDefinition = {
 /** 写入范围数据 */
 const RANGE_WRITE_DEF: ToolDefinition = {
   name: "range.write",
-  description: "【写入】向单元格写入数据或公式。用途：填入计算值、写入公式、批量更新单元格。参数 values 为二维数组（行×列），写入公式时以=开头。注意：此工具只能写入，不能读取，读取请用 range.read",
+  description:
+    "【写入】向单元格写入数据或公式。用途：填入计算值、写入公式、批量更新单元格。参数 values 为二维数组（行×列），写入公式时以=开头。注意：此工具只能写入，不能读取，读取请用 range.read",
   parameters: {
     type: "object",
     properties: {
@@ -43,7 +46,8 @@ const RANGE_WRITE_DEF: ToolDefinition = {
       },
       legacyCse: {
         type: "boolean",
-        description: "仅当用户明确要求传统 Ctrl+Shift+Enter 数组公式时设为 true；现代动态数组不得使用",
+        description:
+          "仅当用户明确要求传统 Ctrl+Shift+Enter 数组公式时设为 true；现代动态数组不得使用",
       },
     },
     required: ["sheetName", "range", "values"],
@@ -72,7 +76,8 @@ const RANGE_CLEAR_DEF: ToolDefinition = {
 /** 获取选区信息 */
 const SELECTION_GET_DEF: ToolDefinition = {
   name: "selection.get",
-  description: "获取用户当前在 Excel/WPS 中选中的单元格范围和内容，返回地址、数据和工作表名。用于了解用户操作上下文，无需猜测用户要操作的区域",
+  description:
+    "获取用户当前在 Excel/WPS 中选中的单元格范围和内容，返回地址、数据和工作表名。用于了解用户操作上下文，无需猜测用户要操作的区域",
   parameters: {
     type: "object",
     properties: {},

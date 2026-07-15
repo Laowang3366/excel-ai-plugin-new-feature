@@ -1,9 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  buildImageDataUri,
-  formatAttachmentSize,
-  guessImageMimeType,
-} from "./attachmentPreview";
+import { buildImageDataUri, formatAttachmentSize, guessImageMimeType } from "./attachmentPreview";
 
 describe("attachment preview helpers", () => {
   test("guesses image mime type from file extension", () => {
@@ -14,8 +10,12 @@ describe("attachment preview helpers", () => {
 
   test("builds a browser-ready data URI", () => {
     expect(buildImageDataUri("AAAA", "image/png", "image.png")).toBe("data:image/png;base64,AAAA");
-    expect(buildImageDataUri("BBBB", "application/octet-stream", "scan.jpg")).toBe("data:image/jpeg;base64,BBBB");
-    expect(buildImageDataUri("data:image/gif;base64,CCCC", "image/gif")).toBe("data:image/gif;base64,CCCC");
+    expect(buildImageDataUri("BBBB", "application/octet-stream", "scan.jpg")).toBe(
+      "data:image/jpeg;base64,BBBB",
+    );
+    expect(buildImageDataUri("data:image/gif;base64,CCCC", "image/gif")).toBe(
+      "data:image/gif;base64,CCCC",
+    );
   });
 
   test("formats attachment sizes compactly", () => {

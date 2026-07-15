@@ -285,23 +285,26 @@ describe("addOfficeExecutors", () => {
       params: { rowFields: ["Department"] },
       expected: "interactive-pivot",
     },
-  ])("rejects advanced Excel operation $operation without an explicit advanced intent", async ({ operation, target: actionTarget, params, expected }) => {
-    const officeActionBridge: OfficeActionBridge = { executeAction: vi.fn() };
-    const target = createTarget({ officeActionBridge });
+  ])(
+    "rejects advanced Excel operation $operation without an explicit advanced intent",
+    async ({ operation, target: actionTarget, params, expected }) => {
+      const officeActionBridge: OfficeActionBridge = { executeAction: vi.fn() };
+      const target = createTarget({ officeActionBridge });
 
-    const result = await target.get("office.action.apply")!.execute({
-      app: "excel",
-      action: "insert",
-      operation,
-      filePath: "C:/tmp/book.xlsx",
-      target: actionTarget,
-      params,
-    });
+      const result = await target.get("office.action.apply")!.execute({
+        app: "excel",
+        action: "insert",
+        operation,
+        filePath: "C:/tmp/book.xlsx",
+        target: actionTarget,
+        params,
+      });
 
-    expect(result).toMatchObject({ success: false });
-    expect(result.error).toContain(expected);
-    expect(officeActionBridge.executeAction).not.toHaveBeenCalled();
-  });
+      expect(result).toMatchObject({ success: false });
+      expect(result.error).toContain(expected);
+      expect(officeActionBridge.executeAction).not.toHaveBeenCalled();
+    },
+  );
 
   it("allows a fully declared external refreshable Power Query request", async () => {
     const officeActionBridge: OfficeActionBridge = {
@@ -318,7 +321,7 @@ describe("addOfficeExecutors", () => {
       advancedIntent: "refreshable-etl",
       sourceKind: "external",
       name: "SalesImport",
-      mFormula: "let Source = Csv.Document(File.Contents(\"C:/data/sales.csv\")) in Source",
+      mFormula: 'let Source = Csv.Document(File.Contents("C:/data/sales.csv")) in Source',
       loadMode: "worksheet",
       destination: "QueryOutput!A1",
     };

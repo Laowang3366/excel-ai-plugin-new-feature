@@ -1,5 +1,9 @@
 import { DotNetExcelBridge } from "../officeWorker/dotNetExcelBridge";
-import { DotNetJsaBridge, DotNetUiBridge, DotNetVbaBridge } from "../officeWorker/dotNetMacroBridges";
+import {
+  DotNetJsaBridge,
+  DotNetUiBridge,
+  DotNetVbaBridge,
+} from "../officeWorker/dotNetMacroBridges";
 import { DotNetPresentationBridge, DotNetWordBridge } from "../officeWorker/dotNetDocumentBridges";
 import { DotNetOpenXmlBridge } from "../officeWorker/dotNetOpenXmlBridge";
 import { disposeOfficeWorkerClient } from "../officeWorker/officeWorkerClient";
@@ -116,9 +120,12 @@ export async function disconnectOfficeBridges(): Promise<void> {
   const results = await Promise.allSettled(cleanupTasks);
   for (const result of results) {
     if (result.status === "rejected") {
-      bridgeRegistryLogger.warn("Office bridge cleanup failed", result.reason instanceof Error
-        ? { message: result.reason.message, stack: result.reason.stack }
-        : { reason: String(result.reason) });
+      bridgeRegistryLogger.warn(
+        "Office bridge cleanup failed",
+        result.reason instanceof Error
+          ? { message: result.reason.message, stack: result.reason.stack }
+          : { reason: String(result.reason) },
+      );
     }
   }
   await disposeOfficeWorkerClient();

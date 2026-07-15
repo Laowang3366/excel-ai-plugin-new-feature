@@ -272,7 +272,11 @@ export async function ensureKnowledgeRuntime(
   dataRoot: string,
   isRemoteDataProcessingEnabled: () => boolean = () => false,
 ): Promise<KnowledgeRuntimeState> {
-  const knowledge = await initializeKnowledgeRuntime(aiConfig, dataRoot, isRemoteDataProcessingEnabled);
+  const knowledge = await initializeKnowledgeRuntime(
+    aiConfig,
+    dataRoot,
+    isRemoteDataProcessingEnabled,
+  );
   if (runtime) {
     runtime.knowledge = knowledge;
   }

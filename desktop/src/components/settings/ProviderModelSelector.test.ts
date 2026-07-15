@@ -6,8 +6,12 @@ import { getProviderModelSelectorKind, ProviderModelSelector } from "./ProviderM
 
 describe("ProviderModelSelector", () => {
   it("chooses the selector kind from provider model capabilities", () => {
-    expect(getProviderModelSelectorKind({ isAggregation: true, modelOptions: [] })).toBe("aggregation");
-    expect(getProviderModelSelectorKind({ isAggregation: false, modelOptions: ["gpt-5"] })).toBe("select");
+    expect(getProviderModelSelectorKind({ isAggregation: true, modelOptions: [] })).toBe(
+      "aggregation",
+    );
+    expect(getProviderModelSelectorKind({ isAggregation: false, modelOptions: ["gpt-5"] })).toBe(
+      "select",
+    );
     expect(getProviderModelSelectorKind({ isAggregation: false, modelOptions: [] })).toBe("input");
   });
 
@@ -20,7 +24,7 @@ describe("ProviderModelSelector", () => {
         modelConfigs: [{ name: "deepseek-r1" }, { name: "qwen-max" }],
         noModelLabel: "No model",
         showEmptyOption: true,
-      })
+      }),
     );
 
     expect(html).toContain("-- No model --");
@@ -37,7 +41,7 @@ describe("ProviderModelSelector", () => {
         modelOptions: ["gpt-5"],
         noModelLabel: "No model",
         preserveCurrentValue: true,
-      })
+      }),
     );
 
     expect(html).toContain("gpt-5");

@@ -2,10 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { FileBarChart, FolderOpen, Ruler, X } from "../common/IconMap";
 import { ipcApi } from "../../services/ipcApi";
 import { pickExcelRange } from "../../utils/chatHelpers";
-import {
-  buildReportTaskPayload,
-  type ReportOutputFormat,
-} from "../../utils/taskComposerPayloads";
+import { buildReportTaskPayload, type ReportOutputFormat } from "../../utils/taskComposerPayloads";
 
 export interface ReportTaskDraft {
   range: string;
@@ -37,7 +34,9 @@ export const ReportTaskComposerPanel: React.FC<ReportTaskComposerPanelProps> = (
 }) => {
   const [range, setRange] = useState(draft?.range ?? "");
   const [task, setTask] = useState(draft?.task ?? "");
-  const [outputFormat, setOutputFormat] = useState<ReportOutputFormat>(draft?.outputFormat ?? "excel");
+  const [outputFormat, setOutputFormat] = useState<ReportOutputFormat>(
+    draft?.outputFormat ?? "excel",
+  );
   const [storagePath, setStoragePath] = useState(draft?.storagePath ?? "桌面");
 
   useEffect(() => {
@@ -66,12 +65,14 @@ export const ReportTaskComposerPanel: React.FC<ReportTaskComposerPanelProps> = (
   }, []);
 
   const handleSubmit = () => {
-    onSubmit(buildReportTaskPayload({
-      range,
-      task,
-      outputFormat,
-      storagePath,
-    }));
+    onSubmit(
+      buildReportTaskPayload({
+        range,
+        task,
+        outputFormat,
+        storagePath,
+      }),
+    );
   };
 
   return (

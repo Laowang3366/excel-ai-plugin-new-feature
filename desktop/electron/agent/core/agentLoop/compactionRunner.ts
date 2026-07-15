@@ -8,10 +8,7 @@ import type {
   Turn,
   TurnItem,
 } from "../../shared/types";
-import {
-  historyToCompactPrompt,
-  performCompaction,
-} from "../../memory/compaction";
+import { historyToCompactPrompt, performCompaction } from "../../memory/compaction";
 import type { SessionStore } from "../../memory/sessionStore";
 
 export interface CompactionRunnerDependencies {
@@ -22,21 +19,21 @@ export interface CompactionRunnerDependencies {
     threadId: ThreadId,
     reason: CompactionReason,
     items: TurnItem[],
-    callbacks: AgentTurnCallbacks
+    callbacks: AgentTurnCallbacks,
   ) => Promise<CompactProgressItem>;
   completeCompactionProgress: (
     progress: CompactProgressItem,
     tokensBefore: number,
     tokensAfter: number,
     summary: string,
-    callbacks: AgentTurnCallbacks
+    callbacks: AgentTurnCallbacks,
   ) => void;
   failCompactionProgress: (
     threadId: ThreadId,
     progress: CompactProgressItem,
     items: TurnItem[],
     error: unknown,
-    callbacks: AgentTurnCallbacks
+    callbacks: AgentTurnCallbacks,
   ) => Promise<void>;
   archiveRolloutIfConfigured: (threadId: ThreadId) => Promise<void>;
   setCompactedHistory: (history: TurnItem[]) => void;
@@ -59,13 +56,19 @@ export async function runAutoCompaction(input: {
     thread.metadata.threadId,
     reason,
     allItems,
-    callbacks
+    callbacks,
   );
   let summary: string;
   try {
     summary = await deps.generateCompactionSummary(prompt);
   } catch (error) {
-    await deps.failCompactionProgress(thread.metadata.threadId, progress, allItems, error, callbacks);
+    await deps.failCompactionProgress(
+      thread.metadata.threadId,
+      progress,
+      allItems,
+      error,
+      callbacks,
+    );
     throw error;
   }
 
@@ -73,7 +76,7 @@ export async function runAutoCompaction(input: {
     allItems,
     summary,
     reason,
-    deps.compactionConfig
+    deps.compactionConfig,
   );
   deps.setCompactedHistory(newHistory);
   thread.turns = [];
@@ -128,10 +131,10 @@ export async function runMidTurnCompaction(input: {
     allItems,
     summary,
     "auto_token_limit",
-    deps.compactionConfig
+    deps.compactionConfig,
   );
   deps.setCompactedHistory(
-    newHistory.filter((item) => item.type !== "user_message" || !currentUserItemIds.has(item.id))
+    newHistory.filter((item) => item.type !== "user_message" || !currentUserItemIds.has(item.id)),
   );
   turn.items = currentUserItems;
 
@@ -210,7 +213,7 @@ function emitCompletedCompaction(input: {
     input.tokensBefore,
     input.tokensAfter,
     input.summary,
-    input.callbacks
+    input.callbacks,
   );
   input.callbacks.onEvent({
     type: "context_compacted",

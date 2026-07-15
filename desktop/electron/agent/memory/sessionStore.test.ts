@@ -14,10 +14,7 @@ import * as zlib from "zlib";
 import { describe, it, expect } from "vitest";
 import { SessionStore } from "./sessionStore";
 import { StateRuntimeStore } from "./stateRuntimeStore";
-import type {
-  ThreadId,
-  TurnItem,
-} from "../shared/types";
+import type { ThreadId, TurnItem } from "../shared/types";
 
 /**
  * 通过反射调用 parseRolloutContent（private 方法）
@@ -25,10 +22,10 @@ import type {
 function parseRollout(
   store: SessionStore,
   content: string,
-  threadId: ThreadId
-): ReturnType<typeof store["parseRolloutContent"]> {
+  threadId: ThreadId,
+): ReturnType<(typeof store)["parseRolloutContent"]> {
   type RolloutParser = {
-    parseRolloutContent: typeof store["parseRolloutContent"];
+    parseRolloutContent: (typeof store)["parseRolloutContent"];
   };
   return (store as unknown as RolloutParser).parseRolloutContent(content, threadId);
 }
@@ -77,7 +74,10 @@ describe("parseRolloutContent — compacted 记录恢复", () => {
   it("should set metadata.compactedHistory from compacted record", () => {
     const replacementHistory: TurnItem[] = [summaryItem];
     const content = [
-      jsonLine({ type: "session_meta", meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" } }),
+      jsonLine({
+        type: "session_meta",
+        meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" },
+      }),
       jsonLine({ type: "turn_context", turnId: "turn-1", cwd: "/" }),
       jsonLine({ type: "turn_item", turnId: "turn-1", item: userMsg }),
       jsonLine({ type: "turn_item", turnId: "turn-1", item: assistantMsg }),
@@ -93,7 +93,10 @@ describe("parseRolloutContent — compacted 记录恢复", () => {
   it("should discard pre-compaction turns and keep post-compaction turns", () => {
     const replacementHistory: TurnItem[] = [summaryItem];
     const content = [
-      jsonLine({ type: "session_meta", meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" } }),
+      jsonLine({
+        type: "session_meta",
+        meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" },
+      }),
       // Turn 1 — should be discarded
       jsonLine({ type: "turn_context", turnId: "turn-1", cwd: "/" }),
       jsonLine({ type: "turn_item", turnId: "turn-1", item: userMsg }),
@@ -118,7 +121,10 @@ describe("parseRolloutContent — compacted 记录恢复", () => {
     const firstSummary: TurnItem[] = [{ ...summaryItem, content: "[compacted] First" }];
     const secondSummary: TurnItem[] = [{ ...summaryItem, content: "[compacted] Second (latest)" }];
     const content = [
-      jsonLine({ type: "session_meta", meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" } }),
+      jsonLine({
+        type: "session_meta",
+        meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" },
+      }),
       // Turn 1 — pre-first-compaction
       jsonLine({ type: "turn_context", turnId: "turn-1", cwd: "/" }),
       jsonLine({ type: "turn_item", turnId: "turn-1", item: userMsg }),
@@ -140,7 +146,10 @@ describe("parseRolloutContent — compacted 记录恢复", () => {
 
   it("should handle session with no compaction (backward compatible)", () => {
     const content = [
-      jsonLine({ type: "session_meta", meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" } }),
+      jsonLine({
+        type: "session_meta",
+        meta: { id: threadId, timestamp: new Date().toISOString(), modelProvider: "test" },
+      }),
       jsonLine({ type: "turn_context", turnId: "turn-1", cwd: "/" }),
       jsonLine({ type: "turn_item", turnId: "turn-1", item: userMsg }),
       jsonLine({ type: "turn_item", turnId: "turn-1", item: assistantMsg }),
@@ -186,20 +195,28 @@ describe("SessionStore rollout writer", () => {
     try {
       const sourcePath = path.join(tempDir, "2026", "06", "28", "rollout-old-thread-store.jsonl");
       await mkdir(path.dirname(sourcePath), { recursive: true });
-      await writeFile(`${sourcePath}.zst`, await zstdCompress(Buffer.from(`${JSON.stringify({
-        timestamp: "2026-06-28T00:00:00.000Z",
-        item: {
-          type: "turn_item",
-          turnId: "turn-store",
-          item: {
-            type: "assistant_message",
-            id: "msg-store",
-            phase: "final",
-            content: "compressed archive search facade",
-            timestamp: 100,
-          },
-        },
-      })}\n`, "utf-8")));
+      await writeFile(
+        `${sourcePath}.zst`,
+        await zstdCompress(
+          Buffer.from(
+            `${JSON.stringify({
+              timestamp: "2026-06-28T00:00:00.000Z",
+              item: {
+                type: "turn_item",
+                turnId: "turn-store",
+                item: {
+                  type: "assistant_message",
+                  id: "msg-store",
+                  phase: "final",
+                  content: "compressed archive search facade",
+                  timestamp: 100,
+                },
+              },
+            })}\n`,
+            "utf-8",
+          ),
+        ),
+      );
 
       const store = new SessionStore(tempDir);
       const matches = await store.searchRolloutMatches("archive search", { limit: 5 });
@@ -270,9 +287,14 @@ describe("SessionStore rollout writer", () => {
 });
 
 async function zstdCompress(content: Buffer): Promise<Buffer> {
-  const compress = (zlib as typeof zlib & {
-    zstdCompress?: (buffer: Buffer, callback: (error: Error | null, result: Buffer) => void) => void;
-  }).zstdCompress;
+  const compress = (
+    zlib as typeof zlib & {
+      zstdCompress?: (
+        buffer: Buffer,
+        callback: (error: Error | null, result: Buffer) => void,
+      ) => void;
+    }
+  ).zstdCompress;
   if (!compress) {
     throw new Error("当前 Node 运行时不支持 zstd 压缩");
   }

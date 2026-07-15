@@ -9,12 +9,7 @@
  * 和纯向量搜索（关键词匹配不到时）。
  */
 
-import type {
-  KnowledgeEntry,
-  KnowledgeQuery,
-  KnowledgeResult,
-  KnowledgeSourceType,
-} from "./types";
+import type { KnowledgeEntry, KnowledgeQuery, KnowledgeResult, KnowledgeSourceType } from "./types";
 import { SqliteStore } from "./sqliteStore";
 import { EmbeddingService, type EmbeddingProfile } from "./embeddingService";
 
@@ -42,11 +37,7 @@ export class Retriever {
   private embedder: EmbeddingService;
   private options: Required<RetrieverOptions>;
 
-  constructor(
-    store: SqliteStore,
-    embedder: EmbeddingService,
-    options?: RetrieverOptions
-  ) {
+  constructor(store: SqliteStore, embedder: EmbeddingService, options?: RetrieverOptions) {
     this.store = store;
     this.embedder = embedder;
     this.options = {
@@ -81,7 +72,11 @@ export class Retriever {
     }
 
     // 2. 向量搜索
-    const filter: { sourceFilter?: string[]; pathFilter?: string[]; embeddingProfile?: EmbeddingProfile } = {
+    const filter: {
+      sourceFilter?: string[];
+      pathFilter?: string[];
+      embeddingProfile?: EmbeddingProfile;
+    } = {
       embeddingProfile: this.embedder.getProfile(),
     };
     if (query.sourceFilter && query.sourceFilter.length > 0) {
@@ -114,7 +109,7 @@ export class Retriever {
   searchByKeywords(
     keywords: string[],
     topK?: number,
-    filter?: { sourceFilter?: KnowledgeSourceType[]; pathFilter?: string[] }
+    filter?: { sourceFilter?: KnowledgeSourceType[]; pathFilter?: string[] },
   ): KnowledgeEntry[] {
     const k = topK || this.options.defaultTopK;
     return this.store.searchByKeyword(keywords, k, filter);
@@ -140,9 +135,7 @@ export class Retriever {
 
       if (!seen.has(sourceKey)) {
         seen.add(sourceKey);
-        const sheetInfo = entry.metadata?.sheetName
-          ? ` → ${entry.metadata.sheetName}`
-          : "";
+        const sheetInfo = entry.metadata?.sheetName ? ` → ${entry.metadata.sheetName}` : "";
         lines.push(`\n📄 ${entry.sourceName}${sheetInfo}`);
       }
 
@@ -171,19 +164,15 @@ export class Retriever {
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       const entry = r.entry;
-      const sheetInfo = entry.metadata?.sheetName
-        ? ` (Sheet: ${entry.metadata.sheetName})`
-        : "";
-      const scoreLabel = r.score > 0
-        ? `相关度: ${(r.score * 100).toFixed(1)}%`
-        : "关键词匹配";
+      const sheetInfo = entry.metadata?.sheetName ? ` (Sheet: ${entry.metadata.sheetName})` : "";
+      const scoreLabel = r.score > 0 ? `相关度: ${(r.score * 100).toFixed(1)}%` : "关键词匹配";
 
       lines.push(`\n### 知识片段 ${i + 1}`);
       lines.push(`来源: [${entry.sourceName}]${sheetInfo} (${scoreLabel})`);
       lines.push(`   路径: ${entry.sourcePath}`);
       lines.push(
-        `内容:\n${entry.content.slice(0, TOOL_RESULT_EXCERPT_CHARS)}`
-        + `${entry.content.length > TOOL_RESULT_EXCERPT_CHARS ? "…" : ""}`,
+        `内容:\n${entry.content.slice(0, TOOL_RESULT_EXCERPT_CHARS)}` +
+          `${entry.content.length > TOOL_RESULT_EXCERPT_CHARS ? "…" : ""}`,
       );
     }
 

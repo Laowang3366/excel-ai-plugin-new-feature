@@ -4,13 +4,7 @@ const tseslint = require("typescript-eslint");
 
 module.exports = [
   {
-    ignores: [
-      "coverage/**",
-      "dist/**",
-      "dist-electron/**",
-      "node_modules/**",
-      "release/**",
-    ],
+    ignores: ["coverage/**", "dist/**", "dist-electron/**", "node_modules/**", "release/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

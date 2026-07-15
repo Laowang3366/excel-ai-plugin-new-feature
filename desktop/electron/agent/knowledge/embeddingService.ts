@@ -30,17 +30,17 @@ export interface EmbeddingProfile {
 }
 
 const PROVIDER_EMBEDDING_MODELS: Record<string, EmbeddingModelConfig> = {
-  openai:     { model: "text-embedding-3-small", dimensions: 1536 },
-  deepseek:   { model: "deepseek-embedding",     dimensions: 1024 },
-  zhipu:      { model: "embedding-2",            dimensions: 1024 },
-  kimi:       { model: "text-embedding-v1",      dimensions: 1024 },
-  xiaomi:     { model: "text-embedding-v1",      dimensions: 1024 },
-  baidu:      { model: "embedding-v1",           dimensions: 1024 },
-  aliyun:     { model: "text-embedding-v2",      dimensions: 1536 },
-  volcengine: { model: "text-embedding-v1",      dimensions: 1024 },
-  tencent:    { model: "text-embedding-v1",      dimensions: 1024 },
-  qwen:       { model: "text-embedding-v2",      dimensions: 1536 },
-  minimax:    { model: "text-embedding-v1",      dimensions: 1024 },
+  openai: { model: "text-embedding-3-small", dimensions: 1536 },
+  deepseek: { model: "deepseek-embedding", dimensions: 1024 },
+  zhipu: { model: "embedding-2", dimensions: 1024 },
+  kimi: { model: "text-embedding-v1", dimensions: 1024 },
+  xiaomi: { model: "text-embedding-v1", dimensions: 1024 },
+  baidu: { model: "embedding-v1", dimensions: 1024 },
+  aliyun: { model: "text-embedding-v2", dimensions: 1536 },
+  volcengine: { model: "text-embedding-v1", dimensions: 1024 },
+  tencent: { model: "text-embedding-v1", dimensions: 1024 },
+  qwen: { model: "text-embedding-v2", dimensions: 1536 },
+  minimax: { model: "text-embedding-v1", dimensions: 1024 },
 };
 
 const DEFAULT_EMBEDDING_CONFIG: EmbeddingModelConfig = {
@@ -111,8 +111,10 @@ export class EmbeddingService {
 
   constructor(config: EmbeddingServiceConfig) {
     this.config = config;
-    this.modelConfig = PROVIDER_EMBEDDING_MODELS[config.provider]
-      || { model: config.model || DEFAULT_EMBEDDING_CONFIG.model, dimensions: DEFAULT_EMBEDDING_CONFIG.dimensions };
+    this.modelConfig = PROVIDER_EMBEDDING_MODELS[config.provider] || {
+      model: config.model || DEFAULT_EMBEDDING_CONFIG.model,
+      dimensions: DEFAULT_EMBEDDING_CONFIG.dimensions,
+    };
     // 如果用户显式传了 model，优先使用
     if (config.model) {
       this.modelConfig = { ...this.modelConfig, model: config.model };
@@ -227,12 +229,11 @@ export class EmbeddingService {
    * 请求：{ input: string | string[], model: string }
    * 响应：{ data: [{ embedding: number[] }] }
    */
-  private async callEmbeddingAPI(
-    texts: string[]
-  ): Promise<Array<{ embedding: number[] }>> {
-    const enabled = typeof this.config.remoteDataProcessingEnabled === "function"
-      ? this.config.remoteDataProcessingEnabled()
-      : this.config.remoteDataProcessingEnabled === true;
+  private async callEmbeddingAPI(texts: string[]): Promise<Array<{ embedding: number[] }>> {
+    const enabled =
+      typeof this.config.remoteDataProcessingEnabled === "function"
+        ? this.config.remoteDataProcessingEnabled()
+        : this.config.remoteDataProcessingEnabled === true;
     assertRemoteDataProcessingAllowed({
       enabled,
       operation: "embedding",
@@ -259,9 +260,7 @@ export class EmbeddingService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Embedding API 请求失败 (${response.status}): ${formatApiError(errorText)}`
-      );
+      throw new Error(`Embedding API 请求失败 (${response.status}): ${formatApiError(errorText)}`);
     }
 
     const json: any = await response.json();
@@ -298,20 +297,22 @@ function formatApiError(errorText: string): string {
   if (!compact) return "空响应";
   try {
     const json = JSON.parse(errorText);
-    const message =
-      json?.error?.message
-      || json?.message
-      || json?.error
-      || JSON.stringify(json);
+    const message = json?.error?.message || json?.message || json?.error || JSON.stringify(json);
     if (typeof message === "string" && message.trim()) {
       return message.replace(/\s+/g, " ").trim().slice(0, 300);
     }
   } catch {
     // 不是 JSON 时继续按文本/HTML 处理。
   }
-  if (/<[a-z][\s\S]*>/i.test(errorText) || /data-component=|window\.|__NEXT_DATA__/i.test(compact)) {
+  if (
+    /<[a-z][\s\S]*>/i.test(errorText) ||
+    /data-component=|window\.|__NEXT_DATA__/i.test(compact)
+  ) {
     return "服务返回了网页内容，请检查 Embedding API 地址、模型名称，或该供应商是否支持 embeddings 接口";
   }
-  const withoutHtml = compact.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const withoutHtml = compact
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return (withoutHtml || compact).slice(0, 300);
 }
