@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印和公式替换规则的嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换和对象类型分支的嵌套字段也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -31,7 +31,7 @@
 | `inspectPowerQueries` | 读取查询公式、说明、连接和工作表/数据模型加载状态 | 可选 `name` |
 | `createPowerQuery` / `managePowerQuery` | 管理查询完整生命周期和加载目标 | `name`、`command`、`mFormula`、`loadMode`、`destination` |
 | `inspectCharts` / `formatChart` | 检查并深度编辑图表、系列、坐标轴和标签 | `chartName/index`、`series`、`axes`、`dataLabels`、区域和尺寸参数 |
-| `inspectWorkbookObjects` / `manageWorkbookObject` | 枚举并管理工作簿多类型对象 | `types`；或 `objectType`、`command` 及对象参数 |
+| `inspectWorkbookObjects` / `manageWorkbookObject` | 枚举基础工作簿对象；管理六种已实现对象 | 检查无业务参数；管理使用 `objectType`、`command` 及对应对象参数 |
 | `manageWorksheetObjects` | 旧版形状管理兼容入口 | `command`、`name` 及位置尺寸属性 |
 | `captureWorkbookTemplate` / `inspectWorkbookFormatting` | 读取工作簿基础格式快照 | 无业务参数；可选 `host`、`actionTimeoutMs` |
 | `applyWorkbookTemplate` | 应用内置预设及基础表级格式 | `preset`、`sheetNames`、字体、自适应、网格线和冻结行参数 |
@@ -59,7 +59,7 @@
 
 #### 工作簿对象
 
-`inspectWorkbookObjects` 可按 `types` 筛选工作表、名称、结构化表、图表、形状、连接、查询、透视表和切片器。`manageWorkbookObject.objectType` 支持 `worksheet`、`name`、`table`、`connection`、`shape`、`chart`、`image`、`pivotTable`、`slicer`，各类型提供创建、重命名、移动、缩放、显隐、刷新、样式或删除等适用命令。
+`inspectWorkbookObjects` 当前一次返回工作表、名称、结构化表、图表和形状，不读取 `types` 过滤参数，也不返回连接、查询、透视表或切片器。`manageWorkbookObject.objectType` 仅支持 `worksheet`、`name`、`table`、`connection`、`shape`、`chart`，每种类型按 Worker 的实际命令和字段单独校验。图片、透视表和切片器对象管理尚未实现；这些类型以及跨类型字段会在进入 Worker 前被拒绝。旧 `manageWorksheetObjects` 仅作为形状更新/删除兼容入口保留。
 
 #### 专业格式与模板
 

@@ -1,4 +1,5 @@
 import { EXCEL_FORMULA_PARAM_SCHEMAS } from "./officeExcelFormulaParamSchemas";
+import { EXCEL_OBJECT_PARAM_SCHEMAS } from "./officeExcelObjectParamSchemas";
 import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
 import { EXCEL_TEMPLATE_PARAM_SCHEMAS } from "./officeExcelTemplateParamSchemas";
 import { OFFICE_EXPORT_PARAM_SCHEMAS } from "./officeExportParamSchemas";
@@ -160,6 +161,7 @@ const COMMON_INSPECTION_OPERATIONS = ["inspectFile", "layout", "tables", "listBa
 
 export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
   ...EXCEL_FORMULA_PARAM_SCHEMAS,
+  ...EXCEL_OBJECT_PARAM_SCHEMAS,
   ...EXCEL_PRINT_PARAM_SCHEMAS,
   ...EXCEL_TEMPLATE_PARAM_SCHEMAS,
   ...OFFICE_EXPORT_PARAM_SCHEMAS,
