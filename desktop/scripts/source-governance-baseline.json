@@ -269,7 +269,6 @@
     "desktop/electron/shared/egressPolicy.ts": "299a3ba58b4a34e682c418384cb63f44326e0aaffbd65f7154af893afcc6dda1",
     "desktop/electron/shared/ipcRateLimiter.test.ts": "a3ee7ec6a65bcf6015d9bc65fd9d5fe7086ed3eb1c804b16e0364ecd52f0fca2",
     "desktop/electron/shared/ipcSchemas.test.ts": "2878b4e333d08e0dbe886d5f7a07fb1de8930bd386cd4035cf106a35f54d7940",
-    "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
     "desktop/electron/shared/jsonResourceBudget.test.ts": "22614b10c9c87c9f1a9dc6b78298f37e8c3b7cf2d4385dc3eacb296b9701d95a",
     "desktop/electron/shared/logger.ts": "5b34212583ff8ae0d65bbedffe4c1502632c7a2a860b35b80fe67c926cfb7d4b",
     "desktop/electron/shared/outboundUrlPolicy.test.ts": "1fe7d53076b45ceb69771668407de8a47ef47838e83957ac65a7cccaf56f9135",
@@ -489,7 +488,6 @@
   },
   "oversizedSources": {
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
-    "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",
     "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c"

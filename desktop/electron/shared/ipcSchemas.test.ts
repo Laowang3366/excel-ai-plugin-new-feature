@@ -26,35 +26,48 @@ import {
 describe("ipcSchemas", () => {
   it("validates IPC inputs that previously relied on ad hoc checks", () => {
     expect(validateInput(AgentInterruptInput, { threadId: null })).toEqual({ threadId: null });
-    expect(validateInput(ExcelReadRangeInput, {
-      sheetName: "Sheet1",
-      range: "A1:B2",
-      expand: "spill",
-    })).toMatchObject({ expand: "spill" });
-    expect(validateInput(OcrRecognizeInput, {
-      mode: "invoice",
-      filePaths: ["C:\\tmp\\invoice.pdf"],
-    })).toMatchObject({ mode: "invoice" });
+    expect(
+      validateInput(ExcelReadRangeInput, {
+        sheetName: "Sheet1",
+        range: "A1:B2",
+        expand: "spill",
+      }),
+    ).toMatchObject({ expand: "spill" });
+    expect(
+      validateInput(OcrRecognizeInput, {
+        mode: "invoice",
+        filePaths: ["C:\\tmp\\invoice.pdf"],
+      }),
+    ).toMatchObject({ mode: "invoice" });
     expect(validateInput(LaunchOfficeApplicationInput, "powerpoint")).toBe("powerpoint");
-    expect(validateInput(ExportUserDataInput, "C:\\exports\\wengge-data"))
-      .toBe("C:\\exports\\wengge-data");
-    expect(validateInput(EraseUserDataInput, { confirmation: "ERASE LOCAL DATA" }))
-      .toEqual({ confirmation: "ERASE LOCAL DATA" });
+    expect(validateInput(ExportUserDataInput, "C:\\exports\\wengge-data")).toBe(
+      "C:\\exports\\wengge-data",
+    );
+    expect(validateInput(EraseUserDataInput, { confirmation: "ERASE LOCAL DATA" })).toEqual({
+      confirmation: "ERASE LOCAL DATA",
+    });
   });
 
   it("rejects malformed structured IPC inputs", () => {
     expect(() => validateInput(FileWriteTempFileInput, { data: "" })).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow("IPC 参数校验失败");
+    expect(() => validateInput(OcrRecognizeInput, { mode: "bad", filePaths: [] })).toThrow(
+      "IPC 参数校验失败",
+    );
     expect(() => validateInput(LaunchOfficeApplicationInput, "cmd")).toThrow("IPC 参数校验失败");
     expect(() => validateInput(ExportUserDataInput, "")).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(EraseUserDataInput, { confirmation: "erase" }))
-      .toThrow("IPC 参数校验失败");
-    expect(() => validateInput(SettingsGetInput, "arbitrary-secret-key")).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(AppLogInput, {
-      level: "info",
-      tag: "renderer",
-      message: "x".repeat(50_001),
-    })).toThrow("IPC 参数校验失败");
+    expect(() => validateInput(EraseUserDataInput, { confirmation: "erase" })).toThrow(
+      "IPC 参数校验失败",
+    );
+    expect(() => validateInput(SettingsGetInput, "arbitrary-secret-key")).toThrow(
+      "IPC 参数校验失败",
+    );
+    expect(() =>
+      validateInput(AppLogInput, {
+        level: "info",
+        tag: "renderer",
+        message: "x".repeat(50_001),
+      }),
+    ).toThrow("IPC 参数校验失败");
   });
 
   it("validates setting values according to their setting key", () => {
@@ -65,68 +78,94 @@ describe("ipcSchemas", () => {
     ]);
     expect(() => validateInput(SettingsSetInput, ["theme", true])).toThrow("IPC 参数校验失败");
     expect(() => validateInput(SettingsSetInput, ["windowOpacity", 2])).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(SettingsSetInput, ["aiProviders", {
-      provider_1: {
-        id: "provider_1",
-        name: "Provider",
-        provider: "custom",
-        apiKey: "secret",
-        baseUrl: "https://example.test/v1",
-        model: "model",
-        unexpected: true,
-      },
-    }])).toThrow("IPC 参数校验失败");
+    expect(() =>
+      validateInput(SettingsSetInput, [
+        "aiProviders",
+        {
+          provider_1: {
+            id: "provider_1",
+            name: "Provider",
+            provider: "custom",
+            apiKey: "secret",
+            baseUrl: "https://example.test/v1",
+            model: "model",
+            unexpected: true,
+          },
+        },
+      ]),
+    ).toThrow("IPC 参数校验失败");
   });
 
   it("accepts the persisted provider, compaction and pinned-folder shapes", () => {
-    expect(() => validateInput(SettingsSetInput, ["aiProviders", {
-      provider_1: {
-        id: "provider_1",
-        name: "Provider",
-        provider: "custom",
-        apiKey: "••••••••",
-        baseUrl: "https://example.test/v1",
-        model: "model-a",
-        models: ["model-a", "model-b"],
-        modelConfigs: [{
-          name: "model-a",
-          contextWindowSize: 128_000,
-          compHash: "family-a",
-          reasoningMode: "high",
-        }],
-        defaultBaseUrl: "https://example.test/v1",
-        defaultModel: "model-a",
-        apiFormat: "openai",
-        customHeaders: { "x-api-key": "••••••••" },
-        contextWindowSize: 128_000,
-        compHash: "family-a",
-        reasoningMode: "high",
-      },
-    }])).not.toThrow();
-    expect(() => validateInput(SettingsSetInput, ["compactionConfig", {
-      enabled: true,
-      autoCompactThresholdPercent: 80,
-      retainedUserMessageMaxTokens: 20_000,
-      summaryRetryCount: 1,
-      midTurnThresholdRatio: 0.9,
-      compactionProvider: "remote",
-      remoteCompactUrl: "https://compact.example.test/v2",
-      remoteCompactApiKey: "remote-key",
-      remoteCompactModel: "compact-model",
-    }])).not.toThrow();
-    expect(() => validateInput(SettingsSetInput, ["pinnedFolders", [{
-      path: "C:\\workspace",
-      name: "workspace",
-      addedAt: Date.now(),
-      pinnedFiles: ["C:\\workspace\\book.xlsx"],
-    }]])).not.toThrow();
+    expect(() =>
+      validateInput(SettingsSetInput, [
+        "aiProviders",
+        {
+          provider_1: {
+            id: "provider_1",
+            name: "Provider",
+            provider: "custom",
+            apiKey: "••••••••",
+            baseUrl: "https://example.test/v1",
+            model: "model-a",
+            models: ["model-a", "model-b"],
+            modelConfigs: [
+              {
+                name: "model-a",
+                contextWindowSize: 128_000,
+                compHash: "family-a",
+                reasoningMode: "high",
+              },
+            ],
+            defaultBaseUrl: "https://example.test/v1",
+            defaultModel: "model-a",
+            apiFormat: "openai",
+            customHeaders: { "x-api-key": "••••••••" },
+            contextWindowSize: 128_000,
+            compHash: "family-a",
+            reasoningMode: "high",
+          },
+        },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      validateInput(SettingsSetInput, [
+        "compactionConfig",
+        {
+          enabled: true,
+          autoCompactThresholdPercent: 80,
+          retainedUserMessageMaxTokens: 20_000,
+          summaryRetryCount: 1,
+          midTurnThresholdRatio: 0.9,
+          compactionProvider: "remote",
+          remoteCompactUrl: "https://compact.example.test/v2",
+          remoteCompactApiKey: "remote-key",
+          remoteCompactModel: "compact-model",
+        },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      validateInput(SettingsSetInput, [
+        "pinnedFolders",
+        [
+          {
+            path: "C:\\workspace",
+            name: "workspace",
+            addedAt: Date.now(),
+            pinnedFiles: ["C:\\workspace\\book.xlsx"],
+          },
+        ],
+      ]),
+    ).not.toThrow();
   });
 
   it("rejects oversized open JSON variable bags", () => {
-    expect(() => validateInput(OfficeAutomationTemplateRunInput, {
-      templateId: "3fbb8f2f-20e8-49ff-8150-a45789f4f624",
-      variables: { rows: Array.from({ length: 20_001 }, () => 1) },
-    })).toThrow("JSON 数组不能超过 20000 项");
+    expect(() =>
+      validateInput(OfficeAutomationTemplateRunInput, {
+        templateId: "3fbb8f2f-20e8-49ff-8150-a45789f4f624",
+        variables: { rows: Array.from({ length: 20_001 }, () => 1) },
+      }),
+    ).toThrow("JSON 数组不能超过 20000 项");
   });
 
   it("rejects oversized chat, attachment and OCR requests", () => {
@@ -136,28 +175,38 @@ describe("ipcSchemas", () => {
       fileType: "document" as const,
       size: 1,
     };
-    expect(() => validateInput(AgentStartTurnInput, {
-      content: "x".repeat(IPC_MAX_CHAT_CONTENT_CHARS + 1),
-    })).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(AgentStartTurnInput, {
-      content: "ok",
-      attachments: Array.from({ length: IPC_MAX_ATTACHMENTS + 1 }, () => attachment),
-    })).toThrow("IPC 参数校验失败");
-    expect(() => validateInput(OcrRecognizeInput, {
-      filePaths: Array.from({ length: IPC_MAX_OCR_FILES + 1 }, (_, index) => `C:\\tmp\\${index}.pdf`),
-    })).toThrow("IPC 参数校验失败");
+    expect(() =>
+      validateInput(AgentStartTurnInput, {
+        content: "x".repeat(IPC_MAX_CHAT_CONTENT_CHARS + 1),
+      }),
+    ).toThrow("IPC 参数校验失败");
+    expect(() =>
+      validateInput(AgentStartTurnInput, {
+        content: "ok",
+        attachments: Array.from({ length: IPC_MAX_ATTACHMENTS + 1 }, () => attachment),
+      }),
+    ).toThrow("IPC 参数校验失败");
+    expect(() =>
+      validateInput(OcrRecognizeInput, {
+        filePaths: Array.from(
+          { length: IPC_MAX_OCR_FILES + 1 },
+          (_, index) => `C:\\tmp\\${index}.pdf`,
+        ),
+      }),
+    ).toThrow("IPC 参数校验失败");
   });
 
   it("rejects Excel matrices above the total cell budget", () => {
-    const rows = Array.from(
-      { length: Math.ceil((IPC_MAX_EXCEL_CELLS + 1) / 1_000) },
-      () => Array.from({ length: 1_000 }, () => 1)
+    const rows = Array.from({ length: Math.ceil((IPC_MAX_EXCEL_CELLS + 1) / 1_000) }, () =>
+      Array.from({ length: 1_000 }, () => 1),
     );
-    expect(() => validateInput(ExcelWriteRangeInput, {
-      sheetName: "Sheet1",
-      range: "A1",
-      values: rows,
-    })).toThrow(`${IPC_MAX_EXCEL_CELLS} 个单元格`);
+    expect(() =>
+      validateInput(ExcelWriteRangeInput, {
+        sheetName: "Sheet1",
+        range: "A1",
+        values: rows,
+      }),
+    ).toThrow(`${IPC_MAX_EXCEL_CELLS} 个单元格`);
   });
 
   it("estimates Base64 decoded bytes without allocating a Buffer", () => {
@@ -165,5 +214,20 @@ describe("ipcSchemas", () => {
     expect(estimateBase64DecodedBytes("TQ==")).toBe(1);
     expect(isBase64PayloadWithinLimit("AAAA", 3)).toBe(true);
     expect(isBase64PayloadWithinLimit("AAAA", 2)).toBe(false);
+  });
+
+  it("keeps schema domain modules free of facade reverse imports", () => {
+    const { readFileSync } = require("node:fs") as typeof import("node:fs");
+    const { resolve } = require("node:path") as typeof import("node:path");
+    const root = resolve(__dirname);
+    const primitives = readFileSync(resolve(root, "ipcSchemaPrimitives.ts"), "utf8");
+    const settings = readFileSync(resolve(root, "ipcSettingsSchemas.ts"), "utf8");
+    const facade = readFileSync(resolve(root, "ipcSchemas.ts"), "utf8");
+
+    expect(primitives).not.toContain('from "./ipcSchemas"');
+    expect(settings).not.toContain('from "./ipcSchemas"');
+    expect(settings).toContain('from "./ipcSchemaPrimitives"');
+    expect(facade).toContain('from "./ipcSchemaPrimitives"');
+    expect(facade).toContain('from "./ipcSettingsSchemas"');
   });
 });
