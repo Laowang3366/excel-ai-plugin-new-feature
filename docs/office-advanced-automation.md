@@ -160,15 +160,18 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 | operation | 用途 | 关键 params |
 | --- | --- | --- |
-| `exportRangeToWord` | 将 Excel 区域或图表写入 Word，可保留数据源链接 | `linked`、`sourceType`、`chartName`、`linkId`、`title`、`overwrite` |
-| `exportRangeToPresentation` | 将 Excel 区域或图表写入 PPT，可保留数据源链接 | `linked`、`sourceType`、`chartName`、`linkId`、`title`、`overwrite` |
-| `buildReportPackage` | 从多个 Excel 区域/图表同时生成 Word 报告和 PPT 汇报 | `sections`、`linked`、`outputDirectory`、`baseName`、`overwrite` |
-| `inspectLinkedOfficeContent` | 在 Word/PPT 中列出链接对象、来源和 locator | 无；只读检查 |
-| `refreshLinkedOfficeContent` | 原位刷新 Word/PPT 中的 Excel 链接对象 | 无；不删除或重建页面对象 |
+| `exportRangeToWord` | 将 Excel 区域或图表写入 Word，可保留数据源链接 | 必填 `linked`；图表必填 `sourceType:"chart"`、`chartName`；增量更新必填 `updateExisting:true`、`linkId` |
+| `exportRangeToPresentation` | 将 Excel 区域或图表写入 PPT，可保留数据源链接 | 必填 `linked`；图表必填 `sourceType:"chart"`、`chartName`；增量更新必填 `updateExisting:true`、`linkId` |
+| `buildReportPackage` | 从多个 Excel 区域/图表同时生成 Word 报告和 PPT 汇报 | 必填 `linked:true`、非空 `sections[]`；每项必填 `range`，增量更新时每项必填 `linkId` |
+| `inspectLinkedOfficeContent` | 在 Word/PPT 中列出链接对象、来源和 locator | 可选 `linkId`；只读检查 |
+| `refreshLinkedOfficeContent` | 原位刷新 Word/PPT 中的 Excel 链接对象 | 可选 `linkId`；不删除或重建页面对象 |
+| `relinkLinkedOfficeContent` | 将确定的 Word/PPT 链接对象重绑到新 Excel 文件 | 必填 `linkId`、`sourcePath` |
 
 跨应用输出先写入同目录临时文件，全部成功后再发布到正式路径。覆盖已有输出时会临时保留旧文件，发布失败会恢复旧版本。
 
-`linked:true` 使用链接 OLE。图表传 `sourceType:"chart"` 和 `chartName`；区域使用 `target:"range:工作表!A1:D20"`。刷新前工具只读打开链接源 Excel 并完成计算，再调用 Word/PPT 的 `LinkFormat.Update()`；链接对象在原位置更新，因此人工调整的页面、尺寸和排版不会被重建覆盖。
+单目标创建可传 `overwrite`，但 `updateExisting:true` 与 `overwrite` 互斥，且必须用非空 `linkId` 确定受管对象。报告包拒绝空 sections、未知嵌套字段、缺少范围的 section，以及增量更新中没有稳定 linkId 的任一 section。重链接只接受规范字段 `sourcePath`，Worker 的历史兼容别名 `newSourcePath` 不向模型暴露。
+
+`linked:true` 使用链接 OLE。图表传 `sourceType:"chart"` 和 `chartName`；区域使用 `target:"range:工作表!A1:D20"`，报告 section 使用 `sheetName` + `range`。刷新前工具只读打开链接源 Excel 并完成计算，再调用 Word/PPT 的 `LinkFormat.Update()`；链接对象在原位置更新，因此人工调整的页面、尺寸和排版不会被重建覆盖。
 
 ## 事务与工作流
 

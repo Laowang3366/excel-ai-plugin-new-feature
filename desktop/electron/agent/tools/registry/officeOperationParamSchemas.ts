@@ -1,3 +1,4 @@
+import { CROSS_OFFICE_PARAM_SCHEMAS } from "./officeCrossOfficeParamSchemas";
 import { EXCEL_FORMULA_PARAM_SCHEMAS } from "./officeExcelFormulaParamSchemas";
 import { EXCEL_OBJECT_PARAM_SCHEMAS } from "./officeExcelObjectParamSchemas";
 import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
@@ -165,6 +166,7 @@ function strictAppObject(
 const COMMON_INSPECTION_OPERATIONS = ["inspectFile", "layout", "tables", "listBackups"];
 
 export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
+  ...CROSS_OFFICE_PARAM_SCHEMAS,
   ...EXCEL_FORMULA_PARAM_SCHEMAS,
   ...EXCEL_OBJECT_PARAM_SCHEMAS,
   ...EXCEL_PRINT_PARAM_SCHEMAS,

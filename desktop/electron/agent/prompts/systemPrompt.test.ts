@@ -176,7 +176,9 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("office.objects.list");
     expect(prompt).toContain("完整路径和 locator");
     expect(prompt).toContain("exportRangeToWord");
-    expect(prompt).toContain('params.linked:true');
+    expect(prompt).toContain("`linked:true`");
+    expect(prompt).toContain("每项必须有 `range`");
+    expect(prompt).toContain("不要使用 `newSourcePath`");
     expect(prompt).toContain("refreshLinkedOfficeContent");
     expect(prompt).toContain("office.workflow.run");
     expect(prompt).toContain("resume:true, workflowId");

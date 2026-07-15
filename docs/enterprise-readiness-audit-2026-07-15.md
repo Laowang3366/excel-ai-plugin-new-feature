@@ -27,7 +27,7 @@
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | Release 显式依赖可复用完整 CI；第三方 Actions 固定完整 SHA；Syft 版本固定并发布 SPDX SBOM；构建/发布权限隔离；两阶段 Authenticode 校验；产品站 release 目录只读；工作流静态防回归测试 | 配置受保护证书/HSM 与 Environment approval；隔离发布账户执行产品站 Ed25519 最终清单生成和端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
-| M-01 | 部分完成 | 模型与运行时共用严格 Schema；支持 `const/oneOf/allOf`、正则、对象键数/键名及字典值校验；Power Query、透视表、切片器、Excel 图表/打印/公式治理/PDF 导出/工作簿预设/对象管理、Word PDF 导出/长文档排版/引用/修订/文档比较/邮件合并/内容控件、PowerPoint 检查/品牌/布局/动画/放映/备注/讲义和一组常用 Excel/Word/PPT 文件级操作按 app + operation 严格限制参数，对象类型与嵌套字段也逐层拒绝未知值；工作流变量限制顶层数量与安全键名；审批前与执行前双重校验及 malformed 测试 | 继续为尚未建模的其他 COM 深度 operation 和工作流模板嵌套变量业务结构补齐判别 Schema |
+| M-01 | 部分完成 | 模型与运行时共用严格 Schema；支持 `const/oneOf/allOf`、正则、对象键数/键名及字典值校验；Power Query、透视表、切片器、Excel 图表/打印/公式治理/PDF 导出/工作簿预设/对象管理/跨 Office 导出与报告、Word PDF 导出/长文档排版/引用/修订/文档比较/邮件合并/内容控件/链接维护、PowerPoint 检查/品牌/布局/动画/放映/备注/讲义/链接维护和一组常用文件级操作按 app + operation 严格限制参数，对象类型与嵌套字段也逐层拒绝未知值；工作流变量限制顶层数量与安全键名；审批前与执行前双重校验及 malformed 测试 | 继续为尚未建模的其他 COM 深度 operation 和工作流模板嵌套变量业务结构补齐判别 Schema |
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
 | M-03 | 部分完成 | 统一脱敏与最小化审计；FTS 移除重复 `item_json`；单会话删除覆盖 JSONL、冷归档、SQLite/FTS/工具日志；日志与 Office 备份/事务/工作流具备周期 TTL 和容量上限；设置页提供排除凭据的校验导出，以及精确确认、白名单和部分失败报告保护的当前活动数据根擦除 | 会话/SQLite 应用层加密与密钥轮换；旧数据根、导出和外部副本的身份级删除编排及删除证明 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
@@ -99,10 +99,10 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 176 个测试文件、980 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 188 个测试文件、1035 项测试全部通过 |
 | Desktop Vite build | 通过 | Renderer 首屏入口 445.36 KB，9 个异步 chunk；480 KiB entry budget 通过 |
-| Desktop `format:check` | **失败** | 限定源码检查仍有 493 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
-| .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
+| Desktop `format:check` | **失败** | 限定源码检查仍有 506 个存量格式不匹配文件；增量 `governance:check` 棘轮通过 |
+| .NET Worker test | 通过 | 最近一次 Worker 门禁 100 项 xUnit 测试全部通过；本批未修改 Worker |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
@@ -480,7 +480,7 @@
 
 ### M-01 模型可见工具 Schema 已统一执行，复杂扩展对象仍待细化
 
-> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。校验器现支持标准 `const/oneOf/allOf`、字符串正则、对象键数/键名和 schema 型 `additionalProperties`。`office.action.*` 与工作流步骤已按 app + operation 对 Power Query、透视表、切片器，以及基础检查/验证、快照、Excel 图表/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片/长文档排版/引用/修订/文档比较/邮件合并/内容控件、PPT 幻灯片/内容/主题/图表/表格/图片/品牌/布局/主题与元素检查/动画/放映/备注/讲义操作建立严格分支；图表、打印、公式、批量导出、预设、工作簿对象、Word 排版/审阅/模板和 PPT 品牌/布局/播放命令均按 Worker 实际读取字段建模，嵌套未知字段也会在进入 Worker 前拒绝。PPT 品牌操作显式决定页码，布局按 precise/grid/auto/align/distribute/fit 策略要求确定性形状选择，避免空参数默认开启页码或重排整页；动画要求每条效果显式给出 shape selector、category 和 effect，放映与讲义显式选择模式，单页/批量备注结构互斥。长文档排版强制显式选择自动检测或非空标题过滤条件，正则限制 512 字符并在 Worker 内以 100 毫秒超时执行，避免默认把全文变成标题或灾难性回溯占用 STA。Word 内容控件修订要求非空 tag/title，文档比较和修订数组的规范字段与旧别名互斥；邮件合并限制真实 Open XML Excel 数据源、输出格式、条件和图片字段，内容控件按命令/类型/确定性选择器分支。文档中虚构的复杂样式、分节、规则筛选、批注删除、LCS 比较、CSV 合并、占位符转域、字段映射和内容控件扩展命令已纠正。工作簿对象管理按六种真实 `objectType` 分支限制命令，未实现的图片/透视表/切片器管理及 `types` 检查过滤不再暴露。同名 `exportPdf` 按 Excel/Word 宿主分别限制；不存在的捕获模板回放和复杂规则参数不再暴露。模板变量最多 128 个顶层键，键名不得包含点号、花括号或原型污染保留形式，嵌套对象仍可通过 `{{vars.customer.name}}` 使用并受统一资源预算限制。全量工具测试会生成合法样例，并注入缺字段、错类型、错枚举和未知字段。尚未建模的其他 COM 深度 operation 暂保留兼容分支，工作流模板嵌套变量仍是开放 JSON，因此本项仍为部分完成。
+> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。校验器现支持标准 `const/oneOf/allOf`、字符串正则、对象键数/键名和 schema 型 `additionalProperties`。`office.action.*` 与工作流步骤已按 app + operation 对 Power Query、透视表、切片器，以及基础检查/验证、快照、Excel 图表/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式/跨 Office 导出与报告、Word PDF 导出/标题/目录/表格/页眉页脚/图片/长文档排版/引用/修订/文档比较/邮件合并/内容控件/链接维护、PPT 幻灯片/内容/主题/图表/表格/图片/品牌/布局/主题与元素检查/动画/放映/备注/讲义/链接维护操作建立严格分支；图表、打印、公式、批量导出、预设、工作簿对象、跨 Office 报告、Word 排版/审阅/模板和 PPT 品牌/布局/播放命令均按 Worker 实际读取字段建模，嵌套未知字段也会在进入 Worker 前拒绝。跨 Office 增量导出必须给稳定 linkId，报告包必须给非空 sections 且每项明确 range，图表项明确 chartName，增量报告每项都给 linkId；Word/PPT 重链接只接受确定性 linkId + 规范 sourcePath，不向模型暴露 newSourcePath 兼容别名。PPT 品牌操作显式决定页码，布局按 precise/grid/auto/align/distribute/fit 策略要求确定性形状选择，避免空参数默认开启页码或重排整页；动画要求每条效果显式给出 shape selector、category 和 effect，放映与讲义显式选择模式，单页/批量备注结构互斥。长文档排版强制显式选择自动检测或非空标题过滤条件，正则限制 512 字符并在 Worker 内以 100 毫秒超时执行，避免默认把全文变成标题或灾难性回溯占用 STA。Word 内容控件修订要求非空 tag/title，文档比较和修订数组的规范字段与旧别名互斥；邮件合并限制真实 Open XML Excel 数据源、输出格式、条件和图片字段，内容控件按命令/类型/确定性选择器分支。文档中虚构的复杂样式、分节、规则筛选、批注删除、LCS 比较、CSV 合并、占位符转域、字段映射和内容控件扩展命令已纠正。工作簿对象管理按六种真实 `objectType` 分支限制命令，未实现的图片/透视表/切片器管理及 `types` 检查过滤不再暴露。同名 `exportPdf` 按 Excel/Word 宿主分别限制；不存在的捕获模板回放和复杂规则参数不再暴露。模板变量最多 128 个顶层键，键名不得包含点号、花括号或原型污染保留形式，嵌套对象仍可通过 `{{vars.customer.name}}` 使用并受统一资源预算限制。全量工具测试会生成合法样例，并注入缺字段、错类型、错枚举和未知字段。尚未建模的其他 COM 深度 operation 暂保留兼容分支，工作流模板嵌套变量仍是开放 JSON，因此本项仍为部分完成。
 
 - 初始实现只把 `ToolDefinition.parameters` 用作模型提示，未形成执行信任边界。
 - 初始 `toolExecutor.ts` 只做 JSON parse，executor 依赖零散的必填基础类型检查。
@@ -606,7 +606,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 > 部分整改：新增 `scripts/check-source-governance.cjs` 与换行归一化 SHA-256 基线。CI 对桌面源码执行 Prettier 漂移棘轮，并扫描桌面、Electron、产品站和脚本生产文件的 300/400/500 行分类上限；只有启用门禁时字节等价的存量债务可暂时放行。新文件、被修改的漂移文件或被修改后仍超限的生产文件会立即失败。自动化测试覆盖格式文件变更、超限增长、拆分达标和 CRLF/LF 一致性。
 
-- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 493 个存量文件不匹配。
+- 全量 `npm run format:check` 仍失败，桌面限定源码当前有 506 个存量文件不匹配。
 - 当前基线包含 19 个超限生产模块和 2 个超限真实 Office 冒烟脚本；此前报告的 11 个已过时。
 
 建议先固定换行/Prettier 基线，再分批机械格式化；按运行时职责拆分大型生产文件，避免把格式噪声与安全修复混在同一个 PR。
@@ -700,6 +700,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 与源码治理棘轮；当前自动化门禁为 176 个 Vitest 文件、980 项测试和 97 项 .NET 测试全部通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 与源码治理棘轮；当前自动化门禁为 188 个 Vitest 文件、1035 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
