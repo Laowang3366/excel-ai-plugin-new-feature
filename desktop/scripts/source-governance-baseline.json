@@ -312,7 +312,6 @@
     "desktop/scripts/smoke-word-lifecycle.ts": "1edc0f43b511ac9c4cdf70115e0dbdea44438ee559343d47b02d78ad8cd7ba89",
     "desktop/scripts/smoke-wps-routing.ts": "681f87f67fbd025e14860f96b50575b6fd50bbbbc59b94e907d3425780fdf8a6",
     "desktop/scripts/verify-release-manifest.ts": "cb7a61a0db592429bcee0aa1a942cfbb93edcf441e3f44e3c875859f0c2f439b",
-    "desktop/src/App.tsx": "5862d98f3f1d33f2b8cc15e93c53cde6c664f42eaa85debb29d15241c28aa967",
     "desktop/src/components/chat/AssistantGroupBlock.tsx": "120864ea6949fc09b6b2116d8a4e1b0b3e110d8739be1055e9036e19f2a77fd2",
     "desktop/src/components/chat/AttachmentImagePreview.tsx": "686ee69c2479e75f789c73324838564787fcd0e33d98d9603ffc5d3b7aefe4b5",
     "desktop/src/components/chat/ChatFolderBadge.tsx": "5d1375e9eab359837cda984c0934789b2c17f2e3a6142aeda3410f516463c293",
@@ -523,7 +522,6 @@
     "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",
-    "desktop/src/App.tsx": "5862d98f3f1d33f2b8cc15e93c53cde6c664f42eaa85debb29d15241c28aa967",
     "desktop/src/components/ChatPage.tsx": "b7a106cdf1938b3ab784428cea84a28e4a93f9242477d6901081325126e1d3b3",
     "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c"
   }

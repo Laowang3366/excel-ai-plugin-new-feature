@@ -24,22 +24,17 @@
  */
 
 import React, { useEffect, useState } from "react";
-import {
-  MAX_WINDOW_OPACITY,
-  MIN_WINDOW_OPACITY,
-  useSettingsStore,
-} from "./store/settingsStore";
+import { useSettingsStore } from "./store/settingsStore";
 import { Sidebar } from "./components/Sidebar";
 import { ChatPage } from "./components/ChatPage";
 import type { SettingsSection } from "./components/SettingsPage";
+import { AppTitlebar } from "./components/AppTitlebar";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { Eye, Maximize2, Minimize2, PanelLeft, Pin } from "./components/common/IconMap";
-import { logWarn } from "./utils/rendererLogger";
+import { HotPatchHealthAck } from "./components/HotPatchHealthAck";
 import { getAppText } from "./i18n";
-import { ipcApi } from "./services/ipcApi";
 import { useExcelConnection } from "./hooks/useExcelConnection";
 import { useOfficeConnection } from "./hooks/useOfficeConnection";
-import type { WindowDisplayMode } from "./electronApi";
+import { useWindowDisplayState } from "./hooks/useWindowDisplayState";
 
 /** 主内容区可显示的页面 */
 export type AppPage = "chat" | "settings";
@@ -47,30 +42,6 @@ export type AppPage = "chat" | "settings";
 const SettingsPage = React.lazy(() =>
   import("./components/SettingsPage").then((module) => ({ default: module.SettingsPage })),
 );
-
-function requestLayoutReflow(): void {
-  void document.documentElement.offsetWidth;
-  window.requestAnimationFrame(() => {
-    void document.documentElement.offsetWidth;
-  });
-}
-
-function HotPatchHealthAck() {
-  useEffect(() => {
-    let canceled = false;
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        if (canceled || document.querySelector(".error-boundary")) return;
-        void ipcApi.update.ackHotPatchHealth();
-      });
-    });
-    return () => {
-      canceled = true;
-      window.cancelAnimationFrame(frame);
-    };
-  }, []);
-  return null;
-}
 
 export const App: React.FC = () => {
   const {
@@ -87,22 +58,17 @@ export const App: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("general");
-  const [alwaysOnTop, setAlwaysOnTop] = useState(true);
-  const [displayMode, setDisplayMode] = useState<WindowDisplayMode>("normal");
   const { excelStatus } = useExcelConnection();
   const { wordStatus, presentationStatus } = useOfficeConnection();
   const text = getAppText(language);
-  const hasConnectedOffice = excelStatus.connected || wordStatus.connected || presentationStatus.connected;
+  const hasConnectedOffice =
+    excelStatus.connected || wordStatus.connected || presentationStatus.connected;
+  const { alwaysOnTop, displayMode, toggleAlwaysOnTop, toggleCompactMode } = useWindowDisplayState({
+    autoCompactEnabled: officeAutoCompactEnabled,
+    hasConnectedOffice,
+  });
   const chatSidebarCollapsed = displayMode === "compact" || sidebarCollapsed;
   const settingsNavCollapsed = displayMode === "compact" || settingsSidebarCollapsed;
-  const windowOpacityPercent = Math.round(windowOpacity * 100);
-  const minWindowOpacityPercent = Math.round(MIN_WINDOW_OPACITY * 100);
-  const maxWindowOpacityPercent = Math.round(MAX_WINDOW_OPACITY * 100);
-  const opacitySliderFill =
-    ((windowOpacityPercent - minWindowOpacityPercent) /
-      (maxWindowOpacityPercent - minWindowOpacityPercent)) *
-    100;
-  const opacityThumbNearValue = opacitySliderFill >= 35 && opacitySliderFill <= 65;
 
   useEffect(() => {
     loadSettings();
@@ -112,173 +78,6 @@ export const App: React.FC = () => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.lang = language;
   }, [language, theme]);
-
-  useEffect(() => {
-    ipcApi.window.getAlwaysOnTop()
-      .then(setAlwaysOnTop)
-      .catch(() => {
-        logWarn("App", "获取窗口置顶状态失败，使用默认值");
-        setAlwaysOnTop(true);
-      });
-  }, []);
-
-  useEffect(() => {
-    let disposed = false;
-    let resizeSyncTimer: number | undefined;
-
-    const applyActualMode = (mode: WindowDisplayMode, forceReflow = false) => {
-      if (disposed) return;
-      setDisplayMode(mode);
-      if (forceReflow) {
-        requestLayoutReflow();
-      }
-    };
-
-    const syncActualMode = () => {
-      ipcApi.window.getDisplayMode()
-        .then((mode) => applyActualMode(mode))
-        .catch(() => {
-          logWarn("App", "获取窗口显示模式失败");
-          applyActualMode("normal");
-        });
-    };
-
-    const handleResize = () => {
-      if (resizeSyncTimer !== undefined) {
-        window.clearTimeout(resizeSyncTimer);
-      }
-      resizeSyncTimer = window.setTimeout(syncActualMode, 120);
-    };
-
-    const unsubscribeDisplayMode = ipcApi.window.onDisplayModeChanged((mode) => {
-      applyActualMode(mode, true);
-    });
-
-    syncActualMode();
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      disposed = true;
-      if (resizeSyncTimer !== undefined) {
-        window.clearTimeout(resizeSyncTimer);
-      }
-      unsubscribeDisplayMode();
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!officeAutoCompactEnabled || !hasConnectedOffice) return;
-
-    const handleBlur = () => {
-      setDisplayMode((currentMode) => {
-        if (currentMode !== "normal") return currentMode;
-        ipcApi.window.setDisplayMode("compact")
-          .then(setDisplayMode)
-          .catch(() => {
-            logWarn("App", "设置紧凑模式失败");
-            setDisplayMode(currentMode);
-          });
-        return "compact";
-      });
-    };
-
-    window.addEventListener("blur", handleBlur);
-    return () => window.removeEventListener("blur", handleBlur);
-  }, [officeAutoCompactEnabled, hasConnectedOffice]);
-
-  const toggleAlwaysOnTop = async () => {
-    const next = !alwaysOnTop;
-    setAlwaysOnTop(next);
-    try {
-      const actual = await ipcApi.window.setAlwaysOnTop(next);
-      if (typeof actual === "boolean") {
-        setAlwaysOnTop(actual);
-      }
-    } catch {
-      logWarn("App", "切换窗口置顶失败");
-      setAlwaysOnTop(alwaysOnTop);
-    }
-  };
-
-  const setWindowMode = async (mode: WindowDisplayMode) => {
-    setDisplayMode(mode);
-    try {
-      const actual = await ipcApi.window.setDisplayMode(mode);
-      setDisplayMode(actual);
-    } catch {
-      logWarn("App", "切换窗口模式失败");
-      setDisplayMode("normal");
-    }
-  };
-
-  const toggleCompactMode = () => {
-    setWindowMode(displayMode === "normal" ? "compact" : "normal");
-  };
-
-  const renderTitlebar = (
-    showSidebarToggle: boolean,
-    collapsed = false,
-    onToggleSidebar?: () => void,
-    showWindowModeToggle = true,
-  ) => (
-    <div className="app-titlebar">
-      {showSidebarToggle && (
-        <button
-          className={`titlebar-sidebar-toggle${collapsed ? "" : " active"}`}
-          onClick={onToggleSidebar}
-          title={collapsed ? text.app.expandSidebar : text.app.collapseSidebar}
-          aria-pressed={!collapsed}
-        >
-          <PanelLeft size={17} />
-        </button>
-      )}
-      {showWindowModeToggle && (
-        <button
-          className={`titlebar-window-mode-toggle ${displayMode === "compact" ? "active" : ""}`}
-          onClick={toggleCompactMode}
-          title={displayMode === "normal" ? text.app.compactWindow : text.app.restoreWindow}
-          aria-pressed={displayMode === "compact"}
-        >
-          {displayMode === "normal" ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-        </button>
-      )}
-      <label
-        className="titlebar-opacity-control"
-        title={`${text.app.windowOpacity}: ${windowOpacityPercent}%`}
-      >
-        <Eye size={14} aria-hidden="true" />
-        <span className="titlebar-opacity-track">
-          <input
-            type="range"
-            className="titlebar-opacity-slider"
-            min={minWindowOpacityPercent}
-            max={maxWindowOpacityPercent}
-            step={1}
-            value={windowOpacityPercent}
-            aria-label={text.app.windowOpacity}
-            style={{ "--slider-fill": `${opacitySliderFill}%` } as React.CSSProperties}
-            onChange={(event) => setWindowOpacity(Number(event.target.value) / 100)}
-          />
-          <span
-            className={`titlebar-opacity-value${
-              opacityThumbNearValue ? " avoid-thumb" : opacitySliderFill > 65 ? " over-fill" : ""
-            }`}
-          >
-            {windowOpacityPercent}%
-          </span>
-        </span>
-      </label>
-      <button
-        className={`titlebar-pin-toggle ${alwaysOnTop ? "active" : ""}`}
-        onClick={toggleAlwaysOnTop}
-        title={alwaysOnTop ? text.app.pinOff : text.app.pinOn}
-        aria-pressed={alwaysOnTop}
-      >
-        <Pin size={15} />
-      </button>
-    </div>
-  );
 
   // 首次未配置时自动跳转到设置页
   useEffect(() => {
@@ -290,7 +89,16 @@ export const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className={`app-shell ${displayMode}-mode`}>
-        {renderTitlebar(false)}
+        <AppTitlebar
+          alwaysOnTop={alwaysOnTop}
+          displayMode={displayMode}
+          onSetWindowOpacity={setWindowOpacity}
+          onToggleAlwaysOnTop={toggleAlwaysOnTop}
+          onToggleCompactMode={toggleCompactMode}
+          showSidebarToggle={false}
+          text={text}
+          windowOpacity={windowOpacity}
+        />
         <div className="app-loading">
           <div className="spinner" />
           <p>{text.app.loading}</p>
@@ -304,15 +112,26 @@ export const App: React.FC = () => {
     return (
       <ErrorBoundary>
         <div className={`app-shell ${displayMode}-mode`}>
-          {renderTitlebar(true, settingsNavCollapsed, () => setSettingsSidebarCollapsed((collapsed) => !collapsed))}
+          <AppTitlebar
+            alwaysOnTop={alwaysOnTop}
+            collapsed={settingsNavCollapsed}
+            displayMode={displayMode}
+            onSetWindowOpacity={setWindowOpacity}
+            onToggleAlwaysOnTop={toggleAlwaysOnTop}
+            onToggleCompactMode={toggleCompactMode}
+            onToggleSidebar={() => setSettingsSidebarCollapsed((collapsed) => !collapsed)}
+            showSidebarToggle
+            text={text}
+            windowOpacity={windowOpacity}
+          />
           <div className="app-view">
             <React.Suspense
-              fallback={(
+              fallback={
                 <div className="app-loading">
                   <div className="spinner" />
                   <p>{text.app.loading}</p>
                 </div>
-              )}
+              }
             >
               <SettingsPage
                 onBack={() => setCurrentPage("chat")}
@@ -331,12 +150,19 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className={`app-shell ${displayMode}-mode`}>
-        {renderTitlebar(
-          true,
-          chatSidebarCollapsed,
-          () => setSidebarCollapsed((collapsed) => !collapsed),
-          false,
-        )}
+        <AppTitlebar
+          alwaysOnTop={alwaysOnTop}
+          collapsed={chatSidebarCollapsed}
+          displayMode={displayMode}
+          onSetWindowOpacity={setWindowOpacity}
+          onToggleAlwaysOnTop={toggleAlwaysOnTop}
+          onToggleCompactMode={toggleCompactMode}
+          onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          showSidebarToggle
+          showWindowModeToggle={false}
+          text={text}
+          windowOpacity={windowOpacity}
+        />
         <div className={`app ${chatSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <Sidebar
             collapsed={chatSidebarCollapsed}
