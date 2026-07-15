@@ -63,6 +63,24 @@ describe("aiRequestRetry", () => {
     expect(attempts).toBe(1);
   });
 
+  it("respects a caller retry guard", async () => {
+    let attempts = 0;
+    const upstreamError = Object.assign(new Error("upstream unavailable"), { status: 503 });
+
+    await expect(
+      runAIRequestWithRetry({
+        phase: "sampling",
+        config: { maxRetries: 2, baseDelayMs: 0, maxDelayMs: 0 },
+        canRetry: () => false,
+        operation: async () => {
+          attempts += 1;
+          throw upstreamError;
+        },
+      })
+    ).rejects.toBe(upstreamError);
+    expect(attempts).toBe(1);
+  });
+
   it("classifies fetch/network failures as retriable", () => {
     expect(isRetriableAIRequestError(new TypeError("fetch failed"))).toBe(true);
     expect(isRetriableAIRequestError(new Error("read ECONNRESET"))).toBe(true);

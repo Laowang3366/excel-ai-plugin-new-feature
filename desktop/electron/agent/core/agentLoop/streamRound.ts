@@ -27,13 +27,29 @@ export async function collectRoundStream(input: {
   retryConfig?: AIRequestRetryConfig;
   signal?: AbortSignal;
 }): Promise<StreamResult> {
+  let hasVisibleOutput = false;
+  const callbacks: AgentTurnCallbacks = {
+    ...input.callbacks,
+    onEvent: (event) => {
+      hasVisibleOutput = true;
+      input.callbacks.onEvent(event);
+    },
+    onStreamDelta: input.callbacks.onStreamDelta
+      ? (...args) => {
+          hasVisibleOutput = true;
+          input.callbacks.onStreamDelta?.(...args);
+        }
+      : undefined,
+  };
+
   return runAIRequestWithRetry({
     phase: "sampling",
     config: input.retryConfig,
     signal: input.signal,
+    canRetry: () => !hasVisibleOutput,
     operation: () => collectStreamEvents(
       input.aiClient.streamChat(input.streamParams),
-      input.callbacks,
+      callbacks,
       input.round
     ),
   });

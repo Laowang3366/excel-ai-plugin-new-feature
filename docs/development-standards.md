@@ -425,6 +425,7 @@ log.error("Stream failed", { error: err.message });
 - 所有 items 在流结束后按**真实 API 顺序**依次发出
 - 前端 `item_completed` handler 按事件到达顺序 `push`，不做"智能插入"
 - JSONL 历史恢复时使用 `sortItemsByRound` 作为兜底排序
+- 模型流只有在尚未发出正文、推理或工具事件时允许透明重试；首次可见事件后必须保留当前 attempt 并直接报告错误，避免同一 round 重复追加。
 
 ```typescript
 // ✅ 流结束后按顺序发出

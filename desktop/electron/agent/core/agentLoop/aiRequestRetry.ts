@@ -37,6 +37,7 @@ export async function runAIRequestWithRetry<T>(params: {
   phase: AIRequestPhase;
   config?: AIRequestRetryConfig;
   signal?: AbortSignal;
+  canRetry?: (error: unknown) => boolean;
   operation: () => Promise<T>;
 }): Promise<T> {
   const retryConfig = normalizeRetryConfig(params.phase, params.config);
@@ -52,6 +53,7 @@ export async function runAIRequestWithRetry<T>(params: {
         attempt >= retryConfig.maxRetries
         || params.signal?.aborted
         || !isRetriableAIRequestError(error)
+        || params.canRetry?.(error) === false
       ) {
         throw error;
       }

@@ -63,6 +63,110 @@ describe("streamRound", () => {
     expect(aiClient.streamChat).toHaveBeenCalledTimes(1);
   });
 
+  it("retries transient failures before any output becomes visible", async () => {
+    const aiClient = {
+      streamChat: vi
+        .fn()
+        .mockImplementationOnce(() =>
+          streamEvents([{ type: "error", error: "API 请求失败 (503): unavailable" }]),
+        )
+        .mockImplementationOnce(() =>
+          streamEvents([
+            { type: "text_delta", delta: "重试成功" },
+            { type: "done", finishReason: "stop" },
+          ]),
+        ),
+    };
+    const onStreamDelta = vi.fn();
+
+    const result = await collectRoundStream({
+      aiClient: aiClient as never,
+      streamParams: {
+        messages: [],
+        tools: [],
+        systemPrompt: "system",
+        maxTokens: 100,
+        reasoningMode: "off",
+      },
+      callbacks: { onEvent: vi.fn(), onStreamDelta },
+      round: 1,
+      retryConfig: { maxRetries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+    });
+
+    expect(result.assistantContent).toBe("重试成功");
+    expect(aiClient.streamChat).toHaveBeenCalledTimes(2);
+    expect(onStreamDelta).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry after a text delta has been emitted", async () => {
+    const aiClient = {
+      streamChat: vi.fn(() =>
+        streamEvents([
+          { type: "text_delta", delta: "部分内容" },
+          { type: "error", error: "API 请求失败 (503): disconnected" },
+        ]),
+      ),
+    };
+    const onStreamDelta = vi.fn();
+
+    await expect(
+      collectRoundStream({
+        aiClient: aiClient as never,
+        streamParams: {
+          messages: [],
+          tools: [],
+          systemPrompt: "system",
+          maxTokens: 100,
+          reasoningMode: "off",
+        },
+        callbacks: { onEvent: vi.fn(), onStreamDelta },
+        round: 1,
+        retryConfig: { maxRetries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+      }),
+    ).rejects.toThrow("disconnected");
+
+    expect(aiClient.streamChat).toHaveBeenCalledTimes(1);
+    expect(onStreamDelta).toHaveBeenCalledTimes(1);
+    expect(onStreamDelta).toHaveBeenCalledWith("部分内容", "assistant_message", 1);
+  });
+
+  it("does not retry after a tool item has been emitted", async () => {
+    const aiClient = {
+      streamChat: vi.fn(() =>
+        streamEvents([
+          { type: "tool_call_begin", toolCallId: "call-1", toolName: "range.read" },
+          { type: "error", error: "API 请求失败 (503): disconnected" },
+        ]),
+      ),
+    };
+    const onEvent = vi.fn();
+
+    await expect(
+      collectRoundStream({
+        aiClient: aiClient as never,
+        streamParams: {
+          messages: [],
+          tools: [],
+          systemPrompt: "system",
+          maxTokens: 100,
+          reasoningMode: "off",
+        },
+        callbacks: { onEvent, onStreamDelta: vi.fn() },
+        round: 1,
+        retryConfig: { maxRetries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+      }),
+    ).rejects.toThrow("disconnected");
+
+    expect(aiClient.streamChat).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "item_started",
+        item: expect.objectContaining({ id: "call-1", type: "tool_call" }),
+      }),
+    );
+  });
+
   it("emits stream error items and stops the round", async () => {
     const turn = createTurn();
     const events: unknown[] = [];
