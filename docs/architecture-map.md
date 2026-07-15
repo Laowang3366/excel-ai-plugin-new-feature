@@ -1,6 +1,6 @@
 # 项目文件架构与调用链路图
 
-更新时间：2026-07-14
+更新时间：2026-07-15
 范围：`desktop/` Electron 桌面端、Renderer 前端、Agent 运行时、Office/WPS 桥接、知识库、OCR、记忆、更新链路，以及 `product-site/` 发布服务。
 
 ## 1. 总体分层
@@ -304,8 +304,9 @@ flowchart LR
 
 | 工具域 | 模型可见定义 | 执行器 | 实现/依赖 | 典型能力 |
 | --- | --- | --- | --- | --- |
-| Workbook/Range/Formula/Sheet/UI | `tools/registry/workbook.ts`、`range.ts`、`formula.ts`、`sheet.ts`、`ui.ts` | `tools/executors/excelExecutors.ts` | `officeWorker/dotNetExcelBridge.ts`、`dotNetMacroBridges.ts`、.NET Worker | 检查工作簿、读写选区、公式验证、工作表操作、宿主选择 |
-| 工作簿内部宏 | `tools/registry/macro.ts` | `tools/executors/excelExecutors.ts` | `officeWorker/dotNetMacroBridges.ts`、.NET Worker | 仅在工作簿宿主内部运行 VBA/WPS JSA，不提供外部脚本执行 |
+| Workbook/Range/Formula/Sheet | `tools/registry/workbook.ts`、`range.ts`、`formula.ts`、`sheet.ts` | `tools/executors/excelExecutors.ts` | `officeWorker/dotNetExcelBridge.ts`、.NET Worker | 检查工作簿、读写选区、公式验证、工作表操作、宿主选择 |
+| Excel UI 控件 | `tools/registry/ui.ts` | `tools/executors/excelUiExecutors.ts`（由 `excelExecutors.ts` 组合） | `officeWorker/dotNetExcelBridge.ts`、.NET Worker | 工作表控件、表单和菜单 |
+| 工作簿内部宏 | `tools/registry/macro.ts` | `tools/executors/excelMacroExecutors.ts`（由 `excelExecutors.ts` 组合） | `officeWorker/dotNetMacroBridges.ts`、.NET Worker | 仅在工作簿宿主内部运行 VBA/WPS JSA，不提供外部脚本执行 |
 | File | `tools/registry/file.ts` | `fileExecutors.ts` | 本地 FS、路径授权 | 读写项目/附件文件 |
 | Knowledge | `tools/registry/knowledge.ts` | `knowledgeExecutors.ts` | `knowledge/retriever.ts`、`knowledgeWriter.ts` | 检索、列出、写入、修改、追加、删除知识库内容 |
 | Web | `tools/registry/web.ts` | `webSearchExecutors.ts` | `webSearchProviders.ts` 负责搜索源、超时与响应上限，`webSearchHtmlParsers.ts` 负责 HTML 解析 | 模型上网搜索 |

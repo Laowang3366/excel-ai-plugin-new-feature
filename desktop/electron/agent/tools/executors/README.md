@@ -6,7 +6,9 @@
 
 - `createToolExecutors.ts`: 组装所有工具执行器。
 - `validation.ts`: 工具参数校验和错误格式化。
-- `excelExecutors.ts`: Excel/WPS 工作簿、区域、公式、工作表、内部宏和 UI 工具执行器。
+- `excelExecutors.ts`: Excel/WPS 工作簿、区域、公式、工作表基础工具，并组合宏与 UI 子注册器。
+- `excelMacroExecutors.ts`: 工作簿内部 VBA/WPS JSA 宏工具执行器。
+- `excelUiExecutors.ts`: Excel 工作表控件、表单和菜单工具执行器。
 - `fileExecutors.ts`: 文件读写工具执行器。
 - `knowledgeExecutors.ts`: 知识库检索工具执行器。
 - `ocrExecutors.ts`: MinerU OCR 解析工具执行器，把图片/PDF 转成文本和表格。

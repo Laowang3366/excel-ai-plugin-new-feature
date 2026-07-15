@@ -1,7 +1,7 @@
 /**
  * Excel 工具执行器
  *
- * 只注册 Excel/WPS 工作簿、范围、公式、脚本和 UI 控件相关工具。
+ * 组合基础 workbook/range/formula/sheet 与宏、UI 能力子注册器。
  */
 
 import type { ToolExecutor } from "../../shared/types";
@@ -10,9 +10,10 @@ import type {
   ExcelVbaBridge,
   ExcelUiBridge,
   WpsJsaBridge,
-  WorkbookMacroLanguage,
   RangeReadExpandMode,
 } from "../contracts/excel";
+import { addExcelMacroExecutors } from "./excelMacroExecutors";
+import { addExcelUiExecutors } from "./excelUiExecutors";
 import { validateArgs } from "./validation";
 import { toModelFacingSpreadsheetMetadata } from "./modelFacingMetadata";
 
@@ -39,8 +40,8 @@ const WPS_HOSTILE_FORMULA_CHARS: Record<string, string> = {
   "！": "全角感叹号不能作为工作表引用符；请改成 ASCII 感叹号 '!'",
   "“": "弯引号不能作为公式字符串定界符；请改成 ASCII 双引号 '\"'",
   "”": "弯引号不能作为公式字符串定界符；请改成 ASCII 双引号 '\"'",
-  "‘": "弯单引号不能作为工作表名定界符；请改成 ASCII 单引号 \"'\"",
-  "’": "弯单引号不能作为工作表名定界符；请改成 ASCII 单引号 \"'\"",
+  "‘": '弯单引号不能作为工作表名定界符；请改成 ASCII 单引号 "\'"',
+  "’": '弯单引号不能作为工作表名定界符；请改成 ASCII 单引号 "\'"',
   "\u200B": "公式中包含零宽空格，请删除该不可见字符",
   "\u200C": "公式中包含零宽非连接符，请删除该不可见字符",
   "\u200D": "公式中包含零宽连接符，请删除该不可见字符",
@@ -107,7 +108,10 @@ function describeFormulaChar(char: string): string {
   return `"${char}"`;
 }
 
-export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: ExcelExecutorDeps): void {
+export function addExcelExecutors(
+  target: Map<string, ToolExecutor>,
+  deps: ExcelExecutorDeps,
+): void {
   const { workbookBridge, vbaBridge, jsaBridge, uiBridge } = deps;
 
   target.set("workbook.inspect", {
@@ -124,7 +128,9 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       const err = validateArgs(args, { sheetName: "string", range: "string" });
       if (err) return { success: false, error: err };
       const requestedExpand = normalizeRangeReadExpand(args.expand);
-      if (requestedExpand instanceof Error) return { success: false, error: requestedExpand.message };
+      if (requestedExpand instanceof Error) {
+        return { success: false, error: requestedExpand.message };
+      }
       const shouldAutoDetectSpill =
         isOmittedExpand(args.expand) && isSingleCellRange(args.range as string);
       const effectiveExpand = shouldAutoDetectSpill ? "spill" : requestedExpand;
@@ -152,11 +158,17 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
         try {
           args.values = JSON.parse(args.values);
         } catch {
-          return { success: false, error: "参数 values 应为数组，但收到了字符串且无法解析为 JSON" };
+          return {
+            success: false,
+            error: "参数 values 应为数组，但收到了字符串且无法解析为 JSON",
+          };
         }
       }
       if (!Array.isArray(args.values)) {
-        return { success: false, error: `参数 values 应为数组，实际为 ${typeof args.values}` };
+        return {
+          success: false,
+          error: `参数 values 应为数组，实际为 ${typeof args.values}`,
+        };
       }
       const formulaTypographyError = validateFormulaTypographyForWps(args.values);
       if (formulaTypographyError) {
@@ -198,93 +210,15 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
     execute: async (args: Record<string, unknown>) => {
       const err = validateArgs(args, { sheetName: "string" });
       if (err) return { success: false, error: err };
-      const context = await workbookBridge.getFormulaContext(args.sheetName as string, args.range as string | undefined);
+      const context = await workbookBridge.getFormulaContext(
+        args.sheetName as string,
+        args.range as string | undefined,
+      );
       return { success: true, data: context };
     },
   });
 
-  target.set("macro.detect", {
-    name: "macro.detect",
-    execute: async (_args: Record<string, unknown>) => {
-      const [hostInfo, vba, javascript] = await Promise.all([
-        workbookBridge.getHostInfo(),
-        vbaBridge.detectCapabilities(),
-        jsaBridge.detectCapabilities(),
-      ]);
-      const capabilities = [
-        {
-          language: "vba" as const,
-          supported: vba.supported,
-          ready: vba.supported,
-          internal: true as const,
-          engine: "VBA" as const,
-          reason: vba.reason,
-        },
-        javascript,
-      ];
-      const available = capabilities.filter((item) => item.supported);
-      const ready = available.filter((item) => item.ready);
-      return {
-        success: true,
-        data: {
-          host: hostInfo.host,
-          recommended: ready[0]?.language ?? available[0]?.language ?? "none",
-          available,
-          unavailable: capabilities.filter((item) => !item.supported),
-        },
-      };
-    },
-  });
-
-  target.set("macro.run", {
-    name: "macro.run",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { language: "string", macroName: "string" });
-      if (err) return { success: false, error: err };
-      if (args.language !== "vba") {
-        return { success: false, error: "macro.run 当前仅支持 vba；WPS JSA 只提供写入和回读校验" };
-      }
-      const result = await vbaBridge.runMacro(
-        args.macroName as string,
-        args.args as unknown[] | undefined,
-      );
-      return { success: true, data: result };
-    },
-  });
-
-  target.set("macro.write", {
-    name: "macro.write",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { language: "string", code: "string", entryPoint: "string" });
-      if (err) return { success: false, error: err };
-      const language = normalizeMacroLanguage(args.language);
-      if (language instanceof Error) return { success: false, error: language.message };
-
-      if (language === "vba") {
-        const vbaErr = validateArgs(args, { moduleName: "string" });
-        if (vbaErr) return { success: false, error: vbaErr };
-        const result = await vbaBridge.writeModule(
-          args.moduleName as string,
-          args.code as string,
-          {
-            entryPoint: args.entryPoint as string,
-            save: true,
-            saveAsPath: args.saveAsPath as string | undefined,
-          }
-        );
-        return { success: true, data: { language, ...result } };
-      }
-
-      if (args.saveAsPath !== undefined) {
-        return { success: false, error: "saveAsPath 仅支持 VBA；WPS JSA 保存到当前工作簿" };
-      }
-      const result = await jsaBridge.writeCode(args.code as string, {
-        entryPoint: args.entryPoint as string,
-        save: true,
-      });
-      return { success: true, data: result };
-    },
-  });
+  addExcelMacroExecutors(target, { workbookBridge, vbaBridge, jsaBridge });
 
   target.set("sheet.operation", {
     name: "sheet.operation",
@@ -294,93 +228,13 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       const result = await workbookBridge.sheetOperation(
         args.operation as string,
         args.sheetName as string,
-        args as Record<string, unknown>
+        args as Record<string, unknown>,
       );
       return { success: true, data: result };
     },
   });
 
-  target.set("ui.addControl", {
-    name: "ui.addControl",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, {
-        sheetName: "string",
-        controlType: "string",
-        name: "string",
-        left: "number",
-        top: "number",
-        width: "number",
-        height: "number",
-      });
-      if (err) return { success: false, error: err };
-      const result = await uiBridge.addControl({
-        sheetName: args.sheetName as string,
-        controlType: args.controlType as string,
-        name: args.name as string,
-        left: args.left as number,
-        top: args.top as number,
-        width: args.width as number,
-        height: args.height as number,
-        caption: args.caption as string | undefined,
-        macroName: args.macroName as string | undefined,
-        linkedCell: args.linkedCell as string | undefined,
-      });
-      return { success: true, data: result };
-    },
-  });
-
-  target.set("ui.removeControl", {
-    name: "ui.removeControl",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { sheetName: "string", name: "string" });
-      if (err) return { success: false, error: err };
-      await uiBridge.removeControl(args.sheetName as string, args.name as string);
-      return { success: true, data: "控件已删除" };
-    },
-  });
-
-  target.set("ui.listControls", {
-    name: "ui.listControls",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { sheetName: "string" });
-      if (err) return { success: false, error: err };
-      const controls = await uiBridge.listControls(args.sheetName as string);
-      return { success: true, data: controls };
-    },
-  });
-
-  target.set("ui.createForm", {
-    name: "ui.createForm",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { formName: "string", caption: "string" });
-      if (err) return { success: false, error: err };
-      const result = await uiBridge.createForm({
-        formName: args.formName as string,
-        caption: args.caption as string,
-        width: args.width as number | undefined,
-        height: args.height as number | undefined,
-        controls: args.controls as Array<Record<string, unknown>> | undefined,
-        eventCode: args.eventCode as string | undefined,
-      });
-      return { success: true, data: result };
-    },
-  });
-
-  target.set("ui.addMenu", {
-    name: "ui.addMenu",
-    execute: async (args: Record<string, unknown>) => {
-      const err = validateArgs(args, { menuBar: "string", caption: "string", macroName: "string" });
-      if (err) return { success: false, error: err };
-      const result = await uiBridge.addMenu({
-        menuBar: args.menuBar as string,
-        caption: args.caption as string,
-        macroName: args.macroName as string,
-        beforeId: args.beforeId as number | undefined,
-        faceId: args.faceId as number | undefined,
-      });
-      return { success: true, data: result };
-    },
-  });
+  addExcelUiExecutors(target, { uiBridge });
 
   target.set("workbook.open", {
     name: "workbook.open",
@@ -399,7 +253,7 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
       if (err) return { success: false, error: err };
       const result = await workbookBridge.createWorkbook(
         args.filePath as string,
-        args.sheetNames as string[] | undefined
+        args.sheetNames as string[] | undefined,
       );
       return { success: result.success, data: result };
     },
@@ -424,15 +278,17 @@ export function addExcelExecutors(target: Map<string, ToolExecutor>, deps: Excel
   });
 }
 
-function normalizeMacroLanguage(value: unknown): WorkbookMacroLanguage | Error {
-  if (value === "vba" || value === "javascript") return value;
-  return new Error("参数 language 必须是 vba 或 javascript");
-}
-
 function normalizeRangeReadExpand(value: unknown): RangeReadExpandMode | Error {
   if (value === undefined || value === null || value === "") return "none";
-  if (typeof value !== "string") return new Error("参数 expand 必须是 none、spill、currentArray 或 currentRegion");
-  if (value === "none" || value === "spill" || value === "currentArray" || value === "currentRegion") {
+  if (typeof value !== "string") {
+    return new Error("参数 expand 必须是 none、spill、currentArray 或 currentRegion");
+  }
+  if (
+    value === "none" ||
+    value === "spill" ||
+    value === "currentArray" ||
+    value === "currentRegion"
+  ) {
     return value;
   }
   return new Error("参数 expand 必须是 none、spill、currentArray 或 currentRegion");

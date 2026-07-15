@@ -2,7 +2,6 @@
   "version": 1,
   "generatedFrom": "b47bb9c788c4b6882b1cf1e5596af12c96e7e330",
   "formatting": {
-    "desktop/electron/agent/architecture.test.ts": "6b75ce3e2fd8b20cba2e70bc5bc5a8f495e9c58312a21b0d170554f6fa66cf6e",
     "desktop/electron/agent/core/agentLoop/agentLoop.test.ts": "e1c5432dcac15fb920b1b3cecb270aaad9061327c8aa3c9982ca9f90a39a23c8",
     "desktop/electron/agent/core/agentLoop/agentLoop.ts": "ab6667bbfd06e262b62b361812bba001874a556d7020c1a3f461898d6054e3b0",
     "desktop/electron/agent/core/agentLoop/agentLoopBase.ts": "968859c6f55c879a2a9cb623f4ea0fb49c68218b5191aebc8fde1c7567777bda",
@@ -173,8 +172,6 @@
     "desktop/electron/agent/tools/contracts/excel.ts": "6e1dc5d37080c3ab460b034647f3b603f34b0d59d0911a8ef4ceb15317d7e89f",
     "desktop/electron/agent/tools/contracts/office.ts": "4a0296f8fff9ce8e97cf5e75820aa2297985f75b36157fd54e0f1f68b0f03a46",
     "desktop/electron/agent/tools/executors/createToolExecutors.ts": "2d69ae5d3316a99ca6d65e5094895adfd4109bc3b3640db7f192b62787cc15a6",
-    "desktop/electron/agent/tools/executors/excelExecutors.test.ts": "8bc65d6c5f584c14c0cc4adc6c8b07d52c0ef6574bdf62f6896748762d8d4947",
-    "desktop/electron/agent/tools/executors/excelExecutors.ts": "b28003be70654e6779f23d4cf570399f491164bca1995bbbe428c5d717a8dd54",
     "desktop/electron/agent/tools/executors/fileExecutors.ts": "7e47f604dd6ae97bd0e246f4e0f77d03ee6d3cae665cadbd4a308544ed68e833",
     "desktop/electron/agent/tools/executors/knowledgeExecutors.test.ts": "c858c64ac490b977ab2a8ea2b5f980b5dc08cf04109a388deef16610aaa171f0",
     "desktop/electron/agent/tools/executors/knowledgeExecutors.ts": "2159234b21eddfe69fc6b32035d9ecec38e30a2329e9e074d6afd31cb5d81934",
@@ -495,7 +492,6 @@
   },
   "oversizedSources": {
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
-    "desktop/electron/agent/tools/executors/excelExecutors.ts": "b28003be70654e6779f23d4cf570399f491164bca1995bbbe428c5d717a8dd54",
     "desktop/electron/agent/tools/officeCore/transactionJournal.ts": "051ca69a8a32c02d58cf18e1b5c65e5c40a4e7ab751684bdfc751edcb2eef247",
     "desktop/electron/agent/tools/officeCore/workflow.ts": "af5ed22cbce31b4ff8896fefc2f85c4df9ea107302f3eaf69015704cd449b224",
     "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",

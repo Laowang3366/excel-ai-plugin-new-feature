@@ -9,12 +9,14 @@ import type {
 } from "../contracts/excel";
 import { addExcelExecutors } from "./excelExecutors";
 
-function createExcelExecutors(overrides: Partial<{
-  workbookBridge: ExcelWorkbookBridge;
-  vbaBridge: ExcelVbaBridge;
-  jsaBridge: WpsJsaBridge;
-  uiBridge: ExcelUiBridge;
-}> = {}): Map<string, ToolExecutor> {
+function createExcelExecutors(
+  overrides: Partial<{
+    workbookBridge: ExcelWorkbookBridge;
+    vbaBridge: ExcelVbaBridge;
+    jsaBridge: WpsJsaBridge;
+    uiBridge: ExcelUiBridge;
+  }> = {},
+): Map<string, ToolExecutor> {
   const target = new Map<string, ToolExecutor>();
   addExcelExecutors(target, {
     workbookBridge: {
@@ -31,6 +33,32 @@ function createExcelExecutors(overrides: Partial<{
 }
 
 describe("addExcelExecutors", () => {
+  it("keeps the original registration order after macro and UI extraction", () => {
+    const target = createExcelExecutors();
+
+    expect([...target.keys()]).toEqual([
+      "workbook.inspect",
+      "range.read",
+      "range.write",
+      "range.clear",
+      "selection.get",
+      "formula.context",
+      "macro.detect",
+      "macro.run",
+      "macro.write",
+      "sheet.operation",
+      "ui.addControl",
+      "ui.removeControl",
+      "ui.listControls",
+      "ui.createForm",
+      "ui.addMenu",
+      "workbook.open",
+      "workbook.create",
+      "workbook.save",
+      "workbook.switch",
+    ]);
+  });
+
   it("does not expose the removed external script or language-specific VBA tools", () => {
     const target = createExcelExecutors();
 
@@ -67,11 +95,14 @@ describe("addExcelExecutors", () => {
       entryPoint: "UnitButtonClick",
     });
 
-    expect(result).toEqual({ success: true, data: { language: "vba", ...writeResult } });
+    expect(result).toEqual({
+      success: true,
+      data: { language: "vba", ...writeResult },
+    });
     expect(vbaBridge.writeModule).toHaveBeenCalledWith(
       "UnitButtons",
       "Public Sub UnitButtonClick()\nEnd Sub",
-      { entryPoint: "UnitButtonClick", save: true, saveAsPath: undefined }
+      { entryPoint: "UnitButtonClick", save: true, saveAsPath: undefined },
     );
   });
 
@@ -85,7 +116,10 @@ describe("addExcelExecutors", () => {
       code: "Public Sub UnitButtonClick()\nEnd Sub",
     });
 
-    expect(result).toEqual({ success: false, error: "缺少必填参数: entryPoint" });
+    expect(result).toEqual({
+      success: false,
+      error: "缺少必填参数: entryPoint",
+    });
     expect(vbaBridge.writeModule).not.toHaveBeenCalled();
   });
 
@@ -94,7 +128,10 @@ describe("addExcelExecutors", () => {
       getHostInfo: vi.fn(async () => ({ host: "wps" as const, version: "12" })),
     } as unknown as ExcelWorkbookBridge;
     const vbaBridge = {
-      detectCapabilities: vi.fn(async () => ({ supported: true, host: "wps" as const })),
+      detectCapabilities: vi.fn(async () => ({
+        supported: true,
+        host: "wps" as const,
+      })),
     } as unknown as ExcelVbaBridge;
     const jsaBridge = {
       detectCapabilities: vi.fn(async () => ({
@@ -105,7 +142,11 @@ describe("addExcelExecutors", () => {
         engine: "WPS JSA" as const,
       })),
     } as unknown as WpsJsaBridge;
-    const target = createExcelExecutors({ workbookBridge, vbaBridge, jsaBridge });
+    const target = createExcelExecutors({
+      workbookBridge,
+      vbaBridge,
+      jsaBridge,
+    });
 
     const result = await target.get("macro.detect")!.execute({});
 
@@ -116,7 +157,12 @@ describe("addExcelExecutors", () => {
         recommended: "vba",
         available: [
           { language: "vba", ready: true, internal: true, engine: "VBA" },
-          { language: "javascript", ready: true, internal: true, engine: "WPS JSA" },
+          {
+            language: "javascript",
+            ready: true,
+            internal: true,
+            engine: "WPS JSA",
+          },
         ],
       },
     });
@@ -186,7 +232,8 @@ describe("addExcelExecutors", () => {
         workbooks: [{ name: "demo.xlsx", sheets: [] }],
         formulaDialect: {
           regexFunction: "REGEXP",
-          guidance: "WPS 正则提取使用 REGEXP；不要使用 Excel 方言的 REGEXEXTRACT/REGEXREPLACE/REGEXTEST 函数名",
+          guidance:
+            "WPS 正则提取使用 REGEXP；不要使用 Excel 方言的 REGEXEXTRACT/REGEXREPLACE/REGEXTEST 函数名",
         },
       },
     });
@@ -309,7 +356,12 @@ describe("addExcelExecutors", () => {
   });
 
   it("accepts range.write values supplied as a JSON string", async () => {
-    const writeResult = { written: 2, dynamicCells: 0, arrayCells: 0, plainCells: 0 };
+    const writeResult = {
+      written: 2,
+      dynamicCells: 0,
+      arrayCells: 0,
+      plainCells: 0,
+    };
     const workbookBridge = {
       writeRange: vi.fn(async () => writeResult),
     } as unknown as ExcelWorkbookBridge;
@@ -322,11 +374,18 @@ describe("addExcelExecutors", () => {
     });
 
     expect(result).toEqual({ success: true, data: writeResult });
-    expect(workbookBridge.writeRange).toHaveBeenCalledWith("Sheet1", "A1:B1", [[1, 2]], { legacyCse: false });
+    expect(workbookBridge.writeRange).toHaveBeenCalledWith("Sheet1", "A1:B1", [[1, 2]], {
+      legacyCse: false,
+    });
   });
 
   it("passes legacy CSE intent only when explicitly requested", async () => {
-    const writeResult = { written: 1, dynamicCells: 0, arrayCells: 1, plainCells: 0 };
+    const writeResult = {
+      written: 1,
+      dynamicCells: 0,
+      arrayCells: 1,
+      plainCells: 0,
+    };
     const workbookBridge = {
       writeRange: vi.fn(async () => writeResult),
     } as unknown as ExcelWorkbookBridge;
@@ -340,12 +399,9 @@ describe("addExcelExecutors", () => {
     });
 
     expect(result).toEqual({ success: true, data: writeResult });
-    expect(workbookBridge.writeRange).toHaveBeenCalledWith(
-      "Sheet1",
-      "A1",
-      [["=SUM(A1:A10)"]],
-      { legacyCse: true },
-    );
+    expect(workbookBridge.writeRange).toHaveBeenCalledWith("Sheet1", "A1", [["=SUM(A1:A10)"]], {
+      legacyCse: true,
+    });
   });
 
   it("rejects invalid range.write JSON string values", async () => {
@@ -376,7 +432,7 @@ describe("addExcelExecutors", () => {
     const result = await target.get("range.write")!.execute({
       sheetName: "Sheet1",
       range: "A1",
-      values: [['=LET(t,A1,—LEFT(t,2))']],
+      values: [["=LET(t,A1,—LEFT(t,2))"]],
     });
 
     expect(result.success).toBe(false);

@@ -37,6 +37,8 @@ describe("agent folder architecture", () => {
       "tools/executors/createToolExecutors.ts",
       "tools/executors/validation.ts",
       "tools/executors/excelExecutors.ts",
+      "tools/executors/excelMacroExecutors.ts",
+      "tools/executors/excelUiExecutors.ts",
       "tools/executors/fileExecutors.ts",
       "tools/executors/knowledgeExecutors.ts",
       "tools/executors/localDocumentParser.ts",
