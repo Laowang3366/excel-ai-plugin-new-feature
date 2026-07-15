@@ -90,7 +90,9 @@ describe("current repository documentation", () => {
   it("indexes only retained current docs and excludes removed historical names", () => {
     const documentationIndex = readRepositoryFile("docs/README.md");
     const docsDir = path.join(repositoryRoot, "docs");
-    const docsFiles = readdirSync(docsDir).filter((name) => name.endsWith(".md")).sort();
+    const docsFiles = readdirSync(docsDir)
+      .filter((name) => name.endsWith(".md"))
+      .sort();
 
     expect(documentationIndex).toContain("已从仓库工作树移除");
     expect(documentationIndex).toContain("Git 历史");

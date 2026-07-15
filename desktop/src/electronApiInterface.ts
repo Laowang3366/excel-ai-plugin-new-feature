@@ -30,9 +30,13 @@ export interface ElectronAPI {
     getDataPath: () => Promise<string>;
     selectDataPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
     selectExportPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
-    migrateDataPath: (
-      targetPath: string,
-    ) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
+    migrateDataPath: (targetPath: string) => Promise<{
+      success: boolean;
+      dataPath?: string;
+      error?: string;
+      oldRootCleared?: boolean;
+      oldRootError?: string;
+    }>;
     exportUserData: (targetPath: string) => Promise<{
       success: boolean;
       exportPath?: string;
@@ -45,7 +49,18 @@ export interface ElectronAPI {
       erasedCategories: string[];
       errors: string[];
       error?: string;
+      proofSummary?: {
+        createdAt: string;
+        installIdDigest: string;
+        proofDigest: string;
+        destroyedKeyCount: number;
+        keyMaterialDestroyed: boolean;
+        replicaCount: number;
+        erasedCount: number;
+        failedCount: number;
+      };
     }>;
+    rotateLocalDataKey: () => Promise<{ success: boolean; keyId?: number; error?: string }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
     launchOffice: (application: OfficeApplication) => Promise<{ success: boolean; error?: string }>;

@@ -20,18 +20,28 @@ export interface UserDataEraseCoordinatorDeps {
   clearSettings: () => void;
   restoreRuntimes: () => Promise<void>;
   eraseManagedData?: (dataPath: string) => Promise<UserDataEraseReport>;
+  /**
+   * Runs while writes are suspended and stores closed, before restore.
+   * Use for multi-replica erase + key destroy + rebootstrap.
+   */
+  afterQuiesceBeforeRestore?: () => Promise<{
+    erasedCategories?: string[];
+    errors?: string[];
+    proofSummary?: unknown;
+  }>;
 }
 
 export interface CoordinatedUserDataEraseResult extends UserDataEraseReport {
   success: boolean;
   error?: string;
+  proofSummary?: unknown;
 }
 
 export async function runUserDataErase(
   confirmation: string,
   deps: UserDataEraseCoordinatorDeps,
 ): Promise<CoordinatedUserDataEraseResult> {
-  const empty = { erasedCategories: [], errors: [] };
+  const empty = { erasedCategories: [] as string[], errors: [] as string[] };
   if (confirmation !== USER_DATA_ERASE_CONFIRMATION) {
     return { success: false, ...empty, error: "确认文字不匹配，未擦除任何数据" };
   }
@@ -45,6 +55,7 @@ export async function runUserDataErase(
   deps.setBusy(true);
   const sessionStore = deps.getSessionStore();
   let report: UserDataEraseReport = empty;
+  let proofSummary: unknown;
   let operationError: unknown;
   let recoveryError: unknown;
   try {
@@ -60,6 +71,16 @@ export async function runUserDataErase(
       erasedCategories: [...report.erasedCategories, ...managedReport.erasedCategories],
       errors: managedReport.errors,
     };
+    if (deps.afterQuiesceBeforeRestore) {
+      const extra = await deps.afterQuiesceBeforeRestore();
+      if (extra.erasedCategories?.length) {
+        report.erasedCategories = [...report.erasedCategories, ...extra.erasedCategories];
+      }
+      if (extra.errors?.length) {
+        report.errors = [...report.errors, ...extra.errors];
+      }
+      proofSummary = extra.proofSummary;
+    }
   } catch (error) {
     operationError = error;
   } finally {
@@ -81,9 +102,10 @@ export async function runUserDataErase(
       erasedCategories: report.erasedCategories,
       errors,
       error: `本地数据擦除未完全完成：${errors.join("；")}`,
+      proofSummary,
     };
   }
-  return { success: true, ...report };
+  return { success: true, ...report, proofSummary };
 }
 
 function errorMessage(error: unknown): string {

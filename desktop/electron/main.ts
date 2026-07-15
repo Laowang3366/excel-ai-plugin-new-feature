@@ -31,6 +31,7 @@ import {
   setAgentLoopsGetter,
   initializeSettingsSecrets,
   isDataMigrationInProgress,
+  prepareLocalDataProtectionBootstrap,
 } from "./main-modules/settingsManager";
 import { createWindow, setIsQuitting } from "./main-modules/windowManager";
 import {
@@ -112,13 +113,15 @@ app
     const userDataPath = app.getPath("userData");
     activatePendingHotPatch(userDataPath);
     initializeSettingsSecrets();
+    // Local data protection must initialize and migrate before any store writes.
+    await prepareLocalDataProtectionBootstrap();
     logLocalDataMaintenance(await runLocalDataMaintenance(getActiveDataPath()));
     stopLocalDataMaintenance = startLocalDataMaintenance({
       getDataPath: getActiveDataPath,
       isDataMaintenanceInProgress: isDataMigrationInProgress,
       onReport: logLocalDataMaintenance,
     });
-    getSessionStoreInstance(); // 提前初始化 SessionStore
+    getSessionStoreInstance(); // 提前初始化 SessionStore（此时 protection 已就绪）
     await getOrCreateAgentRuntime({
       getActiveAIConfig,
       getActiveDataPath,

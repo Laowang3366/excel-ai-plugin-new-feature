@@ -24,6 +24,7 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       migrateDataPath: async () => ({ success: true }),
       exportUserData: async () => ({ success: true, exportPath: "/mock/export" }),
       eraseUserData: async () => ({ success: true, erasedCategories: [], errors: [] }),
+      rotateLocalDataKey: async () => ({ success: true, keyId: 1 }),
       openPath: async () => "",
       openExternal: async () => "",
       launchOffice: async () => ({ success: true }),
@@ -89,8 +90,14 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
       detectWordStatus: async () => ({ connected: false, host: "unknown" }),
       detectPresentationStatus: async () => ({ connected: false, host: "unknown" }),
       automation: {
-        documents: { list: async () => ({ success: true, data: [] }), activate: async () => ({ success: false, error: "not implemented" }) },
-        objects: { list: async () => ({ success: true, data: [] }), activate: async () => ({ success: false, error: "not implemented" }) },
+        documents: {
+          list: async () => ({ success: true, data: [] }),
+          activate: async () => ({ success: false, error: "not implemented" }),
+        },
+        objects: {
+          list: async () => ({ success: true, data: [] }),
+          activate: async () => ({ success: false, error: "not implemented" }),
+        },
         workflows: {
           list: async () => ({ success: true, data: [] }),
           get: async () => ({ success: false, error: "not implemented" }),
@@ -121,7 +128,9 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
     },
     thread: {
       list: async () => [],
-      load: async () => { throw new Error("not implemented"); },
+      load: async () => {
+        throw new Error("not implemented");
+      },
       delete: async () => false,
       resume: async () => ({ success: false }),
       newThread: async () => ({ success: false }),
@@ -177,7 +186,13 @@ export function createMockIpcApi(overrides: Partial<IIpcApi> = {}): IIpcApi {
     knowledge: {
       listSources: async () => [],
       search: async () => ({ success: false, error: "not implemented" }),
-      indexFile: async () => ({ sourcePath: "", success: false, error: "not implemented", entryCount: 0, durationMs: 0 }),
+      indexFile: async () => ({
+        sourcePath: "",
+        success: false,
+        error: "not implemented",
+        entryCount: 0,
+        durationMs: 0,
+      }),
       indexFolder: async () => ({ success: false, error: "not implemented" }),
       deleteFile: async () => ({ success: false, error: "not implemented" }),
       reindexAll: async () => ({ success: false, error: "not implemented" }),

@@ -7,8 +7,18 @@ import {
   type TurnId,
   mergeTokenUsage,
 } from "../shared/types";
+import { getPayloadProtection } from "../../main-modules/localDataProtection/payloadProtection";
+import {
+  isProtectedBlob,
+  jsonlLineAad,
+  parseProtectedRecordId,
+} from "../../main-modules/localDataProtection/protectedBlob";
 
-export function parseRolloutContent(content: string, threadId: ThreadId): Thread {
+export function parseRolloutContent(
+  content: string,
+  threadId: ThreadId,
+  options: { relativePath?: string } = {},
+): Thread {
   const lines = content.split("\n").filter((line) => line.trim());
   let metadata: ThreadMetadata = {
     threadId,
@@ -20,10 +30,21 @@ export function parseRolloutContent(content: string, threadId: ThreadId): Thread
   const turnsMap = new Map<TurnId, Turn>();
   const turnOrder: TurnId[] = [];
   let hasSessionMeta = false;
+  const relativePath = options.relativePath ?? `thread-${threadId}.jsonl`;
+  const protection = getPayloadProtection();
 
   for (const line of lines) {
+    let plain = line;
+    if (isProtectedBlob(line)) {
+      // Ciphertext auth failures must not be swallowed as corrupt JSON skips.
+      const rid = parseProtectedRecordId(line);
+      if (!rid || !protection) {
+        throw new Error("protected_jsonl_unreadable");
+      }
+      plain = protection.unprotect(line, jsonlLineAad(relativePath, rid));
+    }
     try {
-      const parsed: RolloutLine = JSON.parse(line);
+      const parsed: RolloutLine = JSON.parse(plain);
       const { item } = parsed;
 
       switch (item.type) {
@@ -116,7 +137,7 @@ export function parseRolloutContent(content: string, threadId: ThreadId): Thread
   for (const turn of turns) {
     if (turn.status === "in_progress") {
       const hasFinalMessage = turn.items.some(
-        (item) => item.type === "assistant_message" && item.phase === "final"
+        (item) => item.type === "assistant_message" && item.phase === "final",
       );
       turn.status = hasFinalMessage ? "completed" : "interrupted";
     }

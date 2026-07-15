@@ -74,23 +74,30 @@ export function searchKnowledgeByKeyword(
   const seen = new Set<string>();
   const results: KnowledgeEntry[] = [];
 
+  // Preserve original priority: earlier keywords contribute matches first.
   for (const keyword of keywords) {
-    let sql = "SELECT * FROM knowledge_entries WHERE content LIKE ?";
-    const params: Array<string | number> = [`%${keyword}%`];
+    const needle = keyword.toLowerCase();
+    if (!needle) continue;
 
+    let sql = "SELECT * FROM knowledge_entries WHERE 1 = 1";
+    const params: Array<string | number> = [];
     sql = appendListFilter(sql, params, "source", filter?.sourceFilter);
     sql = appendListFilter(sql, params, "source_path", filter?.pathFilter);
-    params.push(topK);
+    const rows = db.prepare(sql).all(...params) as Record<string, any>[];
 
-    const rows = db.prepare(`${sql} LIMIT ?`).all(...params) as Record<string, any>[];
     for (const row of rows) {
       if (seen.has(row.id)) continue;
-
+      let entry: KnowledgeEntry;
+      try {
+        entry = rowToEntry(row);
+      } catch {
+        continue;
+      }
+      if (!entry.content.toLowerCase().includes(needle)) continue;
       seen.add(row.id);
-      results.push(rowToEntry(row));
-      if (results.length >= topK) break;
+      results.push(entry);
+      if (results.length >= topK) return results.slice(0, topK);
     }
-    if (results.length >= topK) break;
   }
 
   return results.slice(0, topK);

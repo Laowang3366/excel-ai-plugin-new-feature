@@ -15,12 +15,15 @@ interface GeneralSettingsStorageCardProps {
   eraseConfirmation: string;
   isErasing: boolean;
   eraseMessage: string;
+  isRotatingKey: boolean;
+  rotateKeyMessage: string;
   onOpenDataPath: () => void;
   onCopyDataPath: () => void;
   onChangeDataPath: () => void;
   onExportUserData: () => void;
   onEraseConfirmationChange: (value: string) => void;
   onEraseUserData: () => void;
+  onRotateLocalDataKey: () => void;
 }
 
 export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProps> = ({
@@ -34,12 +37,15 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
   eraseConfirmation,
   isErasing,
   eraseMessage,
+  isRotatingKey,
+  rotateKeyMessage,
   onOpenDataPath,
   onCopyDataPath,
   onChangeDataPath,
   onExportUserData,
   onEraseConfirmationChange,
   onEraseUserData,
+  onRotateLocalDataKey,
 }) => {
   const text = GENERAL_TEXT[language];
 
@@ -82,7 +88,7 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
           <button
             className="settings-action-btn primary"
             onClick={onChangeDataPath}
-            disabled={isMigrating || isExporting || isErasing}
+            disabled={isMigrating || isExporting || isErasing || isRotatingKey}
             title={text.changeTitle}
           >
             {isMigrating ? text.migrating : text.change}
@@ -96,12 +102,25 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
         <button
           className="settings-action-btn"
           onClick={onExportUserData}
-          disabled={isMigrating || isExporting || isErasing}
+          disabled={isMigrating || isExporting || isErasing || isRotatingKey}
           title={text.exportTitle}
         >
           {isExporting ? text.exporting : text.exportData}
         </button>
         <span className="form-hint">{exportMessage || text.exportHint}</span>
+      </div>
+
+      <div className="form-group">
+        <label>{text.rotateDataKey}</label>
+        <button
+          className="settings-action-btn"
+          onClick={onRotateLocalDataKey}
+          disabled={isMigrating || isExporting || isErasing || isRotatingKey}
+          title={text.rotateDataKeyTitle}
+        >
+          {isRotatingKey ? text.rotatingDataKey : text.rotateDataKey}
+        </button>
+        <span className="form-hint">{rotateKeyMessage || text.rotateDataKeyHint}</span>
       </div>
 
       <div className="form-group">
@@ -111,17 +130,18 @@ export const GeneralSettingsStorageCard: React.FC<GeneralSettingsStorageCardProp
           value={eraseConfirmation}
           onChange={(event) => onEraseConfirmationChange(event.target.value)}
           placeholder={text.eraseConfirmationPlaceholder}
-          disabled={isMigrating || isExporting || isErasing}
+          disabled={isMigrating || isExporting || isErasing || isRotatingKey}
           autoComplete="off"
         />
         <button
           className="settings-action-btn danger"
           onClick={onEraseUserData}
           disabled={
-            isMigrating
-            || isExporting
-            || isErasing
-            || eraseConfirmation !== USER_DATA_ERASE_CONFIRMATION
+            isMigrating ||
+            isExporting ||
+            isErasing ||
+            isRotatingKey ||
+            eraseConfirmation !== USER_DATA_ERASE_CONFIRMATION
           }
           title={text.eraseTitle}
         >

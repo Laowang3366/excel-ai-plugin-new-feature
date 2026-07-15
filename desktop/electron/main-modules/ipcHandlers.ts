@@ -35,6 +35,7 @@ import {
   eraseUserData,
   exportUserData,
   migrateDataPath,
+  rotateLocalDataEncryptionKey,
 } from "./settingsManager";
 import {
   validateInput,
@@ -252,6 +253,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("app:eraseUserData", async (_event, input: unknown) => {
     const validated = validateInput(EraseUserDataInput, input);
     return await eraseUserData(validated.confirmation);
+  });
+
+  ipcMain.handle("app:rotateLocalDataKey", async () => {
+    return await rotateLocalDataEncryptionKey();
   });
 
   // ---- 窗口行为 ----

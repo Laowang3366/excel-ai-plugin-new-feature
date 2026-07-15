@@ -1,3 +1,8 @@
+import {
+  fieldAad,
+  protectRequiredField,
+  unprotectRequiredField,
+} from "../../main-modules/localDataProtection/fieldCrypto";
 import type { KnowledgeEntry, KnowledgeEntryRow, KnowledgeSource } from "./types";
 
 export function entryToRow(entry: KnowledgeEntry): KnowledgeEntryRow {
@@ -8,18 +13,26 @@ export function entryToRow(entry: KnowledgeEntry): KnowledgeEntryRow {
     source_name: entry.sourceName,
     source_type: entry.sourceType,
     chunk_index: entry.chunkIndex,
-    content: entry.content,
-    metadata: JSON.stringify(entry.metadata),
+    content: protectRequiredField(
+      entry.content,
+      fieldAad("knowledge", "knowledge_entries", entry.id, "content"),
+    ),
+    metadata: protectRequiredField(
+      JSON.stringify(entry.metadata ?? {}),
+      fieldAad("knowledge", "knowledge_entries", entry.id, "metadata"),
+    ),
     embedding: entry.embedding ? JSON.stringify(entry.embedding) : null,
     embedding_provider: entry.embeddingProvider ?? null,
     embedding_model: entry.embeddingModel ?? null,
-    embedding_dimensions: entry.embeddingDimensions ?? (entry.embedding ? entry.embedding.length : null),
+    embedding_dimensions:
+      entry.embeddingDimensions ?? (entry.embedding ? entry.embedding.length : null),
     indexed_at: entry.indexedAt,
     token_count: entry.tokenCount,
   };
 }
 
 export function rowToEntry(row: Record<string, any>): KnowledgeEntry {
+  const id = String(row.id);
   return {
     id: row.id,
     source: row.source,
@@ -27,8 +40,16 @@ export function rowToEntry(row: Record<string, any>): KnowledgeEntry {
     sourceName: row.source_name,
     sourceType: row.source_type,
     chunkIndex: row.chunk_index,
-    content: row.content,
-    metadata: JSON.parse(row.metadata || "{}"),
+    content: unprotectRequiredField(
+      row.content,
+      fieldAad("knowledge", "knowledge_entries", id, "content"),
+    ),
+    metadata: JSON.parse(
+      unprotectRequiredField(
+        row.metadata || "{}",
+        fieldAad("knowledge", "knowledge_entries", id, "metadata"),
+      ) || "{}",
+    ),
     embedding: row.embedding ? JSON.parse(row.embedding) : null,
     embeddingProvider: row.embedding_provider ?? undefined,
     embeddingModel: row.embedding_model ?? undefined,

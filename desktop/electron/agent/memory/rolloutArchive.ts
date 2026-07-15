@@ -69,7 +69,7 @@ export interface CompressedRolloutSearchMatch {
  */
 export async function archiveRolloutSnapshotIfNeeded(
   filePath: string,
-  options: RolloutArchiveOptions
+  options: RolloutArchiveOptions,
 ): Promise<RolloutArchiveResult> {
   const threshold = options.archiveRolloutAfterBytes;
   if (!threshold || threshold <= 0) return { archived: false, reason: "disabled" };
@@ -104,7 +104,7 @@ export async function archiveRolloutSnapshotIfNeeded(
  * - stateRuntimeStore.ts: logs.db 才是查询主存储，JSONL 作为审计/回放副本可异步压缩。
  */
 export async function spawnRolloutCompressionWorker(
-  options: RolloutCompressionWorkerOptions
+  options: RolloutCompressionWorkerOptions,
 ): Promise<RolloutCompressionWorkerResult> {
   const activeThreadIds = new Set(options.activeThreadIds ?? []);
   const coldAfterMs = options.coldAfterMs ?? 24 * 60 * 60 * 1000;
@@ -159,7 +159,7 @@ export async function spawnRolloutCompressionWorker(
 
 /** 搜索已 zstd 压缩的冷 rollout JSONL 归档。 */
 export async function searchCompressedRolloutMatches(
-  options: CompressedRolloutSearchOptions
+  options: CompressedRolloutSearchOptions,
 ): Promise<CompressedRolloutSearchMatch[]> {
   const terms = normalizeQueryTerms(options.query);
   if (terms.length === 0) return [];
@@ -174,11 +174,26 @@ export async function searchCompressedRolloutMatches(
     if (!threadId) continue;
 
     const content = await zstdDecompressAsync(await fs.readFile(archivePath));
+    const relative = path
+      .relative(options.sessionsRoot, archivePath.replace(/\.zst$/u, ""))
+      .split(path.sep)
+      .join("/");
     for (const line of content.toString("utf-8").split(/\r?\n/)) {
       if (!line.trim()) continue;
       let parsed: RolloutLine;
       try {
-        parsed = JSON.parse(line) as RolloutLine;
+        const { getPayloadProtection } =
+          await import("../../main-modules/localDataProtection/payloadProtection");
+        const { isProtectedBlob, jsonlLineAad, parseProtectedRecordId } =
+          await import("../../main-modules/localDataProtection/protectedBlob");
+        let plain = line;
+        if (isProtectedBlob(line)) {
+          const rid = parseProtectedRecordId(line);
+          const protection = getPayloadProtection();
+          if (!rid || !protection) continue;
+          plain = protection.unprotect(line, jsonlLineAad(relative, rid));
+        }
+        parsed = JSON.parse(plain) as RolloutLine;
       } catch {
         continue;
       }
@@ -226,7 +241,11 @@ async function collectCompressedRolloutFilesInto(dir: string, files: string[]): 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       await collectCompressedRolloutFilesInto(fullPath, files);
-    } else if (entry.isFile() && entry.name.startsWith("rollout-") && entry.name.endsWith(".jsonl.zst")) {
+    } else if (
+      entry.isFile() &&
+      entry.name.startsWith("rollout-") &&
+      entry.name.endsWith(".jsonl.zst")
+    ) {
       files.push(fullPath);
     }
   }
@@ -244,7 +263,11 @@ async function collectRolloutJsonlFilesInto(dir: string, files: string[]): Promi
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       await collectRolloutJsonlFilesInto(fullPath, files);
-    } else if (entry.isFile() && entry.name.startsWith("rollout-") && entry.name.endsWith(".jsonl")) {
+    } else if (
+      entry.isFile() &&
+      entry.name.startsWith("rollout-") &&
+      entry.name.endsWith(".jsonl")
+    ) {
       files.push(fullPath);
     }
   }
@@ -260,9 +283,14 @@ async function exists(filePath: string): Promise<boolean> {
 }
 
 async function zstdCompressAsync(content: Buffer): Promise<Buffer> {
-  const compress = (zlib as typeof zlib & {
-    zstdCompress?: (buffer: Buffer, callback: (error: Error | null, result: Buffer) => void) => void;
-  }).zstdCompress;
+  const compress = (
+    zlib as typeof zlib & {
+      zstdCompress?: (
+        buffer: Buffer,
+        callback: (error: Error | null, result: Buffer) => void,
+      ) => void;
+    }
+  ).zstdCompress;
   if (!compress) {
     throw new Error("当前 Node 运行时不支持 zstd 压缩");
   }
@@ -276,9 +304,14 @@ async function zstdCompressAsync(content: Buffer): Promise<Buffer> {
 }
 
 async function zstdDecompressAsync(content: Buffer): Promise<Buffer> {
-  const decompress = (zlib as typeof zlib & {
-    zstdDecompress?: (buffer: Buffer, callback: (error: Error | null, result: Buffer) => void) => void;
-  }).zstdDecompress;
+  const decompress = (
+    zlib as typeof zlib & {
+      zstdDecompress?: (
+        buffer: Buffer,
+        callback: (error: Error | null, result: Buffer) => void,
+      ) => void;
+    }
+  ).zstdDecompress;
   if (!decompress) {
     throw new Error("当前 Node 运行时不支持 zstd 解压");
   }
@@ -309,10 +342,11 @@ function matchesQuery(content: string, terms: string[]): boolean {
 
 function buildSnippet(content: string, terms: string[]): string {
   const normalized = content.toLocaleLowerCase();
-  const firstIndex = terms
-    .map((term) => normalized.indexOf(term))
-    .filter((index) => index >= 0)
-    .sort((a, b) => a - b)[0] ?? 0;
+  const firstIndex =
+    terms
+      .map((term) => normalized.indexOf(term))
+      .filter((index) => index >= 0)
+      .sort((a, b) => a - b)[0] ?? 0;
   const start = Math.max(0, firstIndex - 24);
   const end = Math.min(content.length, firstIndex + 80);
   return `${start > 0 ? "..." : ""}${content.slice(start, end)}${end < content.length ? "..." : ""}`;

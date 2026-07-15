@@ -68,6 +68,13 @@ export const ipcApi: IIpcApi = {
       }
       return raw.app.eraseUserData(input);
     },
+    rotateLocalDataKey: async () => {
+      const raw = getRaw();
+      if (!raw?.app.rotateLocalDataKey) {
+        return { success: false, error: "IPC not available" };
+      }
+      return raw.app.rotateLocalDataKey();
+    },
     openPath: async (targetPath) => {
       const raw = getRaw();
       if (!raw) return "";
@@ -118,12 +125,14 @@ export const ipcApi: IIpcApi = {
     },
     download: async (kind) => {
       const raw = getRaw();
-      if (!raw?.update) return { ...(await ipcApi.update.getState()), phase: "error", error: "IPC not available" };
+      if (!raw?.update)
+        return { ...(await ipcApi.update.getState()), phase: "error", error: "IPC not available" };
       return raw.update.download(kind);
     },
     apply: async () => {
       const raw = getRaw();
-      if (!raw?.update) return { ...(await ipcApi.update.getState()), phase: "error", error: "IPC not available" };
+      if (!raw?.update)
+        return { ...(await ipcApi.update.getState()), phase: "error", error: "IPC not available" };
       return raw.update.apply();
     },
     onStateChanged: (callback) => {
@@ -289,7 +298,7 @@ export const ipcApi: IIpcApi = {
           } catch {
             return [folderPath, []] as const;
           }
-        })
+        }),
       );
       return Object.fromEntries(entries);
     },

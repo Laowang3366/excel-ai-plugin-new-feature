@@ -1,10 +1,18 @@
-import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { ThreadMetadata } from "../shared/types";
 import { openSqliteDatabase } from "../storage/nodeSqlite";
+import {
+  openOrCreateDataKeystore,
+  type DataKeystoreCipher,
+} from "../../main-modules/localDataProtection/dataKeystore";
+import {
+  createPayloadProtection,
+  setPayloadProtection,
+} from "../../main-modules/localDataProtection/payloadProtection";
 import { StateRuntimeStore } from "./stateRuntimeStore";
 
 function createMetadata(patch: Partial<ThreadMetadata> = {}): ThreadMetadata {
@@ -19,6 +27,27 @@ function createMetadata(patch: Partial<ThreadMetadata> = {}): ThreadMetadata {
     ...patch,
   };
 }
+
+function makeCipher(): DataKeystoreCipher {
+  const map = new Map<string, string>();
+  return {
+    isAvailable: () => true,
+    encrypt: (value) => {
+      const token = Buffer.from(value, "utf8").toString("base64");
+      map.set(token, value);
+      return token;
+    },
+    decrypt: (value) => {
+      const plain = map.get(value);
+      if (!plain) throw new Error("missing");
+      return plain;
+    },
+  };
+}
+
+afterEach(() => {
+  setPayloadProtection(null);
+});
 
 describe("StateRuntimeStore", () => {
   it("initializes four sqlite databases with migrations and WAL", async () => {
@@ -119,16 +148,20 @@ describe("StateRuntimeStore", () => {
     const store = new StateRuntimeStore(":memory:");
     await store.init();
 
-    await store.upsertThreadSnapshot(createMetadata({
-      threadId: "thread-old",
-      preview: "旧会话",
-      updatedAt: 10,
-    }));
-    await store.upsertThreadSnapshot(createMetadata({
-      threadId: "thread-new",
-      preview: "新会话",
-      updatedAt: 20,
-    }));
+    await store.upsertThreadSnapshot(
+      createMetadata({
+        threadId: "thread-old",
+        preview: "旧会话",
+        updatedAt: 10,
+      }),
+    );
+    await store.upsertThreadSnapshot(
+      createMetadata({
+        threadId: "thread-new",
+        preview: "新会话",
+        updatedAt: 20,
+      }),
+    );
 
     expect((await store.listThreadSnapshots()).map((thread) => thread.threadId)).toEqual([
       "thread-new",
@@ -187,8 +220,8 @@ describe("StateRuntimeStore", () => {
       status: "success",
       durationMs: 12,
       timestamp: 1234,
-      argumentsSummary: "{\"app\":\"presentation\"}",
-      resultSummary: "{\"status\":\"success\"}",
+      argumentsSummary: '{"app":"presentation"}',
+      resultSummary: '{"status":"success"}',
       error: undefined,
     });
 
@@ -200,8 +233,8 @@ describe("StateRuntimeStore", () => {
         toolName: "office.action.apply",
         status: "success",
         durationMs: 12,
-        argumentsSummary: "{\"app\":\"presentation\"}",
-        resultSummary: "{\"status\":\"success\"}",
+        argumentsSummary: '{"app":"presentation"}',
+        resultSummary: '{"status":"success"}',
       }),
     ]);
     await store.close();
@@ -218,7 +251,36 @@ describe("StateRuntimeStore", () => {
 
       expect(await store.findThreadNameByIdStr("thread-name-1")).toBe("健康饮食宣传 PPT");
       expect(await store.findThreadNameByIdStr("missing-thread")).toBeNull();
+    } finally {
+      await store?.close();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 
+  it("searches deep history beyond 200 rows and matches multi-term non-contiguous queries", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "state-runtime-"));
+    let store: StateRuntimeStore | undefined;
+    try {
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      for (let index = 0; index < 250; index++) {
+        await store.appendRolloutItems("thread-deep", [
+          {
+            type: "turn_item",
+            turnId: `turn-${index}`,
+            item: {
+              type: "user_message",
+              id: `msg-${index}`,
+              content: index === 5 ? "alpha unique-deep-token omega" : `noise-${index}`,
+              timestamp: index,
+            },
+          },
+        ]);
+      }
+      const matches = await store.searchRolloutMatches("alpha omega", { limit: 5 });
+      expect(
+        matches.some((match) => JSON.stringify(match.item).includes("unique-deep-token")),
+      ).toBe(true);
     } finally {
       await store?.close();
       await rm(tempDir, { recursive: true, force: true });
@@ -268,7 +330,6 @@ describe("StateRuntimeStore", () => {
         }),
       ]);
       expect(matches[0].snippet).toContain("wellness");
-
     } finally {
       await store?.close();
       await rm(tempDir, { recursive: true, force: true });
@@ -322,9 +383,9 @@ describe("StateRuntimeStore", () => {
       store = undefined;
 
       const logsDb = openSqliteDatabase(dbPath);
-      const ftsRows = logsDb.prepare(
-        `SELECT content FROM rollout_events_fts ORDER BY rowid`,
-      ).all() as Array<{ content: string }>;
+      const ftsRows = logsDb
+        .prepare(`SELECT content FROM rollout_events_fts ORDER BY rowid`)
+        .all() as Array<{ content: string }>;
       const ftsSchema = logsDb.prepare(`PRAGMA table_info(rollout_events_fts)`).all() as Array<{
         name: string;
       }>;
@@ -334,9 +395,18 @@ describe("StateRuntimeStore", () => {
       expect(serializedFts).not.toContain(canary);
       expect(serializedFts).not.toContain("customer forecast");
       expect(serializedFts).not.toContain("private chain");
-      expect(serializedFts).toContain("quarterly planning");
-      expect(serializedFts).toContain("safe planning summary");
+      expect(serializedFts).not.toContain("quarterly planning");
+      expect(serializedFts).not.toContain("safe planning summary");
+      expect(ftsRows.every((row) => row.content === "")).toBe(true);
       expect(ftsSchema.map((column) => column.name)).not.toContain("item_json");
+
+      // App-layer search decrypts item_json; FTS no longer holds recoverable bodies.
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      const matches = await store.searchRolloutMatches("quarterly planning", { limit: 5 });
+      expect(
+        matches.some((match) => JSON.stringify(match.item).includes("quarterly planning")),
+      ).toBe(true);
     } finally {
       await store?.close();
       await rm(tempDir, { recursive: true, force: true });
@@ -367,9 +437,9 @@ describe("StateRuntimeStore", () => {
       store = undefined;
 
       const legacyDb = openSqliteDatabase(logsPath);
-      const event = legacyDb.prepare(
-        `SELECT id, thread_id, turn_id, item_type, item_json FROM rollout_events LIMIT 1`,
-      ).get() as Record<string, any>;
+      const event = legacyDb
+        .prepare(`SELECT id, thread_id, turn_id, item_type, item_json FROM rollout_events LIMIT 1`)
+        .get() as Record<string, any>;
       legacyDb.exec(`
         DROP TABLE rollout_events_fts;
         CREATE VIRTUAL TABLE rollout_events_fts USING fts5(
@@ -381,18 +451,20 @@ describe("StateRuntimeStore", () => {
         );
         DELETE FROM schema_migrations WHERE id = '006_minimize_rollout_fts';
       `);
-      legacyDb.prepare(
-        `INSERT INTO rollout_events_fts
+      legacyDb
+        .prepare(
+          `INSERT INTO rollout_events_fts
           (rowid, thread_id, turn_id, item_type, content, item_json)
          VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(
-        event.id,
-        event.thread_id,
-        event.turn_id,
-        event.item_type,
-        `legacy planning ${canary}`,
-        event.item_json,
-      );
+        )
+        .run(
+          event.id,
+          event.thread_id,
+          event.turn_id,
+          event.item_type,
+          `legacy planning ${canary}`,
+          event.item_json,
+        );
       legacyDb.close();
 
       store = new StateRuntimeStore(tempDir);
@@ -401,9 +473,9 @@ describe("StateRuntimeStore", () => {
       store = undefined;
 
       const migratedDb = openSqliteDatabase(logsPath);
-      const content = migratedDb.prepare(
-        `SELECT content FROM rollout_events_fts LIMIT 1`,
-      ).get() as { content: string };
+      const content = migratedDb
+        .prepare(`SELECT content FROM rollout_events_fts LIMIT 1`)
+        .get() as { content: string };
       const columns = migratedDb.prepare(`PRAGMA table_info(rollout_events_fts)`).all() as Array<{
         name: string;
       }>;
@@ -424,10 +496,12 @@ describe("StateRuntimeStore", () => {
     try {
       store = new StateRuntimeStore(tempDir);
       await store.init();
-      await store.upsertThreadSnapshot(createMetadata({
-        threadId: "thread-backfill",
-        name: "回填测试会话",
-      }));
+      await store.upsertThreadSnapshot(
+        createMetadata({
+          threadId: "thread-backfill",
+          name: "回填测试会话",
+        }),
+      );
       await store.appendRolloutItems("thread-backfill", [
         {
           type: "turn_item",
@@ -460,6 +534,50 @@ describe("StateRuntimeStore", () => {
     } finally {
       await store?.close();
       await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("backfills thread_names under protection with correct AAD and no plaintext canary", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "state-runtime-prot-"));
+    const userData = await mkdtemp(path.join(os.tmpdir(), "state-runtime-ud-"));
+    let store: StateRuntimeStore | undefined;
+    try {
+      await mkdir(path.join(userData, "data"), { recursive: true });
+      const { keystore } = openOrCreateDataKeystore({
+        userDataPath: userData,
+        dataRoot: path.join(userData, "data"),
+        cipher: makeCipher(),
+      });
+      setPayloadProtection(createPayloadProtection(keystore));
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      const canary = "CANARY-thread-name-plain";
+      await store.upsertThreadSnapshot(
+        createMetadata({
+          threadId: "thread-prot-backfill",
+          name: canary,
+        }),
+      );
+      const dbPaths = store.getDatabasePaths();
+      await store.close();
+      store = undefined;
+
+      const stateDb = openSqliteDatabase(dbPaths.state);
+      stateDb.prepare(`DELETE FROM thread_names`).run();
+      stateDb.close();
+
+      store = new StateRuntimeStore(tempDir);
+      await store.init();
+      expect(await store.findThreadNameByIdStr("thread-prot-backfill")).toBe(canary);
+
+      const raw = await readFile(dbPaths.state);
+      expect(raw.includes(canary)).toBe(false);
+      expect(raw.toString("utf8")).not.toContain(canary);
+    } finally {
+      await store?.close();
+      setPayloadProtection(null);
+      await rm(tempDir, { recursive: true, force: true });
+      await rm(userData, { recursive: true, force: true });
     }
   });
 
@@ -563,20 +681,18 @@ describe("StateRuntimeStore", () => {
     });
 
     expect(
-      (await store.listLongTermMemories({ limit: 1, offset: 1 })).map(
-        (memory) => memory.memoryId,
-      ),
+      (await store.listLongTermMemories({ limit: 1, offset: 1 })).map((memory) => memory.memoryId),
     ).toEqual(["mem-older"]);
     expect(
-      (await store.listLongTermMemories({ limit: 1, offset: -1 })).map(
-        (memory) => memory.memoryId,
-      ),
+      (await store.listLongTermMemories({ limit: 1, offset: -1 })).map((memory) => memory.memoryId),
     ).toEqual(["mem-newer"]);
     expect(
-      (await store.listLongTermMemories({
-        limit: 1,
-        offset: Number.NaN,
-      })).map((memory) => memory.memoryId),
+      (
+        await store.listLongTermMemories({
+          limit: 1,
+          offset: Number.NaN,
+        })
+      ).map((memory) => memory.memoryId),
     ).toEqual(["mem-newer"]);
     await store.close();
   });
@@ -604,7 +720,9 @@ describe("StateRuntimeStore", () => {
       updatedAt: 200,
     });
     expect(await store.listLongTermMemories({ status: "active" })).toEqual([]);
-    expect((await store.listLongTermMemories({ status: "archived" }))[0].memoryId).toBe("mem-delete");
+    expect((await store.listLongTermMemories({ status: "archived" }))[0].memoryId).toBe(
+      "mem-delete",
+    );
     expect(await store.archiveLongTermMemory("missing")).toBeNull();
     await store.close();
   });

@@ -39,6 +39,11 @@ import {
   listToolExecutionLogsFromLogs,
 } from "./stateRuntimeToolLogs";
 import {
+  fieldAad,
+  protectRequiredField,
+  unprotectRequiredField,
+} from "../../main-modules/localDataProtection/fieldCrypto";
+import {
   getThreadRuntimeFromDb,
   getThreadSnapshotFromDb,
   deleteThreadStateFromDb,
@@ -220,7 +225,7 @@ export class StateRuntimeStore {
   }
 
   async appendToolExecutionLog(record: RuntimeToolExecutionLogRecord): Promise<void> {
-    appendToolExecutionLogToLogs(this.getDbs().logs, record);
+    appendToolExecutionLogToLogs(this.getDbs().logs, record, (write) => this.runLogsWrite(write));
   }
 
   async listToolExecutionLogs(
@@ -242,14 +247,19 @@ export class StateRuntimeStore {
          name = excluded.name,
          updated_at = excluded.updated_at`,
       )
-      .run(threadId, trimmed, updatedAt);
+      .run(
+        threadId,
+        protectRequiredField(trimmed, fieldAad("state", "thread_names", threadId, "name")),
+        updatedAt,
+      );
   }
 
   async findThreadNameByIdStr(threadId: string): Promise<string | null> {
     const row = this.getDbs()
       .state.prepare(`SELECT name FROM thread_names WHERE thread_id = ?`)
       .get(threadId) as { name: string } | undefined;
-    return row?.name ?? null;
+    if (!row?.name) return null;
+    return unprotectRequiredField(row.name, fieldAad("state", "thread_names", threadId, "name"));
   }
 
   async upsertGoal(goal: RuntimeGoalRecord): Promise<void> {
@@ -310,14 +320,30 @@ export class StateRuntimeStore {
 
   private backfillDerivedIndexes(): void {
     const dbs = this.getDbs();
-    dbs.state
+    // Only missing thread_names rows; decrypt snapshot AAD and re-seal under thread_names AAD.
+    const snapshotNames = dbs.state
       .prepare(
-        `INSERT OR IGNORE INTO thread_names (thread_id, name, updated_at)
-       SELECT thread_id, name, updated_at
-       FROM thread_snapshots
-       WHERE name IS NOT NULL AND trim(name) <> ''`,
+        `SELECT s.thread_id, s.name, s.updated_at
+         FROM thread_snapshots s
+         WHERE s.name IS NOT NULL AND trim(s.name) <> ''
+           AND NOT EXISTS (SELECT 1 FROM thread_names n WHERE n.thread_id = s.thread_id)`,
       )
-      .run();
+      .all() as Array<{ thread_id: string; name: string; updated_at: number }>;
+    const insertName = dbs.state.prepare(
+      `INSERT OR IGNORE INTO thread_names (thread_id, name, updated_at) VALUES (?, ?, ?)`,
+    );
+    for (const row of snapshotNames) {
+      const plain = unprotectRequiredField(
+        row.name,
+        fieldAad("state", "thread_snapshots", row.thread_id, "name"),
+      );
+      if (!plain.trim()) continue;
+      insertName.run(
+        row.thread_id,
+        protectRequiredField(plain, fieldAad("state", "thread_names", row.thread_id, "name")),
+        row.updated_at,
+      );
+    }
 
     const indexedIds = new Set(
       (
@@ -347,13 +373,7 @@ export class StateRuntimeStore {
           } catch {
             // 损坏投影不再把原始 JSON 复制到 FTS。
           }
-          insertSearch.run(
-            row.id,
-            row.thread_id,
-            row.turn_id ?? null,
-            row.item_type,
-            content,
-          );
+          insertSearch.run(row.id, row.thread_id, row.turn_id ?? null, row.item_type, content);
         }
       });
     write();

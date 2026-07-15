@@ -13,12 +13,7 @@ import { AgentGraphStore } from "../agent/memory/agentGraphStore";
 import { SessionStore } from "../agent/memory/sessionStore";
 import { StateRuntimeStore } from "../agent/memory/stateRuntimeStore";
 import type { AIClientConfig } from "../agent/providers/aiClient";
-import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
 import { reloadKnowledgeRuntime, resetKnowledgeRuntime } from "../agent/runtime/knowledgeRuntime";
-import {
-  buildCompactionConfig,
-  type SavedCompactionConfig,
-} from "../agent/runtime/compactionRuntime";
 import { configureLogDirectory } from "../shared/logger";
 import {
   getActiveDataPath,
@@ -42,13 +37,41 @@ import {
   validateStagedDataPath,
   type PreparedDataPathMigration,
 } from "./dataPathMigration";
-import { runUserDataExport } from "./userDataExportCoordinator";
 import { DEFAULT_SETTINGS } from "./settingsDefaults";
-import { runUserDataErase } from "./userDataEraseCoordinator";
 import { buildActiveAIConfig } from "./settingsAiConfig";
 import { hasActiveDataOperations } from "./dataMaintenance";
+import {
+  afterDataPathMigrated,
+  bootstrapLocalDataProtection,
+} from "./localDataProtection/localDataLifecycle";
+import {
+  runEraseUserData,
+  runExportUserData,
+  runRotateLocalDataEncryptionKey,
+} from "./settingsUserDataActions";
 
 export { getActiveDataPath };
+
+/** 迁移/导出/擦除/轮换互斥 — 与 dataMaintenance 活动操作共用忙判定 */
+let migrationInProgress = false;
+
+export function isDataMigrationInProgress(): boolean {
+  return migrationInProgress;
+}
+
+export async function prepareLocalDataProtectionBootstrap(): Promise<void> {
+  await bootstrapLocalDataProtection({
+    dataRoot: getActiveDataPath(),
+    seal: async () => {
+      // No session store yet on first boot; only ensure knowledge/state are closed if any.
+      await closeStateRuntimeStore().catch(() => {});
+      resetKnowledgeRuntime();
+    },
+    restore: async () => {
+      // Stores are created lazily after bootstrap.
+    },
+  });
+}
 
 const MIN_WINDOW_OPACITY = 0.55;
 const MAX_WINDOW_OPACITY = 1;
@@ -93,7 +116,7 @@ export function setSettingFromRenderer(key: string, value: unknown): unknown {
     key,
     value,
     settingsStore.get(key as keyof typeof DEFAULT_SETTINGS),
-    settingsSecretCipher
+    settingsSecretCipher,
   );
   settingsStore.set(key as keyof typeof DEFAULT_SETTINGS, protectedValue as never);
   return getSettingForRenderer(key);
@@ -103,12 +126,13 @@ export function getRuntimeSettingValue(key: string): unknown {
   return decryptSettingValueForRuntime(
     key,
     settingsStore.get(key as keyof typeof DEFAULT_SETTINGS),
-    settingsSecretCipher
+    settingsSecretCipher,
   );
 }
 
 export function getProviderApiKey(providerId: string): string {
-  const providers = (settingsStore.get("aiProviders") as Record<string, Record<string, unknown>>) || {};
+  const providers =
+    (settingsStore.get("aiProviders") as Record<string, Record<string, unknown>>) || {};
   const provider = providers[providerId];
   if (!provider) return "";
   return String(decryptProviderForRuntime(provider, settingsSecretCipher).apiKey || "");
@@ -160,7 +184,7 @@ export function getAgentGraphStoreInstance(): AgentGraphStore {
 }
 
 export async function getStateRuntimeStoreInstance(): Promise<StateRuntimeStore> {
-  if (migrationInProgress) {
+  if (isDataMigrationInProgress()) {
     throw new Error("数据存储正在迁移，请稍后重试");
   }
   return openStateRuntimeStoreInstance();
@@ -190,76 +214,13 @@ async function resetSessionStore(): Promise<void> {
   }
 }
 
-/** 迁移互斥锁 — 防止并发调用 migrateDataPath */
-let migrationInProgress = false;
-
-export async function exportUserData(
-  targetPath: string,
-): ReturnType<typeof runUserDataExport> {
-  return runUserDataExport(targetPath, {
-    isBusy: () => migrationInProgress || hasActiveDataOperations(),
-    setBusy: (busy) => { migrationInProgress = busy; },
-    hasRunningAgent: () => (agentLoopsGetter?.() ?? []).some((agent) => agent.getIsRunning()),
-    getDataPath: getActiveDataPath,
-    getSanitizedSettings: getSettingsForRenderer,
-    getSessionStore: getSessionStoreInstance,
-    closeStateRuntime: closeStateRuntimeStore,
-    resetKnowledgeRuntime,
-    restoreRuntimes: async () => {
-      await resetSessionStore();
-      await reloadKnowledgeRuntime(
-        getActiveAIConfig(),
-        getActiveDataPath(),
-        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      );
-    },
-  });
-}
-
-export async function eraseUserData(
-  confirmation: string,
-): ReturnType<typeof runUserDataErase> {
-  const getAgents = () => agentLoopsGetter?.() ?? [];
-  return runUserDataErase(confirmation, {
-    isBusy: () => migrationInProgress || hasActiveDataOperations(),
-    setBusy: (busy) => { migrationInProgress = busy; },
-    hasRunningAgent: () => getAgents().some((agent) => agent.getIsRunning()),
-    getDataPath: getActiveDataPath,
-    getSessionStore: getSessionStoreInstance,
-    resetAgents: async () => { await Promise.all(getAgents().map((agent) => agent.resetThread())); },
-    closeStateRuntime: closeStateRuntimeStore,
-    resetKnowledgeRuntime,
-    clearSettings: () => {
-      settingsStore.clear();
-      initializeSettingsSecrets();
-    },
-    restoreRuntimes: async () => {
-      await resetSessionStore();
-      const aiConfig = getActiveAIConfig();
-      const compactionConfig = buildCompactionConfig({
-        contextWindowSize: aiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW,
-        savedCompaction: getRuntimeSettingValue("compactionConfig") as
-          SavedCompactionConfig | undefined,
-      });
-      for (const agent of getAgents()) {
-        agent.updateAIConfig(aiConfig);
-        agent.updateCompactionConfig(compactionConfig);
-        agent.updatePermissionMode("normal");
-      }
-      const restoredKnowledge = await reloadKnowledgeRuntime(
-        aiConfig, getActiveDataPath(),
-        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      );
-      if (!restoredKnowledge.store) {
-        throw new Error(restoredKnowledge.error || "知识库恢复失败");
-      }
-    },
-  });
-}
-
-export async function migrateDataPath(
-  targetDataPath: string,
-): Promise<{ success: boolean; dataPath?: string; error?: string }> {
+export async function migrateDataPath(targetDataPath: string): Promise<{
+  success: boolean;
+  dataPath?: string;
+  error?: string;
+  oldRootCleared?: boolean;
+  oldRootError?: string;
+}> {
   // 互斥锁
   if (migrationInProgress || hasActiveDataOperations()) {
     return { success: false, error: "数据维护或相关操作正在进行中，请稍后重试" };
@@ -326,7 +287,16 @@ export async function migrateDataPath(
     }
 
     migrationSucceeded = true;
-    return { success: true, dataPath: nextDataPath };
+    const oldRoot = await afterDataPathMigrated({
+      previousDataPath: currentDataPath,
+      nextDataPath,
+    });
+    return {
+      success: true,
+      dataPath: nextDataPath,
+      oldRootCleared: oldRoot.oldRootCleared,
+      oldRootError: oldRoot.oldRootError,
+    };
   } catch (error) {
     if (switchedDataPath || committedTarget) {
       await closeStateRuntimeStore().catch(() => {});
@@ -369,14 +339,10 @@ export async function migrateDataPath(
   }
 }
 
-export function isDataMigrationInProgress(): boolean {
-  return migrationInProgress;
-}
-
 export function getActiveAIConfig(): AIClientConfig {
   const activeProviderId = settingsStore.get("activeProvider") as string;
-  const providers = (settingsStore.get("aiProviders") as
-    Record<string, Record<string, unknown>>) || {};
+  const providers =
+    (settingsStore.get("aiProviders") as Record<string, Record<string, unknown>>) || {};
   return buildActiveAIConfig(activeProviderId, providers, settingsSecretCipher);
 }
 
@@ -396,4 +362,38 @@ export function applyWindowTheme(mainWindow: Electron.BrowserWindow | null): voi
 export function applyWindowOpacity(mainWindow: Electron.BrowserWindow | null): void {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.setOpacity(normalizeWindowOpacity(settingsStore.get("windowOpacity")));
+}
+
+function getSettingsLocalDataContext() {
+  return {
+    isBusy: () => migrationInProgress || hasActiveDataOperations(),
+    setBusy: (busy: boolean) => {
+      migrationInProgress = busy;
+    },
+    getAgents: () => agentLoopsGetter?.() ?? [],
+    getSessionStore: getSessionStoreInstance,
+    closeStateRuntime: closeStateRuntimeStore,
+    resetKnowledge: resetKnowledgeRuntime,
+    clearSettings: () => {
+      settingsStore.clear();
+      initializeSettingsSecrets();
+    },
+    resetSessionStore,
+    getActiveAIConfig,
+    getRuntimeSettingValue,
+    reloadKnowledge: reloadKnowledgeRuntime,
+    getSanitizedSettings: getSettingsForRenderer,
+  };
+}
+
+export async function exportUserData(targetPath: string) {
+  return runExportUserData(targetPath, getSettingsLocalDataContext());
+}
+
+export async function eraseUserData(confirmation: string) {
+  return runEraseUserData(confirmation, getSettingsLocalDataContext());
+}
+
+export async function rotateLocalDataEncryptionKey() {
+  return runRotateLocalDataEncryptionKey(getSettingsLocalDataContext());
 }

@@ -1,6 +1,11 @@
 import type { ThreadId, ThreadMetadata, ThreadRuntimeSnapshot } from "../shared/types";
 import type { SqliteDatabase } from "../storage/nodeSqlite";
 import { runSqliteTransaction } from "../storage/nodeSqlite";
+import {
+  fieldAad,
+  protectFieldValue,
+  protectRequiredField,
+} from "../../main-modules/localDataProtection/fieldCrypto";
 import { mapThreadSnapshot } from "./stateRuntimeMappers";
 
 export function upsertThreadSnapshotInDb(db: SqliteDatabase, metadata: ThreadMetadata): void {
@@ -23,13 +28,21 @@ export function upsertThreadSnapshotInDb(db: SqliteDatabase, metadata: ThreadMet
       total_token_usage = excluded.total_token_usage,
       archived_at = excluded.archived_at,
       folder_id = excluded.folder_id,
-      compacted_history = excluded.compacted_history`
+      compacted_history = excluded.compacted_history`,
   );
 
   upsert.run(
     metadata.threadId,
-    metadata.preview,
-    metadata.name ?? null,
+    protectRequiredField(
+      metadata.preview ?? "",
+      fieldAad("state", "thread_snapshots", metadata.threadId, "preview"),
+    ),
+    metadata.name
+      ? protectRequiredField(
+          metadata.name,
+          fieldAad("state", "thread_snapshots", metadata.threadId, "name"),
+        )
+      : null,
     metadata.modelProvider,
     metadata.model ?? null,
     metadata.contextWindowSize ?? null,
@@ -40,21 +53,28 @@ export function upsertThreadSnapshotInDb(db: SqliteDatabase, metadata: ThreadMet
     metadata.totalTokenUsage ? JSON.stringify(metadata.totalTokenUsage) : null,
     metadata.archivedAt ?? null,
     metadata.folderId ?? null,
-    metadata.compactedHistory ? JSON.stringify(metadata.compactedHistory) : null
+    metadata.compactedHistory
+      ? protectRequiredField(
+          JSON.stringify(metadata.compactedHistory),
+          fieldAad("state", "thread_snapshots", metadata.threadId, "compacted_history"),
+        )
+      : null,
   );
 }
 
-export function getThreadSnapshotFromDb(db: SqliteDatabase, threadId: ThreadId): ThreadMetadata | null {
-  const row = db.prepare(
-    `SELECT * FROM thread_snapshots WHERE thread_id = ?`
-  ).get(threadId) as Record<string, any> | undefined;
+export function getThreadSnapshotFromDb(
+  db: SqliteDatabase,
+  threadId: ThreadId,
+): ThreadMetadata | null {
+  const row = db.prepare(`SELECT * FROM thread_snapshots WHERE thread_id = ?`).get(threadId) as
+    Record<string, any> | undefined;
   return row ? mapThreadSnapshot(row) : null;
 }
 
 export function listThreadSnapshotsFromDb(db: SqliteDatabase): ThreadMetadata[] {
-  const rows = db.prepare(
-    `SELECT * FROM thread_snapshots ORDER BY updated_at DESC`
-  ).all() as Record<string, any>[];
+  const rows = db
+    .prepare(`SELECT * FROM thread_snapshots ORDER BY updated_at DESC`)
+    .all() as Record<string, any>[];
   return rows.map(mapThreadSnapshot);
 }
 
@@ -68,7 +88,7 @@ export function deleteThreadStateFromDb(db: SqliteDatabase, threadId: ThreadId):
 
 export function updateThreadRuntimeInDb(
   db: SqliteDatabase,
-  snapshot: ThreadRuntimeSnapshot & { threadId: ThreadId }
+  snapshot: ThreadRuntimeSnapshot & { threadId: ThreadId },
 ): void {
   db.prepare(
     `INSERT INTO thread_runtime (
@@ -79,24 +99,23 @@ export function updateThreadRuntimeInDb(
       last_active_at = excluded.last_active_at,
       unloaded_at = excluded.unloaded_at,
       idle_unload_ms = excluded.idle_unload_ms,
-      updated_at = excluded.updated_at`
+      updated_at = excluded.updated_at`,
   ).run(
     snapshot.threadId,
     snapshot.status,
     snapshot.lastActiveAt ?? null,
     snapshot.unloadedAt ?? null,
     snapshot.idleUnloadMs,
-    Date.now()
+    Date.now(),
   );
 }
 
 export function getThreadRuntimeFromDb(
   db: SqliteDatabase,
-  threadId: ThreadId
+  threadId: ThreadId,
 ): (ThreadRuntimeSnapshot & { threadId: ThreadId }) | null {
-  const row = db.prepare(
-    `SELECT * FROM thread_runtime WHERE thread_id = ?`
-  ).get(threadId) as Record<string, any> | undefined;
+  const row = db.prepare(`SELECT * FROM thread_runtime WHERE thread_id = ?`).get(threadId) as
+    Record<string, any> | undefined;
   if (!row) return null;
   return {
     threadId: row.thread_id,

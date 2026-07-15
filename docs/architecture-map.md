@@ -141,6 +141,7 @@ sequenceDiagram
 | `desktop/electron/main.ts` | Electron 生命周期入口 | `getOrCreateAgentRuntime`、`registerIpcHandlers`、`createWindow`、退出时 flush/close | 主窗口、Agent runtime、IPC 注册 |
 | `desktop/electron/main-modules/settingsManager.ts` | electron-store、数据目录、Session/StateRuntime 生命周期 | `getActiveAIConfig`、`getSessionStoreInstance`、`getStateRuntimeStoreInstance` | 设置、数据路径、SQLite/JSONL 存储实例 |
 | `desktop/electron/main-modules/dataPathMigration.ts` | 数据目录完整 staging、逐文件校验、空目标原子切换和回滚清理 | `settingsManager.migrateDataPath` | 设置/会话/知识/日志/Office 自动化完整副本 |
+| `desktop/electron/main-modules/localDataProtection/*` | AES-GCM 本地数据加密、密钥 journal 迁移/轮换、受管副本登记与删除证明 | 启动 bootstrap、设置页轮换/擦除、路径迁移与导出 | 密文会话/SQLite/知识；bootstrap keystore/journal/proof |
 | `desktop/electron/main-modules/userDataExport*.ts` | 隐私导出 staging、凭据排除、会话/SQLite 静默点和运行时恢复 | `settingsManager.exportUserData` | 带类别清单的本地数据导出目录 |
 | `desktop/electron/main-modules/userDataErase*.ts` | 精确确认、固定目录白名单、运行时静默点、部分失败报告和恢复 | `settingsManager.eraseUserData` | 当前活动数据根内的应用受管数据擦除结果 |
 | `desktop/electron/main-modules/dataMaintenance.ts` | 维护锁与活动操作计数，覆盖设置、临时文件、OCR/Provider 检查、Office 自动化和周期留存 | IPC 子 handler、`localDataMaintenance.ts` | 迁移、导出、擦除与相关异步操作不重叠 |

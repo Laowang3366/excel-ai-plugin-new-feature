@@ -22,7 +22,6 @@ import {
   type TurnItem,
   type Thread,
   type ThreadMetadata,
-  type RolloutLine,
   type RolloutItem,
   type TokenUsage,
   generateThreadId,
@@ -38,6 +37,7 @@ import {
 } from "./rolloutArchive";
 import type { RuntimeRolloutSearchMatch } from "./stateRuntimeTypes";
 import { parseRolloutContent as parseSessionRolloutContent } from "./sessionRolloutParser";
+import { sealRolloutJsonlLines } from "./sessionRolloutCrypto";
 import { readUsageSummaryFromRolloutFiles, type TurnStats } from "./sessionUsageStats";
 import {
   findAllRolloutFiles,
@@ -54,7 +54,10 @@ export { getDefaultSessionsRoot };
 
 export interface RolloutEventSink {
   appendRolloutItems(threadId: ThreadId, items: RolloutItem[]): Promise<void>;
-  searchRolloutMatches?(query: string, options?: { limit?: number }): Promise<RuntimeRolloutSearchMatch[]>;
+  searchRolloutMatches?(
+    query: string,
+    options?: { limit?: number },
+  ): Promise<RuntimeRolloutSearchMatch[]>;
 }
 
 export type SessionRolloutSearchMatch = RuntimeRolloutSearchMatch | CompressedRolloutSearchMatch;
@@ -142,17 +145,8 @@ export class SessionStore {
     }
 
     const filePath = this.getRolloutPath(threadId);
-
-    // 构造 JSONL 行
-    const lines = items.map((item) => {
-      const line: RolloutLine = {
-        timestamp: new Date().toISOString(),
-        item,
-      };
-      return JSON.stringify(line) + "\n";
-    });
-
-    await this.rolloutWriter.enqueue(filePath, lines);
+    const relative = path.relative(this.sessionsRoot, filePath).split(path.sep).join("/");
+    await this.rolloutWriter.enqueue(filePath, sealRolloutJsonlLines(items, relative));
   }
 
   /** 等待所有已排队的 rollout 写入落盘。读取、退出或测试前调用。 */
@@ -162,7 +156,7 @@ export class SessionStore {
 
   /** 启动冷 rollout JSONL zstd 压缩 worker。 */
   async spawnRolloutCompressionWorker(
-    options: Omit<RolloutCompressionWorkerOptions, "sessionsRoot">
+    options: Omit<RolloutCompressionWorkerOptions, "sessionsRoot">,
   ): Promise<RolloutCompressionWorkerResult> {
     await this.flushRolloutWrites();
     return spawnRolloutCompressionWorker({
@@ -174,7 +168,7 @@ export class SessionStore {
   /** 搜索数据库投影和压缩 JSONL 归档中的 rollout 内容。 */
   async searchRolloutMatches(
     query: string,
-    options: { limit?: number } = {}
+    options: { limit?: number } = {},
   ): Promise<SessionRolloutSearchMatch[]> {
     await this.flushRolloutWrites();
     const limit = clampNumber(options.limit, { fallback: 20, min: 1, max: 100 });
@@ -196,15 +190,11 @@ export class SessionStore {
   // ----------------------------------------------------------
 
   async appendTurnItem(threadId: ThreadId, turnId: TurnId, item: TurnItem): Promise<void> {
-    await this.appendRolloutItems(threadId, [
-      { type: "turn_item", turnId, item },
-    ]);
+    await this.appendRolloutItems(threadId, [{ type: "turn_item", turnId, item }]);
   }
 
   async appendTurnUsage(threadId: ThreadId, turnId: TurnId, usage: TokenUsage): Promise<void> {
-    await this.appendRolloutItems(threadId, [
-      { type: "turn_usage", turnId, usage },
-    ]);
+    await this.appendRolloutItems(threadId, [{ type: "turn_usage", turnId, usage }]);
   }
 
   // ----------------------------------------------------------
@@ -226,7 +216,7 @@ export class SessionStore {
 
     try {
       const content = await readFile(filePath, "utf-8");
-      return this.parseRolloutContent(content, threadId);
+      return this.parseRolloutContent(content, threadId, filePath);
     } catch (err: any) {
       if (err.code === "ENOENT") return null;
       throw err;
@@ -243,7 +233,7 @@ export class SessionStore {
       const filename = path.basename(filePath, ".jsonl");
       const threadIdMatch = filename.match(/thread-(.+)$/);
       const threadId = threadIdMatch ? `thread-${threadIdMatch[1]}` : filename;
-      return this.parseRolloutContent(content, threadId);
+      return this.parseRolloutContent(content, threadId, filePath);
     } catch (err: any) {
       if (err.code === "ENOENT") return null;
       throw err;
@@ -251,8 +241,11 @@ export class SessionStore {
   }
 
   /** Parse JSONL content into a Thread object. */
-  private parseRolloutContent(content: string, threadId: ThreadId): Thread {
-    return parseSessionRolloutContent(content, threadId);
+  private parseRolloutContent(content: string, threadId: ThreadId, filePath?: string): Thread {
+    const relativePath = filePath
+      ? path.relative(this.sessionsRoot, filePath).split(path.sep).join("/")
+      : undefined;
+    return parseSessionRolloutContent(content, threadId, { relativePath });
   }
 
   // ----------------------------------------------------------
@@ -263,7 +256,7 @@ export class SessionStore {
     await this.flushRolloutWrites();
 
     const threads = await scanThreadMetadata(this.sessionsRoot, (filePath) =>
-      this.loadThreadByPath(filePath)
+      this.loadThreadByPath(filePath),
     );
     // 按更新时间降序排列
     threads.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -319,17 +312,19 @@ export class SessionStore {
     if (!current) throw new Error("会话不存在");
 
     const merged = { ...current.metadata, ...patch, updatedAt: Date.now() };
-    await this.appendRolloutItems(threadId, [{
-      type: "session_meta",
-      meta: {
-        id: threadId,
-        timestamp: new Date(merged.updatedAt).toISOString(),
-        modelProvider: merged.modelProvider,
-        model: merged.model,
-        name: merged.name ?? null,
-        folderId: merged.folderId,
+    await this.appendRolloutItems(threadId, [
+      {
+        type: "session_meta",
+        meta: {
+          id: threadId,
+          timestamp: new Date(merged.updatedAt).toISOString(),
+          modelProvider: merged.modelProvider,
+          model: merged.model,
+          name: merged.name ?? null,
+          folderId: merged.folderId,
+        },
       },
-    }]);
+    ]);
   }
 
   // ----------------------------------------------------------

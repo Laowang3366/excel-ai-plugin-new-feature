@@ -18,20 +18,29 @@ describe("GeneralSettingsStorageCard", () => {
         eraseConfirmation: "",
         isErasing: false,
         eraseMessage: "",
+        isRotatingKey: false,
+        rotateKeyMessage: "",
         onOpenDataPath: () => undefined,
         onCopyDataPath: () => undefined,
         onChangeDataPath: () => undefined,
         onExportUserData: () => undefined,
         onEraseConfirmationChange: () => undefined,
         onEraseUserData: () => undefined,
+        onRotateLocalDataKey: () => undefined,
       }),
     );
 
     expect(html).toContain("导出本地数据");
     expect(html).toContain("不会导出 API Key");
     expect(html).toContain("不会复制数据目录外的原始文档");
+    expect(html).toContain("轮换本地数据密钥");
     expect(html).toContain("擦除应用本地数据");
     expect(html).toContain("输入 ERASE LOCAL DATA");
     expect(html).toContain("不可撤销");
+    expect(html).toContain("已登记的活动数据根");
+    expect(html).toContain("隐私导出");
+    expect(html).toContain("清理旧目录");
+    expect(html).not.toContain("旧目录不会被删除");
+    expect(html).not.toContain("建议先导出备份");
   });
 });

@@ -31,7 +31,13 @@ export interface IIpcApi {
     getDataPath: () => Promise<string>;
     selectDataPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
     selectExportPath: () => Promise<{ canceled: boolean; filePaths: string[] }>;
-    migrateDataPath: (targetPath: string) => Promise<{ success: boolean; dataPath?: string; error?: string }>;
+    migrateDataPath: (targetPath: string) => Promise<{
+      success: boolean;
+      dataPath?: string;
+      error?: string;
+      oldRootCleared?: boolean;
+      oldRootError?: string;
+    }>;
     exportUserData: (targetPath: string) => Promise<{
       success: boolean;
       exportPath?: string;
@@ -44,7 +50,18 @@ export interface IIpcApi {
       erasedCategories: string[];
       errors: string[];
       error?: string;
+      proofSummary?: {
+        createdAt: string;
+        installIdDigest: string;
+        proofDigest: string;
+        destroyedKeyCount: number;
+        keyMaterialDestroyed: boolean;
+        replicaCount: number;
+        erasedCount: number;
+        failedCount: number;
+      };
     }>;
+    rotateLocalDataKey: () => Promise<{ success: boolean; keyId?: number; error?: string }>;
     openPath: (targetPath: string) => Promise<string>;
     openExternal: (targetUrl: string) => Promise<string>;
     launchOffice: (application: OfficeApplication) => Promise<{ success: boolean; error?: string }>;
@@ -71,19 +88,42 @@ export interface IIpcApi {
     getAll: () => Promise<Record<string, unknown>>;
   };
   excel: {
-    detectStatus: () => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string; availableHosts?: string[] }>;
-    connect: () => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string; availableHosts?: string[] }>;
+    detectStatus: () => Promise<{
+      connected: boolean;
+      host: string;
+      version?: string;
+      workbookName?: string;
+      availableHosts?: string[];
+    }>;
+    connect: () => Promise<{
+      connected: boolean;
+      host: string;
+      version?: string;
+      workbookName?: string;
+      availableHosts?: string[];
+    }>;
     /** 当 Office + WPS 同时运行时，用户选择目标宿主 */
-    selectHost: (host: "excel" | "wps") => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
+    selectHost: (
+      host: "excel" | "wps",
+    ) => Promise<{ connected: boolean; host: string; version?: string; workbookName?: string }>;
     getSelection: () => Promise<{ address: string; values: unknown[][]; sheetName: string }>;
     getSelectionAddress: () => Promise<{ address: string; sheetName: string }>;
     readRange: (
       sheetName: string,
       range: string,
-      expand?: ExcelRangeExpandMode
-    ) => Promise<{ values: unknown[][]; address?: string; expanded?: boolean; expandMode?: string }>;
+      expand?: ExcelRangeExpandMode,
+    ) => Promise<{
+      values: unknown[][];
+      address?: string;
+      expanded?: boolean;
+      expandMode?: string;
+    }>;
     inspectWorkbook: () => Promise<unknown>;
-    writeRange: (sheetName: string, range: string, values: unknown[][]) => Promise<{ success: boolean; error?: string }>;
+    writeRange: (
+      sheetName: string,
+      range: string,
+      values: unknown[][],
+    ) => Promise<{ success: boolean; error?: string }>;
   };
   office: ElectronAPI["office"];
   agent: {
@@ -107,10 +147,25 @@ export interface IIpcApi {
       clientId?: string;
       threadId?: string | null;
       isResume?: boolean;
-    }) => Promise<{ success: boolean; queued?: boolean; queueSize?: number; turnId?: string; threadId?: string; error?: string }>;
+    }) => Promise<{
+      success: boolean;
+      queued?: boolean;
+      queueSize?: number;
+      turnId?: string;
+      threadId?: string;
+      error?: string;
+    }>;
     interrupt: (threadId?: string | null) => Promise<{ success: boolean; error?: string }>;
     onEvent: (callback: (event: AgentEvent) => void) => () => void;
-    onStreamDelta: (callback: (data: { delta: string; itemType: string; roundId?: number; threadId?: string; clientId?: string }) => void) => () => void;
+    onStreamDelta: (
+      callback: (data: {
+        delta: string;
+        itemType: string;
+        roundId?: number;
+        threadId?: string;
+        clientId?: string;
+      }) => void,
+    ) => () => void;
   };
   thread: {
     list: () => Promise<ThreadMetadata[]>;
@@ -123,9 +178,19 @@ export interface IIpcApi {
     runtimeStatus: () => Promise<ThreadRuntimeSnapshot>;
   };
   threadGraph: {
-    upsertSpawnEdge: (parentThreadId: string, childThreadId: string, label?: string) => Promise<ThreadSpawnEdge>;
-    closeSpawnEdge: (parentThreadId: string, childThreadId: string) => Promise<ThreadSpawnEdge | null>;
-    listDescendants: (parentThreadId: string, status?: ThreadSpawnStatusFilter) => Promise<ThreadSpawnDescendant[]>;
+    upsertSpawnEdge: (
+      parentThreadId: string,
+      childThreadId: string,
+      label?: string,
+    ) => Promise<ThreadSpawnEdge>;
+    closeSpawnEdge: (
+      parentThreadId: string,
+      childThreadId: string,
+    ) => Promise<ThreadSpawnEdge | null>;
+    listDescendants: (
+      parentThreadId: string,
+      status?: ThreadSpawnStatusFilter,
+    ) => Promise<ThreadSpawnDescendant[]>;
   };
   dialog: {
     openFile: () => Promise<{ canceled: boolean; filePaths: string[] }>;
@@ -149,7 +214,11 @@ export interface IIpcApi {
     /** 在系统文件管理器中显示文件 */
     revealInExplorer: (filePath: string) => Promise<{ success: boolean; error?: string }>;
     /** 将 base64 数据写入临时文件（截图粘贴等） */
-    writeTempFile: (data: { prefix?: string; suffix?: string; data: string }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+    writeTempFile: (data: {
+      prefix?: string;
+      suffix?: string;
+      data: string;
+    }) => Promise<{ success: boolean; filePath?: string; error?: string }>;
     /** 获取拖拽/粘贴 File 对象对应的本地路径（Electron 新版替代 File.path） */
     getPathForFile?: (file: File) => string;
   };
@@ -165,19 +234,32 @@ export interface IIpcApi {
     cancel: (toolCallId: string) => Promise<void>;
   };
   ai: {
-    listModels: (baseUrl: string, apiKey: string, apiFormat: string, providerId?: string) => Promise<string[]>;
-    testConnection: (baseUrl: string, apiKey: string, apiFormat: string, model: string, providerId?: string) => Promise<{ success: boolean; error?: string; latency?: number }>;
+    listModels: (
+      baseUrl: string,
+      apiKey: string,
+      apiFormat: string,
+      providerId?: string,
+    ) => Promise<string[]>;
+    testConnection: (
+      baseUrl: string,
+      apiKey: string,
+      apiFormat: string,
+      model: string,
+      providerId?: string,
+    ) => Promise<{ success: boolean; error?: string; latency?: number }>;
   };
   stats: {
-    getSummary: () => Promise<Array<{
-      turnId: string;
-      threadId: string;
-      model: string;
-      timestamp: number;
-      messages: number;
-      tokens: number;
-      estimated: boolean;
-    }>>;
+    getSummary: () => Promise<
+      Array<{
+        turnId: string;
+        threadId: string;
+        model: string;
+        timestamp: number;
+        messages: number;
+        tokens: number;
+        estimated: boolean;
+      }>
+    >;
   };
   /** OCR 视觉识别：通过当前模型 API 的多模态能力识别图片 */
   ocr: {
@@ -185,17 +267,28 @@ export interface IIpcApi {
   };
   /** 知识库 (RAG) */
   knowledge: {
-    listSources: () => Promise<Array<{
+    listSources: () => Promise<
+      Array<{
+        sourcePath: string;
+        sourceName: string;
+        sourceType: string;
+        entryCount: number;
+        firstIndexed: number;
+        lastIndexed: number;
+        fileHash: string;
+      }>
+    >;
+    search: (
+      query: string,
+      topK?: number,
+    ) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+    indexFile: (filePath: string) => Promise<{
       sourcePath: string;
-      sourceName: string;
-      sourceType: string;
+      success: boolean;
+      error?: string;
       entryCount: number;
-      firstIndexed: number;
-      lastIndexed: number;
-      fileHash: string;
-    }>>;
-    search: (query: string, topK?: number) => Promise<{ success: boolean; data?: any[]; error?: string }>;
-    indexFile: (filePath: string) => Promise<{ sourcePath: string; success: boolean; error?: string; entryCount: number; durationMs: number }>;
+      durationMs: number;
+    }>;
     indexFolder: (folderPath: string) => Promise<any>;
     deleteFile: (sourcePath: string) => Promise<{ success: boolean; error?: string }>;
     reindexAll: () => Promise<{ success: boolean; error?: string; results?: any[] }>;

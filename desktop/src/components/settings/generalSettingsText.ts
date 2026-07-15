@@ -18,10 +18,12 @@ export const GENERAL_TEXT = {
     windowAvoidanceTitle: "窗口避让",
     windowAvoidanceDesc: "控制助手在 Office 操作时的占屏方式。",
     officeAutoCompactEnabled: "Office 操作时自动避让",
-    officeAutoCompactHint: "当检测到 Office 已连接并且助手窗口失焦时，自动缩为右侧紧凑栏，减少对表格、文档或幻灯片的遮挡。",
+    officeAutoCompactHint:
+      "当检测到 Office 已连接并且助手窗口失焦时，自动缩为右侧紧凑栏，减少对表格、文档或幻灯片的遮挡。",
     dynamicArrayTitle: "公式函数环境",
     dynamicArrayFunctionsEnabled: "动态数组函数环境支持",
-    dynamicArrayFunctionsHint: "开启后系统会把当前环境视为支持 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP 等动态数组函数，模型不再反复纠结函数兼容性；关闭后公式助手会优先使用逐格公式或传统函数方案。",
+    dynamicArrayFunctionsHint:
+      "开启后系统会把当前环境视为支持 FILTER、UNIQUE、SORT、SEQUENCE、LET、XLOOKUP 等动态数组函数，模型不再反复纠结函数兼容性；关闭后公式助手会优先使用逐格公式或传统函数方案。",
     storageTitle: "数据存储",
     storageDesc: "会话历史、模型配置、权限偏好等数据保存在本机目录。",
     storagePath: "数据存储路径",
@@ -29,6 +31,7 @@ export const GENERAL_TEXT = {
     unsupportedPath: "当前环境暂不支持读取数据路径",
     readPathFailed: "读取数据路径失败",
     migrateFailed: "迁移数据失败",
+    oldRootCleanupFailed: "数据已迁移到新目录，但旧目录清理失败，已登记待擦除",
     open: "打开",
     copy: "复制",
     copied: "已复制",
@@ -37,18 +40,27 @@ export const GENERAL_TEXT = {
     openTitle: "打开数据目录",
     copyTitle: "复制数据路径",
     changeTitle: "更换数据存储目录并迁移数据",
-    storageHint: "更换目录会自动复制当前设置和会话历史，旧目录不会被删除。",
+    storageHint:
+      "更换目录会自动复制当前设置和会话历史；成功后会清理旧目录中的应用受管数据，清理失败则登记为待擦除副本。",
     exportData: "导出本地数据",
     exporting: "导出中...",
     exportTitle: "把会话、记忆、知识索引、Office 备份与日志导出到空目录",
-    exportHint: "导出包含本地应用数据，但不会导出 API Key、OCR Token 或自定义请求头秘密，也不会复制数据目录外的原始文档。",
+    exportHint:
+      "导出包含本地应用数据，但不会导出 API Key、OCR Token 或自定义请求头秘密，也不会复制数据目录外的原始文档。",
     exportSuccess: "导出完成",
     exportFailed: "导出本地数据失败",
+    rotateDataKey: "轮换本地数据密钥",
+    rotatingDataKey: "轮换中...",
+    rotateDataKeyTitle: "重新生成本地数据加密密钥并重加密受管数据",
+    rotateDataKeyHint: "仅在本机重加密会话、记忆与知识等受管数据；失败时保持旧密钥与旧数据。",
+    rotateDataKeySuccess: "本地数据密钥已轮换",
+    rotateDataKeyFailed: "本地数据密钥轮换失败",
     eraseData: "擦除应用本地数据",
     erasing: "擦除中...",
     eraseTitle: "永久删除应用持有的设置、会话、记忆、知识索引、Office 备份、自动化记录和日志",
     eraseConfirmationPlaceholder: "输入 ERASE LOCAL DATA 以启用擦除",
-    eraseHint: "不可撤销。只删除当前数据目录中的应用受管数据并保留该目录位置，不删除原始 Office 文档、附件或知识源文件；建议先导出备份。",
+    eraseHint:
+      "不可撤销。会擦除已登记的活动数据根、迁移旧根与应用创建的隐私导出中的受管数据，并销毁本地数据密钥；保留活动目录位置。不删除原始 Office 文档、附件或知识源文件。",
     eraseSuccess: "本地数据已擦除，界面即将重新加载",
     eraseFailed: "本地数据擦除未完全完成",
     contextTitle: "上下文管理",
@@ -56,19 +68,24 @@ export const GENERAL_TEXT = {
     compactionEnabled: "启用自动压缩",
     compactionEnabledHint: "当上下文使用量达到阈值百分比时，自动压缩历史记录以释放上下文空间。",
     compactionThreshold: "自动压缩阈值",
-    compactionThresholdHint: "当上下文使用量达到模型窗口的此百分比时触发自动压缩。较低的值压缩更频繁，较高的值保留更多历史。",
+    compactionThresholdHint:
+      "当上下文使用量达到模型窗口的此百分比时触发自动压缩。较低的值压缩更频繁，较高的值保留更多历史。",
     currentModelContext: "当前模型上下文窗口",
     ocrTitle: "OCR 服务",
     ocrDesc: "配置 MinerU 通用解析接口，用于 OCR 和发票识别。",
     mineruApiToken: "MinerU API Token",
     mineruApiTokenPlaceholder: "粘贴 MinerU 控制台生成的 API Token",
-    mineruApiTokenHint: "保存后 OCR 会优先使用 MinerU 通用解析；未配置或解析失败时会回退当前视觉模型。",
+    mineruApiTokenHint:
+      "保存后 OCR 会优先使用 MinerU 通用解析；未配置或解析失败时会回退当前视觉模型。",
     saved: "已保存",
     remoteDataTitle: "远程数据处理",
-    remoteDataDesc: "统一控制 OCR、联网搜索、发票智能抽取和知识库向量化是否可把数据发送到第三方服务。默认关闭。",
+    remoteDataDesc:
+      "统一控制 OCR、联网搜索、发票智能抽取和知识库向量化是否可把数据发送到第三方服务。默认关闭。",
     remoteDataProcessingEnabled: "允许远程数据处理",
-    remoteDataEnabledHint: "已开启：选中的文件、查询词、OCR 文本或知识片段可能发送到 MinerU、搜索引擎或当前模型服务商；高置信密钥仍会在发送前阻止。",
-    remoteDataDisabledHint: "本地模式：OCR 仅使用本地解析，联网搜索被禁用，知识库自动降级为关键词索引和检索。",
+    remoteDataEnabledHint:
+      "已开启：选中的文件、查询词、OCR 文本或知识片段可能发送到 MinerU、搜索引擎或当前模型服务商；高置信密钥仍会在发送前阻止。",
+    remoteDataDisabledHint:
+      "本地模式：OCR 仅使用本地解析，联网搜索被禁用，知识库自动降级为关键词索引和检索。",
   },
   "en-US": {
     title: "General",
@@ -87,12 +104,15 @@ export const GENERAL_TEXT = {
     closeToTray: "Hide to system tray when closing the window",
     closeHint: "When enabled, the close button hides the app. Restore or quit from the tray icon.",
     windowAvoidanceTitle: "Window Avoidance",
-    windowAvoidanceDesc: "Control how much screen space the assistant uses while working in Office.",
+    windowAvoidanceDesc:
+      "Control how much screen space the assistant uses while working in Office.",
     officeAutoCompactEnabled: "Auto-avoid while using Office",
-    officeAutoCompactHint: "When Office is connected and the assistant loses focus, it shrinks into a right-side compact panel to reduce obstruction.",
+    officeAutoCompactHint:
+      "When Office is connected and the assistant loses focus, it shrinks into a right-side compact panel to reduce obstruction.",
     dynamicArrayTitle: "Formula Environment",
     dynamicArrayFunctionsEnabled: "Dynamic array function support",
-    dynamicArrayFunctionsHint: "When enabled, the system treats the current environment as supporting FILTER, UNIQUE, SORT, SEQUENCE, LET, XLOOKUP, and other dynamic array functions. When disabled, formula tasks prefer per-cell or traditional formulas.",
+    dynamicArrayFunctionsHint:
+      "When enabled, the system treats the current environment as supporting FILTER, UNIQUE, SORT, SEQUENCE, LET, XLOOKUP, and other dynamic array functions. When disabled, formula tasks prefer per-cell or traditional formulas.",
     storageTitle: "Data storage",
     storageDesc: "Conversation history, model settings, and preferences are stored locally.",
     storagePath: "Data storage path",
@@ -100,6 +120,8 @@ export const GENERAL_TEXT = {
     unsupportedPath: "Data path is not available in this environment",
     readPathFailed: "Failed to read data path",
     migrateFailed: "Failed to migrate data",
+    oldRootCleanupFailed:
+      "Data migrated to the new folder, but the old folder could not be cleaned and remains registered for erase",
     open: "Open",
     copy: "Copy",
     copied: "Copied",
@@ -108,38 +130,56 @@ export const GENERAL_TEXT = {
     openTitle: "Open data folder",
     copyTitle: "Copy data path",
     changeTitle: "Change data folder and migrate data",
-    storageHint: "Changing the folder copies current settings and conversations. The old folder is not deleted.",
+    storageHint:
+      "Changing the folder copies current settings and conversations. On success the old folder's app-managed data is cleaned; if cleanup fails it remains registered for erase.",
     exportData: "Export local data",
     exporting: "Exporting...",
-    exportTitle: "Export conversations, memories, knowledge indexes, Office backups, and logs to an empty folder",
-    exportHint: "The export includes local application data, but omits API keys, OCR tokens, custom-header secrets, and original documents outside the data folder.",
+    exportTitle:
+      "Export conversations, memories, knowledge indexes, Office backups, and logs to an empty folder",
+    exportHint:
+      "The export includes local application data, but omits API keys, OCR tokens, custom-header secrets, and original documents outside the data folder.",
     exportSuccess: "Export complete",
     exportFailed: "Failed to export local data",
+    rotateDataKey: "Rotate local data key",
+    rotatingDataKey: "Rotating...",
+    rotateDataKeyTitle: "Generate a new local data encryption key and re-encrypt managed data",
+    rotateDataKeyHint:
+      "Re-encrypts managed local data on this machine only. On failure the previous key and data remain.",
+    rotateDataKeySuccess: "Local data key rotated",
+    rotateDataKeyFailed: "Failed to rotate local data key",
     eraseData: "Erase app-managed local data",
     erasing: "Erasing...",
-    eraseTitle: "Permanently delete app-managed settings, conversations, memories, knowledge indexes, Office backups, automation records, and logs",
+    eraseTitle:
+      "Permanently delete app-managed settings, conversations, memories, knowledge indexes, Office backups, automation records, and logs",
     eraseConfirmationPlaceholder: "Type ERASE LOCAL DATA to enable erasure",
-    eraseHint: "Irreversible. Deletes app-managed data but retains the active folder location; original Office documents, attachments, and knowledge source files are not deleted. Export a backup first.",
+    eraseHint:
+      "Irreversible. Erases app-managed data under registered active roots, migration old roots, and app-created privacy exports, and destroys local data keys; the active folder path is retained. Original Office documents, attachments, and knowledge source files are not deleted.",
     eraseSuccess: "Local data erased; the interface will reload",
     eraseFailed: "Local data erasure did not fully complete",
     contextTitle: "Context Management",
     contextDesc: "Control auto-compaction of conversation context to avoid exceeding model limits.",
     compactionEnabled: "Enable auto-compaction",
-    compactionEnabledHint: "When context usage reaches the threshold percentage, history is automatically compacted to free context space.",
+    compactionEnabledHint:
+      "When context usage reaches the threshold percentage, history is automatically compacted to free context space.",
     compactionThreshold: "Auto-compact threshold",
-    compactionThresholdHint: "Auto-compaction triggers when context usage reaches this percentage of the model's window. Lower values compact more frequently; higher values retain more history.",
+    compactionThresholdHint:
+      "Auto-compaction triggers when context usage reaches this percentage of the model's window. Lower values compact more frequently; higher values retain more history.",
     currentModelContext: "Current model context window",
     ocrTitle: "OCR Service",
     ocrDesc: "Configure MinerU's general parsing API for OCR and invoice recognition.",
     mineruApiToken: "MinerU API Token",
     mineruApiTokenPlaceholder: "Paste the API token generated in MinerU console",
-    mineruApiTokenHint: "OCR uses MinerU first after saving. If unset or parsing fails, it falls back to the current vision model.",
+    mineruApiTokenHint:
+      "OCR uses MinerU first after saving. If unset or parsing fails, it falls back to the current vision model.",
     saved: "Saved",
     remoteDataTitle: "Remote Data Processing",
-    remoteDataDesc: "Controls whether OCR, web search, invoice extraction, and knowledge embeddings may send data to third-party services. Disabled by default.",
+    remoteDataDesc:
+      "Controls whether OCR, web search, invoice extraction, and knowledge embeddings may send data to third-party services. Disabled by default.",
     remoteDataProcessingEnabled: "Allow remote data processing",
-    remoteDataEnabledHint: "Enabled: selected files, queries, OCR text, or knowledge chunks may be sent to MinerU, search engines, or the active model provider. High-confidence secrets are still blocked before transmission.",
-    remoteDataDisabledHint: "Local mode: OCR uses local parsing only, web search is disabled, and the knowledge base falls back to keyword indexing and retrieval.",
+    remoteDataEnabledHint:
+      "Enabled: selected files, queries, OCR text, or knowledge chunks may be sent to MinerU, search engines, or the active model provider. High-confidence secrets are still blocked before transmission.",
+    remoteDataDisabledHint:
+      "Local mode: OCR uses local parsing only, web search is disabled, and the knowledge base falls back to keyword indexing and retrieval.",
   },
 } as const;
 

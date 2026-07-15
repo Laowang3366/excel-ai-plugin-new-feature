@@ -19,15 +19,22 @@ export function useGeneralSettingsStorage(
   const [eraseConfirmation, setEraseConfirmation] = useState("");
   const [isErasing, setIsErasing] = useState(false);
   const [eraseMessage, setEraseMessage] = useState("");
+  const [isRotatingKey, setIsRotatingKey] = useState(false);
+  const [rotateKeyMessage, setRotateKeyMessage] = useState("");
 
   useEffect(() => {
     let canceled = false;
-    void ipcApi.app.getDataPath()
-      .then((value) => { if (!canceled) setDataPath(value || text.unsupportedPath); })
+    void ipcApi.app
+      .getDataPath()
+      .then((value) => {
+        if (!canceled) setDataPath(value || text.unsupportedPath);
+      })
       .catch((error) => {
         if (!canceled) setPathError(error instanceof Error ? error.message : text.readPathFailed);
       });
-    return () => { canceled = true; };
+    return () => {
+      canceled = true;
+    };
   }, [text.readPathFailed, text.unsupportedPath]);
 
   const onOpenDataPath = async () => {
@@ -50,6 +57,13 @@ export function useGeneralSettingsStorage(
       const result = await ipcApi.app.migrateDataPath(selectedPath);
       if (!result?.success) return setPathError(result?.error || text.migrateFailed);
       setDataPath(result.dataPath || selectedPath);
+      if (result.oldRootCleared === false) {
+        setPathError(
+          result.oldRootError
+            ? `${text.oldRootCleanupFailed}: ${result.oldRootError}`
+            : text.oldRootCleanupFailed,
+        );
+      }
       await loadSettings();
     } catch (error) {
       setPathError(error instanceof Error ? error.message : text.migrateFailed);
@@ -64,9 +78,11 @@ export function useGeneralSettingsStorage(
     setIsExporting(true);
     try {
       const result = await ipcApi.app.exportUserData(selectedPath);
-      setExportMessage(result.success
-        ? `${text.exportSuccess}: ${result.exportPath || selectedPath}`
-        : result.error || text.exportFailed);
+      setExportMessage(
+        result.success
+          ? `${text.exportSuccess}: ${result.exportPath || selectedPath}`
+          : result.error || text.exportFailed,
+      );
     } catch (error) {
       setExportMessage(error instanceof Error ? error.message : text.exportFailed);
     } finally {
@@ -79,7 +95,12 @@ export function useGeneralSettingsStorage(
     setEraseMessage("");
     try {
       const result = await ipcApi.app.eraseUserData({ confirmation: eraseConfirmation });
-      setEraseMessage(result.success ? text.eraseSuccess : result.error || text.eraseFailed);
+      const proof = result.proofSummary
+        ? ` proof=${result.proofSummary.proofDigest.slice(0, 12)} keys=${result.proofSummary.destroyedKeyCount}`
+        : "";
+      setEraseMessage(
+        result.success ? `${text.eraseSuccess}${proof}` : result.error || text.eraseFailed,
+      );
       if (result.success || result.erasedCategories.length > 0) {
         setEraseConfirmation("");
         await loadSettings();
@@ -91,11 +112,41 @@ export function useGeneralSettingsStorage(
       setIsErasing(false);
     }
   };
+  const onRotateLocalDataKey = async () => {
+    setIsRotatingKey(true);
+    setRotateKeyMessage("");
+    try {
+      const result = await ipcApi.app.rotateLocalDataKey();
+      setRotateKeyMessage(
+        result.success
+          ? `${text.rotateDataKeySuccess}${result.keyId != null ? ` (v${result.keyId})` : ""}`
+          : result.error || text.rotateDataKeyFailed,
+      );
+    } catch (error) {
+      setRotateKeyMessage(error instanceof Error ? error.message : text.rotateDataKeyFailed);
+    } finally {
+      setIsRotatingKey(false);
+    }
+  };
 
   return {
-    dataPath, pathError, copied, isMigrating, isExporting, exportMessage,
-    eraseConfirmation, isErasing, eraseMessage,
-    onOpenDataPath, onCopyDataPath, onChangeDataPath, onExportUserData,
-    onEraseConfirmationChange: setEraseConfirmation, onEraseUserData,
+    dataPath,
+    pathError,
+    copied,
+    isMigrating,
+    isExporting,
+    exportMessage,
+    eraseConfirmation,
+    isErasing,
+    eraseMessage,
+    isRotatingKey,
+    rotateKeyMessage,
+    onOpenDataPath,
+    onCopyDataPath,
+    onChangeDataPath,
+    onExportUserData,
+    onEraseConfirmationChange: setEraseConfirmation,
+    onEraseUserData,
+    onRotateLocalDataKey,
   };
 }
