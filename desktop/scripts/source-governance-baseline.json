@@ -391,7 +391,6 @@
     "desktop/src/components/sidebar/SidebarThreadItem.tsx": "48abc97c33bd2fc14f64cdbc9b4d9985a6e52ed043db7fc8de48f750bc3bb32a",
     "desktop/src/components/sidebar/ThreadContextMenu.tsx": "04f8bf040c04471cb31ece7246849ab69b2d24081774a8912158902e9f227cc9",
     "desktop/src/components/task/CodeTaskComposerPanel.test.ts": "2e015a228296cb4f8cdad4f84886eb1db09a8c3250ac17310436dc5a571dcdc2",
-    "desktop/src/components/task/CodeTaskComposerPanel.tsx": "ab270b62f38f205a81a529fe866af0a9199968e85d4c50873dada49d056caa3b",
     "desktop/src/components/task/FormulaTaskComposerPanel.tsx": "1a3319bdb526fb42c61b2529327d69c77ab7f82458b22af9ca76f0bc4381179f",
     "desktop/src/components/task/OCRFileUploadSection.tsx": "0bbb092e405d6a2ad3e7da210d77999544ce7f7336fc1f7e65ea9c903c22cd18",
     "desktop/src/components/task/OCRRecognizeButton.tsx": "66d806e250ffba8c1a93d1d78f6a96f522b00da0b0a544693e4848cf9807ea1a",
@@ -528,7 +527,6 @@
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",
     "desktop/src/App.tsx": "5862d98f3f1d33f2b8cc15e93c53cde6c664f42eaa85debb29d15241c28aa967",
     "desktop/src/components/ChatPage.tsx": "b7a106cdf1938b3ab784428cea84a28e4a93f9242477d6901081325126e1d3b3",
-    "desktop/src/components/task/CodeTaskComposerPanel.tsx": "ab270b62f38f205a81a529fe866af0a9199968e85d4c50873dada49d056caa3b",
     "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c",
     "desktop/src/i18n.ts": "122dadb4e30812fd90f9cf43a1a47263526c4d25f31d89686be48972110d854b",
     "desktop/src/store/chatStore.ts": "856d45dbfe1161b0b3d3d73d6b122b72903eeb53e5e91e1c24297de601ed959e"

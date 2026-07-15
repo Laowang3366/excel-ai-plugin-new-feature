@@ -22,17 +22,13 @@ import {
   type PreferredLanguage,
   type ReferenceSampleMode,
 } from "../../utils/taskComposerPayloads";
+import {
+  CODE_TASK_HOST_OPTIONS,
+  CODE_TASK_LANGUAGE_OPTIONS,
+  type CodeTaskDraft,
+} from "./codeTaskComposerModel";
 
-export interface CodeTaskDraft {
-  dataSourceRanges: string[];
-  dataSourceInput: string;
-  referenceSampleRange: string;
-  referenceSampleMode: ReferenceSampleMode;
-  outputRange: string;
-  hostEnvironment: HostEnvironment;
-  preferredLanguage: PreferredLanguage;
-  task: string;
-}
+export type { CodeTaskDraft } from "./codeTaskComposerModel";
 
 interface CodeTaskComposerPanelProps {
   onSubmit: (payload: string) => void;
@@ -41,18 +37,6 @@ interface CodeTaskComposerPanelProps {
   draft?: CodeTaskDraft;
   onDraftChange?: (draft: CodeTaskDraft) => void;
 }
-
-const HOST_OPTIONS: { value: HostEnvironment; label: string }[] = [
-  { value: "wps", label: "WPS" },
-  { value: "microsoft_excel", label: "Microsoft Excel" },
-];
-
-const LANGUAGE_OPTIONS: { value: PreferredLanguage; label: string }[] = [
-  { value: "auto", label: "自动" },
-  { value: "js", label: "JS" },
-  { value: "vba", label: "VBA" },
-  { value: "python", label: "Python" },
-];
 
 export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
   onSubmit,
@@ -63,11 +47,19 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
 }) => {
   const [dataSourceRanges, setDataSourceRanges] = useState<string[]>(draft?.dataSourceRanges ?? []);
   const [dataSourceInput, setDataSourceInput] = useState(draft?.dataSourceInput ?? "");
-  const [referenceSampleRange, setReferenceSampleRange] = useState(draft?.referenceSampleRange ?? "");
-  const [referenceSampleMode, setReferenceSampleMode] = useState<ReferenceSampleMode>(draft?.referenceSampleMode ?? "partial");
+  const [referenceSampleRange, setReferenceSampleRange] = useState(
+    draft?.referenceSampleRange ?? "",
+  );
+  const [referenceSampleMode, setReferenceSampleMode] = useState<ReferenceSampleMode>(
+    draft?.referenceSampleMode ?? "partial",
+  );
   const [outputRange, setOutputRange] = useState(draft?.outputRange ?? "");
-  const [hostEnvironment, setHostEnvironment] = useState<HostEnvironment>(draft?.hostEnvironment ?? "unknown");
-  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>(draft?.preferredLanguage ?? "auto");
+  const [hostEnvironment, setHostEnvironment] = useState<HostEnvironment>(
+    draft?.hostEnvironment ?? "unknown",
+  );
+  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>(
+    draft?.preferredLanguage ?? "auto",
+  );
   const [task, setTask] = useState(draft?.task ?? "");
 
   useEffect(() => {
@@ -103,29 +95,24 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
   }, [refreshHostEnvironment]);
 
   // 从 Excel 当前选中区域读取
-  const pickCurrentSelection = useCallback(
-    async (field: "datasource" | "reference" | "output") => {
-      try {
-        const rangeStr = await pickExcelRange();
-        if (rangeStr) {
-          if (field === "datasource") {
-            setDataSourceRanges((prev) =>
-              prev.includes(rangeStr) ? prev : [...prev, rangeStr]
-            );
-          } else if (field === "reference") {
-            setReferenceSampleRange(rangeStr);
-          } else {
-            setOutputRange(rangeStr);
-          }
+  const pickCurrentSelection = useCallback(async (field: "datasource" | "reference" | "output") => {
+    try {
+      const rangeStr = await pickExcelRange();
+      if (rangeStr) {
+        if (field === "datasource") {
+          setDataSourceRanges((prev) => (prev.includes(rangeStr) ? prev : [...prev, rangeStr]));
+        } else if (field === "reference") {
+          setReferenceSampleRange(rangeStr);
         } else {
-          alert("未获取到选区，请确认已在 Excel/WPS 中选中了单元格");
+          setOutputRange(rangeStr);
         }
-      } catch (err: any) {
-        alert(`获取选区失败: ${err.message || "请确认 Excel/WPS 已打开并选中了单元格"}`);
+      } else {
+        alert("未获取到选区，请确认已在 Excel/WPS 中选中了单元格");
       }
-    },
-    []
-  );
+    } catch (err: any) {
+      alert(`获取选区失败: ${err.message || "请确认 Excel/WPS 已打开并选中了单元格"}`);
+    }
+  }, []);
 
   const removeDataSourceRange = useCallback((index: number) => {
     setDataSourceRanges((prev) => prev.filter((_, i) => i !== index));
@@ -133,16 +120,18 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
 
   // 组装提交内容 — 对齐 buildCodeAssistanceAgentDraft 的 displayText 格式
   const handleSubmit = () => {
-    onSubmit(buildCodeTaskPayload({
-      dataSourceRanges,
-      dataSourceInput,
-      referenceSampleRange,
-      referenceSampleMode,
-      outputRange,
-      hostEnvironment,
-      preferredLanguage,
-      task,
-    }));
+    onSubmit(
+      buildCodeTaskPayload({
+        dataSourceRanges,
+        dataSourceInput,
+        referenceSampleRange,
+        referenceSampleMode,
+        outputRange,
+        hostEnvironment,
+        preferredLanguage,
+        task,
+      }),
+    );
   };
 
   return (
@@ -150,10 +139,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
       {!embedded && (
         <div className="task-composer-title">
           <Code size={16} /> 代码答疑
-          <button
-            className="task-close-btn"
-            onClick={onClose}
-          >
+          <button className="task-close-btn" onClick={onClose}>
             <X size={14} />
           </button>
         </div>
@@ -164,7 +150,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
         <div className="task-field task-field--half">
           <label className="task-field-label">运行环境</label>
           <div className="task-select-group">
-            {HOST_OPTIONS.map((opt) => (
+            {CODE_TASK_HOST_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 className={`task-select-btn ${hostEnvironment === opt.value ? "active" : ""}`}
@@ -181,7 +167,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
         <div className="task-field task-field--half">
           <label className="task-field-label">首选语言</label>
           <div className="task-select-group">
-            {LANGUAGE_OPTIONS.map((opt) => (
+            {CODE_TASK_LANGUAGE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 className={`task-select-btn ${preferredLanguage === opt.value ? "active" : ""}`}
@@ -204,10 +190,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
             onChange={(e) => setDataSourceInput(e.target.value)}
             placeholder="如 Sheet1!A1:F24"
           />
-          <button
-            className="btn-pick-range"
-            onClick={() => pickCurrentSelection("datasource")}
-          >
+          <button className="btn-pick-range" onClick={() => pickCurrentSelection("datasource")}>
             <Ruler size={13} /> 选区
           </button>
         </div>
@@ -216,10 +199,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
             {dataSourceRanges.map((range, i) => (
               <span key={i} className="range-chip">
                 {range}
-                <button
-                  className="range-chip-remove"
-                  onClick={() => removeDataSourceRange(i)}
-                >
+                <button className="range-chip-remove" onClick={() => removeDataSourceRange(i)}>
                   <X size={10} />
                 </button>
               </span>
@@ -238,10 +218,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
             onChange={(e) => setReferenceSampleRange(e.target.value)}
             placeholder="如 Sheet1!H2:H6"
           />
-          <button
-            className="btn-pick-range"
-            onClick={() => pickCurrentSelection("reference")}
-          >
+          <button className="btn-pick-range" onClick={() => pickCurrentSelection("reference")}>
             <Ruler size={13} /> 选区
           </button>
         </div>
@@ -275,10 +252,7 @@ export const CodeTaskComposerPanel: React.FC<CodeTaskComposerPanelProps> = ({
             onChange={(e) => setOutputRange(e.target.value)}
             placeholder="留空则由 Agent 自主选择"
           />
-          <button
-            className="btn-pick-range"
-            onClick={() => pickCurrentSelection("output")}
-          >
+          <button className="btn-pick-range" onClick={() => pickCurrentSelection("output")}>
             <Ruler size={13} /> 选区
           </button>
         </div>

@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
 import type { FormulaTaskDraft } from "../components/task/FormulaTaskComposerPanel";
-import type { CodeTaskDraft } from "../components/task/CodeTaskComposerPanel";
+import type { CodeTaskDraft } from "../components/task/codeTaskComposerModel";
 import type { OCRTaskDraft } from "../components/task/OCRTaskComposerPanel";
 import type { ReportTaskDraft } from "../components/task/ReportTaskComposerPanel";
 import { pickExcelRange } from "../utils/chatHelpers";
@@ -42,12 +42,13 @@ export function getTaskDraftsForKey(store: TaskDraftStore, draftKey: string): Ta
 export function updateTaskDraftStore(
   store: TaskDraftStore,
   draftKey: string,
-  update: SetStateAction<TaskDrafts>
+  update: SetStateAction<TaskDrafts>,
 ): TaskDraftStore {
   const currentDrafts = getTaskDraftsForKey(store, draftKey);
-  const nextDrafts = typeof update === "function"
-    ? (update as (prev: TaskDrafts) => TaskDrafts)(currentDrafts)
-    : update;
+  const nextDrafts =
+    typeof update === "function"
+      ? (update as (prev: TaskDrafts) => TaskDrafts)(currentDrafts)
+      : update;
   return { ...store, [draftKey]: nextDrafts };
 }
 
@@ -78,16 +79,22 @@ export function useTaskDrafts(draftKey = "default") {
   const activeDraftKey = draftKey || "default";
   const taskDrafts = useMemo(
     () => getTaskDraftsForKey(taskDraftStore, activeDraftKey),
-    [taskDraftStore, activeDraftKey]
+    [taskDraftStore, activeDraftKey],
   );
 
-  const setTaskDrafts: Dispatch<SetStateAction<TaskDrafts>> = useCallback((update) => {
-    setTaskDraftStore((prev) => updateTaskDraftStore(prev, activeDraftKey, update));
-  }, [activeDraftKey]);
+  const setTaskDrafts: Dispatch<SetStateAction<TaskDrafts>> = useCallback(
+    (update) => {
+      setTaskDraftStore((prev) => updateTaskDraftStore(prev, activeDraftKey, update));
+    },
+    [activeDraftKey],
+  );
 
-  const updateFormulaDraft = useCallback((draft: FormulaTaskDraft) => {
-    setTaskDrafts((prev) => ({ ...prev, formula: draft }));
-  }, [setTaskDrafts]);
+  const updateFormulaDraft = useCallback(
+    (draft: FormulaTaskDraft) => {
+      setTaskDrafts((prev) => ({ ...prev, formula: draft }));
+    },
+    [setTaskDrafts],
+  );
 
   const resetFormulaDraft = useCallback(() => {
     setTaskDrafts((prev) => ({
@@ -96,31 +103,43 @@ export function useTaskDrafts(draftKey = "default") {
     }));
   }, [setTaskDrafts]);
 
-  const updateCodeDraft = useCallback((draft: CodeTaskDraft) => {
-    setTaskDrafts((prev) => ({ ...prev, code: draft }));
-  }, [setTaskDrafts]);
+  const updateCodeDraft = useCallback(
+    (draft: CodeTaskDraft) => {
+      setTaskDrafts((prev) => ({ ...prev, code: draft }));
+    },
+    [setTaskDrafts],
+  );
 
-  const updateOCRDraft = useCallback((draft: OCRTaskDraft) => {
-    setTaskDrafts((prev) => ({ ...prev, ocr: draft }));
-  }, [setTaskDrafts]);
+  const updateOCRDraft = useCallback(
+    (draft: OCRTaskDraft) => {
+      setTaskDrafts((prev) => ({ ...prev, ocr: draft }));
+    },
+    [setTaskDrafts],
+  );
 
-  const updateReportDraft = useCallback((draft: ReportTaskDraft) => {
-    setTaskDrafts((prev) => ({ ...prev, report: draft }));
-  }, [setTaskDrafts]);
+  const updateReportDraft = useCallback(
+    (draft: ReportTaskDraft) => {
+      setTaskDrafts((prev) => ({ ...prev, report: draft }));
+    },
+    [setTaskDrafts],
+  );
 
   // 简易功能面板选区按钮
-  const handleSimplePickRange = useCallback(async (intent: SimpleTaskIntent) => {
-    const addr = await pickExcelRange();
-    if (addr) {
-      setTaskDrafts((prev) => ({
-        ...prev,
-        [intent]: {
-          range: addr,
-          task: prev[intent]?.task ?? "",
-        },
-      }));
-    }
-  }, [setTaskDrafts]);
+  const handleSimplePickRange = useCallback(
+    async (intent: SimpleTaskIntent) => {
+      const addr = await pickExcelRange();
+      if (addr) {
+        setTaskDrafts((prev) => ({
+          ...prev,
+          [intent]: {
+            range: addr,
+            task: prev[intent]?.task ?? "",
+          },
+        }));
+      }
+    },
+    [setTaskDrafts],
+  );
 
   const moveTaskDrafts = useCallback((fromKey: string, toKey: string) => {
     setTaskDraftStore((prev) => moveTaskDraftStore(prev, fromKey, toKey));
