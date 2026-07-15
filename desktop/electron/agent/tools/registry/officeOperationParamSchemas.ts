@@ -1,3 +1,5 @@
+import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
+
 export type OfficeSchemaApp = "excel" | "word" | "presentation";
 
 export type JsonSchema = Record<string, unknown>;
@@ -154,6 +156,7 @@ function strictAppObject(
 const COMMON_INSPECTION_OPERATIONS = ["inspectFile", "layout", "tables", "listBackups"];
 
 export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
+  ...EXCEL_PRINT_PARAM_SCHEMAS,
   ...COMMON_INSPECTION_OPERATIONS.map((operation) => ({
     operation,
     schema: strictObject(VALIDATION_PROPERTIES),
