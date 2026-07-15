@@ -18,11 +18,11 @@
 
 ## 快速开始
 
-开发环境要求：Windows、Node.js 20+、.NET 8 SDK。当前窗口自动化需要安装对应的 Microsoft Office 或 WPS Office；仅处理 Open XML 文件时不要求 Office 进程运行。正式安装包已携带 self-contained .NET Worker，普通用户不需要单独安装 .NET SDK 或 Runtime。
+开发环境要求：Windows x64、Node.js 22.12+、.NET 8 SDK。Node 最低版本同时声明在两个项目的 `package.json#engines`，.NET SDK 版本以根 `global.json` 为准。当前窗口自动化需要安装对应的 Microsoft Office 或 WPS Office；仅处理 Open XML 文件时不要求 Office 进程运行。正式安装包已携带 self-contained .NET Worker，普通用户不需要单独安装 .NET SDK 或 Runtime。
 
 ```powershell
 cd desktop
-npm install
+npm ci
 npm run office:publish
 npm run dev
 ```

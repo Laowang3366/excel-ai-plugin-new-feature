@@ -1,6 +1,6 @@
 # 项目概览
 
-更新时间：2026-07-14
+更新时间：2026-07-15
 
 文格 AI 助手是一个 Windows Electron 桌面应用，通过模型工具调用操作 Excel、WPS、Word 和 PowerPoint。项目同时包含独立产品站，用于安装包分发、远程更新和匿名下载统计。
 
@@ -47,8 +47,8 @@ Office 自动化只有一条生产主链路：Electron 不拼接 PowerShell、Py
 
 ## 当前验证基线
 
-- 最近盘点：TypeScript 147 个测试文件、751 项测试；.NET Worker 21 项测试。具体数量以测试命令输出为准。
-- 代码量基线：源码约 90,066 个物理行，其中测试相关约 20,892 行，占 23.2%。生成目录、依赖和发布产物不计入。
-- 产品站：认证、下载统计和发布 API 集成测试。
-- 常规门禁：`npm run typecheck`、`npm run lint`、`npm test`、`npm run build`、`npm run office:test`。
+- 测试数量和代码行数属于易变化运行结果，不在当前架构文档固定；以对应命令输出和 CI 记录为准。
+- 桌面 CI：`npm ci`、高危 npm/NuGet 审计、ESLint、TypeScript、Vitest、.NET Worker 测试和 Vite build。
+- 产品站 CI：`npm ci`、高危 npm 审计和 Node 测试。
+- `format:check` 与 coverage 当前不是 CI 门禁；coverage 脚本存在，但仓库尚未声明其 provider 依赖。
 - Office 冒烟按变更范围执行，默认单动作超时 30 秒并输出等待探测；生产调用默认超时 120 秒。

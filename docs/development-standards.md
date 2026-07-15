@@ -1,8 +1,7 @@
 # 项目开发规范
 
-> 基于 4 周代码审查修复经验，按六大审查方向编写。
-> 生成日期：2026-06-25 | 分支：`feature/new-feature`
-> 审查范围：18 项任务（#1–#23），涉及模块拆分、接口精简、持久化优化、测试基础设施、IPC 解耦、Bug 修复。
+> 基于持续代码审查经验，按模块规模、接口、持久化、测试、IPC 和可靠性六个方向维护。
+> 最近修订：2026-07-15。运行事实以代码、`desktop/package.json`、根 `global.json` 和 CI 工作流为准；历史任务编号只保留在归档文档。
 
 ---
 
@@ -66,13 +65,9 @@ import { collectStreamEvents } from "./streamCollector";
 | 大型桥接层 | Electron 保持类型化薄桥，Worker 按应用和操作域拆分 | `officeWorker/*` → `desktop/dotnet/Wengge.OfficeWorker/{Office,Excel,Word,Presentation,OpenXml}` |
 | 大型 CSS | 按组件/功能域拆分 | global.css → 23 个模块 |
 
-### 1.5 当前待拆分文件
+### 1.5 超限文件治理
 
-| 文件 | 行数 | 建议拆分方向 |
-|------|------|-------------|
-| `ModelSettings.tsx` | 1,186 | ProviderList + ProviderForm + ModelConfig 子组件 |
-| `aiClient.ts` | 1,078 | providers/ 目录 + streaming.ts + messageBuilder.ts |
-| `systemPrompt.ts` | 714 | sections/ 目录，每段提示词独立文件 |
+不在规范中维护易失真的“当前超限文件”清单。评审时应按本节阈值扫描本次变更涉及的生产文件，并以实际行数为证据；存量超限项记录到审查报告或 Issue，拆分提交不得与无关功能修改混合。
 
 ---
 
@@ -144,7 +139,7 @@ export const ComposerArea: React.FC<ComposerAreaProps> = ({ composer, ... }) => 
 Zustand Store 的 action 设计原则：
 - **单个 action 只改一个关注点**：`setPermissionMode` 只改权限模式
 - **持久化由 action 自行触发**：action 内部调用 `savePartial`，不依赖外部调用 `saveSettings`
-- **避免"上帝方法"**：`saveSettings()` 全量写入 9 个 key 是反模式，已废弃
+- **避免“上帝方法”**：禁止重新引入一次写入全部设置 key 的通用保存入口
 
 ---
 
@@ -216,28 +211,28 @@ await Promise.all(
 
 ### 3.5 向后兼容
 
-全量 `saveSettings()` 方法保留但不再有调用方，作为应急恢复手段。
+兼容迁移必须是显式、可测试且有删除条件的读路径或一次性迁移；不要长期保留无调用方的全量写入 API 作为“应急入口”。
 
 ---
 
 ## 四、测试基础设施
 
-> 审查发现问题：项目无单元测试，代码改动无法验证，回归风险高。
-> 涉及任务：#21 vitest 基础设施、#22 OCR Mock 标记。
+桌面端、.NET Worker 与产品站均已有独立测试门禁。新增测试必须保持纯单元/集成测试与真实 Office 冒烟边界清晰。
 
 ### 4.1 测试框架
 
 - **框架**：Vitest 3 + .NET 8 测试项目
 - **配置**：`desktop/vitest.config.ts`、`desktop/dotnet/Wengge.OfficeWorker.Tests/`
-- **当前基线**：最近盘点为 TypeScript 147 个测试文件、751 项测试，.NET Worker 21 项测试；数量以命令实际输出为准。提交前必须保持 `npm run typecheck`、`npm run lint`、`npm test` 和 `npm run office:test` 通过。产品站测试在 `product-site/` 独立执行。
+- **当前基线**：不在规范中固定测试数量；提交前以命令输出为准，并保持 `npm run typecheck`、`npm run lint`、`npm test` 和 `npm run office:test` 通过。产品站测试在 `product-site/` 独立执行。
 - **运行命令**：
 
 ```bash
 npm test              # 单次运行
 npm run test:watch    # 监听模式
-npm run test:coverage # 覆盖率报告
 npm run office:test   # .NET Worker 测试
 ```
+
+`test:coverage` 脚本当前不是可用门禁：仓库尚未声明 `@vitest/coverage-v8`。启用前必须补依赖、锁文件、稳定阈值和 CI 验证，不能仅凭脚本名称宣称已有覆盖率门禁。
 
 ### 4.1.1 Office 冒烟时限
 

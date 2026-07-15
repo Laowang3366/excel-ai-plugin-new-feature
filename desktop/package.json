@@ -2,6 +2,9 @@
   "name": "excel-ai-assistant",
   "version": "0.1.81",
   "description": "Office AI 桌面助手 - 通过 AI 帮你处理表格、文档和演示文稿",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
