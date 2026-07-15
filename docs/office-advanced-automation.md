@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换和对象类型分支的嵌套字段也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片/引用/修订/文档比较及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换、对象类型和 Word 审阅命令的嵌套字段也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -90,10 +90,10 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 | operation | 用途 | 关键 params |
 | --- | --- | --- |
 | `inspectDocumentFormatting` / `formatLongDocument` | 检查并统一九级标题、正文、引用、题注、表格和页面结构 | `headingRules/styles`、`normalStyle`、`quotePatterns`、`margins`、`sectionBreaks`、`headerFooter`、`toc` |
-| `inspectReferences` / `manageReferences` | 检查并管理书签、脚注、尾注、题注、交叉引用和图表目录 | `command`、`name/text/label/item`、`targetType/index/position` |
-| `inspectRevisions` / `manageRevisions` | 读取批注修订，按作者、类型、时间、范围或文本规则接受/拒绝 | `command`、`rule`、`enabled` |
-| `compareDocuments` | 对比原文与修订文档，输出带修订的比较文档和结构化摘要 | `revisedFilePath`、`author`、`granularity`、`outputPath` |
-| `applyTrackedChanges` | 在修订模式下执行 AI 替换、插入、删除和字段修改 | `edits`、`keepTracking` |
+| `inspectReferences` / `manageReferences` | 检查并管理书签、脚注、尾注、题注、交叉引用和图表目录 | `command`、`name/text/label/referenceType/item`；范围用 `bookmark/start/end` |
+| `inspectRevisions` / `manageRevisions` | 读取修订，并整体或按作者/类型接受、拒绝及切换修订跟踪 | `command`、`author`、`revisionType`、`enabled` |
+| `compareDocuments` | 使用 Word 原生比较生成独立的带修订文档 | `comparePath`（兼容 `revisedFilePath`）；输出用顶层 `outputPath` |
+| `applyTrackedChanges` | 在修订模式下执行替换、删除、插入、书签或内容控件修改 | `changes`（兼容 `edits`）、`keepTracking`、`restoreTracking` |
 | `prepareMailMergeTemplate` | 把模板占位符转换为 MERGEFIELD 域 | `fields[{placeholder,field}]` |
 | `mailMerge` / `batchMailMerge` | 使用 Excel/CSV 数据生成单个或逐记录文档 | `dataSourcePath`、记录范围、输出格式/目录、命名字段、条件和图片字段 |
 | `inspectContentControls` / `populateContentControls` | 检查并按控件类型填充智能模板 | `values`、`fieldMap`、格式/列表/图片选项 |
@@ -108,13 +108,15 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 #### 书签与交叉引用
 
-`manageReferences.command` 支持 `addFootnote`、`addEndnote`、`addBookmark`、`deleteBookmark`、`addCaption`、`addCrossReference`、`addTableOfFigures`、`updateFields`、`updateAll`。题注目标支持 `table`、`image/figure`、`equation` 或指定范围；交叉引用支持章节、编号项、书签、脚注、尾注及自定义“图/表/公式”标签。
+`manageReferences.command` 仅支持 `createBookmark/addBookmark`、`deleteBookmark`、`addFootnote`、`addEndnote`、`addCaption`、`addCrossReference`、`addTableOfFigures` 和 `updateFields`。插入范围使用 `params.bookmark` 或 `start/end`；未指定时定位到文档末尾，当前 Worker 不读取 action 顶层 `target` 作为此 operation 的范围。`addCrossReference.referenceType:"bookmark"` 写入带超链接的书签引用域，其他非空引用类型直接交给 Word COM。`updateAll`、`targetType`、`index` 等未实现参数会在进入 Worker 前拒绝。
 
 #### 审阅与修订
 
-`inspectRevisions` 返回每条修订和批注的作者、类型、日期、文本及范围。`manageRevisions.command` 支持 `track`、`acceptAll/rejectAll`、`acceptMatching/rejectMatching`、`deleteComments/deleteCommentsMatching`；`rule` 可按 `authors`、`types`、`fromDate/toDate`、`start/end`、`textPattern` 组合筛选。
+`inspectRevisions` 返回每条 Word 修订的作者、类型、日期、文本及范围，以及当前修订跟踪状态；当前 operation 不读取批注。`manageRevisions.command` 仅支持 `acceptAll`、`rejectAll`、`accept`、`reject` 和 `track`。`accept/reject` 可选 `author` 与 `revisionType` 过滤，`track` 必须显式传 `enabled`。基于时间、范围、文本规则的筛选和批注删除尚未实现。
 
-`applyTrackedChanges` 会先开启 Word 修订模式，再执行 `replace/delete/insert/replaceBookmark/replaceContentControl` 编辑，因此 AI 修改保留可接受或拒绝的原文轨迹。`compareDocuments` 不覆盖原文和修订稿，而是使用段落级 LCS 生成独立差异报告，并返回新增、删除段落及样例摘要；超大文档自动退化为按段落位置比较，避免 Word 原生比较弹窗阻塞自动化。
+`applyTrackedChanges` 会先开启 Word 修订模式，再执行 `changes[]` 中显式声明的 `replace/delete/insert/replaceBookmark/replaceContentControl`。内容控件替换必须提供非空 `tag`、`title` 或两者，避免空选择器改写全部控件；每个嵌套 change 都拒绝跨命令字段和未知字段。`changes` 是规范字段，旧 `edits` 作为互斥兼容别名保留，二者不能同时传入。
+
+`compareDocuments` 使用 Word COM `CompareDocuments` 创建独立比较文档，不覆盖原文或修订稿；比较来源规范字段为 `comparePath`，旧 `revisedFilePath` 作为互斥别名保留。当前实现不接受 `author`、`granularity` 或自定义比较规则，结果返回输出路径和修订数量。
 
 #### 邮件合并与批量文档
 

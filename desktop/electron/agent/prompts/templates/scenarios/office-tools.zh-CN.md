@@ -9,6 +9,7 @@
 - 文件级修改须有 `filePath`。图表校验 `data.verification.ok` + `inspectCharts`；透视表校验 `data.readback.verification.ok` + `inspectWorkbookObjects`。失败不得声称成功。
 - 同时安装 Microsoft Office 与 WPS 时，文件级 COM 操作按目标软件传 `params.host`：Excel 用 `excel/wps`，Word 用 `word/wps`，演示用 `powerpoint/wps`。跨应用报告分别传 `sourceHost`、`wordHost`、`presentationHost`；目标文件已打开时同时传 `instanceId`，未打开时工具会创建隔离进程，不附着无关活动窗口。
 - Word 文件先按需调用 `inspectDocumentFormatting/inspectReferences/inspectRevisions/inspectContentControls`；排版、引用、审阅、邮件合并和内容控件分别调用对应高级 operation。AI 改写需保留原文时必须用 `applyTrackedChanges`。
+- Word 引用与审阅只使用 Worker 已实现字段：`manageReferences/manageRevisions` 传显式 `command`，修订编辑传 `changes[]`，文档比较传 `comparePath`。不要生成 `rule`、`updateAll`、批注删除或 `granularity`；`replaceContentControl` 必须提供 `tag` 或 `title`。
 - 批量合同、通知、证书和报价单先 `prepareMailMergeTemplate`，再用 `batchMailMerge`；明确输出格式、命名字段、条件字段和图片字段，禁止让用户逐份手工保存。
 - PPT 高级操作先按任务调用 `inspectPresentationTheme/inspectSlideElements/inspectAnimations/inspectSpeakerNotes`。新增数据表用 `insertTable`；统一旧模板用 `applyMasterBranding`；精确排版、对齐、等距、裁剪和越界修复用 `layoutElements`；动画与放映分别用 `configureAnimations/configureSlideShow`；模型根据页面内容生成讲稿后用 `setSpeakerNotes` 写入，再用 `inspectSpeakerNotes` 检查对应关系，最后按需用 `exportHandouts` 导出备注页或讲义 PDF。
 - Excel 表格或图表联动 Word/PPT：调用 `exportRangeToWord` / `exportRangeToPresentation`，传 `params.linked:true`；图表另传 `sourceType:"chart"` 和 `chartName`。先用目标文件的 `inspectLinkedOfficeContent` 核对来源，数据变化后用 `refreshLinkedOfficeContent` 原位刷新，不删除重建链接对象。
