@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/条件格式/数据验证/表格样式、Word 标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印和公式替换规则的嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片及 PPT 常用编辑已禁止未知 `params`；图表、打印和公式替换规则的嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -68,6 +68,8 @@
 #### 打印与 PDF
 
 `configurePrint` 可同时处理多个 `sheetNames`。当前 Worker 纸张支持 A3/A4/A5/Letter/Legal；`marginUnit` 支持 `centimeters`、`inches`、`points`。使用 `repeatRows`/`repeatColumns` 设置打印标题，`horizontalPageBreaks`/`verticalPageBreaks` 设置手动分页；`fitToOnePageWide:true` 固定一页宽，默认不强制一页高。`exportSheetsToPdf.mode` 为 `combined` 时按工作表顺序生成一个 PDF，为 `separate` 时输出到 `outputDirectory`。
+
+PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.params.scope` 只接受 `workbook` 或 `sheet`；Word `exportPdf` 没有业务参数。`exportSheetsToPdf` 仅接受 `sheetNames`、`mode`、`outputDirectory`、`overwrite` 和宿主/超时参数，未知覆盖或路径字段会在进入 Worker 前拒绝。
 
 #### 公式治理
 
