@@ -16,7 +16,7 @@ export const MEMORY_TOOL_DEFINITIONS: ToolDefinition[] = [
         namespace: { type: "string", default: "global" },
         content: { type: "string" },
         summary: { type: "string" },
-        confidence: { type: "number" },
+        confidence: { type: "number", minimum: 0, maximum: 1 },
         userEvidence: {
           type: "string",
           description: "当前轮用户消息中的逐字原文，用于证明该记忆由用户明确表达。",
@@ -37,8 +37,8 @@ export const MEMORY_TOOL_DEFINITIONS: ToolDefinition[] = [
       properties: {
         query: { type: "string" },
         namespace: { type: "string" },
-        kind: { type: "string" },
-        limit: { type: "number", default: 10 },
+        kind: { type: "string", enum: [...TOOL_WRITABLE_MEMORY_KINDS] },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 10 },
       },
       required: ["query"],
     },

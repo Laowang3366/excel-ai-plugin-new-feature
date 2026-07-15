@@ -34,6 +34,7 @@ import {
 } from "./toolExecutionLog";
 import { resolveExecutableToolName } from "./toolNameResolution";
 import { createToolResultItem } from "./toolResultItems";
+import { parseAndValidateToolArguments } from "../../tools/registry/toolSchema";
 import {
   canAlwaysAllowTool,
   markToolAlwaysAllowed,
@@ -76,10 +77,14 @@ export async function executeTool(
 
   const executor = executors.get(resolvedName)!;
   try {
-    const args = JSON.parse(argsJson || "{}");
+    const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedName) ?? TOOL_DEFINITIONS_MAP.get(name);
+    const argumentCheck = parseAndValidateToolArguments(argsJson, toolDef?.parameters);
+    if (argumentCheck.error || !argumentCheck.args) {
+      return { success: false, error: `工具参数校验失败: ${argumentCheck.error || "参数无效"}` };
+    }
     return context
-      ? await executor.execute(args, context)
-      : await executor.execute(args);
+      ? await executor.execute(argumentCheck.args, context)
+      : await executor.execute(argumentCheck.args);
   } catch (err: any) {
     return {
       success: false,
@@ -133,12 +138,16 @@ export async function processToolCalls(
     const resolvedToolName = resolveExecutableToolName(tc.name, executors) ?? desanitizeToolName(tc.name);
     const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedToolName) ?? TOOL_DEFINITIONS_MAP.get(tc.name);
     const canonicalToolName = toolDef?.name ?? resolvedToolName;
+    const argumentCheck = parseAndValidateToolArguments(tc.arguments, toolDef?.parameters);
+    const approvalArguments = argumentCheck.args ?? {
+      _validationError: argumentCheck.error || "参数无效",
+    };
 
     const approvalScope = {
       threadId: turn.threadId,
-      arguments: parseToolArguments(tc.arguments),
+      arguments: approvalArguments,
     };
-    const needsApproval = shouldRequireApproval(
+    const needsApproval = !argumentCheck.error && shouldRequireApproval(
       canonicalToolName,
       approvalConfig.permissionMode,
       approvalScope
@@ -151,17 +160,11 @@ export async function processToolCalls(
     }
     if (!activeItem) {
       // 防御性兜底：如果流式阶段未创建
-      let parsedArgs: Record<string, unknown> = {};
-      try {
-        parsedArgs = JSON.parse(tc.arguments || "{}");
-      } catch {
-        parsedArgs = { _raw: tc.arguments };
-      }
       const fallbackItem: ToolCallItem = {
         type: "tool_call",
         id: tc.id,
         toolName: canonicalToolName,
-        arguments: parsedArgs,
+        arguments: approvalArguments,
         status: needsApproval ? "pending" : "running",
         timestamp: Date.now(),
       };
@@ -170,6 +173,7 @@ export async function processToolCalls(
       callbacks.onEvent({ type: "item_started", item: fallbackItem });
       activeItem = fallbackItem;
     } else {
+      activeItem.arguments = approvalArguments;
       // 更新状态
       if (!needsApproval) {
         activeItem.status = "running";
@@ -177,12 +181,44 @@ export async function processToolCalls(
       }
     }
 
+    if (argumentCheck.error) {
+      activeItem.status = "failed";
+      const errorMessage = `工具参数校验失败: ${argumentCheck.error}`;
+      const resultItem: TurnItem = createToolResultItem({
+        toolCallId: tc.id,
+        toolName: canonicalToolName,
+        result: errorMessage,
+        isError: true,
+      });
+      turn.items.push(resultItem);
+      await sessionStoreAppend(turn.threadId, turn.turnId, resultItem);
+      callbacks.onEvent({ type: "item_updated", item: activeItem });
+      callbacks.onEvent({ type: "item_started", item: resultItem });
+      callbacks.onEvent({ type: "item_completed", item: resultItem });
+      await logToolExecutionSafely(appendToolExecutionLog, {
+        threadId: turn.threadId,
+        turnId: turn.turnId,
+        toolCallId: tc.id,
+        toolName: canonicalToolName,
+        status: "error",
+        durationMs: Date.now() - startedAt,
+        timestamp: Date.now(),
+        argumentsSummary: summarizeForLog(approvalArguments),
+        resultSummary: summarizeForLog(errorMessage),
+        error: errorMessage,
+        metadata: {
+          permissionMode: approvalConfig.permissionMode,
+          riskLevel: toolDef?.riskLevel ?? "moderate",
+          phase: "argument_validation",
+        },
+      }, callbacks);
+      continue;
+    }
+
     // 审批流程
     if (needsApproval) {
       try {
-        const approvalArgs = (activeItem.arguments && typeof activeItem.arguments === "object" && !("_raw" in (activeItem.arguments as Record<string, unknown>)))
-          ? activeItem.arguments as Record<string, unknown>
-          : (() => { try { return JSON.parse(tc.arguments || "{}"); } catch { return { _raw: tc.arguments }; } })();
+        const approvalArgs = approvalArguments;
 
         const approval = await requestToolApproval(
           {

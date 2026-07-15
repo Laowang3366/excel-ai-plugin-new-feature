@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "../../shared/types";
+import { OFFICE_WORKFLOW_STEPS_SCHEMA } from "./officeWorkflowSchema";
 
 const APP_PROPERTY = { type: "string", enum: ["excel", "word", "presentation"], description: "Office 应用类型" } as const;
 
@@ -41,7 +42,7 @@ export const OFFICE_RELIABILITY_TOOL_DEFINITIONS: ToolDefinition[] = [
         templateId: { type: "string", description: "更新已有模板时传 ID" },
         name: { type: "string", description: "模板名称" },
         description: { type: "string" },
-        steps: { type: "array", items: { type: "object" }, description: "与 office.workflow.run.steps 相同" },
+        steps: { ...OFFICE_WORKFLOW_STEPS_SCHEMA, description: "与 office.workflow.run.steps 相同" },
       },
       required: ["name", "steps"],
     },

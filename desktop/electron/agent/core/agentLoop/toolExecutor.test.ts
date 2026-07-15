@@ -68,6 +68,25 @@ describe("executeTool", () => {
     expect(result).toEqual({ success: true, data: "parsed" });
     expect(executor).toHaveBeenCalledWith({ filePaths: ["C:\\Users\\29721\\Pictures\\image.png"] });
   });
+
+  it("rejects malformed and undeclared arguments before calling the executor", async () => {
+    const execute = vi.fn(async () => ({ success: true }));
+    const executors = new Map<string, ToolExecutor>([["range.read", { name: "range.read", execute }]]);
+
+    await expect(executeTool("range.read", "[]", executors)).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("根节点必须为对象"),
+    });
+    await expect(executeTool(
+      "range.read",
+      '{"sheetName":"Sheet1","range":"A1","unexpected":true}',
+      executors,
+    )).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("未声明参数"),
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
 });
 
 describe("shouldRequireApproval", () => {
@@ -129,6 +148,29 @@ describe("processToolCalls", () => {
       isError: true,
     });
     expect(callbacks.onEvent).toHaveBeenCalledWith({ type: "item_updated", item: activeItem });
+  });
+
+  it("rejects invalid arguments before requesting approval", async () => {
+    const execute = vi.fn(async () => ({ success: true }));
+    const requestToolApproval = vi.fn(async () => ({ approved: true }));
+    const turn = createTurn();
+
+    await processToolCalls(
+      [{ id: "call-invalid", name: "range.clear", arguments: '{"sheetName":"Sheet1","range":"A1","unknown":1}' }],
+      new Map(),
+      turn,
+      new Map([["range.clear", { name: "range.clear", execute }]]),
+      { permissionMode: "confirm_all", requestToolApproval },
+      createCallbacks(),
+      vi.fn(async () => {}),
+    );
+
+    expect(requestToolApproval).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    expect(turn.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "tool_call", status: "failed" }),
+      expect.objectContaining({ type: "tool_result", isError: true, result: expect.stringContaining("未声明参数") }),
+    ]));
   });
 
   it("creates a fallback tool_call item when the stream did not create one", async () => {
@@ -218,7 +260,7 @@ describe("processToolCalls", () => {
       type: "tool_call",
       id: "call-3",
       toolName: "office.action.apply",
-      arguments: { operation: "format", filePath: "C:\\books\\a.xlsx" },
+      arguments: { app: "excel", action: "style", operation: "format", filePath: "C:\\books\\a.xlsx" },
       status: "pending",
       timestamp: 1000,
     };
@@ -226,7 +268,7 @@ describe("processToolCalls", () => {
       {
         id: "call-3",
         name: "office.action.apply",
-        arguments: "{\"operation\":\"format\",\"filePath\":\"C:\\\\books\\\\a.xlsx\"}",
+        arguments: "{\"app\":\"excel\",\"action\":\"style\",\"operation\":\"format\",\"filePath\":\"C:\\\\books\\\\a.xlsx\"}",
       },
     ];
 
@@ -306,7 +348,7 @@ describe("processToolCalls", () => {
 
     await expect(processToolCalls(
       [
-        { id: "call-first", name: "range.read", arguments: "{}" },
+        { id: "call-first", name: "range.read", arguments: "{\"sheetName\":\"Sheet1\",\"range\":\"A1\"}" },
         { id: "call-second", name: "selection.get", arguments: "{}" },
       ],
       new Map(),

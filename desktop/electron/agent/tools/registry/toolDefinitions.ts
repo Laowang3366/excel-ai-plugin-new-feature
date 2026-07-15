@@ -17,9 +17,10 @@ import { WEB_TOOL_DEFINITIONS } from "./web";
 import { MEMORY_TOOL_DEFINITIONS } from "./memory";
 import { OFFICE_TOOL_DEFINITIONS } from "./office";
 import { OCR_TOOL_DEFINITIONS } from "./ocr";
+import { normalizeToolDefinition } from "./toolSchema";
 
 /** 所有工具定义 */
-export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [
+const RAW_TOOL_DEFINITIONS: ToolDefinition[] = [
   WORKBOOK_TOOL_DEFINITIONS[0],
   ...RANGE_TOOL_DEFINITIONS,
   ...FORMULA_TOOL_DEFINITIONS,
@@ -35,6 +36,8 @@ export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [
   ...MEMORY_TOOL_DEFINITIONS,
   ...OFFICE_TOOL_DEFINITIONS,
 ];
+
+export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = RAW_TOOL_DEFINITIONS.map(normalizeToolDefinition);
 
 /** 工具定义映射 */
 export const TOOL_DEFINITIONS_MAP = new Map<string, ToolDefinition>(

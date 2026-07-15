@@ -1074,7 +1074,12 @@ describe("AgentLoop input queue", () => {
       aiClientMocks.streamChatParams.push(params);
       return streamEvents([
         { type: "tool_call_begin", toolCallId: "call-slow", toolName: "range.read" },
-        { type: "tool_call_end", toolCallId: "call-slow", toolName: "range.read", arguments: "{}" },
+        {
+          type: "tool_call_end",
+          toolCallId: "call-slow",
+          toolName: "range.read",
+          arguments: '{"sheetName":"Sheet1","range":"A1"}',
+        },
         { type: "done", finishReason: "tool_calls" },
       ]);
     });

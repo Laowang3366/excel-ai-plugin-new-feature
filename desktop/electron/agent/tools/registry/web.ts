@@ -7,7 +7,7 @@ const WEB_SEARCH_DEF: ToolDefinition = {
     type: "object",
     properties: {
       query: { type: "string", description: "搜索关键词或问题" },
-      maxResults: { type: "number", description: "返回结果数量，默认5，最多10", default: 5 },
+      maxResults: { type: "integer", minimum: 1, maximum: 10, description: "返回结果数量，默认5，最多10", default: 5 },
       freshness: {
         type: "string",
         enum: ["day", "week", "month", "year", "any"],

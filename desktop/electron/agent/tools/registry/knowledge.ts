@@ -14,7 +14,7 @@ const KNOWLEDGE_SEARCH_DEF: ToolDefinition = {
     type: "object",
     properties: {
       query: { type: "string", description: "结构化搜索词，包含任务、业务对象、关键字段、约束和目标；样例值只作补充" },
-      topK: { type: "number", description: "返回结果数量，默认5", default: 5 },
+      topK: { type: "integer", minimum: 1, maximum: 50, description: "返回结果数量，默认5，最多50", default: 5 },
     },
     required: ["query"],
   },

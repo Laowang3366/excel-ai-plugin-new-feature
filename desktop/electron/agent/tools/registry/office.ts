@@ -6,6 +6,7 @@
 
 import type { ToolDefinition } from "../../shared/types";
 import { OFFICE_RELIABILITY_TOOL_DEFINITIONS } from "./officeReliability";
+import { OFFICE_WORKFLOW_STEPS_SCHEMA } from "./officeWorkflowSchema";
 
 const OFFICE_CONNECTION_STATUS_DEF: ToolDefinition = {
   name: "office.connection.status",
@@ -44,7 +45,7 @@ const OFFICE_DOCUMENTS_ACTIVATE_DEF: ToolDefinition = {
       app: { type: "string", enum: ["excel", "word", "presentation"], description: "目标应用" },
       filePath: { type: "string", description: "目标文档完整路径，优先使用" },
       name: { type: "string", description: "目标文档名称" },
-      index: { type: "number", description: "目标文档在应用集合中的序号，从 1 开始" },
+      index: { type: "integer", minimum: 1, description: "目标文档在应用集合中的序号，从 1 开始" },
       instanceId: { type: "string", description: "office.documents.list 返回的实例标识；多进程或同路径副本必须传" },
     },
     required: ["app"],
@@ -60,50 +61,15 @@ const OFFICE_WORKFLOW_RUN_DEF: ToolDefinition = {
     type: "object",
     properties: {
       steps: {
-        type: "array",
+        ...OFFICE_WORKFLOW_STEPS_SCHEMA,
         description: "有序步骤；每步结构与 office.action.apply 一致，需提供 app、action、operation、filePath，可选 target/outputPath/preferEngine/params",
-        items: {
-          type: "object",
-          properties: {
-            app: { type: "string", enum: ["excel", "word", "presentation"] },
-            action: { type: "string", enum: ["inspect", "edit", "style", "insert", "snapshot", "validate"] },
-            operation: { type: "string" },
-            filePath: { type: "string" },
-            outputPath: { type: "string" },
-            target: { type: "string" },
-            preferEngine: { type: "string", enum: ["openxml", "com"] },
-            params: { type: "object", description: "高级 Excel 步骤必须声明语义边界：Power Query 用 advancedIntent:'refreshable-etl'，创建/更新另需 sourceKind:'external'|'multi-source'；透视表/切片器用 advancedIntent:'interactive-pivot'" },
-            id: { type: "string", description: "可选稳定步骤 ID，供占位符和条件引用" },
-            parallelGroup: { type: "string", description: "连续且同名的步骤并行执行；写入目标不得重复" },
-            timeoutMs: { type: "number", description: "COM 步骤超时，5000-600000 毫秒" },
-            retry: {
-              type: "object",
-              properties: {
-                maxAttempts: { type: "number", description: "最大尝试次数，1-5" },
-                delayMs: { type: "number", description: "重试基础等待，0-10000 毫秒" },
-              },
-            },
-            when: {
-              type: "object",
-              properties: {
-                step: { description: "依赖步骤序号或 ID" },
-                status: { type: "string", enum: ["done", "failed", "skipped"] },
-                dataPath: { type: "string", description: "可选结果 data 路径" },
-                equals: { description: "期望值" },
-                exists: { type: "boolean" },
-              },
-              required: ["step"],
-            },
-          },
-          required: ["app", "action", "operation", "filePath"],
-        },
       },
       templateId: { type: "string", description: "使用已保存模板时传模板 ID 或名称，此时可省略 steps" },
       variables: { type: "object", description: "模板变量；步骤字符串中的 {{vars.name}} 会在事务快照前展开" },
       workflowId: { type: "string", description: "继续已有流水线时传原 workflowId" },
       resume: { type: "boolean", description: "设为 true 时从 workflowId 记录的失败步骤继续" },
       recoverRunning: { type: "boolean", description: "确认原执行进程已终止时，接管仍为 running 的工作流" },
-      leaseMs: { type: "number", description: "运行租约时长，默认 5 分钟" },
+      leaseMs: { type: "integer", minimum: 30_000, maximum: 1_800_000, description: "运行租约时长，30 秒到 30 分钟，默认 5 分钟" },
       failureMode: { type: "string", enum: ["pause", "rollback"], description: "失败处理；默认 pause，rollback 会立即整体撤销" },
       cancellationMode: { type: "string", enum: ["pause", "rollback"], description: "收到取消请求后的处理，默认 pause" },
     },
@@ -179,7 +145,7 @@ const WORD_INSERT_HEADING_DEF: ToolDefinition = {
     type: "object",
     properties: {
       text: { type: "string", description: "标题文本" },
-      level: { type: "number", description: "标题级别 1-9，默认 1" },
+      level: { type: "integer", minimum: 1, maximum: 9, description: "标题级别 1-9，默认 1" },
       position: { type: "string", enum: ["end", "start", "selection"], description: "插入位置，默认 end" },
     },
     required: ["text"],
@@ -255,7 +221,7 @@ const PRESENTATION_READ_SLIDE_DEF: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      slideIndex: { type: "number", description: "幻灯片序号，从 1 开始" },
+      slideIndex: { type: "integer", minimum: 1, description: "幻灯片序号，从 1 开始" },
     },
     required: ["slideIndex"],
   },
@@ -287,10 +253,10 @@ const PRESENTATION_SET_SHAPE_TEXT_DEF: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      slideIndex: { type: "number", description: "幻灯片序号，从 1 开始" },
+      slideIndex: { type: "integer", minimum: 1, description: "幻灯片序号，从 1 开始" },
       text: { type: "string", description: "要写入的文本" },
       shapeName: { type: "string", description: "形状名称（可选）" },
-      shapeIndex: { type: "number", description: "形状序号，从 1 开始（可选）" },
+      shapeIndex: { type: "integer", minimum: 1, description: "形状序号，从 1 开始（可选）" },
     },
     required: ["slideIndex", "text"],
   },

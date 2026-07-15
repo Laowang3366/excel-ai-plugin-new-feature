@@ -20,7 +20,7 @@ const SHEET_OPERATION_DEF: ToolDefinition = {
       },
       sheetName: { type: "string", description: "目标工作表名称" },
       newName: { type: "string", description: "新名称（rename 时使用）" },
-      position: { type: "number", description: "位置（move 时使用）" },
+      position: { type: "integer", minimum: 1, description: "位置（move 时使用）" },
     },
     required: ["operation", "sheetName"],
   },

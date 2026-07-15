@@ -15,6 +15,7 @@ const OCR_PARSE_DOCUMENT_DEF: ToolDefinition = {
     properties: {
       filePaths: {
         type: "array",
+        minItems: 1,
         description: "要识别的本地文件绝对路径列表，支持 PNG/JPG/JPEG/WebP/BMP/TIFF/PDF/DOC/DOCX/PPT/PPTX/XLS/XLSX/XLSM/CSV/MD/TXT",
         items: { type: "string" },
       },
@@ -25,12 +26,16 @@ const OCR_PARSE_DOCUMENT_DEF: ToolDefinition = {
         default: "ocr",
       },
       maxTextChars: {
-        type: "number",
+        type: "integer",
+        minimum: 1_000,
+        maximum: 120_000,
         description: "返回给模型的最大解析文本字符数，默认60000，最多120000",
         default: 60000,
       },
       maxTableRows: {
-        type: "number",
+        type: "integer",
+        minimum: 0,
+        maximum: 1_000,
         description: "返回表格行的最大数量，默认200，最多1000",
         default: 200,
       },

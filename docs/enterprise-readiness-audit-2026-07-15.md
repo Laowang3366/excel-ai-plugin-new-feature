@@ -27,6 +27,7 @@
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | CI 增加 .NET test/NuGet audit；Release 拆分构建签名与受审批发布；两阶段 Authenticode 校验；产品站 release 目录只读 | 配置受保护证书/HSM、Environment approval；固定第三方 Action SHA；SBOM/最终清单端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
+| M-01 | 部分完成 | `ToolDefinition.parameters` 统一规范化为模型与运行时共用 Schema；已声明对象默认拒绝未知字段，审批前与执行前双重校验；枚举、整数/数值范围、深度、节点数和 JSON 大小统一限制；全量工具 malformed 测试 | 将 `office.action.*.params`、模板变量等有意开放的扩展对象继续拆成 operation 级判别 Schema |
 | M-05 | 部分完成 | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；直接 action、工作流及模板均在 Worker 前拒绝越界请求 | 依据任务分类动态裁剪模型可见高级 operation；真实 Excel/WPS 回归 |
 | M-06 | 已实现 | 下载统计改为 best-effort，数据库故障时安装包仍返回 200；故障注入测试 | 留存清理与周期盐轮换 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
@@ -89,7 +90,7 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 157 个测试文件、822 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 158 个测试文件、891 项测试全部通过 |
 | Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 566.92 KB，超过 500 KB 建议值 |
 | Desktop `format:check` | **失败** | 限定源码检查仍约有 482 个格式不匹配文件 |
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
@@ -463,7 +464,9 @@
 
 ## 6. Medium — 发布前整改或正式风险接受
 
-### M-01 模型可见工具 Schema 没有统一运行时执行
+### M-01 模型可见工具 Schema 已统一执行，开放扩展对象仍待细化
+
+> 整改进展：新增 `tools/registry/toolSchema.ts`，同一份规范化 JSON Schema 同时提供给模型并用于运行时校验。已声明的对象默认 `additionalProperties:false`，参数在审批前和 executor 调用前各校验一次；缺少必填项、类型/枚举错误、未知字段、非安全数字、越界整数、过深/过大 JSON 均快速拒绝。即时工作流和模板共用严格步骤 Schema。全量工具测试会为每个模型可见工具生成合法样例，并注入缺字段、错类型、错枚举和未知字段。`params`、`variables` 等跨 operation 扩展对象目前显式保持开放并受统一资源预算及业务策略校验，后续仍需拆成 operation 级判别 Schema。
 
 - `ToolDefinition.parameters` 主要用于告诉模型，不是执行信任边界。
 - `toolExecutor.ts` 只做 JSON parse；executor 多为零散的必填基础类型检查。
@@ -647,6 +650,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口；当前自动化门禁为 157 个 Vitest 文件、822 项测试和 97 项 .NET 测试全部通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移和热补丁回滚/吊销等主要缺口，并建立模型工具统一运行时 Schema 基线；当前自动化门禁为 158 个 Vitest 文件、891 项测试和 97 项 .NET 测试全部通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Excel/WPS 实机矩阵、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

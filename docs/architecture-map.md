@@ -309,6 +309,8 @@ flowchart LR
 | Memory | `tools/registry/memory.ts` | `memoryExecutors.ts` | `memory/longTerm/*` | 长期记忆列出、写入、删除 |
 | Office 文件级 | `tools/registry/office.ts`、`officeReliability.ts` | `officeExecutors.ts`、`officeReliabilityExecutors.ts` | `officeCore/*`、`officeWorker/*`、`desktop/dotnet/Wengge.OfficeWorker/*` | 高级对象操作、链接报告、多窗口对象选择、持久化工作流和组事务恢复 |
 
+`tools/registry/toolSchema.ts` 规范化所有模型可见参数 Schema：已声明对象默认拒绝未知字段，同一份 Schema 既发送给模型，也在工具审批前和 executor 调用前执行；开放的 operation 参数包仍受统一资源预算和业务策略校验。
+
 ## 7. Office/WPS 当前窗口与 OpenXML 文件级编辑
 
 ```mermaid
