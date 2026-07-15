@@ -97,6 +97,25 @@ describe("source governance ratchet", () => {
       }).violations,
     ).toEqual([]);
   });
+
+  it("excludes desktop/scripts smoke-*.ts from line limits but still sizes other scripts", () => {
+    const root = makeRepository();
+    const smokePath = "desktop/scripts/smoke-example.ts";
+    const releasePath = "desktop/scripts/release-tool.ts";
+    writeSource(root, smokePath, `${"// smoke step\n".repeat(450)}export {};\n`);
+    writeSource(root, releasePath, `${"// release step\n".repeat(450)}export {};\n`);
+
+    const result = inspectSourceSizes({
+      repositoryRoot: root,
+      sourceRoots: ["desktop/scripts"],
+      baseline: {},
+    });
+
+    expect(result.violations).toEqual([
+      expect.objectContaining({ relativePath: releasePath, limit: 400 }),
+    ]);
+    expect(result.violations.some((entry) => entry.relativePath === smokePath)).toBe(false);
+  });
 });
 
 function makeRepository(): string {

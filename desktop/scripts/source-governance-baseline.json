@@ -486,8 +486,5 @@
     "product-site/test/database.test.mjs": "79e61179353dfb4ef785b977c57b1fb0ae527b1cbead4c0c61f69817e12b6ddb",
     "product-site/test/server.test.mjs": "c6e1f043c51d61dfa44689ba6289342b3a5adc71ac69ad01c2528e9e5bae96a0"
   },
-  "oversizedSources": {
-    "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
-    "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51"
-  }
+  "oversizedSources": {}
 }

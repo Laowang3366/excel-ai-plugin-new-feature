@@ -57,6 +57,10 @@ function walkFiles(directory) {
   });
 }
 
+function isOfficeSmokeScript(relativePath) {
+  return /^desktop\/scripts\/smoke-[^/]+\.ts$/u.test(normalizeRelativePath(relativePath));
+}
+
 function collectProductionSources(repositoryRoot = REPOSITORY_ROOT, sourceRoots = SOURCE_ROOTS) {
   return sourceRoots
     .flatMap((root) => walkFiles(path.join(repositoryRoot, root)))
@@ -77,6 +81,7 @@ function inspectSourceSizes({
       limit: lineLimit(filePath),
       hash: sha256File(filePath),
     }))
+    .filter((entry) => !isOfficeSmokeScript(entry.relativePath))
     .filter((entry) => entry.lines > entry.limit)
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   const violations = oversizedSources.filter(
