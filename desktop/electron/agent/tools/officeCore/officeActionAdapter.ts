@@ -7,207 +7,42 @@
  * - executors/officeExecutors.ts: 校验工具参数后把统一 action 转发到这里。
  */
 
-import { existsSync } from "node:fs";
-import path from "node:path";
-import type { OfficeActionBridge, OfficeDocumentManagerBridge, OfficeFileBridge } from "../contracts/office";
+import type { OfficeActionBridge, OfficeFileBridge } from "../contracts/office";
 import { findOfficeCapability } from "./capabilities";
+import {
+  executeOfficeActionWithTransaction,
+  type OfficeActionTransactionDeps,
+} from "./officeActionTransactionAdapter";
 import { officeActionOperationError } from "./operationPolicy";
 import { doneResult, failedResult, needsComResult, unsupportedResult } from "./results";
-import {
-  createOfficeBackup,
-  listOfficeBackups,
-  restoreOfficeBackup,
-  type OfficeBackupRecord,
-} from "./transactions";
-import {
-  beginOfficeTransaction,
-  finalizeOfficeTransaction,
-  listOfficeTransactionPaths,
-  recordOfficeTransactionResult,
-  undoOfficeTransaction,
-} from "./transactionJournal";
 import type { OfficeActionInput, OfficeActionResult } from "./types";
+import { withValidationChecks } from "./officeActionValidation";
 
 type TableStylePreset = "professional" | "compact" | "financial";
 
-export interface OfficeActionAdapterDeps {
+export interface OfficeActionAdapterDeps extends OfficeActionTransactionDeps {
   officeFileBridge?: OfficeFileBridge;
   /** COM 兜底执行器：Open XML 不适合处理动态对象、导出快照和应用内刷新时使用。 */
   officeComActionBridge?: OfficeActionBridge;
-  officeDocumentBridge?: OfficeDocumentManagerBridge;
-  backupRoot?: string;
-  transactionRoot?: string;
 }
 
 const TABLE_STYLES = new Set<TableStylePreset>(["professional", "compact", "financial"]);
 
 export function createOfficeActionBridge(deps: OfficeActionAdapterDeps): OfficeActionBridge {
   return {
-    executeAction: (input) => executeOfficeActionWithTransaction(input, deps),
+    executeAction: (input) =>
+      executeOfficeActionWithTransaction(input, deps, async (actionInput) => {
+        const result = await executeOfficeAction(actionInput, deps);
+        return actionInput.action === "validate"
+          ? withValidationChecks(actionInput, result)
+          : result;
+      }),
   };
-}
-
-async function executeOfficeActionWithTransaction(
-  input: OfficeActionInput,
-  deps: OfficeActionAdapterDeps,
-): Promise<OfficeActionResult> {
-  if (input.operation === "listBackups") {
-    if (!deps.backupRoot) return failedResult(input, "Office 事务备份目录未配置");
-    const records = await listOfficeBackups(deps.backupRoot, input.filePath);
-    return doneResult({
-      engine: "openxml",
-      app: input.app,
-      action: input.action,
-      operation: input.operation,
-      filePath: input.filePath,
-      summary: `已列出 ${records.length} 个 Office 事务备份`,
-      data: { records },
-    });
-  }
-
-  if (input.operation === "restoreBackup") {
-    if (!deps.backupRoot) return failedResult(input, "Office 事务备份目录未配置");
-    const backupPath = stringParam(input.params, "backupPath");
-    if (!input.filePath || !backupPath) return failedResult(input, "restoreBackup 需要 filePath 和 params.backupPath");
-    try {
-      await restoreOfficeBackup({ backupRoot: deps.backupRoot, backupPath, destinationPath: input.filePath });
-      return doneResult({
-        engine: "openxml",
-        app: input.app,
-        action: input.action,
-        operation: input.operation,
-        filePath: input.filePath,
-        summary: "已恢复 Office 事务备份",
-        data: { backupPath },
-        changes: [{ kind: "transaction-restore", target: input.filePath, detail: `已从 ${backupPath} 恢复` }],
-      });
-    } catch (error) {
-      return failedResult(input, error);
-    }
-  }
-
-  if (requiresStandaloneCrossOfficeTransaction(input)) {
-    if (!deps.transactionRoot || !deps.officeDocumentBridge) {
-      return failedResult(input, "增量跨软件更新需要 Office 事务和文档协调器");
-    }
-    return executeStandaloneCrossOfficeTransaction(input, {
-      ...deps,
-      transactionRoot: deps.transactionRoot,
-      officeDocumentBridge: deps.officeDocumentBridge,
-    });
-  }
-
-  let backup: OfficeBackupRecord | undefined;
-  if (deps.backupRoot && shouldCreateBackup(input)) {
-    try {
-      backup = await createOfficeBackup({
-        backupRoot: deps.backupRoot,
-        app: input.app,
-        operation: input.operation,
-        sourcePath: input.filePath!,
-      });
-    } catch (error) {
-      return failedResult(input, error);
-    }
-  }
-
-  const rawResult = await executeOfficeAction(input, deps);
-  const result = input.action === "validate" ? withValidationChecks(input, rawResult) : rawResult;
-  if (!backup) return result;
-  const data = result.data && typeof result.data === "object" && !Array.isArray(result.data)
-    ? result.data as Record<string, unknown>
-    : {};
-  return {
-    ...result,
-    data: { ...data, transaction: backup },
-    changes: [
-      { kind: "transaction-backup", target: backup.backupPath, detail: `已备份原文件 ${backup.sourcePath}` },
-      ...result.changes,
-    ],
-  };
-}
-
-async function executeStandaloneCrossOfficeTransaction(
-  input: OfficeActionInput,
-  deps: OfficeActionAdapterDeps & { transactionRoot: string; officeDocumentBridge: OfficeDocumentManagerBridge },
-): Promise<OfficeActionResult> {
-  const paths = listOfficeTransactionPaths([input]);
-  try {
-    await deps.officeDocumentBridge.prepareTransaction(paths);
-  } catch (error) {
-    return failedResult(input, `准备已打开的 Office 文档失败: ${errorMessage(error)}`);
-  }
-
-  let transaction: Awaited<ReturnType<typeof beginOfficeTransaction>> | undefined;
-  try {
-    transaction = await beginOfficeTransaction({ root: deps.transactionRoot, steps: [input] });
-    const result = await executeOfficeAction(input, deps);
-    await recordOfficeTransactionResult(deps.transactionRoot, transaction, result);
-    if (result.status !== "done") {
-      await undoOfficeTransaction(deps.transactionRoot, transaction.id, transactionRestoreOptions(deps.officeDocumentBridge, true));
-      return withGroupTransaction(result, transaction.id, "已自动恢复跨软件更新前的文件");
-    }
-    const completed = await finalizeOfficeTransaction(deps.transactionRoot, transaction);
-    return withGroupTransaction(result, completed.id, "已创建可整体撤销的跨软件事务");
-  } catch (error) {
-    let rollbackError = "";
-    if (transaction) {
-      try {
-        await undoOfficeTransaction(deps.transactionRoot, transaction.id, transactionRestoreOptions(deps.officeDocumentBridge, true));
-      } catch (rollback) {
-        rollbackError = `；自动恢复失败: ${errorMessage(rollback)}`;
-      }
-    }
-    return failedResult(input, `${errorMessage(error)}${rollbackError}`);
-  }
-}
-
-function requiresStandaloneCrossOfficeTransaction(input: OfficeActionInput): boolean {
-  return input.transactionContext !== "workflow"
-    && input.params?.updateExisting === true
-    && ["exportRangeToWord", "exportRangeToPresentation", "buildReportPackage"].includes(input.operation);
-}
-
-function transactionRestoreOptions(bridge: OfficeDocumentManagerBridge, force: boolean) {
-  return {
-    force,
-    prepareFiles: (filePaths: string[]) => bridge.prepareTransaction(filePaths),
-    restoreFiles: (files: Parameters<OfficeDocumentManagerBridge["restoreTransactionFiles"]>[0]) => bridge.restoreTransactionFiles(files),
-  };
-}
-
-function withGroupTransaction(result: OfficeActionResult, transactionId: string, detail: string): OfficeActionResult {
-  const data = result.data && typeof result.data === "object" && !Array.isArray(result.data)
-    ? result.data as Record<string, unknown>
-    : {};
-  return {
-    ...result,
-    data: { ...data, transaction: { id: transactionId, kind: "office-group" } },
-    changes: [{ kind: "office-group-transaction", target: transactionId, detail }, ...result.changes],
-  };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function shouldCreateBackup(input: OfficeActionInput): boolean {
-  if (!input.filePath || input.action === "inspect" || input.action === "validate" || input.action === "snapshot") return false;
-  if ([
-    "createWorkbook", "createDocument", "createPresentation", "restoreBackup",
-    "exportPdf", "exportSheetsToPdf", "exportHandouts", "exportRangeToWord", "exportRangeToPresentation",
-    "buildReportPackage", "traceFormulaDependencies", "inspectFormulaDependencies",
-    "inspectFormulaBackups", "inspectFormulaProtection", "inspectPrintSettings",
-    "inspectDocumentFormatting", "inspectReferences", "inspectRevisions", "inspectContentControls",
-    "mailMerge", "batchMailMerge", "compareDocuments",
-  ].includes(input.operation)) return false;
-  if (input.outputPath && path.resolve(input.outputPath) !== path.resolve(input.filePath)) return false;
-  return true;
 }
 
 async function executeOfficeAction(
   input: OfficeActionInput,
-  deps: OfficeActionAdapterDeps
+  deps: OfficeActionAdapterDeps,
 ): Promise<OfficeActionResult> {
   try {
     const operationError = officeActionOperationError(input.action, input.operation);
@@ -263,7 +98,11 @@ async function executeOfficeAction(
       return failedResult(input, "缺少 filePath，无法执行文件级 Office action");
     }
 
-    return await withComFallback(input, deps, await routeOpenXmlAction(input, deps.officeFileBridge));
+    return await withComFallback(
+      input,
+      deps,
+      await routeOpenXmlAction(input, deps.officeFileBridge),
+    );
   } catch (error) {
     return failedResult(input, error);
   }
@@ -272,7 +111,7 @@ async function executeOfficeAction(
 async function withComFallback(
   input: OfficeActionInput,
   deps: OfficeActionAdapterDeps,
-  result: OfficeActionResult
+  result: OfficeActionResult,
 ): Promise<OfficeActionResult> {
   if (result.status !== "needsCom") return result;
   if (!deps.officeComActionBridge) return result;
@@ -295,7 +134,10 @@ async function routeAdvancedOpenXml(
   });
 }
 
-async function routeComAction(input: OfficeActionInput, deps: OfficeActionAdapterDeps): Promise<OfficeActionResult> {
+async function routeComAction(
+  input: OfficeActionInput,
+  deps: OfficeActionAdapterDeps,
+): Promise<OfficeActionResult> {
   if (!deps.officeComActionBridge) {
     return needsComResult({
       app: input.app,
@@ -311,24 +153,29 @@ async function routeComAction(input: OfficeActionInput, deps: OfficeActionAdapte
 }
 
 function isExcelAdvancedOperation(operation: string): boolean {
-  return operation === "createWorkbook" ||
+  return (
+    operation === "createWorkbook" ||
     operation === "writeRange" ||
     operation === "setDataValidation" ||
     operation === "applyConditionalFormatting" ||
-    operation === "insertChart";
+    operation === "insertChart"
+  );
 }
 
 function isWordAdvancedOperation(operation: string): boolean {
-  return operation === "createDocument" ||
+  return (
+    operation === "createDocument" ||
     operation === "applyHeadingStyles" ||
     operation === "styleTables" ||
     operation === "setHeaderFooter" ||
     operation === "insertOrUpdateToc" ||
-    operation === "insertOrReplaceImage";
+    operation === "insertOrReplaceImage"
+  );
 }
 
 function isPresentationAdvancedOperation(operation: string): boolean {
-  return operation === "createPresentation" ||
+  return (
+    operation === "createPresentation" ||
     operation === "addSlide" ||
     operation === "addSlides" ||
     operation === "appendSlide" ||
@@ -339,11 +186,18 @@ function isPresentationAdvancedOperation(operation: string): boolean {
     operation === "normalizeLayouts" ||
     operation === "insertChart" ||
     operation === "replacePictureSlot" ||
-    operation === "alignShapes";
+    operation === "alignShapes"
+  );
 }
 
-async function routeOpenXmlAction(input: OfficeActionInput, officeFileBridge: OfficeFileBridge): Promise<OfficeActionResult> {
-  if ((input.action === "inspect" || input.action === "validate") && input.operation === "inspectFile") {
+async function routeOpenXmlAction(
+  input: OfficeActionInput,
+  officeFileBridge: OfficeFileBridge,
+): Promise<OfficeActionResult> {
+  if (
+    (input.action === "inspect" || input.action === "validate") &&
+    input.operation === "inspectFile"
+  ) {
     const data = await officeFileBridge.inspectFile(input.filePath!);
     return doneFromBridge(input, "已检查 Office 文件结构", data);
   }
@@ -365,12 +219,18 @@ async function routeOpenXmlAction(input: OfficeActionInput, officeFileBridge: Of
   }
 
   if ((input.action === "inspect" || input.action === "validate") && input.operation === "layout") {
-    const data = await officeFileBridge.inspectLayout({ filePath: input.filePath!, target: input.target });
+    const data = await officeFileBridge.inspectLayout({
+      filePath: input.filePath!,
+      target: input.target,
+    });
     return doneFromBridge(input, "已检查 Office 布局对象", data);
   }
 
   if ((input.action === "inspect" || input.action === "validate") && input.operation === "tables") {
-    const data = await officeFileBridge.inspectTable({ filePath: input.filePath!, target: input.target });
+    const data = await officeFileBridge.inspectTable({
+      filePath: input.filePath!,
+      target: input.target,
+    });
     return doneFromBridge(input, "已检查 Office 表格结构", data);
   }
 
@@ -434,18 +294,24 @@ async function routeOpenXmlAction(input: OfficeActionInput, officeFileBridge: Of
 
 function normalizeTableStyle(value: unknown): TableStylePreset {
   return typeof value === "string" && TABLE_STYLES.has(value as TableStylePreset)
-    ? value as TableStylePreset
+    ? (value as TableStylePreset)
     : "professional";
 }
 
 function isUnsupportedSnapshot(data: unknown): data is { supported: false; error?: string } {
-  return data !== null &&
+  return (
+    data !== null &&
     typeof data === "object" &&
     "supported" in data &&
-    (data as { supported?: unknown }).supported === false;
+    (data as { supported?: unknown }).supported === false
+  );
 }
 
-function doneFromBridge(input: OfficeActionInput, summary: string, data: unknown): OfficeActionResult {
+function doneFromBridge(
+  input: OfficeActionInput,
+  summary: string,
+  data: unknown,
+): OfficeActionResult {
   const outputPath = extractString(data, "outputPath") || input.outputPath;
   const changedParts = extractStringArray(data, "changedParts");
   return doneResult({
@@ -466,71 +332,11 @@ function doneFromBridge(input: OfficeActionInput, summary: string, data: unknown
   });
 }
 
-function withValidationChecks(input: OfficeActionInput, result: OfficeActionResult): OfficeActionResult {
-  if (result.status !== "done") return result;
-  const checks: Array<{ name: string; ok: boolean; message: string }> = [];
-  if (input.filePath) {
-    const ok = existsSync(input.filePath);
-    checks.push({ name: "file-exists", ok, message: ok ? `文件存在: ${input.filePath}` : `文件不存在: ${input.filePath}` });
-  }
-
-  const containsText = stringArrayParam(input.params?.containsText);
-  if (containsText.length > 0) {
-    const content = JSON.stringify(result.data ?? "").toLocaleLowerCase();
-    for (const expected of containsText) {
-      const ok = content.includes(expected.toLocaleLowerCase());
-      checks.push({ name: "contains-text", ok, message: ok ? `结果包含文本: ${expected}` : `结果不包含文本: ${expected}` });
-    }
-  }
-
-  const countPath = stringParam(input.params, "countPath");
-  if (countPath) {
-    const rawCount = valueAtPath(result.data, countPath);
-    const count = Array.isArray(rawCount) ? rawCount.length : Number(rawCount);
-    const expectedCount = numberParam(input.params, "expectedCount");
-    const minCount = numberParam(input.params, "minCount");
-    if (expectedCount !== undefined) {
-      const ok = Number.isFinite(count) && count === expectedCount;
-      checks.push({ name: "expected-count", ok, message: ok ? `${countPath} 数量为 ${count}` : `${countPath} 数量 ${count}，预期 ${expectedCount}` });
-    } else if (minCount !== undefined) {
-      const ok = Number.isFinite(count) && count >= minCount;
-      checks.push({ name: "minimum-count", ok, message: ok ? `${countPath} 数量 ${count} 不小于 ${minCount}` : `${countPath} 数量 ${count}，小于 ${minCount}` });
-    }
-  }
-
-  if (input.params?.outputExists === true) {
-    const outputPath = result.outputPath || extractString(result.data, "outputPath") || input.outputPath;
-    const ok = Boolean(outputPath && existsSync(outputPath));
-    checks.push({ name: "output-exists", ok, message: ok ? `输出文件存在: ${outputPath}` : `输出文件不存在: ${outputPath || "未返回路径"}` });
-  }
-
-  if (checks.length === 0) {
-    const ok = result.data !== undefined && result.data !== null;
-    checks.push({ name: "inspection-data", ok, message: ok ? "已取得检查数据" : "未取得检查数据" });
-  }
-  const ok = checks.every(check => check.ok);
-  return { ...result, summary: ok ? "Office 验证通过" : "Office 验证未通过", validation: { ok, checks } };
-}
-
-function valueAtPath(value: unknown, pathExpression: string): unknown {
-  return pathExpression.split(".").filter(Boolean).reduce<unknown>((current, segment) => {
-    if (Array.isArray(current) && /^\d+$/.test(segment)) return current[Number(segment)];
-    return current && typeof current === "object" ? (current as Record<string, unknown>)[segment] : undefined;
-  }, value);
-}
-
-function stringArrayParam(value: unknown): string[] {
-  if (typeof value === "string" && value.length > 0) return [value];
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : [];
-}
-
-function numberParam(params: Record<string, unknown> | undefined, name: string): number | undefined {
-  const value = params?.[name];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 function extractString(value: unknown, key: string): string | undefined {
-  return value && typeof value === "object" && key in value && typeof (value as Record<string, unknown>)[key] === "string"
+  return value &&
+    typeof value === "object" &&
+    key in value &&
+    typeof (value as Record<string, unknown>)[key] === "string"
     ? (value as Record<string, string>)[key]
     : undefined;
 }
@@ -545,6 +351,9 @@ function stringParam(params: Record<string, unknown> | undefined, key: string): 
   return typeof params?.[key] === "string" ? params[key] : undefined;
 }
 
-function booleanParam(params: Record<string, unknown> | undefined, key: string): boolean | undefined {
+function booleanParam(
+  params: Record<string, unknown> | undefined,
+  key: string,
+): boolean | undefined {
   return typeof params?.[key] === "boolean" ? params[key] : undefined;
 }

@@ -374,8 +374,8 @@ Office 连接详情：
 | 读取/写入当前 Excel/WPS | `preload.ts` 的 `excel.*`、`ipcOfficeApi.ts`、`ipcHandlers.ts` | `runtime/bridgeRegistry.ts` -> `officeWorker/dotNetExcelBridge.ts` -> .NET Worker | 单元格值、选区、工作簿结构、写入结果 |
 | 公式生成/验证 | `tools/registry/formula.ts`、`prompts/templates/scenarios/formula.zh-CN.md` | `excelExecutors.ts` -> `dotNetExcelBridge.ts` -> .NET Worker | 公式写入、回读、动态数组 spill 校验 |
 | Word/PPT 当前窗口状态 | `preload.ts` 的 `office.*` | `ipcHandlers.ts` -> `runtime/bridgeRegistry.ts` -> `dotNetDocumentBridges.ts` | 当前宿主连接状态 |
-| 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionAdapter.ts` -> `dotNetOfficeActionBridge.ts` -> .NET Worker | 修改后的 Office 文件、视觉快照、变更摘要 |
-| 高级对象与跨应用操作 | `office.action.*`、`office.workflow.*`、`office.transaction.*` | `officeActionAdapter.ts` -> `dotNetOfficeActionBridge.ts`；`officeReliabilityExecutors.ts` -> `workflow.ts` / `transactionJournal.ts` | Excel 查询/打印/公式治理、Word/PPT 高级编辑、链接报告原位刷新、步骤产物、暂停续跑、整体撤销和重做 |
+| 文件级 Word/PPT/Excel 编辑 | `tools/registry/office.ts` | `officeExecutors.ts` -> `officeCore/officeActionTransactionAdapter.ts` -> `officeActionAdapter.ts` -> `dotNetOfficeActionBridge.ts` -> .NET Worker | 修改后的 Office 文件、视觉快照、变更摘要 |
+| 高级对象与跨应用操作 | `office.action.*`、`office.workflow.*`、`office.transaction.*` | `officeActionTransactionAdapter.ts` 负责单动作备份和独立跨 Office 事务；`officeActionAdapter.ts` 负责 Open XML/COM 能力路由；`officeActionValidation.ts` 解释验证结果；`officeReliabilityExecutors.ts` -> `workflow.ts` / `transactionJournal.ts` | Excel 查询/打印/公式治理、Word/PPT 高级编辑、链接报告原位刷新、步骤产物、暂停续跑、整体撤销和重做 |
 | 多窗口与对象选择 | `office.documents.*`、`office.objects.*` | `officeReliabilityExecutors.ts` -> `dotNetOfficeDocumentBridge.ts` -> .NET Worker | 打开文档列表、按完整路径定位，列出并激活工作表/区域/图表/页面/书签/幻灯片/形状 |
 | Open XML 文件处理 | `office.action.*` | `dotNetOpenXmlBridge.ts` / `dotNetOfficeActionBridge.ts` -> .NET Worker 的 `OpenXml/*` | xlsx/docx/pptx 的结构化读取、编辑、校验和视觉快照 |
 

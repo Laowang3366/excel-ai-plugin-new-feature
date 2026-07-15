@@ -192,7 +192,6 @@
     "desktop/electron/agent/tools/officeCore/capabilities.test.ts": "cd833759742f1046e6a2a328f2b1afd238c58efb5e409df43c7106c8df5401b0",
     "desktop/electron/agent/tools/officeCore/capabilities.ts": "ad215599fe38be412dce945ce8fd8b9e6978b84eee176e1e9d36a6ea16e1586b",
     "desktop/electron/agent/tools/officeCore/officeActionAdapter.test.ts": "9b6718723d923b20495078dabc399d6684ffe9e7095d760323313a09e51e8df4",
-    "desktop/electron/agent/tools/officeCore/officeActionAdapter.ts": "ed387b739da2963a5b13a82b988fbc90825f10e26d72ed5d1fe3ec3dad43a98f",
     "desktop/electron/agent/tools/officeCore/operationPolicy.test.ts": "f5f94bc1400e212b9ecea21f7606fd2415a350a0aad70459f5c9ad68a4a86507",
     "desktop/electron/agent/tools/officeCore/operationPolicy.ts": "05e674ff55bdcec474e079003980f353aa50e2ccc7a1dbbedf0ead8a47f1bf57",
     "desktop/electron/agent/tools/officeCore/results.test.ts": "b8b5aed8da4a91d0ac1b08daf1b30b946acc6ca280f3cad850f1fd82151c46f7",
@@ -497,7 +496,6 @@
   "oversizedSources": {
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
     "desktop/electron/agent/tools/executors/excelExecutors.ts": "b28003be70654e6779f23d4cf570399f491164bca1995bbbe428c5d717a8dd54",
-    "desktop/electron/agent/tools/officeCore/officeActionAdapter.ts": "ed387b739da2963a5b13a82b988fbc90825f10e26d72ed5d1fe3ec3dad43a98f",
     "desktop/electron/agent/tools/officeCore/transactionJournal.ts": "051ca69a8a32c02d58cf18e1b5c65e5c40a4e7ab751684bdfc751edcb2eef247",
     "desktop/electron/agent/tools/officeCore/workflow.ts": "af5ed22cbce31b4ff8896fefc2f85c4df9ea107302f3eaf69015704cd449b224",
     "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
