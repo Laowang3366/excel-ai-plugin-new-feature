@@ -371,6 +371,7 @@ ipcMain.handle("agent:startTurn", async (_event, args) => {
 - 必填项、类型、enum、整数/数值范围、数组数量和嵌套对象必须写入 Schema；执行器中的业务校验用于跨字段语义，不能替代结构校验。
 - 只有 `params`、`variables` 等确实承载多种 operation 的扩展对象可以显式开放；仍必须受统一 JSON 大小、深度、节点数、字符串和数组预算限制，并尽快拆成 operation 级判别 Schema。
 - 新增工具必须进入 `toolSchema.test.ts` 的全量 malformed 校验；参数非法时不得先弹审批框或调用 Worker。
+- 新增或修改 IPC schema 必须设置与业务匹配的字符串、数组、矩阵总量和文件传输预算；Base64 在 `Buffer.from` 前按编码长度估算解码大小，文件回读在 `readFile` 前检查 stat。
 
 ### 5.3 结构化日志
 

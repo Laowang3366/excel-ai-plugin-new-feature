@@ -28,6 +28,7 @@
 | H-12 | 部分完成 | CI 增加 .NET test/NuGet audit；Release 拆分构建签名与受审批发布；两阶段 Authenticode 校验；产品站 release 目录只读 | 配置受保护证书/HSM、Environment approval；固定第三方 Action SHA；SBOM/最终清单端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
 | M-01 | 部分完成 | `ToolDefinition.parameters` 统一规范化为模型与运行时共用 Schema；已声明对象默认拒绝未知字段，审批前与执行前双重校验；枚举、整数/数值范围、深度、节点数和 JSON 大小统一限制；全量工具 malformed 测试 | 将 `office.action.*.params`、模板变量等有意开放的扩展对象继续拆成 operation 级判别 Schema |
+| M-02 | 部分完成 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；文件回读在 `readFile` 前检查 stat；超限负向测试 | settings 值判别 Schema、通用对象深度/节点预算、按 sender 限流 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
 | M-05 | 部分完成 | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；直接 action、工作流及模板均在 Worker 前拒绝越界请求 | 依据任务分类动态裁剪模型可见高级 operation；真实 Excel/WPS 回归 |
 | M-06 | 已实现 | 下载统计改为 best-effort，数据库故障时安装包仍返回 200；故障注入测试 | 留存清理与周期盐轮换 |
@@ -476,6 +477,8 @@
 **整改**：由同一份严格 Zod/JSON Schema 同时生成模型描述并在审批前、执行前校验；`.strict()`、enum、深度、长度和数值边界统一实施。验收应对每个工具做 malformed/fuzz 测试。
 
 ### M-02 IPC 缺少统一资源预算
+
+> 整改进展：高流量入口已增加首批硬上限。聊天正文 50,000 字、恢复上下文 200,000 字、附件和 OCR 文件各 20 个；Excel 直接写入最多 10,000 行、16,384 列且总计 100,000 个单元格，单元格文本不超过 32,767 字；Base64 与文件回读统一限制为 50MB，并分别在 `Buffer.from` 和 `readFile` 前拒绝。settings 值的判别 Schema、通用对象深度/节点预算和按 sender 限流仍待完成。
 
 - 设置 key/value、矩阵、聊天 content、attachments、base64 和 OCR 文件数组缺少统一总量限制。
 - 文件 IPC 可直接 `Buffer.from(base64)` 后写盘，可能先分配大内存。

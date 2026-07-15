@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { listAuthorizedOfficeFiles } from "./ipcFileHandlers";
+import { assertFileWithinIpcTransferLimit, listAuthorizedOfficeFiles } from "./ipcFileHandlers";
 import { createPathAuthorizer } from "./ipcPathSecurity";
 
 const tempDirs: string[] = [];
@@ -33,5 +33,14 @@ describe("ipcFileHandlers", () => {
     expect(files.map((file) => file.fileName)).toEqual(["a.xlsx", "b.docx", "slides.pptx"]);
     expect(files.every((file) => file.size > 0 && file.lastModified > 0)).toBe(true);
     expect(files.every((file) => authorizer.isAuthorizedPath(file.filePath))).toBe(true);
+  });
+
+  it("rejects oversized files before IPC Base64 encoding", async () => {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "ipc-file-limit-"));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, "large.bin");
+    await fs.promises.writeFile(filePath, "12345");
+
+    await expect(assertFileWithinIpcTransferLimit(filePath, 4)).rejects.toThrow("文件过大");
   });
 });

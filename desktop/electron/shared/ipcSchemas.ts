@@ -12,6 +12,33 @@ import { z } from "zod";
 // 通用
 // ============================================================
 
+export const IPC_MAX_PATH_CHARS = 32_767;
+export const IPC_MAX_CHAT_CONTENT_CHARS = 50_000;
+export const IPC_MAX_RESUME_CONTEXT_CHARS = 200_000;
+export const IPC_MAX_ATTACHMENTS = 20;
+export const IPC_MAX_OCR_FILES = 20;
+export const IPC_MAX_EXCEL_CELLS = 100_000;
+export const IPC_MAX_EXCEL_ROWS = 10_000;
+export const IPC_MAX_EXCEL_COLUMNS = 16_384;
+export const IPC_MAX_CELL_TEXT_CHARS = 32_767;
+export const IPC_MAX_FILE_TRANSFER_BYTES = 50 * 1024 * 1024;
+export const IPC_MAX_BASE64_CHARS = Math.ceil(IPC_MAX_FILE_TRANSFER_BYTES / 3) * 4;
+
+const IpcPath = z.string().min(1, "路径不能为空").max(IPC_MAX_PATH_CHARS, "路径过长");
+
+export function estimateBase64DecodedBytes(value: string): number {
+  if (!value) return 0;
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor(value.length * 3 / 4) - padding);
+}
+
+export function isBase64PayloadWithinLimit(
+  value: string,
+  maxBytes = IPC_MAX_FILE_TRANSFER_BYTES
+): boolean {
+  return estimateBase64DecodedBytes(value) <= maxBytes;
+}
+
 /** 运行时校验工具：校验失败抛出带有字段描述的 Error */
 export function validateInput<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -28,10 +55,10 @@ export function validateInput<T>(schema: z.ZodType<T>, data: unknown): T {
 // App
 // ============================================================
 
-export const MigrateDataPathInput = z.string().min(1, "路径不能为空");
+export const MigrateDataPathInput = IpcPath;
 export type MigrateDataPathInput = z.infer<typeof MigrateDataPathInput>;
 
-export const AppOpenPathInput = z.string().min(1, "路径不能为空");
+export const AppOpenPathInput = IpcPath;
 export const AppOpenExternalInput = z.string().url("URL 格式不正确");
 export const LaunchOfficeApplicationInput = z.enum(["wps", "excel", "word", "powerpoint"]);
 export type LaunchOfficeApplicationInput = z.infer<typeof LaunchOfficeApplicationInput>;
@@ -77,15 +104,33 @@ export const SettingsSetInput = z.tuple([SettingsKeyInput, z.unknown()]);
 // ============================================================
 
 export const ExcelReadRangeInput = z.object({
-  sheetName: z.string(),
-  range: z.string(),
+  sheetName: z.string().min(1).max(255),
+  range: z.string().min(1).max(8_192),
   expand: z.enum(["none", "spill", "currentArray", "currentRegion"]).optional(),
 });
 
+const ExcelCellValue = z.union([
+  z.string().max(IPC_MAX_CELL_TEXT_CHARS),
+  z.number().finite(),
+  z.boolean(),
+  z.null(),
+]);
+
 export const ExcelWriteRangeInput = z.object({
-  sheetName: z.string(),
-  range: z.string(),
-  values: z.array(z.array(z.unknown())),
+  sheetName: z.string().min(1).max(255),
+  range: z.string().min(1).max(8_192),
+  values: z.array(
+    z.array(ExcelCellValue).max(IPC_MAX_EXCEL_COLUMNS, "单行列数超过 Excel 上限")
+  ).min(1, "写入矩阵不能为空").max(IPC_MAX_EXCEL_ROWS, "写入行数超过 IPC 上限"),
+}).superRefine((input, ctx) => {
+  const cellCount = input.values.reduce((total, row) => total + row.length, 0);
+  if (cellCount > IPC_MAX_EXCEL_CELLS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["values"],
+      message: `写入矩阵最多包含 ${IPC_MAX_EXCEL_CELLS} 个单元格`,
+    });
+  }
 });
 
 export const ExcelSelectHostInput = z.enum(["excel", "wps"]);
@@ -98,7 +143,7 @@ export const OfficeAutomationAppInput = z.enum(["excel", "word", "presentation"]
 export const OfficeAutomationDocumentsListInput = z.object({ app: OfficeAutomationAppInput.optional() }).optional();
 export const OfficeAutomationDocumentInput = z.object({
   app: OfficeAutomationAppInput,
-  filePath: z.string().min(1),
+  filePath: IpcPath,
   instanceId: z.string().min(1).optional(),
 });
 export const OfficeAutomationObjectsListInput = OfficeAutomationDocumentInput.extend({ kind: z.string().min(1).optional() });
@@ -121,27 +166,27 @@ export const OfficeAutomationTemplateRunInput = z.object({
 // ============================================================
 
 export const AgentFileAttachment = z.object({
-  filePath: z.string(),
-  fileName: z.string(),
+  filePath: IpcPath,
+  fileName: z.string().min(1).max(255),
   fileType: z.enum(["image", "document"]),
-  size: z.number().optional(),
+  size: z.number().finite().nonnegative().max(IPC_MAX_FILE_TRANSFER_BYTES).optional(),
 });
 
 export const AgentStartTurnInput = z.object({
-  content: z.string(),
-  attachments: z.array(AgentFileAttachment).optional(),
-  clientId: z.string().optional(),
-  threadId: z.string().optional().nullable(),
+  content: z.string().max(IPC_MAX_CHAT_CONTENT_CHARS),
+  attachments: z.array(AgentFileAttachment).max(IPC_MAX_ATTACHMENTS).optional(),
+  clientId: z.string().max(256).optional(),
+  threadId: z.string().max(256).optional().nullable(),
   isResume: z.boolean().optional(),
-  resumeContext: z.string().optional(),
+  resumeContext: z.string().max(IPC_MAX_RESUME_CONTEXT_CHARS).optional(),
 });
 export type AgentStartTurnInput = z.infer<typeof AgentStartTurnInput>;
 
 export const AgentContinueTurnInput = z.object({
-  content: z.string(),
-  attachments: z.array(AgentFileAttachment).optional(),
-  clientId: z.string().optional(),
-  threadId: z.string().optional().nullable(),
+  content: z.string().max(IPC_MAX_CHAT_CONTENT_CHARS),
+  attachments: z.array(AgentFileAttachment).max(IPC_MAX_ATTACHMENTS).optional(),
+  clientId: z.string().max(256).optional(),
+  threadId: z.string().max(256).optional().nullable(),
 });
 export type AgentContinueTurnInput = z.infer<typeof AgentContinueTurnInput>;
 
@@ -183,17 +228,23 @@ export const ThreadGraphListDescendantsInput = z.object({
 // File & Folder
 // ============================================================
 
-export const FilePathInput = z.string().min(1);
-export const FolderPathInput = z.string().min(1);
+export const FilePathInput = IpcPath;
+export const FolderPathInput = IpcPath;
 export const FolderPathsInput = z.array(FolderPathInput).min(1, "文件夹列表不能为空").max(100, "一次最多读取 100 个文件夹");
 export const FileWriteTempFileInput = z.object({
   prefix: z.string().max(64).optional(),
   suffix: z.string().regex(/^\.[a-zA-Z0-9]{1,16}$/).optional(),
-  data: z.string().min(1, "data 不能为空"),
+  data: z.string()
+    .min(1, "data 不能为空")
+    .max(IPC_MAX_BASE64_CHARS, "Base64 编码内容过大")
+    .refine(
+      (value) => isBase64PayloadWithinLimit(value),
+      `临时文件最大支持 ${IPC_MAX_FILE_TRANSFER_BYTES / 1024 / 1024}MB`
+    ),
 });
 export const OcrRecognizeInput = z.object({
   mode: z.enum(["image", "invoice"]).optional(),
-  filePaths: z.array(z.string().min(1)).min(1, "文件列表不能为空"),
+  filePaths: z.array(IpcPath).min(1, "文件列表不能为空").max(IPC_MAX_OCR_FILES, `一次最多识别 ${IPC_MAX_OCR_FILES} 个文件`),
 });
 
 // ============================================================
@@ -239,19 +290,19 @@ export const StatsGetSummaryInput = z.object({
 // ============================================================
 
 export const KnowledgeIndexFileInput = z.object({
-  filePath: z.string().min(1, "文件路径不能为空"),
+  filePath: IpcPath,
 });
 
 export const KnowledgeIndexFolderInput = z.object({
-  folderPath: z.string().min(1, "文件夹路径不能为空"),
+  folderPath: IpcPath,
 });
 
 export const KnowledgeDeleteInput = z.object({
-  sourcePath: z.string().min(1, "来源路径不能为空"),
+  sourcePath: IpcPath,
 });
 
 export const KnowledgeSearchInput = z.object({
-  query: z.string().min(1, "搜索关键词不能为空"),
+  query: z.string().min(1, "搜索关键词不能为空").max(10_000, "搜索关键词过长"),
   topK: z.number().int().min(1).max(50).optional(),
 });
 

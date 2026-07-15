@@ -7,6 +7,7 @@ import {
   FileWriteTempFileInput,
   FolderPathInput,
   FolderPathsInput,
+  IPC_MAX_FILE_TRANSFER_BYTES,
   validateInput,
 } from "../shared/ipcSchemas";
 import { assertAuthorizedPath, type PathAuthorizer } from "./ipcPathSecurity";
@@ -48,6 +49,17 @@ export async function listAuthorizedOfficeFiles(folderPath: string, pathAuthoriz
   );
   results.sort((a, b) => a.fileName.localeCompare(b.fileName));
   return results;
+}
+
+export async function assertFileWithinIpcTransferLimit(
+  filePath: string,
+  maxBytes = IPC_MAX_FILE_TRANSFER_BYTES
+): Promise<void> {
+  const stat = await fs.promises.stat(filePath);
+  if (!stat.isFile()) throw new Error("目标路径不是文件");
+  if (stat.size > maxBytes) {
+    throw new Error(`文件过大，IPC 传输最大支持 ${Math.floor(maxBytes / 1024 / 1024)}MB`);
+  }
 }
 
 export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions): void {
@@ -128,6 +140,7 @@ export function registerFileIpcHandlers(options: RegisterFileIpcHandlersOptions)
     try {
       const validated = validateInput(FilePathInput, filePath);
       const authorizedFilePath = assertAuthorizedPath(pathAuthorizer, validated);
+      await assertFileWithinIpcTransferLimit(authorizedFilePath);
       const buffer = await fs.promises.readFile(authorizedFilePath);
       const ext = path.extname(authorizedFilePath).toLowerCase().replace(".", "");
       const mimeMap: Record<string, string> = {
