@@ -383,7 +383,7 @@
     "desktop/src/components/task/ReportTaskComposerPanel.tsx": "12c523acc8f174d12842311295b7a5f97fabc5b3f9368b9f0b8cbe4d3cd0ba92",
     "desktop/src/components/task/SimpleTaskComposerPanel.test.ts": "6239d09606bedb4149147465bdfe6e02968d45448020e3c6b359735f944ad92a",
     "desktop/src/components/task/SimpleTaskComposerPanel.tsx": "ef54da081ddab0ec4808a127ba035ae42158d0381b07d021d9122db49572ae02",
-    "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c",
+
     "desktop/src/hooks/composerAttachmentFiles.test.ts": "0033753e85be932954a209c7c537bf9e9596800bb098acdd4a2e51bc76d05051",
     "desktop/src/hooks/composerAttachmentFiles.ts": "dd2089f8c35bad3f4556765e26b3f560b8f6c64d5286c1fa30e58199f57d9fed",
     "desktop/src/hooks/useComposer.test.ts": "e4ed69d7b5b252d4e648e261f2aa0e09ac21c9cb6c605d4ea792d693c840892e",
@@ -488,7 +488,6 @@
   },
   "oversizedSources": {
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
-    "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",
-    "desktop/src/electronApi.d.ts": "ff2d060f319c2115a3cf545f1406d9e610ac95043ee6fde09bb3633c1e345a0c"
+    "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51"
   }
 }

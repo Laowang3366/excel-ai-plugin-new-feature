@@ -97,6 +97,7 @@ flowchart TB
 核心边界：
 
 - `desktop/src` 只通过 `services/ipcApi.ts` 访问主进程，避免组件直接散落调用 `window.electronAPI`。
+- Renderer 的 `electronApi.d.ts` 是类型门面；Agent/Thread 投影在 `electronApiAgentTypes.ts`，Update/Office/AI/文件夹等领域类型在 `electronApiDomainTypes.ts`，`ElectronAPI` 接口在 `electronApiInterface.ts`，既有 `from ../electronApi` 导入无需迁移。
 - Renderer 首屏只同步加载应用壳、聊天主链路和侧栏；`SettingsPage`、Office 自动化及任务功能面板使用 `React.lazy` 按需加载。`npm run build` 会执行 `scripts/check-renderer-bundle-budget.cjs`，限制首屏入口为 480 KiB、任一 chunk 为 500 KiB，并要求至少两个异步 chunk。
 - `desktop/electron/preload.ts` 是唯一暴露到 Renderer 的隔离桥。
 - `electron/shared/ipcSchemas.ts` 是 IPC 校验门面；公共限制/路径/Base64/`validateInput` 在 `ipcSchemaPrimitives.ts`，设置键与值 schema 在 `ipcSettingsSchemas.ts`，消费者仍从门面导入。
