@@ -1,0 +1,157 @@
+name: Office Matrix and Electron E2E
+
+# Isolated from default CI. Office jobs require dedicated self-hosted runners
+# with the matching host installed. Missing host must fail (never skip-green).
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which suite to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - electron-e2e
+          - excel-365
+          - wps
+  workflow_call:
+    inputs:
+      suite:
+        description: Which suite to run
+        required: false
+        default: all
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  electron-e2e:
+    if: ${{ (github.event_name == 'workflow_call' && (inputs.suite == 'all' || inputs.suite == 'electron-e2e' || inputs.suite == '')) || (github.event_name == 'workflow_dispatch' && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'electron-e2e')) }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Electron E2E
+        run: npm run test:e2e-electron
+        env:
+          WENGE_UPDATE_BASE_URL: http://127.0.0.1:9
+
+  excel-365-dynamic-array:
+    if: ${{ (github.event_name == 'workflow_call' && (inputs.suite == 'all' || inputs.suite == 'excel-365' || inputs.suite == '')) || (github.event_name == 'workflow_dispatch' && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'excel-365')) }}
+    runs-on: [self-hosted, Windows, wengge-office-excel-365]
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "8.0.422"
+      - name: Require Microsoft Excel host
+        shell: pwsh
+        run: |
+          $found = $false
+          foreach ($hive in @('HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\excel.exe', 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\excel.exe', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\excel.exe')) {
+            $excel = Get-ItemProperty -Path $hive -ErrorAction SilentlyContinue
+            if ($excel -and $excel.'(default)' -and (Test-Path -LiteralPath $excel.'(default)')) {
+              Write-Host "Excel host: $($excel.'(default)')"
+              $found = $true
+              break
+            }
+          }
+          if (-not $found) {
+            throw 'Excel 365 runner missing Microsoft Excel (App Paths\excel.exe). Failing hard — do not skip-green.'
+          }
+      - run: npm ci
+      # office:publish is already part of npm run test:excel-dynamic-array — do not publish twice
+      - name: Excel 365 dynamic-array / rollback smoke
+        run: npm run test:excel-dynamic-array
+        env:
+          WENGGE_EXCEL_DYNAMIC_ARRAY_HOST: excel
+          WENGGE_OFFICE_SMOKE: "1"
+
+  wps-dynamic-array:
+    if: ${{ (github.event_name == 'workflow_call' && (inputs.suite == 'all' || inputs.suite == 'wps' || inputs.suite == '')) || (github.event_name == 'workflow_dispatch' && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'wps')) }}
+    runs-on: [self-hosted, Windows, wengge-office-wps]
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "8.0.422"
+      - name: Require WPS host (App Paths et.exe / common install)
+        shell: pwsh
+        run: |
+          # Match desktop/electron/main-modules/officeProcessLauncher.ts resolution for et.exe
+          $found = $false
+          foreach ($hive in @(
+            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\et.exe',
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\et.exe',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\et.exe'
+          )) {
+            $prop = Get-ItemProperty -Path $hive -ErrorAction SilentlyContinue
+            if ($prop -and $prop.'(default)') {
+              $registered = $prop.'(default)'
+              $etBeside = Join-Path (Split-Path -Parent $registered) 'et.exe'
+              if (Test-Path -LiteralPath $etBeside) {
+                Write-Host "WPS et (App Paths sibling): $etBeside"
+                $found = $true
+                break
+              }
+              if (Test-Path -LiteralPath $registered) {
+                Write-Host "WPS registered: $registered"
+                $found = $true
+                break
+              }
+            }
+          }
+          if (-not $found) {
+            foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+              if (-not $root) { continue }
+              $candidate = Join-Path $root 'Kingsoft\WPS Office\office6\et.exe'
+              if (Test-Path -LiteralPath $candidate) {
+                Write-Host "WPS et (common install): $candidate"
+                $found = $true
+                break
+              }
+            }
+          }
+          $etCmd = Get-Command et -ErrorAction SilentlyContinue
+          if ($etCmd) {
+            Write-Host "WPS et (PATH): $($etCmd.Source)"
+            $found = $true
+          }
+          if (-not $found) {
+            throw 'WPS runner missing et.exe (App Paths / office6 / PATH). Failing hard — do not skip-green.'
+          }
+      - run: npm ci
+      # office:publish is already part of npm run test:excel-dynamic-array — do not publish twice
+      - name: WPS Formula2 / spill matrix smoke
+        run: npm run test:excel-dynamic-array
+        env:
+          WENGGE_EXCEL_DYNAMIC_ARRAY_HOST: wps
+          WENGGE_OFFICE_SMOKE: "1"

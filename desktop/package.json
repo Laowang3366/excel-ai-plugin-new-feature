@@ -30,9 +30,11 @@
     "test:word-smoke": "npm run office:publish && vite-node scripts/smoke-word-advanced.ts",
     "test:word-lifecycle": "npm run office:publish && vite-node scripts/smoke-word-lifecycle.ts",
     "test:excel-lifecycle": "npm run office:publish && vite-node scripts/smoke-excel-lifecycle.ts",
+    "test:excel-dynamic-array": "npm run office:publish && vite-node scripts/smoke-excel-dynamic-array.ts",
     "test:presentation-smoke": "npm run office:publish && vite-node scripts/smoke-presentation-advanced.ts",
     "test:office-reliability": "npm run office:publish && vite-node scripts/smoke-office-reliability.ts",
-    "test:wps-routing": "npm run office:publish && vite-node scripts/smoke-wps-routing.ts"
+    "test:wps-routing": "npm run office:publish && vite-node scripts/smoke-wps-routing.ts",
+    "test:e2e-electron": "vite-node scripts/e2e-electron.ts"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -55,6 +57,7 @@
     "electron-builder": "^26.15.3",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "playwright-core": "^1.54.2",
     "prettier": "^3.9.4",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.62.1",

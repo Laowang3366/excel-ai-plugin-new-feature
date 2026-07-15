@@ -39,6 +39,8 @@ npm run dev
 | `npm run office:test` | 执行 .NET Worker 测试 |
 | `npm run office:publish` | 发布 win-x64 self-contained Worker |
 | `npm run build` | 构建渲染进程 |
+| `npm run test:e2e-electron` | Playwright Electron E2E（需先 `npm run build`；不启动 Office） |
+| `npm run test:excel-dynamic-array` | Excel 动态数组/回滚冒烟（需本机或隔离 Runner 的 Excel/WPS；`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=excel\|wps\|both`） |
 | `npm run electron:build` | 先发布 Worker，再生成 Windows NSIS 安装包 |
 | `npm run patch:build -- --id <id> --base-version <version>` | 创建受限热补丁 |
 

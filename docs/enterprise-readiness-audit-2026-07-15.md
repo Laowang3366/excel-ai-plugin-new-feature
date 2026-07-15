@@ -36,7 +36,7 @@
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
 | M-09 | 已实现，待真实 Office | 删除工作表用 `finally` 恢复用户原 `DisplayAlerts` | 最后可见表、保护表与原关闭状态实机验证 |
-| M-10 | 未完成 | 现有 fake COM、Open XML 和单元测试门禁 | 隔离 Windows Runner 的 Excel/WPS 实机矩阵与 Electron E2E |
+| M-10 | 代码侧已实现，待隔离 Runner 首次真实矩阵证据 | 新增 `test:excel-dynamic-array`（Excel openFixtures 单次打开+spill/回滚/重开；WPS 硬失败要求 Formula2 spill 实值）与 `test:e2e-electron`（五场景含 UI 更新投影与完整流序）；独立 workflow `office-matrix-and-e2e.yml` | 隔离 self-hosted Runner 上 Excel 365 / WPS 首次实机跑绿前不得写“已关闭” |
 | M-11 | 部分完成 | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地 | 在 GitHub ruleset 强制审批；法律负责人确定许可、主体信息、法律依据、处理者/跨境/权利请求条款及身份级/外部未登记副本删除流程 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除已登记活动根/旧根/应用导出副本并生成 bootstrap 删除证明 | 生产负责人确认 RPO/RTO 并完成恢复演练；异机/外部未登记副本清理与生产全链路告警 |
 | L-01 | 已关闭 | 生产模块超限已清零（`legacyOversized=0`）；全量受治理源码 Prettier 债务已清零（`legacyFormatting=0`）；`desktop/scripts/smoke-*.ts` 按规则排除行数扫描、仍受 Prettier 检查 | 无 |
@@ -572,9 +572,10 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### M-10 缺少真实 Office 动态数组冒烟和 UI E2E
 
+> 代码侧已实现，待隔离 Runner 首次真实矩阵证据：`desktop/scripts/smoke-excel-dynamic-array.ts` + `npm run test:excel-dynamic-array`。Excel 路径仅用 `openOfficeFixtures` 打开文件（不二次 `openWorkbook`），再 `selectHost`+读探活后写 SEQUENCE spill、多公式第二项失败整区回滚、保存/closeFixtures/重开 spill；登记 PID 由 fixtures 关闭。WPS 路径在无预存可见 WPS 时 `selectHost`+`openWorkbook`，**必须**写出 Formula2 且 `SEQUENCE` 有序 spill，否则失败（不得把 host_unavailable/无 spill 当绿）；清理只依赖 Worker dispose，禁止按 PID 差 `kill`。E2E：`playwright-core` 覆盖导航/外链、审批、设置 IPC、**更新设置页 UI** 渲染版本/phase、流式 `Alpha-Beta` 冻结后与 `Gamma-Delta` 并存且顺序正确。Workflow 独立、缺宿主 fail；`test:excel-dynamic-array` 自带 `office:publish`，job 不再重复 publish。真实 Excel/WPS job 未在隔离 Runner 跑绿前 M-10 不关闭。
+
 - 公式修复测试主要使用 fake COM 或检查 Open XML 包结构。
-- 没有覆盖 Excel 365 表达式型 spill、WPS `Formula2` 能力、多公式第二项失败回滚、保存重开后的 spill。
-- 桌面端缺少自动化 UI E2E；真实 Office smoke 不在 CI。
+- 历史缺口：Excel 365 表达式型 spill、WPS `Formula2` 能力、多公式第二项失败回滚、保存重开后的 spill；桌面 UI E2E。
 
 **整改**：建立隔离的 Windows/Office/WPS 预发布 Runner；按宿主版本执行小型稳定矩阵；补 Playwright/Electron E2E 覆盖外链、审批、设置、更新和流式恢复。
 
