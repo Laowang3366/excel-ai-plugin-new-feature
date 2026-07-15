@@ -308,7 +308,7 @@ flowchart LR
 | 工作簿内部宏 | `tools/registry/macro.ts` | `tools/executors/excelExecutors.ts` | `officeWorker/dotNetMacroBridges.ts`、.NET Worker | 仅在工作簿宿主内部运行 VBA/WPS JSA，不提供外部脚本执行 |
 | File | `tools/registry/file.ts` | `fileExecutors.ts` | 本地 FS、路径授权 | 读写项目/附件文件 |
 | Knowledge | `tools/registry/knowledge.ts` | `knowledgeExecutors.ts` | `knowledge/retriever.ts`、`knowledgeWriter.ts` | 检索、列出、写入、修改、追加、删除知识库内容 |
-| Web | `tools/registry/web.ts` | `webSearchExecutors.ts` | HTTP fetch、HTML parser | 模型上网搜索 |
+| Web | `tools/registry/web.ts` | `webSearchExecutors.ts` | `webSearchProviders.ts` 负责搜索源、超时与响应上限，`webSearchHtmlParsers.ts` 负责 HTML 解析 | 模型上网搜索 |
 | OCR | `tools/registry/ocr.ts` | `ocrExecutors.ts` | MinerU token、免费降级、本地解析 | 图片/PDF OCR、发票字段提取辅助 |
 | Memory | `tools/registry/memory.ts` | `memoryExecutors.ts` | `memory/longTerm/*` | 长期记忆列出、写入、删除 |
 | Office 文件级 | `tools/registry/office.ts`、`officeReliability.ts` | `officeExecutors.ts`、`officeReliabilityExecutors.ts` | `officeCore/*`、`officeWorker/*`、`desktop/dotnet/Wengge.OfficeWorker/*` | 高级对象操作、链接报告、多窗口对象选择、持久化工作流和组事务恢复 |
