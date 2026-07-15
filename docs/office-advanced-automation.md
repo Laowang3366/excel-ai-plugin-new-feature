@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片/引用/修订/文档比较及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换、对象类型和 Word 审阅命令的嵌套字段也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
+- 模型可见的文件级调用按 `app + operation` 校验参数。基础检查/验证、快照、Excel 图表插入与深度编辑/打印设置/公式治理/PDF 导出/工作簿预设/对象管理/条件格式/数据验证/表格样式、Word PDF 导出/标题/目录/表格/页眉页脚/图片/引用/修订/文档比较/邮件合并/内容控件及 PPT 常用编辑已禁止未知 `params`；图表、打印、公式替换、对象类型、Word 审阅命令和模板嵌套对象也逐层拒绝未知字段。尚未建模的其他 COM 深度操作保留兼容分支并继续受统一深度、节点、集合和字节预算限制。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。顶层键不得包含点号，嵌套值使用 `{{vars.customer.name}}` 引用。
 
 ## 高级 operation
@@ -94,10 +94,10 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 | `inspectRevisions` / `manageRevisions` | 读取修订，并整体或按作者/类型接受、拒绝及切换修订跟踪 | `command`、`author`、`revisionType`、`enabled` |
 | `compareDocuments` | 使用 Word 原生比较生成独立的带修订文档 | `comparePath`（兼容 `revisedFilePath`）；输出用顶层 `outputPath` |
 | `applyTrackedChanges` | 在修订模式下执行替换、删除、插入、书签或内容控件修改 | `changes`（兼容 `edits`）、`keepTracking`、`restoreTracking` |
-| `prepareMailMergeTemplate` | 把模板占位符转换为 MERGEFIELD 域 | `fields[{placeholder,field}]` |
-| `mailMerge` / `batchMailMerge` | 使用 Excel/CSV 数据生成单个或逐记录文档 | `dataSourcePath`、记录范围、输出格式/目录、命名字段、条件和图片字段 |
-| `inspectContentControls` / `populateContentControls` | 检查并按控件类型填充智能模板 | `values`、`fieldMap`、格式/列表/图片选项 |
-| `manageContentControls` | 创建、删除和管理控件、列表项及锁定状态 | `command`、`controls`/`selector`、控件类型参数 |
+| `prepareMailMergeTemplate` | 在文档末尾追加带标签的 MERGEFIELD 域 | `fields:["Name"|{name:"Name"}]` |
+| `mailMerge` / `batchMailMerge` | 使用 Open XML Excel 数据生成合并文档 | `dataSourcePath`、`outputFormat`、`conditions`、`imageFields`；批量另用 `outputDirectory/fileNamePattern` |
+| `inspectContentControls` / `populateContentControls` | 检查并按 Tag 或 Title 填充内容控件 | `values`、`dateFormat` |
+| `manageContentControls` | 创建、删除或更新内容控件 | `command:add/delete/update`、控件定义或确定性选择器 |
 | `exportPdf` | 导出 PDF | `outputPath` 可选 |
 
 #### 样式与长文档排版
@@ -120,15 +120,17 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 #### 邮件合并与批量文档
 
-`prepareMailMergeTemplate` 将 `{{姓名}}` 等占位符转换成 Word 邮件合并域。`batchMailMerge` 逐记录生成文件，`outputFormat` 支持 `docx`、`pdf`、`both`；`fileNameField` 或 `fileNamePattern:"{编号}-{姓名}"` 控制文件名，并自动替换 Windows 非法字符。
+`prepareMailMergeTemplate.fields` 接受非空字符串或 `{name}`，并在文档末尾依次追加“字段名 + MERGEFIELD + 换行”。当前实现不会查找或替换 `{{姓名}}` 占位符，也不读取 `placeholder/field` 映射。该 operation 用于制作原生 Word 邮件合并域；当前 `mailMerge/batchMailMerge` 不执行这些 MERGEFIELD，因此二者不能串成同一自动化流程。
 
-`conditions` 使用 `{placeholder,field,operator,value,trueText,falseText}` 在单条合并结果中处理条件内容；`imageFields` 使用 `{placeholder,field,width,height}` 将数据源中的图片路径写入文档。已有 Word IF 域也会由原生邮件合并处理。
+`mailMerge/batchMailMerge.dataSourcePath` 仅接受 Open XML Excel 文件 `.xlsx/.xlsm/.xltx/.xltm`。Worker 读取首个工作表，以第一行为字段名并处理全部后续记录；CSV、旧 `.xls`、记录范围和 `fileNameField` 尚未实现。模板必须直接包含 `{{列名}}` 文本；每条记录复制一次原模板格式并替换这些占位符。`mailMerge` 把全部记录合并到一个文档，`batchMailMerge` 每条记录生成一个或两个文件；`outputFormat` 仅支持 `docx/pdf/both`，批量文件名使用 `fileNamePattern`，其中可引用 `{index}` 和数据列。
+
+`conditions` 使用 `{placeholder,field,operator,value,trueText,falseText}` 生成额外替换值，`operator` 仅支持 `eq/ne/contains`。`imageFields` 仅接受 `{placeholder,field,width}`；图片路径来自数据列，当前不支持 `height`、裁剪或内嵌 Base64。未知输出格式、CSV 数据源、虚构记录范围及嵌套未知字段会在进入 Worker 前拒绝。
 
 #### 内容控件与智能模板
 
-`inspectContentControls` 返回 ID、Tag、Title、类型、文本、选中状态、列表项和锁定状态。填充时优先按 Tag，再按 Title 和 ID 匹配 `values`；支持文本/富文本、复选框、日期、组合框、下拉列表和图片，默认保留控件原有字体格式。`fieldMap` 可将模板字段映射到业务数据键。
+`inspectContentControls` 返回 ID、Tag、Title、COM 类型、逻辑类型、文本、选中状态和锁定状态；当前不返回下拉列表项。`populateContentControls.values` 按 Tag、再按 Title 匹配，不按 ID 匹配，也不读取 `fieldMap`。值可为字符串、数字、布尔值，或 `{value,dateFormat}`；复选框转为选中状态，日期应用格式，组合框/下拉框按文本或 value 选择，图片值必须是本地文件路径。
 
-`manageContentControls.command` 支持 `add`、`delete`、`setLock`、`addListEntry`、`clearListEntries`、`setValue`。创建时可一次传入多个 `controls`，设置类型、Tag、Title、占位文本、列表项、默认值和锁定状态。
+`manageContentControls.command` 仅支持 `add/delete/update`。`add` 可在 `start/end` 创建单个控件，或通过最多 100 个 `controls` 逐段创建；类型仅限 `richtext/text/picture/combobox/dropdown/dropdownlist/date/checkbox`，组合框和下拉框可带 `entries[{text,value}]`。`delete` 必须只提供一个 `id/title/tag` 选择器。为避免 Worker 的 OR 匹配选错控件，重命名或改 Tag 必须按稳定 `id` 更新；按 Title/Tag 更新时只允许修改锁定状态。`setLock/addListEntry/clearListEntries/setValue/defaultValue` 等未实现命令或字段会提前拒绝。
 
 ### PowerPoint/WPS 演示
 

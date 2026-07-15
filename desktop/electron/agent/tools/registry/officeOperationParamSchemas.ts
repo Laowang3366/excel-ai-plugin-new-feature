@@ -4,6 +4,7 @@ import { EXCEL_PRINT_PARAM_SCHEMAS } from "./officeExcelPrintParamSchemas";
 import { EXCEL_TEMPLATE_PARAM_SCHEMAS } from "./officeExcelTemplateParamSchemas";
 import { OFFICE_EXPORT_PARAM_SCHEMAS } from "./officeExportParamSchemas";
 import { WORD_REVIEW_PARAM_SCHEMAS } from "./officeWordReviewParamSchemas";
+import { WORD_TEMPLATE_PARAM_SCHEMAS } from "./officeWordTemplateParamSchemas";
 
 export type OfficeSchemaApp = "excel" | "word" | "presentation";
 
@@ -167,6 +168,7 @@ export const MODELED_OFFICE_PARAM_SCHEMAS: OfficeOperationParamSchema[] = [
   ...EXCEL_TEMPLATE_PARAM_SCHEMAS,
   ...OFFICE_EXPORT_PARAM_SCHEMAS,
   ...WORD_REVIEW_PARAM_SCHEMAS,
+  ...WORD_TEMPLATE_PARAM_SCHEMAS,
   ...COMMON_INSPECTION_OPERATIONS.map((operation) => ({
     operation,
     schema: strictObject(VALIDATION_PROPERTIES),
