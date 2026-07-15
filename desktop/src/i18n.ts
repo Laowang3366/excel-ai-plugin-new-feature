@@ -1,7 +1,16 @@
-import type { PermissionMode, AppLanguage } from "./store/settingsStore";
-import type { IntentKind } from "./components/Sidebar";
-
-type IntentKey = NonNullable<IntentKind>;
+import type { AppLanguage } from "./store/settingsStore";
+import {
+  EN_INTENT_LABELS,
+  EN_PERMISSION_LABELS,
+  EN_SIMPLE_PLACEHOLDERS,
+  EN_SIMPLE_PREFIXES,
+  EN_TIME_TEXT,
+  ZH_INTENT_LABELS,
+  ZH_PERMISSION_LABELS,
+  ZH_SIMPLE_PLACEHOLDERS,
+  ZH_SIMPLE_PREFIXES,
+  ZH_TIME_TEXT,
+} from "./i18nOptionText";
 
 export const APP_TEXT = {
   "zh-CN": {
@@ -68,15 +77,7 @@ export const APP_TEXT = {
       justNow: "刚刚",
       minutesAgo: (value: number) => `${value}分钟前`,
       hoursAgo: (value: number) => `${value}小时前`,
-      intents: {
-        formula: "公式助手",
-        code: "代码生成",
-        ocr: "OCR 识别",
-        clean: "数据清洗",
-        report: "报告生成",
-        chart: "图表制作",
-        office: "Office 自动化",
-      } satisfies Record<IntentKey, string>,
+      intents: ZH_INTENT_LABELS,
       projects: "项目",
       conversations: "对话",
       sort: "排序",
@@ -123,11 +124,7 @@ export const APP_TEXT = {
       uploadImage: "上传图片",
       addFolder: "添加文件夹",
       permissionMode: "权限模式",
-      permissionLabels: {
-        normal: "逐次确认",
-        auto_approve_safe: "自动批准",
-        confirm_all: "高权限自动（危险操作确认）",
-      } satisfies Record<PermissionMode, string>,
+      permissionLabels: ZH_PERMISSION_LABELS,
       thinkingMode: "思考模式",
       thinkingOn: "开启",
       thinkingOff: "关闭",
@@ -155,16 +152,8 @@ export const APP_TEXT = {
       pickRange: "选区",
       sendToAi: "发送给 AI",
       folderFileCount: (n: number) => `${n} 个文件`,
-      simplePlaceholders: {
-        clean: "如：去除重复行、统一日期格式、补全缺失值...",
-        report: "如：按季度汇总销售数据，生成趋势分析...",
-        chart: "如：根据销量和利润数据生成柱状图...",
-      } satisfies Record<"clean" | "report" | "chart", string>,
-      simplePrefixes: {
-        clean: "请帮我清洗数据：",
-        report: "请帮我生成分析报告：",
-        chart: "请帮我构建图表：",
-      } satisfies Record<"clean" | "report" | "chart", string>,
+      simplePlaceholders: ZH_SIMPLE_PLACEHOLDERS,
+      simplePrefixes: ZH_SIMPLE_PREFIXES,
     },
     modelSwitch: {
       selectModel: "选择模型",
@@ -187,7 +176,8 @@ export const APP_TEXT = {
       toolError: "执行出错",
       toolResult: "执行结果",
       compactionAuto: "上下文已自动压缩",
-      compactionWithTokens: (before: number, after: number) => `上下文已压缩：${before} → ${after} tokens`,
+      compactionWithTokens: (before: number, after: number) =>
+        `上下文已压缩：${before} → ${after} tokens`,
       copy: "复制",
       copied: "已复制",
       copyCode: "复制代码",
@@ -198,16 +188,7 @@ export const APP_TEXT = {
       resumeBreakpointPrompt: "请从中断处继续，保持之前的思路",
       resumeSummarizePrompt: "请总结一下到目前为止的进度，然后继续",
     },
-    time: {
-      seconds: (value: number) => `${value}秒`,
-      minuteSecond: (minutes: number, seconds: number) => seconds > 0 ? `${minutes}分${seconds}秒` : `${minutes}分钟`,
-      hourParts: (hours: number, minutes: number, seconds: number) => {
-        const parts = [`${hours}小时`];
-        if (minutes > 0) parts.push(`${minutes}分`);
-        if (seconds > 0) parts.push(`${seconds}秒`);
-        return parts.join("");
-      },
-    },
+    time: ZH_TIME_TEXT,
   },
   "en-US": {
     app: {
@@ -267,21 +248,14 @@ export const APP_TEXT = {
       connectedWps: "WPS connected",
       connectedExcel: (version?: string) => `Excel connected${version ? ` (${version})` : ""}`,
       selectHostTitle: "Select Target Application",
-      selectHostDescription: "Both Microsoft Excel and WPS Spreadsheet are running. Please select which to connect:",
+      selectHostDescription:
+        "Both Microsoft Excel and WPS Spreadsheet are running. Please select which to connect:",
       selectHostExcel: "Microsoft Excel",
       selectHostWps: "WPS Spreadsheet",
       justNow: "Just now",
       minutesAgo: (value: number) => `${value} min ago`,
       hoursAgo: (value: number) => `${value} hr ago`,
-      intents: {
-        formula: "Formula assistant",
-        code: "Code generation",
-        ocr: "OCR",
-        clean: "Data cleaning",
-        report: "Report generation",
-        chart: "Chart creation",
-        office: "Office automation",
-      } satisfies Record<IntentKey, string>,
+      intents: EN_INTENT_LABELS,
       projects: "Projects",
       conversations: "Chats",
       sort: "Sort",
@@ -328,11 +302,7 @@ export const APP_TEXT = {
       uploadImage: "Upload image",
       addFolder: "Add folder",
       permissionMode: "Permission mode",
-      permissionLabels: {
-        normal: "Confirm each time",
-        auto_approve_safe: "Auto approve",
-        confirm_all: "High access (confirm dangerous)",
-      } satisfies Record<PermissionMode, string>,
+      permissionLabels: EN_PERMISSION_LABELS,
       thinkingMode: "Thinking mode",
       thinkingOn: "On",
       thinkingOff: "Off",
@@ -360,16 +330,8 @@ export const APP_TEXT = {
       pickRange: "Pick range",
       sendToAi: "Send to AI",
       folderFileCount: (n: number) => `${n} file${n !== 1 ? "s" : ""}`,
-      simplePlaceholders: {
-        clean: "e.g. remove duplicates, normalize dates, fill missing values...",
-        report: "e.g. summarize quarterly sales and generate trend analysis...",
-        chart: "e.g. create a bar chart from sales and profit data...",
-      } satisfies Record<"clean" | "report" | "chart", string>,
-      simplePrefixes: {
-        clean: "Please clean this data:",
-        report: "Please generate an analysis report:",
-        chart: "Please create a chart:",
-      } satisfies Record<"clean" | "report" | "chart", string>,
+      simplePlaceholders: EN_SIMPLE_PLACEHOLDERS,
+      simplePrefixes: EN_SIMPLE_PREFIXES,
     },
     modelSwitch: {
       selectModel: "Select model",
@@ -392,7 +354,8 @@ export const APP_TEXT = {
       toolError: "Execution error",
       toolResult: "Execution result",
       compactionAuto: "Context was automatically compacted",
-      compactionWithTokens: (before: number, after: number) => `Context compacted: ${before} → ${after} tokens`,
+      compactionWithTokens: (before: number, after: number) =>
+        `Context compacted: ${before} → ${after} tokens`,
       copy: "Copy",
       copied: "Copied",
       copyCode: "Copy code",
@@ -400,19 +363,11 @@ export const APP_TEXT = {
       resumeFromBreakpoint: "Resume from breakpoint",
       resumeSummarize: "Summarize and continue",
       resumeContinuePrompt: "Please continue the previous work.",
-      resumeBreakpointPrompt: "Please resume from the interruption point and keep the previous approach.",
+      resumeBreakpointPrompt:
+        "Please resume from the interruption point and keep the previous approach.",
       resumeSummarizePrompt: "Please summarize the progress so far, then continue.",
     },
-    time: {
-      seconds: (value: number) => `${value}s`,
-      minuteSecond: (minutes: number, seconds: number) => seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`,
-      hourParts: (hours: number, minutes: number, seconds: number) => {
-        const parts = [`${hours}h`];
-        if (minutes > 0) parts.push(`${minutes}m`);
-        if (seconds > 0) parts.push(`${seconds}s`);
-        return parts.join(" ");
-      },
-    },
+    time: EN_TIME_TEXT,
   },
 } as const;
 
