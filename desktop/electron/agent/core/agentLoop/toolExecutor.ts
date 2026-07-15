@@ -35,6 +35,8 @@ import {
 import { resolveExecutableToolName } from "./toolNameResolution";
 import { createToolResultItem } from "./toolResultItems";
 import { parseAndValidateToolArguments } from "../../tools/registry/toolSchema";
+import { filterToolDefinitionsForTurn } from "../../tools/registry/officeToolVisibility";
+import type { PromptRoutingContext } from "../../prompts/promptRouting";
 import {
   canAlwaysAllowTool,
   markToolAlwaysAllowed,
@@ -77,7 +79,12 @@ export async function executeTool(
 
   const executor = executors.get(resolvedName)!;
   try {
-    const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedName) ?? TOOL_DEFINITIONS_MAP.get(name);
+    const toolDef = getContextualToolDefinition(
+      resolvedName,
+      name,
+      executors,
+      context?.userMessages,
+    );
     const argumentCheck = parseAndValidateToolArguments(argsJson, toolDef?.parameters);
     if (argumentCheck.error || !argumentCheck.args) {
       return { success: false, error: `工具参数校验失败: ${argumentCheck.error || "参数无效"}` };
@@ -99,10 +106,14 @@ export async function executeTool(
  * 只返回有对应 executor 的工具定义。
  */
 export function getToolDefinitions(
-  executors?: Map<string, ToolExecutor>
+  executors?: Map<string, ToolExecutor>,
+  context: PromptRoutingContext = {},
 ): ToolDefinition[] {
   if (!executors || executors.size === 0) return [];
-  return ALL_TOOL_DEFINITIONS.filter((def) => executors.has(def.name));
+  return filterToolDefinitionsForTurn(
+    ALL_TOOL_DEFINITIONS.filter((def) => executors.has(def.name)),
+    context,
+  );
 }
 
 // ============================================================
@@ -132,11 +143,19 @@ export async function processToolCalls(
   appendToolExecutionLog?: (record: ToolExecutionLogRecord) => Promise<void>,
   throwIfAborted?: () => void
 ): Promise<void> {
+  const userMessages = turn.items
+    .filter((item) => item.type === "user_message")
+    .map((item) => item.content);
   for (const tc of toolCalls) {
     throwIfAborted?.();
     const startedAt = Date.now();
     const resolvedToolName = resolveExecutableToolName(tc.name, executors) ?? desanitizeToolName(tc.name);
-    const toolDef = TOOL_DEFINITIONS_MAP.get(resolvedToolName) ?? TOOL_DEFINITIONS_MAP.get(tc.name);
+    const toolDef = getContextualToolDefinition(
+      resolvedToolName,
+      tc.name,
+      executors,
+      userMessages,
+    );
     const canonicalToolName = toolDef?.name ?? resolvedToolName;
     const argumentCheck = parseAndValidateToolArguments(tc.arguments, toolDef?.parameters);
     const approvalArguments = argumentCheck.args ?? {
@@ -315,9 +334,7 @@ export async function processToolCalls(
     const result = await executeTool(canonicalToolName, tc.arguments, executors, {
       threadId: turn.threadId,
       turnId: turn.turnId,
-      userMessages: turn.items
-        .filter((item) => item.type === "user_message")
-        .map((item) => item.content),
+      userMessages,
     });
 
     // 更新工具调用状态
@@ -353,4 +370,19 @@ export async function processToolCalls(
       },
     }, callbacks);
   }
+}
+
+function getContextualToolDefinition(
+  resolvedName: string,
+  requestedName: string,
+  executors: Map<string, ToolExecutor>,
+  userMessages?: string[],
+): ToolDefinition | undefined {
+  const fallback = TOOL_DEFINITIONS_MAP.get(resolvedName)
+    ?? TOOL_DEFINITIONS_MAP.get(requestedName);
+  const content = userMessages?.[userMessages.length - 1];
+  if (!content) return fallback;
+  return getToolDefinitions(executors, { content })
+    .find((definition) => definition.name === fallback?.name || definition.name === resolvedName)
+    ?? fallback;
 }

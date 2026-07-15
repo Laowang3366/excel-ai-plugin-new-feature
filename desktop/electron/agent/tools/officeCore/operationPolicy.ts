@@ -1,6 +1,6 @@
 import type { OfficeActionInput, OfficeActionKind } from "./types";
 
-const SAFE_ACTION_OPERATIONS = new Set([
+export const SAFE_ACTION_OPERATIONS = new Set([
   "inspectFile",
   "layout",
   "tables",

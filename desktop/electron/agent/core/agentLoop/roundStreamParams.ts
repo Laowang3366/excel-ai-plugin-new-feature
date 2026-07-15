@@ -53,7 +53,10 @@ export async function buildRoundStreamParams(input: {
     input.stateRuntimeStore
   );
 
-  const toolDefs = getToolDefinitions(input.toolExecutors);
+  const toolDefs = getToolDefinitions(input.toolExecutors, {
+    content: input.turnInput.content,
+    attachments: input.turnInput.attachments,
+  });
   return {
     effectiveSystemPrompt,
     toolDefs,

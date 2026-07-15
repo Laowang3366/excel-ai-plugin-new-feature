@@ -256,6 +256,88 @@ describe("processToolCalls", () => {
     expect(loggedRecord?.durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  it("rejects hidden advanced Excel operations before approval or execution", async () => {
+    const turn = createTurn();
+    turn.items.push({
+      type: "user_message",
+      id: "user-simple",
+      content: "把 A1:C20 写入数据并汇总",
+      timestamp: 1,
+    });
+    const execute = vi.fn(async () => ({ success: true }));
+    const callbacks = createCallbacks();
+
+    await processToolCalls(
+      [{
+        id: "call-hidden-pivot",
+        name: "office.action.apply",
+        arguments: JSON.stringify({
+          app: "excel",
+          action: "insert",
+          operation: "createPivotTable",
+          filePath: "C:\\books\\a.xlsx",
+          target: "range:Sheet1!A1:D20",
+          params: {
+            advancedIntent: "interactive-pivot",
+            rowFields: ["部门"],
+          },
+        }),
+      }],
+      new Map(),
+      turn,
+      new Map([["office.action.apply", { name: "office.action.apply", execute }]]),
+      { permissionMode: "confirm_all" },
+      callbacks,
+      vi.fn(async () => {}),
+    );
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(turn.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "tool_result",
+        isError: true,
+        result: expect.stringContaining("工具参数校验失败"),
+      }),
+    ]));
+  });
+
+  it("allows the same advanced operation when the user explicitly requested it", async () => {
+    const turn = createTurn();
+    turn.items.push({
+      type: "user_message",
+      id: "user-pivot",
+      content: "创建交互式数据透视表",
+      timestamp: 1,
+    });
+    const execute = vi.fn(async () => ({ success: true, data: { created: true } }));
+
+    await processToolCalls(
+      [{
+        id: "call-visible-pivot",
+        name: "office.action.apply",
+        arguments: JSON.stringify({
+          app: "excel",
+          action: "insert",
+          operation: "createPivotTable",
+          filePath: "C:\\books\\a.xlsx",
+          target: "range:Sheet1!A1:D20",
+          params: {
+            advancedIntent: "interactive-pivot",
+            rowFields: ["部门"],
+          },
+        }),
+      }],
+      new Map(),
+      turn,
+      new Map([["office.action.apply", { name: "office.action.apply", execute }]]),
+      { permissionMode: "confirm_all" },
+      createCallbacks(),
+      vi.fn(async () => {}),
+    );
+
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
   it("stores always-allowed tools after approval requests opt in", async () => {
     const activeItem: ToolCallItem = {
       type: "tool_call",

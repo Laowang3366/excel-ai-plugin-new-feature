@@ -31,7 +31,7 @@
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
 | M-03 | 部分完成 | 统一高置信密钥与敏感字段脱敏；通用 logger 在控制台/文件前递归脱敏并限制单行；工具审计只保存结构统计与指纹；FTS 移除重复 `item_json`，不再索引工具载荷和 raw reasoning；canary 与旧库迁移测试 | 会话/SQLite 应用层加密；日志与 Office 自动化数据留存、导出、线程删除和全局擦除闭环 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
-| M-05 | 部分完成 | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；直接 action、工作流及模板均在 Worker 前拒绝越界请求 | 依据任务分类动态裁剪模型可见高级 operation；真实 Excel/WPS 回归 |
+| M-05 | 已实现，待真实 Office | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；当前轮提示词、`office.action.*` 与工作流步骤 Schema 共用意图识别，普通任务移除高级 operation，明确 ETL/交互透视时才开放 | 真实 Excel/WPS 回归 |
 | M-06 | 已实现 | 下载统计改为 best-effort，数据库故障时安装包仍返回 200；故障注入测试 | 留存清理与周期盐轮换 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
@@ -93,7 +93,7 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 163 个测试文件、917 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 164 个测试文件、927 项测试全部通过 |
 | Desktop Vite build | 通过但有告警 | 主 Renderer chunk 约 566.92 KB，超过 500 KB 建议值 |
 | Desktop `format:check` | **失败** | 限定源码检查仍约有 482 个格式不匹配文件 |
 | .NET Worker test | 通过 | 整改后 97 项 xUnit 测试全部通过 |
@@ -511,14 +511,16 @@
 
 **整改**：首次可见事件后禁止透明重试，或增加 `attemptId + stream_reset` 原子回滚。测试“首轮 partial 后断线、第二轮成功”，UI 和历史只能保留一份结果。
 
-### M-05 高级 Excel 工具已有执行层边界，模型侧动态裁剪仍待完成
+### M-05 高级 Excel 工具按任务意图动态开放
 
-> 整改进展：已增加执行层硬边界。Power Query 创建/更新必须声明 `advancedIntent:"refreshable-etl"` 和外部/多来源 `sourceKind`；透视表/切片器必须声明 `advancedIntent:"interactive-pivot"`，创建透视表还必须给出明确源区域和字段。直接 action、工作流和模板解析均在 Worker 调用前拒绝不满足条件的请求。动态按任务裁剪模型可见高级 operation 仍待完成。
+> 整改完成：执行层硬边界继续保留。Power Query 创建/更新必须声明 `advancedIntent:"refreshable-etl"` 和外部/多来源 `sourceKind`；透视表/切片器必须声明 `advancedIntent:"interactive-pivot"`，创建透视表还必须给出明确源区域和字段。当前轮用户消息先通过统一意图识别：普通写值、公式、格式和固定汇总请求会从 `office.action.apply/inspect/validate` 及 `office.workflow.run.steps` 的模型 Schema 中移除 Power Query、透视表和切片器 operation，提示词也不再暴露具体高级 operation；只有明确的外部/多来源可刷新 ETL 或交互式透视/切片器请求才按类别开放。直接 action、工作流和模板仍在 Worker 前独立拒绝越界请求。
 
 - `office-tools.zh-CN.md:8-9` 的文本边界清楚，这是正向改进。
 - 但高级工具仍常驻注册并向模型暴露；现有测试主要断言提示词包含指定字符串。
 
 **整改**：根据任务分类动态暴露高级工具；Power Query 只在明确外部/多来源可刷新 ETL 条件下开放，透视表只在明确要求交互对象时开放；增加 operation-specific 前置条件、审批和执行层拒绝测试。
+
+**验收状态**：代码级动态可见性、提示词一致性和执行层拒绝测试已完成；仍需真实 Excel/WPS 验证明确高级任务可成功执行、普通任务不会误升级。
 
 ### M-06 下载可用性与统计可靠性耦合，统计数据过度保留
 

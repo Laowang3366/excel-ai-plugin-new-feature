@@ -54,4 +54,51 @@ describe("buildRoundStreamParams", () => {
 
     expect(result.streamParams.reasoningMode).toBe("low");
   });
+
+  it("passes the current user intent into advanced Office tool visibility", async () => {
+    const execute = async () => ({ success: true });
+    const toolExecutors = new Map([
+      ["office.action.apply", { name: "office.action.apply", execute }],
+      ["office.action.inspect", { name: "office.action.inspect", execute }],
+      ["office.workflow.run", { name: "office.workflow.run", execute }],
+    ]);
+    const simple = await buildRoundStreamParams({
+      turnItemGroups: [[userItem("把 A1 写入 1")]],
+      turnInput: { content: "把 A1 写入 1" },
+      aiConfig: {
+        provider: "openai",
+        apiKey: "test",
+        baseUrl: "https://example.com/v1",
+        model: "gpt-test",
+      },
+      toolExecutors,
+      round: 1,
+    });
+    const pivot = await buildRoundStreamParams({
+      turnItemGroups: [[userItem("创建数据透视表")]],
+      turnInput: { content: "创建数据透视表" },
+      aiConfig: {
+        provider: "openai",
+        apiKey: "test",
+        baseUrl: "https://example.com/v1",
+        model: "gpt-test",
+      },
+      toolExecutors,
+      round: 1,
+    });
+
+    expect(getToolOperations(simple.toolDefs, "office.action.apply"))
+      .not.toContain("createPivotTable");
+    expect(getToolOperations(pivot.toolDefs, "office.action.apply"))
+      .toContain("createPivotTable");
+  });
 });
+
+function getToolOperations(
+  definitions: Awaited<ReturnType<typeof buildRoundStreamParams>>["toolDefs"],
+  toolName: string,
+): string[] {
+  const definition = definitions.find((tool) => tool.name === toolName);
+  const properties = definition?.parameters.properties as Record<string, any> | undefined;
+  return properties?.operation?.enum ?? [];
+}

@@ -10,6 +10,7 @@ import dynamicArrayEnabledPrompt from "./templates/runtime/dynamic-array-enabled
 import dynamicArrayDisabledPrompt from "./templates/runtime/dynamic-array-disabled.zh-CN.md?raw";
 import { composePromptSections, renderPromptTemplate } from "./promptComposer";
 import {
+  resolveOfficeAdvancedIntents,
   resolvePromptScenarios,
   type PromptRoutingContext,
   type PromptScenario,
@@ -56,8 +57,36 @@ export function buildContextualPromptSections(context: PromptBuildContext = {}):
   return composePromptSections(
     contextualSections
       .filter((section) => scenarios.has(section.scenario))
-      .map(({ key, content }) => ({ key, content })),
+      .map(({ key, content }) => ({
+        key,
+        content: key === "office-tools"
+          ? renderPromptTemplate(content, {
+            ADVANCED_EXCEL_BOUNDARY: buildAdvancedExcelBoundary(context),
+          })
+          : content,
+      })),
   );
+}
+
+function buildAdvancedExcelBoundary(context: PromptBuildContext): string {
+  const intents = resolveOfficeAdvancedIntents(context);
+  const rules = [
+    "Excel：值、公式、格式、固定汇总用 `range.write`，数据量不是升级理由。禁止为写值创建高级查询或交互透视对象。",
+  ];
+  if (intents.has("refreshable-etl")) {
+    rules.push(
+      "本轮明确要求外部/多来源可刷新 ETL，可开放 `createPowerQuery/managePowerQuery`；须 `filePath`、`params.advancedIntent:\"refreshable-etl\"`，创建/更新另传 `sourceKind:\"external\"|\"multi-source\"`。",
+    );
+  }
+  if (intents.has("interactive-pivot")) {
+    rules.push(
+      "本轮明确要求交互式透视，可开放 `createPivotTable/refreshPivotTables/addSlicer`；须 `params.advancedIntent:\"interactive-pivot\"`，创建时明确源区域和字段。",
+    );
+  }
+  if (rules.length === 1) {
+    rules.push("本轮未检测到上述高级意图，相关 operation 不向模型开放。");
+  }
+  return `- ${rules.join(" ")}`;
 }
 
 export function buildRuntimePromptSection(context: RuntimePromptContext): string {
