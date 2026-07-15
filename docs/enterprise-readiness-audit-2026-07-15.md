@@ -589,7 +589,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 > 部分整改：新增 `SECURITY.md`，使用仓库 Private Vulnerability Reporting 作为私密渠道，并定义确认、分级和分级修复目标；新增 `CONTRIBUTING.md`，规定敏感变更双人审批、CODEOWNER、必需门禁和禁止作者自合并；新增 `.github/CODEOWNERS`，按当前 GitHub 仓库所有者覆盖发布、preload/IPC、Agent、Worker、产品站和部署路径。`docs/data-handling-and-privacy.md` 按运行代码列出本地数据、远程 OCR/搜索/Embedding/模型、产品站统计及留存控制，并明确已登记活动根/旧根/应用导出的擦除与删除证明边界；应用层加密已落地。仍未完成的是法律主体/条款、身份级或外部未登记副本编排，以及 GitHub ruleset 强制审批。自动化治理测试约束私密报告链接、敏感路径所有者、审查要求和不得夸大的数据删除口径。
 
-仓库未发现 `SECURITY.md`、`CODEOWNERS`、`CONTRIBUTING.md`、LICENSE/NOTICE 和隐私政策。对于会处理本地文档、OCR 上传、模型调用、搜索查询和下载统计的企业产品，这会造成漏洞响应、代码所有权、第三方许可和数据告知不清晰。
+**审计当时（历史缺口）**：仓库尚未建立 SECURITY.md、CODEOWNERS、CONTRIBUTING.md、LICENSE/NOTICE 和正式隐私政策；当前工程治理文件与事实型数据清单已补齐，剩余缺口见下方验收状态。
 
 **整改**：建立漏洞披露 SLA、敏感目录所有者、合并审批规则、依赖许可清单、OCR/模型/搜索/统计数据流说明和用户删除机制。
 
