@@ -88,7 +88,6 @@
     "desktop/electron/agent/knowledge/retriever.test.ts": "b341db43bdad5f37d7141c5eec2fa11371295e6c5b8acce17bf679ac910843a1",
     "desktop/electron/agent/knowledge/retriever.ts": "cc216f6d4b94a09207be0ab9dcbfaa6bb9b67cede0f815a262fa3b5f1b9d681e",
     "desktop/electron/agent/knowledge/sqliteSourceSummaries.ts": "a46b6aeaa86db2584eb8b63c28fc87681ba58d08a68cd836b3ea2d0ec2c22d14",
-    "desktop/electron/agent/knowledge/sqliteStore.ts": "1bc15745dd6b96b04c4b7651f859efb612549a0dc6b5a06773b91bd06697ee51",
     "desktop/electron/agent/knowledge/sqliteStoreRows.ts": "c7842284cffd85dd95b6c3311b69b7c1c25ced5c5159aaaa9cb48e874b645c5c",
     "desktop/electron/agent/knowledge/sqliteStoreSchema.ts": "430b9e99644a94ba0c42636e189801bcbd66d20143190a367a990979e8fbe3f2",
     "desktop/electron/agent/knowledge/types.ts": "7d8ecb4a2ca25894877ecede4b012f931031626244fbaef95a66b6fd8496a15c",
@@ -496,7 +495,6 @@
     "product-site/test/server.test.mjs": "c6e1f043c51d61dfa44689ba6289342b3a5adc71ac69ad01c2528e9e5bae96a0"
   },
   "oversizedSources": {
-    "desktop/electron/agent/knowledge/sqliteStore.ts": "1bc15745dd6b96b04c4b7651f859efb612549a0dc6b5a06773b91bd06697ee51",
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
     "desktop/electron/agent/tools/executors/excelExecutors.ts": "b28003be70654e6779f23d4cf570399f491164bca1995bbbe428c5d717a8dd54",
     "desktop/electron/agent/tools/officeCore/officeActionAdapter.ts": "ed387b739da2963a5b13a82b988fbc90825f10e26d72ed5d1fe3ec3dad43a98f",

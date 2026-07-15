@@ -400,6 +400,7 @@ flowchart TB
     Parser["knowledge/documentParser.ts + excelWorkbookParser.ts + jsonFlatten.ts"]
     Chunker["knowledge/textChunker.ts"]
     Store["knowledge/sqliteStore.ts + sqliteStoreSchema.ts"]
+    StoreSearch["knowledge/sqliteStoreSearch.ts"]
     Embedding["knowledge/embeddingService.ts"]
   end
 
@@ -415,7 +416,7 @@ flowchart TB
   KRuntime --> Retriever
   Indexer --> Parser --> Chunker --> Embedding --> Store
   Retriever --> Embedding
-  Retriever --> Store
+  Retriever --> Store --> StoreSearch
   KTools --> KExecutors --> Retriever
   KExecutors --> Writer
 ```
@@ -432,7 +433,8 @@ flowchart TB
 | `knowledge/excelWorkbookParser.ts` | Excel 工作簿解析为文本/表格语义 | `documentParser.ts` | sheet/table 文本 |
 | `knowledge/textChunker.ts` | 按标题、表格、长度切块 | `KnowledgeIndexer` | chunk records |
 | `knowledge/embeddingService.ts` | 根据当前 AI provider 生成 embedding | indexer/retriever | 向量与 profile |
-| `knowledge/sqliteStore.ts` | 知识库 SQLite 持久化、搜索、来源摘要 | indexer/retriever/writer | `knowledge.sqlite` |
+| `knowledge/sqliteStore.ts` | 知识库 SQLite 连接生命周期、事务、CRUD、来源摘要和维护；保持检索公共入口并委托查询算法 | indexer/retriever/writer | `knowledge.sqlite`、`sqliteStoreSearch.ts` |
+| `knowledge/sqliteStoreSearch.ts` | 构造向量/关键词查询过滤，隔离损坏向量，完成余弦排序和关键词去重 | `sqliteStore.ts` | 检索结果 |
 | `knowledge/knowledgeWriter.ts` | 模型写入、替换、追加、删除知识库内文本来源 | `knowledgeExecutors.ts` | 可写文本来源和索引重建 |
 | `tools/registry/knowledge.ts` | 模型可见知识库工具 schema | `toolDefinitions.ts` | `knowledge.search/listSources/write/updateSource/deleteSource` |
 | `tools/executors/knowledgeExecutors.ts` | 工具参数校验、调用 retriever/writer | `toolExecutor.ts` | tool_result |

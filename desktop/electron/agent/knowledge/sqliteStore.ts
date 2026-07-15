@@ -17,7 +17,8 @@ import * as fs from "fs";
 import type { KnowledgeEntry, KnowledgeSource, KnowledgeResult } from "./types";
 import type { EmbeddingProfile } from "./embeddingService";
 import { ensureSourceSummaries } from "./sqliteSourceSummaries";
-import { cosineSimilarity, entryToRow, rowToEntry, rowToSource } from "./sqliteStoreRows";
+import { entryToRow, rowToEntry, rowToSource } from "./sqliteStoreRows";
+import { searchKnowledgeByKeyword, searchKnowledgeByVector } from "./sqliteStoreSearch";
 import { initKnowledgeTables } from "./sqliteStoreSchema";
 import { openSqliteDatabase, runPragma, runSqliteTransaction } from "../storage/nodeSqlite";
 import type { SqliteDatabase } from "../storage/nodeSqlite";
@@ -221,43 +222,7 @@ export class SqliteStore {
       embeddingProfile?: EmbeddingProfile;
     },
   ): KnowledgeResult[] {
-    let sql = "SELECT * FROM knowledge_entries WHERE embedding IS NOT NULL";
-    const params: any[] = [];
-    const expectedProfile = filter?.embeddingProfile;
-
-    if (expectedProfile) {
-      sql += " AND embedding_provider = ? AND embedding_model = ? AND embedding_dimensions = ?";
-      params.push(expectedProfile.provider, expectedProfile.model, expectedProfile.dimensions);
-    }
-
-    if (filter?.sourceFilter && filter.sourceFilter.length > 0) {
-      sql += ` AND source IN (${filter.sourceFilter.map(() => "?").join(",")})`;
-      params.push(...filter.sourceFilter);
-    }
-    if (filter?.pathFilter && filter.pathFilter.length > 0) {
-      sql += ` AND source_path IN (${filter.pathFilter.map(() => "?").join(",")})`;
-      params.push(...filter.pathFilter);
-    }
-
-    const rows = this.db.prepare(sql).all(...params) as Record<string, any>[];
-    const queryVec = new Float64Array(queryVector);
-    const results: KnowledgeResult[] = [];
-
-    for (const row of rows) {
-      if (!row.embedding) continue;
-      try {
-        const entryVec = new Float64Array(JSON.parse(row.embedding));
-        const score = cosineSimilarity(queryVec, entryVec);
-        if (score > 0) {
-          results.push({ entry: rowToEntry(row), score });
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, topK);
+    return searchKnowledgeByVector(this.db, queryVector, topK, filter);
   }
 
   /**
@@ -268,39 +233,7 @@ export class SqliteStore {
     topK: number,
     filter?: { sourceFilter?: string[]; pathFilter?: string[] },
   ): KnowledgeEntry[] {
-    if (keywords.length === 0) return [];
-
-    const seen = new Set<string>();
-    const results: KnowledgeEntry[] = [];
-
-    for (const kw of keywords) {
-      const where: string[] = ["content LIKE ?"];
-      const params: any[] = [`%${kw}%`];
-      if (filter?.sourceFilter && filter.sourceFilter.length > 0) {
-        where.push(`source IN (${filter.sourceFilter.map(() => "?").join(",")})`);
-        params.push(...filter.sourceFilter);
-      }
-      if (filter?.pathFilter && filter.pathFilter.length > 0) {
-        where.push(`source_path IN (${filter.pathFilter.map(() => "?").join(",")})`);
-        params.push(...filter.pathFilter);
-      }
-      params.push(topK);
-
-      const rows = this.db
-        .prepare(`SELECT * FROM knowledge_entries WHERE ${where.join(" AND ")} LIMIT ?`)
-        .all(...params) as Record<string, any>[];
-
-      for (const row of rows) {
-        if (!seen.has(row.id)) {
-          seen.add(row.id);
-          results.push(rowToEntry(row));
-          if (results.length >= topK) break;
-        }
-      }
-      if (results.length >= topK) break;
-    }
-
-    return results.slice(0, topK);
+    return searchKnowledgeByKeyword(this.db, keywords, topK, filter);
   }
 
   // ============================================================
