@@ -36,10 +36,20 @@ plugin.shelelove.top:443
 - `ADMIN_PASSWORD_HASH`
 - `COOKIE_SECRET`
 - `ANALYTICS_SALT`
+- `ANALYTICS_RETENTION_DAYS=90`（允许 1-3650 天）
+- `ANALYTICS_IP_ROTATION_DAYS=30`（允许 1-365 天）
 - `DATA_DIR`
 - `RELEASES_DIR`
 - `DATABASE_PATH`
 - `USE_ACCEL_REDIRECT=true`
+
+## 下载统计数据治理
+
+- 不保存原始 IP；服务使用 `ANALYTICS_SALT` 派生周期密钥，按 UTC 周期生成不可逆 HMAC 标识。
+- 同一 IP 在一个轮换周期内保持一致，跨周期会生成不同标识。因此跨周期查询的“独立下载”可能重复计数，这是降低长期关联能力的预期取舍。
+- 下载记录默认保留 90 天。服务启动时立即清理过期记录，并每 6 小时再次清理；清理定时器不阻塞进程退出。
+- 清理失败只写告警，不阻塞新的统计写入或安装包下载。生产监控应对 `download analytics maintenance failed` 告警。
+- UA 最多保存 200 字符；Referer 只保存 `scheme://host[:port]`，不保留路径、查询参数或片段。首次升级会对既有记录执行同样的数据最小化迁移。
 
 ## 验收
 

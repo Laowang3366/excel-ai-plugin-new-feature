@@ -18,7 +18,14 @@ export async function buildServer(overrides = {}) {
     trustProxy: overrides.trustProxy ?? "127.0.0.1",
     bodyLimit: 64 * 1024,
   });
-  const analytics = overrides.analytics ?? createAnalyticsDatabase(config.databasePath, config.analyticsSalt);
+  const analytics = overrides.analytics ?? createAnalyticsDatabase(config.databasePath, {
+    analyticsSalt: config.analyticsSalt,
+    retentionDays: config.analyticsRetentionDays,
+    ipRotationDays: config.analyticsIpRotationDays,
+    onMaintenanceError(error) {
+      app.log.warn({ error }, "download analytics maintenance failed");
+    },
+  });
   const releases = createReleaseStore(config.releasesDir);
 
   await app.register(cookie, { secret: config.cookieSecret });

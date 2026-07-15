@@ -14,7 +14,7 @@ npm start
 - 健康检查：`http://127.0.0.1:18120/healthz`
 - 本地默认后台密码仅用于开发：`development-admin`
 
-生产环境必须配置 `.env.example` 中的密码哈希、Cookie 密钥和统计盐值。密码哈希通过以下命令生成：
+生产环境必须配置 `.env.example` 中的密码哈希、Cookie 密钥、统计盐值和数据治理周期。默认只保留 90 天下载记录，IP 匿名标识每 30 天按 UTC 周期轮换；UA 最多保留 200 字符，Referer 只保留站点 Origin。密码哈希通过以下命令生成：
 
 ```bash
 npm run hash-password -- "your-long-password"

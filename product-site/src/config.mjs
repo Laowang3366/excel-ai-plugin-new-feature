@@ -16,6 +16,16 @@ function validateProductionSecret(name, value, minimumLength) {
   return value;
 }
 
+function readBoundedInteger(name, overrideValue, fallback, minimum, maximum) {
+  const rawValue = overrideValue ?? process.env[name];
+  if (rawValue === undefined || rawValue === "") return fallback;
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${name} 必须是 ${minimum}-${maximum} 之间的整数`);
+  }
+  return value;
+}
+
 export function loadConfig(overrides = {}) {
   const root = path.resolve(import.meta.dirname, "..");
   const dataDir = path.resolve(overrides.dataDir || process.env.DATA_DIR || path.join(root, ".local", "data"));
@@ -29,6 +39,8 @@ export function loadConfig(overrides = {}) {
     adminPasswordHash: overrides.adminPasswordHash || requiredInProduction("ADMIN_PASSWORD_HASH", "scrypt$YpRPhq5bCIWtwFLGCwBvZQ==$rPJ4dulEcgeS+t95RvP8Hv6ZDDtgZu47u19j7boQHVI="),
     cookieSecret: overrides.cookieSecret || requiredInProduction("COOKIE_SECRET", "development-cookie-secret-change-before-deploy-1234"),
     analyticsSalt: overrides.analyticsSalt || requiredInProduction("ANALYTICS_SALT", "development-analytics-salt"),
+    analyticsRetentionDays: readBoundedInteger("ANALYTICS_RETENTION_DAYS", overrides.analyticsRetentionDays, 90, 1, 3650),
+    analyticsIpRotationDays: readBoundedInteger("ANALYTICS_IP_ROTATION_DAYS", overrides.analyticsIpRotationDays, 30, 1, 365),
     useAccelRedirect: overrides.useAccelRedirect ?? process.env.USE_ACCEL_REDIRECT === "true",
   };
   validateProductionSecret("COOKIE_SECRET", config.cookieSecret, 32);
