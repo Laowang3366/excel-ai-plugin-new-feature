@@ -8,8 +8,8 @@ import {
   listOfficeTransactionPaths,
   recordOfficeTransactionResult,
   undoOfficeTransaction,
-  type OfficeTransactionRecord,
 } from "./transactionJournal";
+import type { OfficeTransactionRecord } from "./transactionTypes";
 import type { OfficeActionInput } from "./types";
 import {
   executeWorkflowStepWithRetry,

@@ -1,4 +1,4 @@
-import type { OfficeTransactionRestoreFile } from "./transactionJournal";
+import type { OfficeTransactionRestoreFile } from "./transactionTypes";
 import type { OfficeActionInput, OfficeActionResult } from "./types";
 import type { OfficeWorkflowStepInput } from "./workflowStepExecution";
 

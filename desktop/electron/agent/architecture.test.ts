@@ -49,6 +49,10 @@ describe("agent folder architecture", () => {
       "tools/officeCore/workflowTypes.ts",
       "tools/officeCore/workflowHelpers.ts",
       "tools/officeCore/workflowRecordStore.ts",
+      "tools/officeCore/transactionJournal.ts",
+      "tools/officeCore/transactionTypes.ts",
+      "tools/officeCore/transactionPaths.ts",
+      "tools/officeCore/transactionRecordStore.ts",
       "tools/registry/toolDefinitions.ts",
       "tools/registry/workbook.ts",
       "tools/registry/range.ts",
@@ -171,5 +175,42 @@ describe("agent folder architecture", () => {
     expect(orchestrator).toContain('from "./workflowTypes"');
     expect(helpers).not.toContain('from "./workflowRecordStore"');
     expect(helpers).not.toContain('from "./transactionJournal"');
+  });
+
+  it("keeps transaction record store free of journal imports", () => {
+    const store = readFileSync(
+      path.join(agentRoot, "tools/officeCore/transactionRecordStore.ts"),
+      "utf8",
+    );
+    const journal = readFileSync(
+      path.join(agentRoot, "tools/officeCore/transactionJournal.ts"),
+      "utf8",
+    );
+    const types = readFileSync(
+      path.join(agentRoot, "tools/officeCore/transactionTypes.ts"),
+      "utf8",
+    );
+    const paths = readFileSync(
+      path.join(agentRoot, "tools/officeCore/transactionPaths.ts"),
+      "utf8",
+    );
+    const workflowTypes = readFileSync(
+      path.join(agentRoot, "tools/officeCore/workflowTypes.ts"),
+      "utf8",
+    );
+    const workflow = readFileSync(path.join(agentRoot, "tools/officeCore/workflow.ts"), "utf8");
+
+    expect(store).toContain('from "./transactionTypes"');
+    expect(store).not.toContain('from "./transactionJournal"');
+    expect(types).not.toContain("node:path");
+    expect(types).not.toContain("export function");
+    expect(paths).not.toContain('from "./transactionJournal"');
+    expect(paths).not.toContain('from "./transactionRecordStore"');
+    expect(journal).toContain('from "./transactionTypes"');
+    expect(journal).toContain('from "./transactionRecordStore"');
+    expect(journal).toContain('from "./transactionPaths"');
+    expect(workflowTypes).toContain('from "./transactionTypes"');
+    expect(workflowTypes).not.toContain('from "./transactionJournal"');
+    expect(workflow).toContain('from "./transactionTypes"');
   });
 });

@@ -194,7 +194,6 @@
     "desktop/electron/agent/tools/officeCore/results.test.ts": "b8b5aed8da4a91d0ac1b08daf1b30b946acc6ca280f3cad850f1fd82151c46f7",
     "desktop/electron/agent/tools/officeCore/results.ts": "10adb480f7c916df12ba6920bc53e8a903b84d2b4689dc3da7f11f692b64d135",
     "desktop/electron/agent/tools/officeCore/transactionJournal.test.ts": "48ed1e253c2dc00b88568c3d665ed8dcb0430df24036cfd17e2f2223be589a60",
-    "desktop/electron/agent/tools/officeCore/transactionJournal.ts": "051ca69a8a32c02d58cf18e1b5c65e5c40a4e7ab751684bdfc751edcb2eef247",
     "desktop/electron/agent/tools/officeCore/transactions.test.ts": "0a196a4497b46e976cb712cac61d6cc58a774f5f7c7f20ce52b70911a2f15a1f",
     "desktop/electron/agent/tools/officeCore/transactions.ts": "d0746643612a385e53bba240c240948d82785bb616dc6df47543b44f0abf774b",
     "desktop/electron/agent/tools/officeCore/types.ts": "8949d23e011216838dcc4b5a0401486669783458be27f228e5ef8becda6e876c",
@@ -490,7 +489,6 @@
   },
   "oversizedSources": {
     "desktop/electron/agent/shared/types.ts": "f517b346d2f4c67c08006fc6d600f94cc2b6e248e816b651b27356f7338fb678",
-    "desktop/electron/agent/tools/officeCore/transactionJournal.ts": "051ca69a8a32c02d58cf18e1b5c65e5c40a4e7ab751684bdfc751edcb2eef247",
     "desktop/electron/shared/ipcSchemas.ts": "5d3521e589f3815c575ac4b5ead310a93f840c9f39f25c699b30089e98c8771c",
     "desktop/scripts/smoke-office-advanced.ts": "1524b5d71d3b2855e3e5e3e811bc75b1cfb927f40ab5fc7f622a399aee41217c",
     "desktop/scripts/smoke-office-reliability.ts": "bd2d43c80a7656a9cda5072afc3536321ecb874d633273ff82071d444ca67d51",

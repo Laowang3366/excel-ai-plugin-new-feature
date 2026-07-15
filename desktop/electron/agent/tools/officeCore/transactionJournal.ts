@@ -1,55 +1,40 @@
 import { createHash, randomUUID } from "node:crypto";
-import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import type { OfficeActionBridge } from "../contracts/office";
 import type { OfficeActionInput, OfficeActionResult } from "./types";
+import {
+  getOfficeTransaction,
+  listOfficeTransactions,
+  saveOfficeTransaction,
+  transactionDirectory,
+} from "./transactionRecordStore";
+import { collectResultArtifacts, listOfficeTransactionPaths, samePath } from "./transactionPaths";
+import type {
+  OfficeTransactionConflict,
+  OfficeTransactionRecord,
+  OfficeTransactionRestoreFile,
+  OfficeTransactionRestoreOptions,
+  OfficeTransactionSnapshot,
+} from "./transactionTypes";
 
-export type OfficeTransactionStatus = "pending" | "applied" | "undone" | "failed" | "conflicted";
+export type {
+  OfficeTransactionStatus,
+  OfficeTransactionSnapshot,
+  OfficeTransactionConflict,
+  OfficeTransactionRestoreFile,
+  OfficeTransactionRestoreOptions,
+  OfficeTransactionRecord,
+} from "./transactionTypes";
 
-export interface OfficeTransactionSnapshot {
-  filePath: string;
-  existed: boolean;
-  snapshotPath?: string;
-  beforeHash?: string;
-  afterExisted?: boolean;
-  afterSnapshotPath?: string;
-  afterHash?: string;
-}
+export {
+  saveOfficeTransaction,
+  getOfficeTransaction,
+  listOfficeTransactions,
+} from "./transactionRecordStore";
 
-export interface OfficeTransactionConflict {
-  filePath: string;
-  expected: "before" | "after";
-  reason: string;
-}
-
-export interface OfficeTransactionRestoreFile {
-  filePath: string;
-  existed: boolean;
-  snapshotPath?: string;
-}
-
-export interface OfficeTransactionRestoreOptions {
-  force?: boolean;
-  prepareFiles?: (filePaths: string[]) => Promise<unknown>;
-  restoreFiles?: (files: OfficeTransactionRestoreFile[]) => Promise<unknown>;
-}
-
-export interface OfficeTransactionRecord {
-  id: string;
-  workflowId?: string;
-  status: OfficeTransactionStatus;
-  createdAt: string;
-  updatedAt: string;
-  steps: OfficeActionInput[];
-  results: OfficeActionResult[];
-  snapshots: OfficeTransactionSnapshot[];
-  artifacts: string[];
-  changes: OfficeActionResult["changes"];
-  conflicts?: OfficeTransactionConflict[];
-  conflictBaseStatus?: Exclude<OfficeTransactionStatus, "conflicted">;
-  error?: string;
-}
+export { listOfficeTransactionPaths } from "./transactionPaths";
 
 export async function beginOfficeTransaction(input: {
   root: string;
@@ -82,37 +67,6 @@ export async function beginOfficeTransaction(input: {
   return record;
 }
 
-export async function saveOfficeTransaction(root: string, record: OfficeTransactionRecord): Promise<void> {
-  record.updatedAt = new Date().toISOString();
-  const directory = transactionDirectory(root, record.id);
-  await mkdir(directory, { recursive: true });
-  const destination = path.join(directory, "transaction.json");
-  const temporary = path.join(directory, `.transaction.${randomUUID()}.tmp`);
-  await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, "utf8");
-  await rm(destination, { force: true });
-  await rename(temporary, destination);
-}
-
-export async function getOfficeTransaction(root: string, id: string): Promise<OfficeTransactionRecord> {
-  validateRecordId(id);
-  const record = JSON.parse(await readFile(path.join(transactionDirectory(root, id), "transaction.json"), "utf8")) as OfficeTransactionRecord;
-  if (record.id !== id || !Array.isArray(record.steps) || !Array.isArray(record.snapshots)) {
-    throw new Error("Office 事务记录已损坏");
-  }
-  return record;
-}
-
-export async function listOfficeTransactions(root: string): Promise<OfficeTransactionRecord[]> {
-  let names: string[];
-  try { names = await readdir(root); } catch { return []; }
-  const records = await Promise.all(names.map(async (name) => {
-    try { return await getOfficeTransaction(root, name); } catch { return undefined; }
-  }));
-  return records
-    .filter((record): record is OfficeTransactionRecord => Boolean(record))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-}
-
 export async function recordOfficeTransactionResult(
   root: string,
   record: OfficeTransactionRecord,
@@ -130,8 +84,8 @@ export async function finalizeOfficeTransaction(
   root: string,
   record: OfficeTransactionRecord,
 ): Promise<OfficeTransactionRecord> {
-  const untracked = record.artifacts.filter((artifact) =>
-    !record.snapshots.some((snapshot) => samePath(snapshot.filePath, artifact))
+  const untracked = record.artifacts.filter(
+    (artifact) => !record.snapshots.some((snapshot) => samePath(snapshot.filePath, artifact)),
   );
   if (untracked.length > 0) {
     record.status = "failed";
@@ -163,12 +117,19 @@ export async function undoOfficeTransaction(
 ): Promise<OfficeTransactionRecord> {
   const record = await getOfficeTransaction(root, id);
   if (record.status === "undone") return record;
-  if (options.prepareFiles) await options.prepareFiles(record.snapshots.map((snapshot) => snapshot.filePath));
+  if (options.prepareFiles)
+    await options.prepareFiles(record.snapshots.map((snapshot) => snapshot.filePath));
   if (hasAfterState(record) && !options.force) {
     const conflicts = await detectTransactionConflicts(record, "after");
     if (conflicts.length > 0) return saveConflict(root, record, conflicts, "撤销");
   }
-  await restoreSnapshots(root, record.id, [...record.snapshots].reverse(), "before", options.restoreFiles);
+  await restoreSnapshots(
+    root,
+    record.id,
+    [...record.snapshots].reverse(),
+    "before",
+    options.restoreFiles,
+  );
   record.status = "undone";
   record.conflicts = [];
   record.conflictBaseStatus = undefined;
@@ -184,11 +145,13 @@ export async function redoOfficeTransaction(
   options: OfficeTransactionRestoreOptions = {},
 ): Promise<OfficeTransactionRecord> {
   const record = await getOfficeTransaction(root, id);
-  const canRedo = record.status === "undone"
-    || (record.status === "conflicted" && record.conflictBaseStatus === "undone");
+  const canRedo =
+    record.status === "undone" ||
+    (record.status === "conflicted" && record.conflictBaseStatus === "undone");
   if (!canRedo) throw new Error("只有已撤销的 Office 事务可以重新执行");
   if (hasAfterState(record)) {
-    if (options.prepareFiles) await options.prepareFiles(record.snapshots.map((snapshot) => snapshot.filePath));
+    if (options.prepareFiles)
+      await options.prepareFiles(record.snapshots.map((snapshot) => snapshot.filePath));
     if (!options.force) {
       const conflicts = await detectTransactionConflicts(record, "before");
       if (conflicts.length > 0) return saveConflict(root, record, conflicts, "重做");
@@ -223,39 +186,11 @@ export async function redoOfficeTransaction(
   return record;
 }
 
-export function listOfficeTransactionPaths(steps: OfficeActionInput[]): string[] {
-  const paths = new Map<string, string>();
-  for (const step of steps) {
-    addPath(paths, step.filePath);
-    addPath(paths, step.outputPath);
-    const params = step.params || {};
-    for (const key of ["outputPath", "wordOutputPath", "presentationOutputPath"] as const) {
-      if (typeof params[key] === "string") addPath(paths, params[key]);
-    }
-    if (step.operation === "buildReportPackage") {
-      const outputDirectory = typeof params.outputDirectory === "string" ? params.outputDirectory : step.outputPath;
-      if (outputDirectory) {
-        const baseName = typeof params.baseName === "string"
-          ? params.baseName
-          : `${path.basename(step.filePath || "report", path.extname(step.filePath || ""))}-报告`;
-        addPath(paths, path.join(outputDirectory, `${baseName}.docx`));
-        addPath(paths, path.join(outputDirectory, `${baseName}.pptx`));
-      }
-    }
-  }
-  return [...paths.values()];
-}
-
-function collectResultArtifacts(result: OfficeActionResult): string[] {
-  const artifacts = new Map<string, string>();
-  if (result.outputPath && result.filePath && !samePath(result.outputPath, result.filePath)) addPath(artifacts, result.outputPath);
-  for (const change of result.changes) {
-    if (change.target && path.isAbsolute(change.target) && path.extname(change.target)) addPath(artifacts, change.target);
-  }
-  return [...artifacts.values()];
-}
-
-async function snapshotPath(filePath: string, snapshotDir: string, index: number): Promise<OfficeTransactionSnapshot | undefined> {
+async function snapshotPath(
+  filePath: string,
+  snapshotDir: string,
+  index: number,
+): Promise<OfficeTransactionSnapshot | undefined> {
   const state = await captureFileState(filePath, snapshotDir, index);
   if (state.directory) return undefined;
   return {
@@ -323,7 +258,8 @@ async function restoreSnapshotsAtomically(
     for (const entry of [...staged].reverse()) {
       if (!entry.committed) continue;
       await rm(entry.destination, { force: true }).catch(() => undefined);
-      if (entry.rollbackPath) await rename(entry.rollbackPath, entry.destination).catch(() => undefined);
+      if (entry.rollbackPath)
+        await rename(entry.rollbackPath, entry.destination).catch(() => undefined);
       entry.rollbackPath = undefined;
     }
     throw error;
@@ -348,7 +284,8 @@ function restoreFileDescriptor(
   const expectedRoot = transactionDirectory(root, id);
   const source = path.resolve(snapshotPath);
   const relative = path.relative(expectedRoot, source);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Office 事务快照不在受控目录中");
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("Office 事务快照不在受控目录中");
   return { filePath: path.resolve(snapshot.filePath), existed: true, snapshotPath: source };
 }
 
@@ -377,12 +314,21 @@ async function detectTransactionConflicts(
   const conflicts: OfficeTransactionConflict[] = [];
   for (const snapshot of record.snapshots) {
     const current = await currentFileState(snapshot.filePath);
-    const expectedExists = expected === "before" ? snapshot.existed : snapshot.afterExisted === true;
+    const expectedExists =
+      expected === "before" ? snapshot.existed : snapshot.afterExisted === true;
     const expectedHash = expected === "before" ? snapshot.beforeHash : snapshot.afterHash;
     if (current.existed !== expectedExists) {
-      conflicts.push({ filePath: snapshot.filePath, expected, reason: expectedExists ? "文件已被删除" : "出现了事务外文件" });
+      conflicts.push({
+        filePath: snapshot.filePath,
+        expected,
+        reason: expectedExists ? "文件已被删除" : "出现了事务外文件",
+      });
     } else if (expectedExists && expectedHash && current.hash !== expectedHash) {
-      conflicts.push({ filePath: snapshot.filePath, expected, reason: "文件内容已在事务外修改" });
+      conflicts.push({
+        filePath: snapshot.filePath,
+        expected,
+        reason: "文件内容已在事务外修改",
+      });
     }
   }
   return conflicts;
@@ -414,42 +360,22 @@ async function currentFileState(filePath: string): Promise<{ existed: boolean; h
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
-  try { return (await stat(filePath)).isFile(); }
-  catch (error) {
+  try {
+    return (await stat(filePath)).isFile();
+  } catch (error) {
     if (isFileNotFound(error)) return false;
     throw error;
   }
 }
 
 async function hashFile(filePath: string): Promise<string> {
-  return createHash("sha256").update(await readFile(filePath)).digest("hex");
+  return createHash("sha256")
+    .update(await readFile(filePath))
+    .digest("hex");
 }
 
 function hasAfterState(record: OfficeTransactionRecord): boolean {
   return record.snapshots.every((snapshot) => snapshot.afterExisted !== undefined);
-}
-
-function addPath(target: Map<string, string>, value?: string): void {
-  if (!value || !path.isAbsolute(value)) return;
-  const resolved = path.resolve(value);
-  target.set(process.platform === "win32" ? resolved.toLowerCase() : resolved, resolved);
-}
-
-function samePath(left: string, right: string): boolean {
-  const a = path.resolve(left);
-  const b = path.resolve(right);
-  return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
-}
-
-function transactionDirectory(root: string, id: string): string {
-  validateRecordId(id);
-  return path.join(path.resolve(root), id);
-}
-
-function validateRecordId(id: string): void {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    throw new Error("Office 事务 ID 无效");
-  }
 }
 
 function isFileNotFound(error: unknown): boolean {
