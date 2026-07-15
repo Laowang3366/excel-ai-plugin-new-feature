@@ -51,7 +51,7 @@ describe("repository governance baseline", () => {
 
     expect(dataHandling).toContain("不是经法律审核的最终隐私政策");
     expect(dataHandling).toContain("远程数据处理\”默认关闭");
-    expect(dataHandling).toContain(".jsonl.gz/.jsonl.zst");
+    expect(dataHandling).toContain("删除任一文件失败时不继续删除数据库投影");
     expect(dataHandling).toContain("一键导出所有个人数据");
     expect(dataHandling).toContain("全局擦除");
     expect(dataHandling).toContain("默认保留 90 天");

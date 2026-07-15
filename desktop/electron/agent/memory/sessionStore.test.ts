@@ -7,7 +7,7 @@
  * - 压缩点之后的 turns 仍被保留
  */
 
-import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import * as zlib from "zlib";
@@ -211,6 +211,31 @@ describe("SessionStore rollout writer", () => {
           itemType: "turn_item",
         }),
       ]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes live, gzip, and zstd artifacts for only the requested thread", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "session-store-delete-"));
+    try {
+      const store = new SessionStore(tempDir);
+      const thread = await store.createThread("openai", "test-model");
+      await store.flushRolloutWrites();
+
+      const sourcePath = store.getRolloutPath(thread.metadata.threadId);
+      const gzipPath = `${sourcePath}.gz`;
+      const zstdPath = `${sourcePath}.zst`;
+      const unrelatedPath = sourcePath.replace(thread.metadata.threadId, "thread-unrelated");
+      await writeFile(gzipPath, "legacy archive");
+      await writeFile(zstdPath, "cold archive");
+      await writeFile(unrelatedPath, "unrelated thread");
+
+      await expect(store.deleteThread(thread.metadata.threadId)).resolves.toBe(true);
+      await expect(access(sourcePath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(gzipPath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(zstdPath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(unrelatedPath)).resolves.toBeUndefined();
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

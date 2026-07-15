@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "fs/promises";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SessionStore } from "./sessionStore";
 import { StateRuntimeStore } from "./stateRuntimeStore";
@@ -68,5 +68,21 @@ describe("ThreadRepository", () => {
       await runtime.close();
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("keeps sqlite projections when rollout artifact deletion fails", async () => {
+    const sessions = {
+      deleteThread: vi.fn(async () => {
+        throw new Error("archive delete denied");
+      }),
+    } as unknown as SessionStore;
+    const runtime = {
+      getThreadSnapshot: vi.fn(async () => ({ threadId: "thread-protected" })),
+      deleteThreadData: vi.fn(async () => undefined),
+    } as unknown as StateRuntimeStore;
+    const repository = new ThreadRepository(sessions, runtime);
+
+    await expect(repository.delete("thread-protected")).rejects.toThrow("archive delete denied");
+    expect(runtime.deleteThreadData).not.toHaveBeenCalled();
   });
 });

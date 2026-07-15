@@ -31,6 +31,21 @@ export async function findAllRolloutFiles(sessionsRoot: string): Promise<string[
   return files;
 }
 
+/** Find every live or compressed rollout artifact belonging to one thread. */
+export async function findThreadRolloutArtifacts(
+  sessionsRoot: string,
+  threadId: ThreadId,
+): Promise<string[]> {
+  const files: string[] = [];
+  const suffixes = [
+    `-${threadId}.jsonl`,
+    `-${threadId}.jsonl.gz`,
+    `-${threadId}.jsonl.zst`,
+  ];
+  await collectMatchingRolloutArtifacts(sessionsRoot, suffixes, files);
+  return files;
+}
+
 async function collectRolloutFiles(dir: string, files: string[]): Promise<void> {
   let entries: fs.Dirent[];
   try {
@@ -44,6 +59,32 @@ async function collectRolloutFiles(dir: string, files: string[]): Promise<void> 
     if (entry.isDirectory()) {
       await collectRolloutFiles(fullPath, files);
     } else if (entry.name.endsWith(".jsonl")) {
+      files.push(fullPath);
+    }
+  }
+}
+
+async function collectMatchingRolloutArtifacts(
+  dir: string,
+  suffixes: string[],
+  files: string[],
+): Promise<void> {
+  let entries: fs.Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectMatchingRolloutArtifacts(fullPath, suffixes, files);
+    } else if (
+      entry.isFile()
+      && entry.name.startsWith("rollout-")
+      && suffixes.some((suffix) => entry.name.endsWith(suffix))
+    ) {
       files.push(fullPath);
     }
   }

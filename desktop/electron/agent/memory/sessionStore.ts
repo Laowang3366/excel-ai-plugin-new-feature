@@ -41,6 +41,7 @@ import { parseRolloutContent as parseSessionRolloutContent } from "./sessionRoll
 import { readUsageSummaryFromRolloutFiles, type TurnStats } from "./sessionUsageStats";
 import {
   findAllRolloutFiles,
+  findThreadRolloutArtifacts,
   getDefaultSessionsRoot,
   getSessionFilePath,
   scanThreadMetadata,
@@ -276,21 +277,37 @@ export class SessionStore {
   async deleteThread(threadId: ThreadId): Promise<boolean> {
     await this.flushRolloutWrites();
 
-    // 优先使用缓存路径，否则扫描磁盘查找实际文件
+    // 优先使用缓存路径，并扫描旧 gzip/zstd 冷归档，避免删除后仍可检索会话正文。
     let filePath: string | null | undefined = this.rolloutPathCache.get(threadId);
     if (!filePath) {
       filePath = await this.findRolloutPath(threadId);
     }
-    if (!filePath) return false;
 
-    try {
-      await unlink(filePath);
-      // 清除缓存
-      this.rolloutPathCache.delete(threadId);
-      return true;
-    } catch {
-      return false;
+    const artifacts = new Set(await findThreadRolloutArtifacts(this.sessionsRoot, threadId));
+    if (filePath) {
+      artifacts.add(filePath);
+      artifacts.add(`${filePath}.gz`);
+      artifacts.add(`${filePath}.zst`);
     }
+
+    let deleted = false;
+    const orderedArtifacts = [...artifacts].sort((left, right) => {
+      const leftIsSource = left.endsWith(".jsonl") ? 1 : 0;
+      const rightIsSource = right.endsWith(".jsonl") ? 1 : 0;
+      return leftIsSource - rightIsSource;
+    });
+    for (const artifactPath of orderedArtifacts) {
+      try {
+        await unlink(artifactPath);
+        deleted = true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw error;
+      }
+    }
+
+    this.rolloutPathCache.delete(threadId);
+    return deleted;
   }
 
   // ----------------------------------------------------------
