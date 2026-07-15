@@ -17,26 +17,14 @@
 
 import { dialog, shell, BrowserWindow } from "electron";
 import type { AgentLoop } from "../agent/core/agentLoop";
-import {
-  ensureKnowledgeRuntime,
-  refreshKnowledgeRuntime,
-  type AgentLoopManager,
-} from "../agent/runtime/agentRuntime";
+import { ensureKnowledgeRuntime, type AgentLoopManager } from "../agent/runtime/agentRuntime";
 import { inspectExcelWorkbookForIpc, readExcelRangeForIpc } from "./excelIpcOperations";
 import { getOrCreateExcelBridge } from "../agent/runtime/bridgeRegistry";
 import type { ExcelConnectionBridge } from "../agent/tools/contracts/excel";
-import { DEFAULT_CONTEXT_WINDOW } from "../agent/providers/modelContextWindows";
-import {
-  buildCompactionConfig,
-  type SavedCompactionConfig,
-} from "../agent/runtime/compactionRuntime";
 import { setDynamicArrayFunctionsEnabled } from "../agent/runtime/agentGlobalSettings";
 import { registerAgentIpcHandlers } from "../agent/interaction/ipcAgentHandlers";
 import {
   getSettingsStore,
-  getSettingForRenderer,
-  getSettingsForRenderer,
-  setSettingFromRenderer,
   getActiveDataPath,
   getActiveAIConfig,
   getRuntimeSettingValue,
@@ -47,8 +35,6 @@ import {
   eraseUserData,
   exportUserData,
   migrateDataPath,
-  applyWindowOpacity,
-  applyWindowTheme,
 } from "./settingsManager";
 import {
   validateInput,
@@ -64,23 +50,18 @@ import {
   EraseUserDataInput,
   ExportUserDataInput,
   MigrateDataPathInput,
-  SettingsGetInput,
-  SettingsSetInput,
   SetAlwaysOnTopInput,
   WindowDisplayModeInput,
 } from "../shared/ipcSchemas";
 import { launchOfficeApplication } from "./officeProcessLauncher";
 import { createLogger } from "../shared/logger";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
-import {
-  configureTrustedIpcSender,
-  trustedIpcMain as ipcMain,
-} from "../shared/trustedIpc";
+import { configureTrustedIpcSender, trustedIpcMain as ipcMain } from "../shared/trustedIpc";
 import { registerOcrIpcHandler } from "./ipcOcrHandlers";
 import { registerAiIpcHandlers } from "./ipcAiHandlers";
 import { registerFileIpcHandlers } from "./ipcFileHandlers";
 import { registerOfficeAutomationIpcHandlers } from "./ipcOfficeAutomationHandlers";
-import { guardDataOperation } from "./dataMaintenance";
+import { registerSettingsIpcHandlers } from "./ipcSettingsHandlers";
 import {
   getWindowDisplayMode,
   setWindowDisplayMode,
@@ -94,7 +75,6 @@ import {
   getUpdateState,
 } from "./updateManager";
 
-const logger = createLogger("IPC");
 const rendererLogger = createLogger("renderer");
 
 // ============================================================
@@ -155,11 +135,12 @@ export function registerIpcHandlers(): void {
     getSessionStoreInstance,
     getStateRuntimeStoreInstance,
     getAgentGraphStoreInstance,
-    ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(
-      getActiveAIConfig(),
-      getActiveDataPath(),
-      () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-    ),
+    ensureKnowledgeRuntime: () =>
+      ensureKnowledgeRuntime(
+        getActiveAIConfig(),
+        getActiveDataPath(),
+        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
+      ),
     isDataMigrationInProgress,
     pathAuthorizer,
   });
@@ -177,6 +158,7 @@ export function registerIpcHandlers(): void {
     getDataPath: getActiveDataPath,
     isDataMaintenanceInProgress: isDataMigrationInProgress,
   });
+  registerSettingsIpcHandlers({ mainWindowRef, agentLoopsRef });
 
   ipcMain.handle("app:getDataPath", () => getActiveDataPath());
 
@@ -224,7 +206,11 @@ export function registerIpcHandlers(): void {
   // 转发渲染进程日志到主进程持久化
   ipcMain.handle("app:log", (_event, level: unknown, tag: unknown, message: unknown) => {
     if (isDataMigrationInProgress()) return;
-    const { level: levelStr, tag: tagStr, message: msgStr } = validateInput(AppLogInput, {
+    const {
+      level: levelStr,
+      tag: tagStr,
+      message: msgStr,
+    } = validateInput(AppLogInput, {
       level,
       tag,
       message,
@@ -286,79 +272,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("window:setDisplayMode", (_event, mode: unknown) => {
     const validated = validateInput(WindowDisplayModeInput, mode);
     return setWindowDisplayMode(mainWindowRef(), validated as WindowDisplayMode);
-  });
-
-  // ---- 设置相关 ----
-  ipcMain.handle("settings:get", (_event, key: unknown) => {
-    const validated = validateInput(SettingsGetInput, key);
-    return getSettingForRenderer(validated);
-  });
-
-  ipcMain.handle("settings:set", guardDataOperation(isDataMigrationInProgress, async (_event, keyInput: unknown, valueInput: unknown) => {
-    const [key, value] = validateInput(SettingsSetInput, [keyInput, valueInput]);
-    const rendererValue = setSettingFromRenderer(key, value);
-
-    if (key === "activeProvider" || key === "aiProviders") {
-      for (const agent of agentLoopsRef()) {
-        agent.updateAIConfig(getActiveAIConfig());
-        const aiConfig = getActiveAIConfig();
-        const contextWindowSize = aiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW;
-        agent.updateCompactionConfig(
-          buildCompactionConfig({
-            contextWindowSize,
-            savedCompaction: getRuntimeSettingValue("compactionConfig") as
-              SavedCompactionConfig | undefined,
-          }),
-        );
-      }
-      try {
-        await refreshKnowledgeRuntime(
-          getActiveAIConfig(),
-          getActiveDataPath(),
-          () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-        );
-      } catch (error) {
-        logger.warn("刷新知识库运行时失败，设置已保存:", error);
-      }
-    }
-    if (key === "permissionMode") {
-      for (const agent of agentLoopsRef()) {
-        agent.updatePermissionMode(value as "normal" | "auto_approve_safe" | "confirm_all");
-      }
-    }
-    if (key === "closeToTray" && value === true) {
-      // Tray creation handled by windowManager
-    }
-    if (key === "closeToTray" && value === false) {
-      // Tray destruction handled by windowManager
-    }
-    if (key === "compactionConfig") {
-      for (const agent of agentLoopsRef()) {
-        const aiConfig = getActiveAIConfig();
-        const contextWindowSize = aiConfig.contextWindowSize || DEFAULT_CONTEXT_WINDOW;
-        agent.updateCompactionConfig(
-          buildCompactionConfig({
-            contextWindowSize,
-            savedCompaction: getRuntimeSettingValue("compactionConfig") as
-              SavedCompactionConfig | undefined,
-          }),
-        );
-      }
-    }
-    if (key === "theme") {
-      applyWindowTheme(mainWindowRef());
-    }
-    if (key === "windowOpacity") {
-      applyWindowOpacity(mainWindowRef());
-    }
-    if (key === "dynamicArrayFunctionsEnabled") {
-      setDynamicArrayFunctionsEnabled(value);
-    }
-    return rendererValue;
-  }));
-
-  ipcMain.handle("settings:getAll", () => {
-    return getSettingsForRenderer();
   });
 
   // ---- Excel 连接状态 ----
@@ -427,7 +340,11 @@ export function registerIpcHandlers(): void {
       const bridge = excelBridgeRef();
       if (!bridge) return { success: false, error: "Excel 未连接" };
       try {
-        const data = await bridge.writeRange(validated.sheetName, validated.range, validated.values);
+        const data = await bridge.writeRange(
+          validated.sheetName,
+          validated.range,
+          validated.values,
+        );
         return { success: true, data };
       } catch (err: any) {
         return { success: false, error: err.message };

@@ -99,7 +99,7 @@ flowchart TB
 - `desktop/src` 只通过 `services/ipcApi.ts` 访问主进程，避免组件直接散落调用 `window.electronAPI`。
 - Renderer 首屏只同步加载应用壳、聊天主链路和侧栏；`SettingsPage`、Office 自动化及任务功能面板使用 `React.lazy` 按需加载。`npm run build` 会执行 `scripts/check-renderer-bundle-budget.cjs`，限制首屏入口为 480 KiB、任一 chunk 为 500 KiB，并要求至少两个异步 chunk。
 - `desktop/electron/preload.ts` 是唯一暴露到 Renderer 的隔离桥。
-- `main-modules/ipcHandlers.ts` 负责通用 IPC、Office 当前窗口 IPC、设置、文件、OCR 子 handler 汇总。
+- `main-modules/ipcHandlers.ts` 负责通用 IPC、Office 当前窗口 IPC及各域子 handler 汇总；`ipcSettingsHandlers.ts` 负责设置读写，`settingRuntimeEffects.ts` 负责设置落盘后的 Agent、知识库和窗口运行时同步。
 - `agent/interaction/ipcAgentHandlers.ts` 负责 Agent、Thread、Stats 和工具审批相关 IPC；`ipcKnowledgeHandlers.ts` 独立负责知识库运行时初始化、路径授权、检索与索引 IPC。
 - `agent/runtime/agentRuntime.ts` 负责把 AI 配置、Office bridge、知识库、记忆、工具执行器、AgentLoop 装配到一起。
 - `agent/core/agentLoop/*` 只做对话轮次、模型流、工具调用、压缩、中断/恢复编排，不直接依赖 COM 具体实现。
@@ -175,7 +175,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | 聊天对话 | `components/ChatPage.tsx`、`components/chat/*`、`components/task/*` | `store/chatStore.ts`、`store/chatTurnActions.ts`、`store/chatStreamBuffer.ts` | `electronAPI.agent.*` | `agent/interaction/ipcAgentHandlers.ts` |
 | 会话/文件夹 | `components/Sidebar.tsx`、`components/sidebar/*` | `store/threadActions.ts`、`hooks/useSidebar*` | `electronAPI.thread.*`、`threadGraph.*`、`folder.*` | `ipcAgentHandlers.ts`、`ipcFileHandlers.ts` |
-| 设置 | `components/SettingsPage.tsx`、`components/settings/*` | `store/settingsStore.ts`、`settingsPersistence.ts`、`settingsProviderState.ts` | `electronAPI.settings.*` | `main-modules/ipcHandlers.ts` |
+| 设置 | `components/SettingsPage.tsx`、`components/settings/*` | `store/settingsStore.ts`、`settingsPersistence.ts`、`settingsProviderState.ts` | `electronAPI.settings.*` | `main-modules/ipcSettingsHandlers.ts`、`settingRuntimeEffects.ts` |
 | Excel 当前窗口 | `components/excel/HostSelectionDialog.tsx`、任务面板 | `hooks/useExcelConnection.ts`、`services/ipcOfficeApi.ts` | `electronAPI.excel.*` | `main-modules/ipcHandlers.ts` |
 | Word/PPT 当前窗口 | `components/office/OfficePreviewPanel.tsx` | `hooks/useOfficeConnection.ts` | `electronAPI.office.*` | `main-modules/ipcHandlers.ts` |
 | OCR 面板 | `components/task/OCRTaskComposerPanel.tsx` + OCR 子组件 | `utils/fileBase64.ts`、`ocrTaskFileHelpers.ts` | `electronAPI.ocr.recognize` | `main-modules/ipcOcrHandlers.ts`、`mineruOcr.ts` |
@@ -555,7 +555,7 @@ flowchart TB
 | Provider UI | `AddProviderDialog.tsx`、`EditProviderDialog.tsx`、`ProviderCard.tsx`、`ReasoningModeSelect.tsx` | 模型配置、推理模式、聚合平台适配 |
 | Provider 运行时 | `providers/aiClientFactory.ts`、`openaiCompatibleClient.ts`、`openaiResponsesClient.ts`、`providerClients.ts` | 生成统一 AI client，适配不同协议 |
 | 常规体验 | `GeneralSettings.tsx`、`windowManager.ts` | 紧凑模式、透明度、动态数组函数环境支持 |
-| 设置变更副作用 | `ipcHandlers.ts` 的 `settings:set` | AI 配置变化刷新 Agent/Knowledge runtime；动态数组开关注册到全局 |
+| 设置变更副作用 | `ipcSettingsHandlers.ts` 持久化并调用 `settingRuntimeEffects.ts` | AI 配置变化刷新 Agent/Knowledge runtime；权限、压缩、主题、透明度和动态数组开关同步到各自运行时 |
 
 ## 12. 文件级模块索引
 
