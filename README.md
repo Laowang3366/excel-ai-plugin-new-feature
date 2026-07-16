@@ -41,6 +41,7 @@ npm run dev
 | `npm run build` | 构建渲染进程 |
 | `npm run test:e2e-electron` | Playwright Electron E2E（需先 `npm run build`；不启动 Office） |
 | `npm run test:excel-dynamic-array` | Excel 动态数组/回滚冒烟（需本机或隔离 Runner 的 Excel/WPS；`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=excel\|wps\|both`） |
+| `npm run test:office-worker-protocol` | H-10 旧 Worker 协议不匹配（强制 `WENGGE_OFFICE_WORKER_PATH` 指向历史 v1 `Wengge.OfficeWorker.exe`；不跑 `office:publish`） |
 | `npm run electron:build` | 先发布 Worker，再生成 Windows NSIS 安装包 |
 | `npm run patch:build -- --id <id> --base-version <version>` | 创建受限热补丁 |
 

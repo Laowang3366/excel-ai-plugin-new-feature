@@ -23,7 +23,7 @@
 | H-07 | 已关闭 | `ExcelRangeWriteTransaction` 整区回滚 + 单元测试；Excel 365 矩阵 run 29457636677 / job 87494253080 验证第二项失败整区回滚；Codex 本地真实 WPS：`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=wps npm run test:excel-dynamic-array` 通过（`multiFormulaRollback=true`，`rollbackError=宿主无法通过 Formula2 写入公式`，SEQUENCE spill `[[1],[2]]`，C2:D2 写前/写后全等） | 无 |
 | H-08 | 已关闭 | COM `Formula2` + 四类表达式 .NET 测试；`ExcelFormulaService` COM dynamic 边界修复（Formula* xUnit 55/55）；Codex 真实 Excel 365：四类表达式 spill/无 `@`/保存关闭重开；Codex 真实 WPS：owned PID 退出 + 新 Worker 重开 SEQUENCE spill | 无 |
 | H-09 | 已实现 | Open XML 不再先删除后跳过占位；覆盖写入克隆原单元格属性并保留样式；样式/非 spill 数据测试 | 大型真实工作簿兼容性回归 |
-| H-10 | 已实现 | Worker 协议升至 v2；`excel.range.write` 结果运行时字段校验；旧结果负向测试 | 安装覆盖失败/旧 Worker 实机握手测试 |
+| H-10 | 已关闭 | Worker 协议升至 v2；`excel.range.write` 结果运行时字段校验；旧结果负向测试；`scripts/smoke-office-worker-protocol.ts` + `npm run test:office-worker-protocol`（强制绝对路径 `WENGGE_OFFICE_WORKER_PATH`，断言 `protocol_mismatch`）；Codex 基线 `660c0597` v1 Worker exit 0（应用=2 Worker=1，残留 0），当前 v2 Worker 按预期 exit 1 | 无 |
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
 | H-12 | 部分完成 | Release 显式依赖可复用完整 CI；第三方 Actions 固定完整 SHA；Syft 版本固定并发布 SPDX SBOM；构建/发布权限隔离；两阶段 Authenticode 校验；产品站 release 目录只读；工作流静态防回归测试 | 配置受保护证书/HSM 与 Environment approval；隔离发布账户执行产品站 Ed25519 最终清单生成和端到端验签 |
 | H-13 | 已实现，待安装包实测 | 64 KiB 流式 ZIP 解压与逐文件边界/哈希校验；每次启动 Renderer health pending/ack，30 秒超时及下次启动自动回退；签名清单支持吊销 ID 和最低安全序列并立即停用 | 打包 Renderer 白屏/硬崩溃、生产签名吊销清单端到端演练 |
@@ -107,7 +107,7 @@
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
-| 真实 Office/WPS 冒烟 | 部分通过 | **M-10**、**M-09**、**M-05**、图表专项与 legacy CSE 已通过。2026-07-16 由 Codex 分别设置 `$env:WENGGE_EXCEL_DYNAMIC_ARRAY_HOST="excel"` / `"wps"` 后执行 `npm run test:excel-dynamic-array`：`N1:N3` FormulaArray、值回读、`currentArray` 范围、失败整区回滚与 owned 进程退出均通过；当前仅 Worker 协议不匹配专项仍待执行 |
+| 真实 Office/WPS 冒烟 | 部分通过 | **M-10**、**M-09**、**M-05**、图表专项、legacy CSE 与 **H-10** 已通过。CSE：Codex `WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=excel|wps` + `test:excel-dynamic-array` 全绿。H-10：Codex 基线 `660c0597` v1 Worker + 绝对路径 `WENGGE_OFFICE_WORKER_PATH` + `test:office-worker-protocol` exit 0（`protocol_mismatch`，应用=2 Worker=1）；当前 v2 Worker 按预期 exit 1 |
 
 ## 4. Critical — 上线硬阻断
 
@@ -736,7 +736,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [x] **M-09** DisplayAlerts 恢复矩阵已由 Codex 本地 Excel+WPS 实机通过（见 M-09 章节）。
 - [x] **M-05** 高级意图专项已由 Codex 本地 Excel+WPS 实机通过（见 M-05 章节）。
 - [x] legacy CSE 已由 Codex 在真实 Excel/WPS 分别通过：`N1:N3` 写入 `=B2:B4` 后 `currentArray`、值与公式回读正确；超长 FormulaArray 失败返回结构化错误且 `O1:O3` 完整恢复；测试后宿主、Worker 与临时目录无残留。
-- [ ] Worker 协议不匹配专项仍待执行。
+- [x] **H-10** Worker 协议不匹配专项已由 Codex 实机通过：基线 `660c0597` v1 Worker + 绝对路径 `WENGGE_OFFICE_WORKER_PATH` + `npm run test:office-worker-protocol` exit 0（`ok:true` / `code:protocol_mismatch` / 应用=2 Worker=1，残留 0）；当前 v2 Worker 同命令按预期 exit 1。
 - [ ] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载。
 - [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
@@ -745,4 +745,4 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1114 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Worker 协议不匹配专项实机回归、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、legacy CSE 与真实 Excel 图表专项已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、H-10、legacy CSE 与真实 Excel 图表专项已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

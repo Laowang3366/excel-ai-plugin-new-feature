@@ -264,7 +264,7 @@ npm run office:test   # .NET Worker 测试
 | 工具执行逻辑 | 覆盖风险等级和审批模式 | `toolApproval.test.ts`、`toolExecutor.test.ts` |
 | 状态转换逻辑 | 覆盖主要路径 | `agentEventHandler.ts` |
 | IPC Schema | 覆盖合法/非法输入 | `ipcSchemas.ts` |
-| Office 可靠性 | 覆盖 Worker 协议、进程归属、完整路径 locator、暂停续跑、组事务撤销/重做；链接 OLE 变更必须跑真实 Office 冒烟 | `WorkerProtocolTests.cs`、`transactionJournal.test.ts`、`npm run test:office-reliability` |
+| Office 可靠性 | 覆盖 Worker 协议、进程归属、完整路径 locator、暂停续跑、组事务撤销/重做；链接 OLE 变更必须跑真实 Office 冒烟 | `WorkerProtocolTests.cs`、`transactionJournal.test.ts`、`npm run test:office-reliability`、旧 Worker 握手 `npm run test:office-worker-protocol`（`WENGGE_OFFICE_WORKER_PATH`） |
 
 ### 4.3 测试文件规范
 
