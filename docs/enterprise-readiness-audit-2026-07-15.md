@@ -99,7 +99,7 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 211 个测试文件、1114 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 212 个测试文件、1115 项测试全部通过 |
 | Desktop Vite build | 通过 | Renderer 首屏入口 448.41 KB（437.91 KiB），9 个异步 chunk；480 KiB entry budget 通过 |
 | Desktop `format:check` | 通过 | 受治理源码全量 Prettier 一致；`governance:check` 为 legacyFormatting=0、legacyOversized=0 |
 | .NET Worker test | 通过 | CI run `29490566136` / desktop job `87595394532`：locked restore、NuGet audit 与 109 项 xUnit 测试全部通过 |
@@ -743,6 +743,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1114 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 212 个 Vitest 文件、1115 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
 总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、H-06 安装包跨盘/断电/磁盘满实测、M-12 生产 RPO/RTO/timer/告警接收端，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、H-10、legacy CSE 与真实 Excel 图表专项已关闭**；数据目录 post-commit 回滚、产品站 SQLite 备份与 Office 事务 undo/redo 的代码故障演练已落地）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
