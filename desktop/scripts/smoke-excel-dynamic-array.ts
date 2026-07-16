@@ -93,7 +93,10 @@ async function runExcel365Matrix(
       throw new Error(`Excel SEQUENCE 未走动态数组写入: ${JSON.stringify(spillWrite)}`);
     }
     const spill = await bridge.readRange("Sheet1", "F1", "spill");
-    assertSequenceSpill(spill.values, "Excel 365 表达式 spill");
+    assertSequenceSpill(spill.values, "Excel 365 SEQUENCE spill");
+
+    // H-08: four expression-type dynamic arrays on non-overlapping targets (source B2:B4).
+    const expressionResults = await writeAndVerifyExpressionSpills(bridge, "Excel 365");
 
     const beforeRollback = await bridge.readRange("Sheet1", "C2:D2", "none");
     const overlong = `=${"1+".repeat(9000)}1`;
@@ -121,7 +124,8 @@ async function runExcel365Matrix(
     });
     await attachToFixtureExcel(bridge, "Excel 365 重开 openFixtures");
     const spillAfterReopen = await bridge.readRange("Sheet1", "F1", "spill");
-    assertSequenceSpill(spillAfterReopen.values, "保存关闭重开后 spill");
+    assertSequenceSpill(spillAfterReopen.values, "保存关闭重开后 SEQUENCE spill");
+    const expressionAfterReopen = await verifyExpressionSpillsAfterReopen(bridge, "Excel 365 重开");
 
     const secondOwned = ownedIdsFrom(owned);
     await closeOfficeFixtures(owned);
@@ -132,6 +136,8 @@ async function runExcel365Matrix(
     return {
       host: "excel",
       spill: true,
+      expressionSpills: expressionResults,
+      expressionSpillsAfterReopen: expressionAfterReopen,
       multiFormulaRollback: true,
       rollbackError,
       saveReopenSpill: true,
@@ -188,6 +194,13 @@ async function runWpsFormula2Capability(
     );
   }
 
+  // Task-owned visible WPS PIDs only (exclude preexisting); used to prove dispose actually exited them.
+  const wpsAfterOpen = (await listOfficeSmokeProcesses()).wpsVisible;
+  const ownedWpsPids = wpsAfterOpen.filter((id) => !wpsBefore.includes(id));
+  if (ownedWpsPids.length === 0) {
+    throw new Error("WPS openWorkbook 后未观察到本任务创建的可见 WPS 进程");
+  }
+
   try {
     const write = await bridge.writeRange("Sheet1", "H1", [["=SEQUENCE(2)"]]);
     if ((write.dynamicCells ?? 0) < 1 && (write.written ?? 0) < 1) {
@@ -217,14 +230,34 @@ async function runWpsFormula2Capability(
     const saved = await bridge.saveWorkbook();
     if (!saved.success) throw new Error(saved.error || "WPS 保存失败");
 
+    // H-08: dispose Worker, wait for task-owned WPS PIDs to exit, then reopen on a fresh client.
+    await disposeOfficeWorker();
+    await assertOwnedStopped(ownedWpsPids);
+    const reopenBridge = new DotNetExcelBridge();
+    const reselected = await reopenBridge.selectHost("wps");
+    const reopened = await reopenBridge.openWorkbook(filePath).catch((error: unknown) => ({
+      success: false as const,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    if (!reopened.success) {
+      throw new Error(
+        `WPS 保存关闭后重开失败: ${reopened.error || `selectHost connected=${reselected.connected}`}`,
+      );
+    }
+    const spillAfterReopen = await reopenBridge.readRange("Sheet1", "H1", "spill");
+    assertSequenceSpill(spillAfterReopen.values, "WPS 保存关闭重开后 SEQUENCE spill");
+
     return {
       host: "wps",
       formula2Supported: true,
       capability: "formula2_spill_ok",
       multiFormulaRollback: true,
+      saveCloseReopenSpill: true,
+      ownedWpsPids,
       rollbackError,
       write,
       spillValues: spill.values,
+      spillValuesAfterReopen: spillAfterReopen.values,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -234,6 +267,144 @@ async function runWpsFormula2Capability(
     // Never process.kill by visible-PID delta. Preexisting PIDs are asserted in main().
     await assertProcessesStillRunning(wpsBefore, "任务前可见 WPS 进程");
   }
+}
+
+/** Four H-08 expression-type spills; targets do not overlap SEQUENCE (F1) or rollback (C2:D2). */
+const EXPRESSION_SPILLS = [
+  {
+    id: "range_ref",
+    formula: "=B2:B4",
+    anchor: "J1",
+    expected: [[90], [80], [70]],
+  },
+  {
+    id: "range_mul",
+    formula: "=B2:B4*2",
+    anchor: "K1",
+    expected: [[180], [160], [140]],
+  },
+  {
+    id: "range_if",
+    formula: '=IF(B2:B4>85,B2:B4,"")',
+    anchor: "L1",
+    expected: [[90], [""], [""]],
+  },
+  {
+    id: "transpose",
+    formula: "=TRANSPOSE(B2:B4)",
+    anchor: "J5",
+    expected: [[90, 80, 70]],
+  },
+] as const;
+
+async function writeAndVerifyExpressionSpills(
+  bridge: DotNetExcelBridge,
+  label: string,
+): Promise<Record<string, unknown>[]> {
+  const results: Record<string, unknown>[] = [];
+  for (const item of EXPRESSION_SPILLS) {
+    const write = await bridge.writeRange("Sheet1", item.anchor, [[item.formula]]);
+    if ((write.dynamicCells ?? 0) < 1) {
+      throw new Error(
+        `${label} ${item.id} 未走动态数组写入: ${JSON.stringify(write)} formula=${item.formula}`,
+      );
+    }
+    const spill = await bridge.readRange("Sheet1", item.anchor, "spill");
+    assertSpillValues(spill.values, item.expected, `${label} ${item.id} spill`);
+    const hostFormulas = await assertFormulaNotAtDegraded(
+      bridge,
+      "Sheet1",
+      item.anchor,
+      `${label} ${item.id}`,
+    );
+    results.push({
+      id: item.id,
+      formula: item.formula,
+      anchor: item.anchor,
+      dynamicCells: write.dynamicCells,
+      spillValues: spill.values,
+      hostFormulas,
+    });
+  }
+  return results;
+}
+
+async function verifyExpressionSpillsAfterReopen(
+  bridge: DotNetExcelBridge,
+  label: string,
+): Promise<Record<string, unknown>[]> {
+  const results: Record<string, unknown>[] = [];
+  for (const item of EXPRESSION_SPILLS) {
+    const spill = await bridge.readRange("Sheet1", item.anchor, "spill");
+    assertSpillValues(spill.values, item.expected, `${label} ${item.id} spill`);
+    const hostFormulas = await assertFormulaNotAtDegraded(
+      bridge,
+      "Sheet1",
+      item.anchor,
+      `${label} ${item.id}`,
+    );
+    results.push({
+      id: item.id,
+      formula: item.formula,
+      anchor: item.anchor,
+      spillValues: spill.values,
+      hostFormulas,
+    });
+  }
+  return results;
+}
+
+/** Reject any host-read formula containing `@` (implicit intersection may appear mid-expression). */
+async function assertFormulaNotAtDegraded(
+  bridge: DotNetExcelBridge,
+  sheetName: string,
+  range: string,
+  label: string,
+): Promise<Array<{ address?: string; formula: string }>> {
+  const context = (await bridge.getFormulaContext(sheetName, range)) as {
+    formulas?: Array<{ formula?: string; address?: string }>;
+  };
+  const formulas = context.formulas || [];
+  if (formulas.length === 0) {
+    throw new Error(`${label}: formula.context 未返回公式 ${range}`);
+  }
+  const hostFormulas: Array<{ address?: string; formula: string }> = [];
+  for (const entry of formulas) {
+    const formula = String(entry.formula || "");
+    hostFormulas.push({ address: entry.address, formula });
+    if (formula.includes("@")) {
+      throw new Error(`${label}: 公式含 @ 降级: ${formula} @ ${entry.address || range}`);
+    }
+  }
+  return hostFormulas;
+}
+
+function assertSpillValues(
+  actual: unknown[][] | undefined,
+  expected: readonly (readonly unknown[])[],
+  label: string,
+): void {
+  const normalizedActual = normalizeSpillMatrix(actual);
+  const normalizedExpected = normalizeSpillMatrix(expected as unknown[][]);
+  if (JSON.stringify(normalizedActual) !== JSON.stringify(normalizedExpected)) {
+    throw new Error(
+      `${label} 失败: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`,
+    );
+  }
+}
+
+function normalizeSpillMatrix(values: unknown[][] | undefined): unknown[][] {
+  if (!values) return [];
+  return values.map((row) =>
+    (Array.isArray(row) ? row : [row]).map((cell) => {
+      if (cell === null || cell === undefined) return "";
+      if (typeof cell === "number" && Number.isFinite(cell)) return cell;
+      const text = String(cell).trim();
+      if (text === "") return "";
+      const asNumber = Number(text);
+      return Number.isFinite(asNumber) && text !== "" ? asNumber : text;
+    }),
+  );
 }
 
 function assertSequenceSpill(values: unknown[][] | undefined, label: string): void {

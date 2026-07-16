@@ -21,7 +21,7 @@
 | H-05 | 已实现 | `outboundUrlPolicy.ts` 强制 HTTPS/精确本地 allowlist，阻断私网、DNS rebinding 与跨源重定向；Provider/Embedding 负向测试 | 企业本地模型 allowlist 配置验收 |
 | H-06 | 已实现，待安装包实测 | 新安装默认 `%LOCALAPPDATA%` 用户隔离目录并自动迁移旧安装目录；全根目录 staging 复制、稳定文件 SHA-256、SQLite 实际打开校验、空目标原子改名、UNC 默认拒绝；失败恢复旧 store/runtime 并清理目标 | 安装包跨盘迁移、断电/磁盘满与旧目录停止写入实测 |
 | H-07 | 已关闭 | `ExcelRangeWriteTransaction` 整区回滚 + 单元测试；Excel 365 矩阵 run 29457636677 / job 87494253080 验证第二项失败整区回滚；Codex 本地真实 WPS：`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=wps npm run test:excel-dynamic-array` 通过（`multiFormulaRollback=true`，`rollbackError=宿主无法通过 Formula2 写入公式`，SEQUENCE spill `[[1],[2]]`，C2:D2 写前/写后全等） | 无 |
-| H-08 | 已实现，待真实 Office | COM 所有现代公式统一 `Formula2`；表达式型 spill 识别覆盖范围表达式、IF、TRANSPOSE；COM/Open XML 测试 | Excel 365/WPS 保存重开与 spill 冒烟 |
+| H-08 | 已关闭 | COM `Formula2` + 四类表达式 .NET 测试；`ExcelFormulaService` COM dynamic 边界修复（Formula* xUnit 55/55）；Codex 真实 Excel 365：四类表达式 spill/无 `@`/保存关闭重开；Codex 真实 WPS：owned PID 退出 + 新 Worker 重开 SEQUENCE spill | 无 |
 | H-09 | 已实现 | Open XML 不再先删除后跳过占位；覆盖写入克隆原单元格属性并保留样式；样式/非 spill 数据测试 | 大型真实工作簿兼容性回归 |
 | H-10 | 已实现 | Worker 协议升至 v2；`excel.range.write` 结果运行时字段校验；旧结果负向测试 | 安装覆盖失败/旧 Worker 实机握手测试 |
 | H-11 | 已实现 | Fastify 仅信任本地代理；Nginx 覆盖 XFF；轮换伪造 XFF 第 9 次触发 429 | 生产 Nginx 配置上线与告警验证 |
@@ -366,6 +366,8 @@
 
 ### H-08 动态数组识别仍依赖函数白名单
 
+> 整改完成：现代公式统一 `Formula2`，分类识别范围引用/范围运算/IF/TRANSPOSE 等表达式；COM 与 Open XML 有对应单元测试。`excel.formula.context` 将 COM Formula2/Value2 在获取边界隔离为 `object?` 再 `ToRows`，公式前缀用静态 `string.StartsWith("=", Ordinal)`，避免 dynamic binder 崩溃（ExcelFormula* xUnit 55/55）。`smoke-excel-dynamic-array` Excel 路径写入四类表达式 spill，`formula.context` 断言宿主公式无任何 `@`，保存关闭本任务拥有进程后重开再验。WPS 路径：SEQUENCE + H-07 回滚后 save→`disposeOfficeWorker`→`assertOwnedStopped(ownedWpsPids)`→新 Worker 重开读 spill。Codex 真实 Excel 365 与 WPS 均已绿。以下“证据”为整改前基线。
+
 **证据**
 
 - `ExcelFormulaClassification.cs:18-41` 仅根据现代函数名白名单判断动态数组。
@@ -382,6 +384,8 @@
 - 支持 `Formula2` 的宿主对现代公式优先使用 `Formula2`，不要尝试仅凭函数名猜测数组语义。
 - 不支持 `Formula2` 的宿主只对明确标量公式使用 `Formula`，其余明确失败或要求显式兼容策略。
 - 为上述四类表达式补 COM/Open XML 测试，并在 Excel 365 实机确认没有 `=@` 且 spill 范围正确。
+
+**验收状态**：H-08 已关闭。Codex 真实 Excel 365：四类表达式宿主公式恰好为 `=B2:B4` / `=B2:B4*2` / `=IF(B2:B4>85,B2:B4,"")` / `=TRANSPOSE(B2:B4)`，全程无 `@`；spill `[[90],[80],[70]]` / `[[180],[160],[140]]` / `[[90],[""],[""]]` / `[[90,80,70]]`；保存关闭重开后一致；H-07 回滚 true。Codex 真实 WPS：owned PID 退出后新 Worker 重开，SEQUENCE spill 前后 `[[1],[2]]`，`saveCloseReopenSpill=true`。生产 `ExcelFormulaService` dynamic 边界修复与 55/55 测试已落地。
 
 ### H-09 Open XML 动态公式写入会误删单元格并丢失样式
 
