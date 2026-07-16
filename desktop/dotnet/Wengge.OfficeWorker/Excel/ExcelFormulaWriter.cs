@@ -20,13 +20,13 @@ internal interface IExcelFormulaCell
     string? ReadFormula2();
 }
 
-internal sealed class ComExcelFormulaCell(object cell) : IExcelFormulaCell
+internal sealed class ComExcelFormulaCell(object cell, bool readFormulaArray = false) : IExcelFormulaCell
 {
     private dynamic Api => cell;
     public void SetFormula(string formula) => Api.Formula = formula;
     public void SetFormula2(string formula) => Api.Formula2 = formula;
     public void SetFormulaArray(string formula) => Api.FormulaArray = formula;
-    public string? ReadFormula() => Convert.ToString(Api.Formula);
+    public string? ReadFormula() => Convert.ToString(readFormulaArray ? Api.FormulaArray : Api.Formula);
     public string? ReadFormula2() => Convert.ToString(Api.Formula2);
 }
 

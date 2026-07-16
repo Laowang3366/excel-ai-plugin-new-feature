@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { DotNetExcelBridge } from "../electron/agent/officeWorker/dotNetExcelBridge";
+import { OfficeWorkerError } from "../electron/agent/officeWorker/officeWorkerClient";
 import {
   closeOfficeFixtures,
   disposeOfficeWorker,
@@ -110,6 +111,9 @@ async function runExcel365Matrix(
     const afterRollback = await bridge.readRange("Sheet1", "C2:D2", "none");
     assertMatrixEqual(afterRollback.values, beforeRollback.values, "多公式失败后整区回滚");
 
+    // Legacy CSE: multi-cell FormulaArray via production writeRange + legacyCse:true.
+    const legacyCse = await writeAndVerifyLegacyCse(bridge, "Excel 365");
+
     const saved = await bridge.saveWorkbook();
     if (!saved.success) throw new Error(saved.error || "保存工作簿失败");
     const firstOwned = ownedIdsFrom(owned);
@@ -140,6 +144,7 @@ async function runExcel365Matrix(
       expressionSpillsAfterReopen: expressionAfterReopen,
       multiFormulaRollback: true,
       rollbackError,
+      legacyCse,
       saveReopenSpill: true,
       formula2: true,
     };
@@ -227,6 +232,9 @@ async function runWpsFormula2Capability(
     const afterRollback = await bridge.readRange("Sheet1", "C2:D2", "none");
     assertMatrixEqual(afterRollback.values, beforeRollback.values, "WPS 多公式失败后整区回滚");
 
+    // Same legacyCse assertions as Excel; structured capability if FormulaArray unsupported.
+    const legacyCse = await writeAndVerifyLegacyCse(bridge, "WPS");
+
     const saved = await bridge.saveWorkbook();
     if (!saved.success) throw new Error(saved.error || "WPS 保存失败");
 
@@ -252,6 +260,7 @@ async function runWpsFormula2Capability(
       formula2Supported: true,
       capability: "formula2_spill_ok",
       multiFormulaRollback: true,
+      legacyCse,
       saveCloseReopenSpill: true,
       ownedWpsPids,
       rollbackError,
@@ -266,6 +275,82 @@ async function runWpsFormula2Capability(
     // Ownership is Worker GetOrCreate/Create + disposeOfficeWorker (caller finally).
     // Never process.kill by visible-PID delta. Preexisting PIDs are asserted in main().
     await assertProcessesStillRunning(wpsBefore, "任务前可见 WPS 进程");
+  }
+}
+
+/**
+ * Multi-cell traditional CSE via production writeRange + legacyCse:true.
+ * Target N1:N3 does not overlap SEQUENCE (F1), expressions (J/K/L), or rollback (C2:D2).
+ * Source B2:B4 = 90,80,70.
+ */
+async function writeAndVerifyLegacyCse(
+  bridge: DotNetExcelBridge,
+  label: string,
+): Promise<Record<string, unknown>> {
+  const formula = "=B2:B4";
+  const range = "N1:N3";
+  try {
+    const write = await bridge.writeRange("Sheet1", range, [[formula]], { legacyCse: true });
+    if (write.written !== 1 || write.arrayCells !== 1 || write.plainCells !== 0) {
+      throw new Error(`${label} legacyCse 计数错误: ${JSON.stringify(write)} formula=${formula}`);
+    }
+    if (write.dynamicCells !== 0) {
+      throw new Error(`${label} legacyCse 不应计为 dynamicCells: ${JSON.stringify(write)}`);
+    }
+    const currentArray = await bridge.readRange("Sheet1", "N1", "currentArray");
+    assertMatrixEqual(currentArray.values, [[90], [80], [70]], `${label} CSE 值 N1:N3`);
+    if (currentArray.address !== range) {
+      throw new Error(`${label} CSE currentArray 范围错误: ${JSON.stringify(currentArray)}`);
+    }
+    const context = (await bridge.getFormulaContext("Sheet1", "N1")) as {
+      formulas?: Array<{ formula?: string; address?: string }>;
+    };
+    const formulas = context.formulas || [];
+    if (formulas.length === 0) {
+      throw new Error(`${label} CSE: formula.context 未返回 N1 公式`);
+    }
+    const hostFormula = String(formulas[0]?.formula || "");
+    if (!hostFormula.includes("B2") || hostFormula.includes("@")) {
+      throw new Error(`${label} CSE: 读回公式不像 FormulaArray（got ${hostFormula}）`);
+    }
+
+    const rollbackRange = "O1:O3";
+    await bridge.writeRange("Sheet1", "O1", [["keep-1"], ["keep-2"], ["keep-3"]]);
+    const beforeRollback = await bridge.readRange("Sheet1", rollbackRange, "none");
+    let rollbackErrorCode: string | undefined;
+    try {
+      const overlong = `=${"1+".repeat(9000)}1`;
+      await bridge.writeRange("Sheet1", rollbackRange, [[overlong]], { legacyCse: true });
+      throw new Error(`${label} CSE 超长公式应失败，但写入成功`);
+    } catch (error) {
+      if (!(error instanceof OfficeWorkerError)) throw error;
+      rollbackErrorCode = error.code;
+    }
+    const afterRollback = await bridge.readRange("Sheet1", rollbackRange, "none");
+    assertMatrixEqual(afterRollback.values, beforeRollback.values, `${label} CSE 失败后整区回滚`);
+
+    return {
+      status: "supported",
+      formula,
+      range,
+      arrayCells: write.arrayCells,
+      formulaArray: true,
+      hostFormula,
+      values: currentArray.values,
+      rollbackErrorCode,
+      rollbackVerified: true,
+    };
+  } catch (error) {
+    if (error instanceof OfficeWorkerError && error.code === "legacy_array_unsupported") {
+      return {
+        status: "unsupported",
+        code: error.code,
+        formula,
+        range,
+        error: error.message,
+      };
+    }
+    throw error;
   }
 }
 

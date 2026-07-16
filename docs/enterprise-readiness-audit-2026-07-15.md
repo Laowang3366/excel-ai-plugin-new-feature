@@ -107,7 +107,7 @@
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
-| 真实 Office/WPS 冒烟 | 部分通过 | **M-10**、**M-09**、**M-05** 已通过；Codex 本地 `OFFICE_SMOKE_OPERATIONS=insertChart,formatChart,inspectCharts npm run test:office-smoke` 返回 `ok:true`，真实 Excel 图表插入、格式化及标题/系列回读通过且无残留。其余 CSE、Worker 协议不匹配专项仍待执行 |
+| 真实 Office/WPS 冒烟 | 部分通过 | **M-10**、**M-09**、**M-05**、图表专项与 legacy CSE 已通过。2026-07-16 由 Codex 分别设置 `$env:WENGGE_EXCEL_DYNAMIC_ARRAY_HOST="excel"` / `"wps"` 后执行 `npm run test:excel-dynamic-array`：`N1:N3` FormulaArray、值回读、`currentArray` 范围、失败整区回滚与 owned 进程退出均通过；当前仅 Worker 协议不匹配专项仍待执行 |
 
 ## 4. Critical — 上线硬阻断
 
@@ -735,7 +735,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [x] **M-10** Excel 365/WPS 动态数组矩阵与 Electron E2E（spill、多公式回滚、保存重开、Formula2 spill）已在专用 self-hosted Runner 跑绿（测试前无宿主进程）（见 M-10 章节 run/job）。
 - [x] **M-09** DisplayAlerts 恢复矩阵已由 Codex 本地 Excel+WPS 实机通过（见 M-09 章节）。
 - [x] **M-05** 高级意图专项已由 Codex 本地 Excel+WPS 实机通过（见 M-05 章节）。
-- [ ] 其余真实 Office 冒烟（CSE、Worker 协议不匹配）仍待执行。
+- [x] legacy CSE 已由 Codex 在真实 Excel/WPS 分别通过：`N1:N3` 写入 `=B2:B4` 后 `currentArray`、值与公式回读正确；超长 FormulaArray 失败返回结构化错误且 `O1:O3` 完整恢复；测试后宿主、Worker 与临时目录无残留。
+- [ ] Worker 协议不匹配专项仍待执行。
 - [ ] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载。
 - [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
@@ -744,4 +745,4 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1114 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、其余 CSE/Worker 协议专项实机回归、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10 与真实 Excel 图表专项已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、Worker 协议不匹配专项实机回归、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、legacy CSE 与真实 Excel 图表专项已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

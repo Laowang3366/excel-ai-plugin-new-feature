@@ -63,6 +63,33 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
             dynamic sheetApi = sheet;
             startRange = sheetApi.Range(address);
             dynamic startApi = startRange;
+
+            var singleFormula = matrix.GetLength(0) == 1 && matrix.GetLength(1) == 1
+                ? Convert.ToString(matrix[0, 0])?.Trim()
+                : null;
+            var isMultiCellLegacyCse = legacyCse
+                && !string.IsNullOrWhiteSpace(singleFormula)
+                && singleFormula[0] == '='
+                && Convert.ToInt32(startApi.Rows.Count) * Convert.ToInt32(startApi.Columns.Count) > 1;
+            if (isMultiCellLegacyCse)
+            {
+                ExcelRangeWriteTransaction.Execute(
+                    () => CaptureSnapshot(startApi),
+                    () => ExcelFormulaWriter.Write(
+                        new ComExcelFormulaCell(startRange, readFormulaArray: true),
+                        singleFormula!,
+                        legacyCse: true),
+                    snapshot => RestoreSnapshot(startApi, snapshot));
+
+                return new
+                {
+                    written = matrix.Length,
+                    dynamicCells = 0,
+                    arrayCells = 1,
+                    plainCells = 0,
+                };
+            }
+
             targetRange = startApi.Resize[matrix.GetLength(0), matrix.GetLength(1)];
             dynamic targetApi = targetRange;
 
