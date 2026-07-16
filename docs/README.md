@@ -16,7 +16,7 @@
 - [数据处理事实说明](data-handling-and-privacy.md)
 - [系统提示词架构](codex-system-prompt-architecture.md)
 - [Office 高级自动化](office-advanced-automation.md)
-- [企业级就绪审计（进行中）](enterprise-readiness-audit-2026-07-15.md)
+- [企业级就绪审计（代码整改完成，待外部验收）](enterprise-readiness-audit-2026-07-15.md)
 
 ## 历史文档
 
