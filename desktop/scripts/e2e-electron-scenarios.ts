@@ -62,37 +62,6 @@ export async function stubOpenExternal(app: ElectronApplication): Promise<void> 
   });
 }
 
-export async function scenarioNavigationAndExternal(
-  app: ElectronApplication,
-  page: Page,
-): Promise<ScenarioResult> {
-  const name = "navigation-external";
-  try {
-    const beforeUrl = page.url();
-    await page.evaluate(() => {
-      window.location.href = "https://evil.example/phish";
-    });
-    await page.waitForTimeout(400);
-    const afterNavigate = page.url();
-    if (afterNavigate !== beforeUrl && /evil\.example/i.test(afterNavigate)) {
-      return { name, ok: false, detail: `remote navigation not blocked: ${afterNavigate}` };
-    }
-
-    await page.evaluate(async () => {
-      await window.electronAPI.app.openExternal("https://example.com/docs");
-    });
-    const opened = await app.evaluate(() => {
-      return (globalThis as { __e2eOpenedUrls?: string[] }).__e2eOpenedUrls || [];
-    });
-    if (!opened.some((url) => url.includes("https://example.com/docs"))) {
-      return { name, ok: false, detail: `openExternal not routed: ${JSON.stringify(opened)}` };
-    }
-    return { name, ok: true, detail: `blockedNavigate url=${afterNavigate}` };
-  } catch (error) {
-    return { name, ok: false, detail: errorMessage(error) };
-  }
-}
-
 export async function scenarioToolApproval(
   app: ElectronApplication,
   page: Page,

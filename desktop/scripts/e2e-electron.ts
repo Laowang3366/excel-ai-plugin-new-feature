@@ -1,7 +1,7 @@
 /**
  * Minimal Electron E2E via playwright-core _electron (no browser download).
- * Covers: remote navigation block + openExternal, tool approval UI, settings IPC,
- * update state projection, stream delta order across interrupt/resume.
+ * Covers: blocked location + Markdown link openExternal + blocked window.open,
+ * tool approval UI, settings IPC, update state projection, stream order.
  */
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -11,9 +11,9 @@ import { createRequire } from "node:module";
 
 import { _electron as electron, type ElectronApplication, type Page } from "playwright-core";
 
+import { scenarioNavigationAndExternal } from "./e2e-electron-navigation";
 import {
   ensureChatWorkspace,
-  scenarioNavigationAndExternal,
   scenarioSettingsIpc,
   scenarioStreamOrder,
   scenarioToolApproval,

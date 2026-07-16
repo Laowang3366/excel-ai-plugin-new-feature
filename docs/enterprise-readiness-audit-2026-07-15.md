@@ -12,7 +12,7 @@
 
 | ID | 当前状态 | 代码与测试证据 | 尚待验收/剩余工作 |
 |---|---|---|---|
-| C-01 | 已实现，待 Electron E2E | `trustedIpc.ts`、`windowNavigationPolicy.ts`、Markdown 外链拦截；远端 sender/子 frame/协议混淆负向测试 | 打包应用实机导航与系统浏览器联调 |
+| C-01 | 已关闭 | `trustedIpc.ts`、`windowNavigationPolicy.ts`、Markdown 外链 `preventDefault`+`openExternal`；IPC sender/子 frame/协议混淆负向测试；Electron E2E `navigation-external`：真实 Markdown `<a>` 点击走 shell.openExternal 且主窗口 URL 不变、`location=` 与 `window.open` 被拒 | 无 |
 | C-02 | 已关闭 | 审批缺失默认拒绝；危险/未知/删除/外传强制审批；线程+工具+operation+目标+TTL 授权；全工具元数据表驱动测试 | 无 |
 | C-03 | 代码整改完成，外部动作未完成 | Provider、OCR、远程压缩凭据及自定义请求头由 `settingsSecrets.ts` 使用 `safeStorage` 保护，Renderer 仅接收掩码，设置 key 白名单及迁移测试 | 轮换所有可能暴露的真实凭据；签名私钥移出开发机；核验 Windows ACL |
 | H-01/H-02 | 已实现 | 路径授权改为 realpath/最近存在父目录解析；移除系统 Temp 信任；知识库索引、删除、重建均重新授权；junction 逃逸测试 | Windows 安装包内路径选择实机回归 |
@@ -113,6 +113,8 @@
 
 ### C-01 外部页面可继承完整 Electron preload 权限
 
+> 整改完成：主窗口 `will-navigate`/`will-redirect` 拒绝非应用源导航；`setWindowOpenHandler` 默认 `deny`；Markdown `a` 统一 `preventDefault`，仅规范化 `http:`/`https:` 后经主进程 `shell.openExternal` 打开；敏感 IPC 经 `trustedIpc` 校验 sender frame。单元测试覆盖导航策略与远端/子 frame/协议混淆负向路径。Electron E2E `navigation-external` 通过真实 Agent 流式事件渲染 Markdown 外链并点击生产 `<a>`，断言 `shell.openExternal` 收到目标 URL 且主窗口 URL 不变；同场景断言 `location=` 与远端 `window.open` 不新增 BrowserWindow、不改变主页面 URL。以下“证据”为整改前基线。
+
 **证据**
 
 - `desktop/src/components/chat/MarkdownContent.tsx:17-45` 使用 `react-markdown` 默认链接行为，没有统一拦截并交给系统浏览器。
@@ -141,6 +143,8 @@
 - `window.open`、重定向、表单导航和 `location=` 均不能离开应用源。
 - 使用伪造远端 sender 调用设置、文件、知识、Agent、Office、更新 IPC 时全部返回授权错误。
 - 自动化测试覆盖生产 `file:`、开发 localhost、子 frame、重定向和协议混淆。
+
+**验收状态**：C-01 已关闭。生产导航/IPC 负向测试 + Electron E2E（Markdown 点击 openExternal、blocked location、blocked window.open）已落地。`sandbox:true` 与 preload 按域最小化不在本项关闭范围内，属后续硬化。
 
 ### C-02 工具审批与“始终允许”整体 fail-open
 
