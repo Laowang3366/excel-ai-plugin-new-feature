@@ -7,6 +7,36 @@ import { createOfficeActionBridge } from "./officeActionAdapter";
 import type { OfficeActionInput } from "./types";
 
 describe("createOfficeActionBridge", () => {
+  it("preserves structured Office Worker errors for capability handling", async () => {
+    const error = Object.assign(new Error("当前 WPS 宿主不支持持久化 Power Query"), {
+      code: "power_query_unavailable",
+      details: { host: "wps" },
+    });
+    const bridge = createOfficeActionBridge({
+      officeComActionBridge: {
+        executeAction: vi.fn(async () => {
+          throw error;
+        }),
+      },
+    });
+
+    const result = await bridge.executeAction({
+      app: "excel",
+      action: "edit",
+      operation: "createPowerQuery",
+      filePath: "C:/tmp/report.xlsx",
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      error: "当前 WPS 宿主不支持持久化 Power Query",
+      data: {
+        code: "power_query_unavailable",
+        details: { host: "wps" },
+      },
+    });
+  });
+
   it("evaluates explicit validation conditions instead of returning route success", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-validation-"));
     const filePath = path.join(tempDir, "report.docx");

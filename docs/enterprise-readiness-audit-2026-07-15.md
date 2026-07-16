@@ -31,7 +31,7 @@
 | M-02 | 已实现 | 聊天/恢复文本、附件、OCR 文件、Excel 矩阵、单元格文本、路径和 Base64 文件传输均设上限；settings 按 key 判别值 Schema；开放 JSON 参数限制深度、节点、集合和序列化字节；高成本通道按 sender 令牌桶限流 | 打包应用压力与正常高频交互误伤回归 |
 | M-03 | 已实现 | AES-256-GCM 会话/SQLite/知识密文落盘；safeStorage 保护密钥；首次启动原子迁移与可轮换密钥；受管副本登记；路径迁移旧根清理/待擦除登记；导出登记；全副本擦除前预创建 replacement 密钥并单次原子清除旧密钥+bootstrap 删除证明 | 打包应用实机密钥轮换与跨盘迁移体验回归 |
 | M-04 | 已实现 | 可见输出前保留瞬时故障重试；正文、推理或工具 item 发出后关闭透明整体重试；正文和工具事件断线测试 | 打包应用真实弱网/断网交互回归 |
-| M-05 | 已实现，待真实 Office | Power Query、透视表、切片器新增显式高级意图参数和执行层前置条件；当前轮提示词、`office.action.*` 与工作流步骤 Schema 共用意图识别，普通任务移除高级 operation，明确 ETL/交互透视时才开放 | 真实 Excel/WPS 回归 |
+| M-05 | 已关闭 | `test:excel-advanced-intent`：7 个负向调用在 COM 前拒绝、bridgeCalls=0、SHA-256 不变；Codex 本地 Excel PQ/透视/切片器全绿，三同名文件以 3 个 PID/FullName/instanceId 正确激活；WPS 基础操作、透视表、切片器全绿，Power Query 返回结构化 `power_query_unavailable`；结束后无宿主/Worker 残留 | 无 |
 | M-06 | 已实现，待生产配置验收 | 下载统计 best-effort；90 天默认留存与 6 小时清理；IP 标识每 30 天轮换；UA/Referer 最小化迁移；故障与边界测试 | 上线环境确认周期配置并接入维护失败告警 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
@@ -107,7 +107,7 @@
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
-| 真实 Office/WPS 冒烟 | 部分通过 | **M-10** 矩阵已通过（E2E 29456041445、Excel 29457636677、WPS 29458142234）。**M-09** DisplayAlerts 矩阵已由 Codex 本地 Excel+WPS 实机通过。**M-05** 等专项实机回归仍待执行，不得理解为全部 Office 场景已绿 |
+| 真实 Office/WPS 冒烟 | 部分通过 | **M-10** 矩阵与 **M-09** DisplayAlerts 已通过；**M-05** 高级意图专项由 Codex 本地 Excel+WPS 实机通过。其余 CSE、图表、Worker 协议不匹配专项仍待执行，不得理解为全部 Office 场景已绿 |
 
 ## 4. Critical — 上线硬阻断
 
@@ -536,14 +536,20 @@
 
 ### M-05 高级 Excel 工具按任务意图动态开放
 
-> 整改完成：执行层硬边界继续保留。Power Query 创建/更新必须声明 `advancedIntent:"refreshable-etl"` 和外部/多来源 `sourceKind`；透视表/切片器必须声明 `advancedIntent:"interactive-pivot"`，创建透视表还必须给出明确源区域和字段。当前轮用户消息先通过统一意图识别：普通写值、公式、格式和固定汇总请求会从 `office.action.apply/inspect/validate` 及 `office.workflow.run.steps` 的模型 Schema 中移除 Power Query、透视表和切片器 operation，提示词也不再暴露具体高级 operation；只有明确的外部/多来源可刷新 ETL 或交互式透视/切片器请求才按类别开放。直接 action、工作流和模板仍在 Worker 前独立拒绝越界请求。
+> **整改与 Codex 本地 Excel/WPS 实机验收均已完成。**
+>
+> - 执行层硬边界：Power Query 须 `advancedIntent:"refreshable-etl"` + `sourceKind`；透视/切片器须 `advancedIntent:"interactive-pivot"`；模型 Schema/提示词按轮意图动态开放。
+> - 专用冒烟：`desktop/scripts/smoke-excel-advanced-intent.ts`，`npm run test:excel-advanced-intent`；宿主 `WENGGE_EXCEL_ADVANCED_INTENT_HOST=excel|wps|both`。
+> - **负向实测**：7 个缺失/错误 intent 或 sourceKind 调用均经生产 `office.action.apply` 在 COM 前拒绝；`bridgeCalls=0`，工作簿 SHA-256 不变。
+> - **Excel 实测**：基础写入、外部 CSV Power Query 创建与检查、透视表、切片器全部成功；三个不同目录的 `collision.xlsx` 分别得到 3 个独立 Excel PID、3 个完整路径、3 个不同 instanceId，并能按 `instanceId + fullPath` 激活。
+> - **WPS 实测**：基础文件操作成功；透视表和切片器成功；Power Query 明确返回 `power_query_unavailable`，具体错误与结构化码沿生产工具链透传，不再伪报成功。
+> - **生命周期实测**：Excel 与 WPS 两轮结束后 `excel/wps/et/Wengge.OfficeWorker` 均无新增残留，临时夹具已删除；未清理 WPS 后台 helper/cloud 服务。
 
-- `office-tools.zh-CN.md:8-9` 的文本边界清楚，这是正向改进。
-- 但高级工具仍常驻注册并向模型暴露；现有测试主要断言提示词包含指定字符串。
+- 历史缺口：高级工具曾常驻暴露，且 WPS Power Query 会伪成功；现已由动态开放、执行层硬边界和宿主能力结论共同关闭。
 
-**整改**：根据任务分类动态暴露高级工具；Power Query 只在明确外部/多来源可刷新 ETL 条件下开放，透视表只在明确要求交互对象时开放；增加 operation-specific 前置条件、审批和执行层拒绝测试。
+**整改**：动态暴露 + operation 前置条件 + 专用真实矩阵入口。
 
-**验收状态**：代码级动态可见性、提示词一致性和执行层拒绝测试已完成；仍需真实 Excel/WPS 验证明确高级任务可成功执行、普通任务不会误升级。
+**验收状态**：M-05 已关闭。定向 Vitest 42/42、.NET Worker 109/109；Codex 本地 Excel/WPS 专项均 `ok:true`，且无宿主、Worker 或专项临时目录残留。
 
 ### M-06 下载可用性与统计可靠性耦合，统计数据过度保留
 
@@ -725,7 +731,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [ ] CI/Release 通过 npm audit、NuGet audit、lint、typecheck、Vitest、.NET tests、产品站 tests、build、SBOM 和签名验证。
 - [x] **M-10** Excel 365/WPS 动态数组矩阵与 Electron E2E（spill、多公式回滚、保存重开、Formula2 spill）已在专用 self-hosted Runner 跑绿（测试前无宿主进程）（见 M-10 章节 run/job）。
 - [x] **M-09** DisplayAlerts 恢复矩阵已由 Codex 本地 Excel+WPS 实机通过（见 M-09 章节）。
-- [ ] 其余真实 Office 冒烟（CSE、图表、透视表、Worker 协议不匹配及 **M-05** 专项）仍待执行。
+- [x] **M-05** 高级意图专项已由 Codex 本地 Excel+WPS 实机通过（见 M-05 章节）。
+- [ ] 其余真实 Office 冒烟（CSE、图表、Worker 协议不匹配）仍待执行。
 - [ ] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载。
 - [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。

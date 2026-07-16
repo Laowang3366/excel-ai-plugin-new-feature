@@ -13,7 +13,11 @@ internal sealed class ExcelQueryActionService(OfficeApplicationProvider applicat
 
     public object Execute(OfficeActionRequest request)
     {
+        if (OfficeHostRouting.RequestsWps(request.StringParam("host")))
+            throw new OfficeWorkerException("power_query_unavailable", "当前 WPS 宿主不支持持久化 Power Query");
         using var context = new ExcelActionContext(applications, request);
+        if (OfficeHostRouting.IsWps(context.ProgId))
+            throw new OfficeWorkerException("power_query_unavailable", "当前 WPS 宿主不支持持久化 Power Query");
         if (request.Operation == "inspectPowerQueries")
             return OfficeActionResults.Done(request, "com", "已检查 Power Query", Snapshot(context.Workbook, request.StringParam("name")), Array.Empty<OfficeChange>());
         var command = request.Operation == "createPowerQuery" ? "upsert" : request.StringParam("command", "upsert");
@@ -66,7 +70,8 @@ internal sealed class ExcelQueryActionService(OfficeApplicationProvider applicat
                 ConfigureLoad(context, name, request);
             if (request.BoolParam("refresh")) Refresh(context, name);
             context.Save(request);
-            var data = new { command, queryName = name, snapshot = Snapshot(context.Workbook, command == "delete" ? string.Empty : name) };
+            var snapshot = Snapshot(context.Workbook, command == "delete" ? string.Empty : name);
+            var data = new { command, queryName = name, snapshot };
             return OfficeActionResults.Done(request, "com", $"已执行 Power Query {command}", data,
                 [new OfficeChange("power-query", name, $"已执行 Power Query {command}")]);
         }
@@ -336,15 +341,43 @@ internal sealed class ExcelQueryActionService(OfficeApplicationProvider applicat
     private static void AddConnection(dynamic workbook, string name, bool dataModel)
     {
         object? connections = null;
+        object? existing = null;
+        object? created = null;
         try
         {
             connections = workbook.Connections;
             dynamic connectionsApi = connections;
-            try { ((dynamic)connectionsApi.Item($"Query - {name}")).Delete(); } catch { }
+            try
+            {
+                existing = connectionsApi.Item($"Query - {name}");
+                ((dynamic)existing).Delete();
+            }
+            catch
+            {
+                // Connection may not exist yet.
+            }
+            finally
+            {
+                ComInterop.Release(existing);
+                existing = null;
+            }
+
             var connectionString = $"OLEDB;Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location={name};Extended Properties=\"\"";
-            connectionsApi.Add2($"Query - {name}", $"Power Query - {name}", connectionString, $"SELECT * FROM [{name.Replace("]", "]]", StringComparison.Ordinal)}]", 2, dataModel, false);
+            // Capture Add2 RCW — discarding it leaves a live connection RCW after Save/Close.
+            created = connectionsApi.Add2(
+                $"Query - {name}",
+                $"Power Query - {name}",
+                connectionString,
+                $"SELECT * FROM [{name.Replace("]", "]]", StringComparison.Ordinal)}]",
+                2,
+                dataModel,
+                false);
         }
-        finally { ComInterop.Release(connections); }
+        finally
+        {
+            ComInterop.Release(created);
+            ComInterop.Release(connections);
+        }
     }
 
     private static void AddWorksheetLoad(ExcelActionContext context, string name, OfficeActionRequest request)

@@ -257,6 +257,43 @@ describe("addOfficeExecutors", () => {
     });
   });
 
+  it("returns the concrete Office action error instead of the generic summary", async () => {
+    const officeActionBridge: OfficeActionBridge = {
+      executeAction: vi.fn(async (input) => ({
+        status: "failed" as const,
+        engine: "com" as const,
+        app: input.app,
+        action: input.action,
+        operation: input.operation,
+        summary: "Office action 执行失败",
+        changes: [],
+        error: "当前 WPS 宿主不支持持久化 Power Query",
+        data: { code: "power_query_unavailable" },
+      })),
+    };
+    const target = createTarget({ officeActionBridge });
+
+    const result = await target.get("office.action.apply")!.execute({
+      app: "excel",
+      action: "edit",
+      operation: "createPowerQuery",
+      filePath: "C:/tmp/a.xlsx",
+      params: {
+        advancedIntent: "refreshable-etl",
+        sourceKind: "external",
+        name: "Query1",
+        mFormula: "let Source = 1 in Source",
+        loadMode: "connectionOnly",
+      },
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: "当前 WPS 宿主不支持持久化 Power Query",
+      data: { data: { code: "power_query_unavailable" } },
+    });
+  });
+
   it("requires filePath for file-level office.action.apply calls", async () => {
     const officeActionBridge: OfficeActionBridge = { executeAction: vi.fn() };
     const target = createTarget({ officeActionBridge });

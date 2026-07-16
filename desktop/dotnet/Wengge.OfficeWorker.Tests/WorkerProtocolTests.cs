@@ -197,6 +197,23 @@ public sealed class WorkerProtocolTests
     }
 
     [Fact]
+    public void WpsPowerQueryRejectsBeforeApplicationAcquisition()
+    {
+        var request = OfficeActionRequest.Parse(JsonSerializer.SerializeToElement(new
+        {
+            app = "excel",
+            action = "edit",
+            operation = "createPowerQuery",
+            filePath = "C:/tmp/report.xlsx",
+            @params = new { host = "wps" },
+        }, JsonOptions));
+
+        var error = Assert.Throws<OfficeWorkerException>(() => new ExcelQueryActionService(null!).Execute(request));
+
+        Assert.Equal("power_query_unavailable", error.Code);
+    }
+
+    [Fact]
     public void PowerQueryReadFailureIsNotReportedAsUnsupportedHost()
     {
         var error = Assert.Throws<OfficeWorkerException>(() => ExcelQueryActionService.Snapshot(new FailingQueriesWorkbook(), string.Empty));

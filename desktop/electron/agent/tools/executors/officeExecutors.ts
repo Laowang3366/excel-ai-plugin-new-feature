@@ -329,6 +329,9 @@ async function executeOfficeAction(
     data: result,
     ...(success
       ? {}
-      : { error: result.summary || `Office action returned status: ${result.status}` }),
+      : {
+          error:
+            result.error || result.summary || `Office action returned status: ${result.status}`,
+        }),
   };
 }

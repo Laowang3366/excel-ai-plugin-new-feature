@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Microsoft.Win32;
 using Wengge.OfficeWorker.Com;
 using Wengge.OfficeWorker.Excel;
 using Wengge.OfficeWorker.Protocol;
@@ -97,6 +98,7 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents, ExcelS
     public object OpenFixtures(JsonElement parameters)
     {
         EnsureEnabled();
+        TraceSmoke("openFixtures.start");
         var before = MicrosoftProcessIds().ToHashSet();
         var opened = new Dictionary<string, List<int>>
         {
@@ -104,14 +106,17 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents, ExcelS
         };
         try
         {
-            OpenEach(parameters.PropertyOrEmpty("excelPaths"), "excel", "Excel.Application", opened["excel"]);
+            // Excel: native EXCEL.EXE /x per file (true independent Application/PID; avoids CreateObject hang/reuse).
+            OpenExcelNativeInstances(parameters.PropertyOrEmpty("excelPaths"), opened["excel"]);
             OpenEach(parameters.PropertyOrEmpty("wordPaths"), "word", "Word.Application", opened["word"]);
             OpenEach(parameters.PropertyOrEmpty("presentationPaths"), "presentation", "PowerPoint.Application", opened["presentation"]);
             foreach (var key in opened.Keys.ToArray()) opened[key] = opened[key].Where(id => id > 0 && !before.Contains(id)).Distinct().ToList();
+            TraceSmoke($"openFixtures.done:excel={string.Join(",", opened["excel"])}");
             return new { excel = opened["excel"], word = opened["word"], presentation = opened["presentation"] };
         }
         catch
         {
+            TraceSmoke("openFixtures.fail");
             CloseOwned(ownedApplications.Keys.ToArray());
             throw;
         }
@@ -123,7 +128,9 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents, ExcelS
         var ids = new HashSet<int>();
         foreach (var name in new[] { "excel", "word", "presentation" })
             foreach (var id in ReadIntegers(parameters.PropertyOrEmpty(name))) if (id > 0) ids.Add(id);
+        TraceSmoke($"closeFixtures.start:ids={string.Join(",", ids.Order())}");
         CloseOwned(ids);
+        TraceSmoke($"closeFixtures.done:ids={string.Join(",", ids.Order())}");
         return new { closed = ids.Order().ToArray() };
     }
 
@@ -150,6 +157,162 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents, ExcelS
     {
         if (ownedApplications.Count == 0) return;
         CloseOwned(ownedApplications.Keys.ToArray());
+    }
+
+    /// <summary>
+    /// Smoke-only: start one independent Microsoft Excel process per file via EXCEL.EXE /x.
+    /// Registers only newly appeared EXCEL PIDs; no CreateObject (avoids hang / instance reuse).
+    /// </summary>
+    private void OpenExcelNativeInstances(JsonElement paths, List<int> processIds)
+    {
+        var excelExe = ResolveMicrosoftExcelExecutable()
+            ?? throw new OfficeWorkerException("office_unavailable", "未找到 Microsoft Excel 可执行文件 (EXCEL.EXE)");
+        foreach (var path in ReadStrings(paths))
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!File.Exists(fullPath)) throw new OfficeWorkerException("file_not_found", $"冒烟文件不存在: {path}");
+            TraceSmoke($"excelNative.open.start:path={fullPath}");
+
+            var before = ProcessIds(["EXCEL"], visibleOnly: false).ToHashSet();
+            Process? started = null;
+            try
+            {
+                started = Process.Start(new ProcessStartInfo
+                {
+                    FileName = excelExe,
+                    UseShellExecute = false,
+                    ArgumentList = { "/x", fullPath },
+                });
+                if (started is null)
+                    throw new OfficeWorkerException("office_unavailable", $"无法启动 EXCEL.EXE /x: {fullPath}");
+
+                var processId = ResolveNewExcelProcessId(started, before, processIds);
+                if (processId <= 0 || before.Contains(processId) || processIds.Contains(processId))
+                {
+                    CleanupExcelPids(ProcessIds(["EXCEL"], visibleOnly: false).Where(id => !before.Contains(id)));
+                    throw new OfficeWorkerException(
+                        "office_instance_not_isolated",
+                        $"EXCEL.EXE /x 未产生独立 Excel PID: {fullPath}");
+                }
+                TraceSmoke($"excelNative.open.pid:path={fullPath}:pid={processId}");
+
+                WaitUntilExcelDocumentVisible(fullPath);
+                TraceSmoke($"excelNative.open.visible:path={fullPath}:pid={processId}");
+
+                // Detach Application RCW so CloseOwned can Quit (empty list previously only WaitForExit→Kill).
+                var application = OfficeDocumentService.DetachExcelApplication(fullPath, processId);
+                if (!ownedApplications.TryGetValue(processId, out var applications))
+                    ownedApplications[processId] = applications = [];
+                if (application is not null)
+                {
+                    applications.Add(application);
+                    TraceSmoke($"excelNative.open.attached:path={fullPath}:pid={processId}");
+                }
+                else
+                {
+                    TraceSmoke($"excelNative.open.unattached:path={fullPath}:pid={processId}");
+                }
+                processIds.Add(processId);
+                TraceSmoke($"excelNative.open.done:path={fullPath}:pid={processId}");
+            }
+            catch
+            {
+                CleanupExcelPids(ProcessIds(["EXCEL"], visibleOnly: false).Where(id => !before.Contains(id) && !processIds.Contains(id)));
+                throw;
+            }
+            finally
+            {
+                started?.Dispose();
+            }
+        }
+    }
+
+    private static string? ResolveMicrosoftExcelExecutable()
+    {
+        const string subKey = @"Software\Microsoft\Windows\CurrentVersion\App Paths\EXCEL.EXE";
+        foreach (var root in new[] { Registry.CurrentUser, Registry.LocalMachine })
+        {
+            using var key = root.OpenSubKey(subKey);
+            var value = Convert.ToString(key?.GetValue(null));
+            if (!string.IsNullOrWhiteSpace(value) && File.Exists(value)) return value;
+        }
+        return null;
+    }
+
+    private static int ResolveNewExcelProcessId(Process started, IReadOnlySet<int> before, IReadOnlyList<int> alreadyOpened)
+    {
+        try
+        {
+            if (!started.HasExited
+                && !before.Contains(started.Id)
+                && !alreadyOpened.Contains(started.Id)
+                && string.Equals(started.ProcessName, "EXCEL", StringComparison.OrdinalIgnoreCase))
+            {
+                return started.Id;
+            }
+        }
+        catch { }
+
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var newcomers = ProcessIds(["EXCEL"], visibleOnly: false)
+                .Where(id => !before.Contains(id) && !alreadyOpened.Contains(id))
+                .Distinct()
+                .ToArray();
+            if (newcomers.Length == 1) return newcomers[0];
+            if (newcomers.Length > 1)
+            {
+                if (newcomers.Contains(started.Id)) return started.Id;
+                throw new OfficeWorkerException(
+                    "office_instance_not_isolated",
+                    $"EXCEL.EXE /x 产生多个新 Excel PID，无法唯一登记: {string.Join(",", newcomers)}");
+            }
+            Thread.Sleep(100);
+        }
+        return 0;
+    }
+
+    private static void WaitUntilExcelDocumentVisible(string fullPath)
+    {
+        Exception? lastError = null;
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            try
+            {
+                using var lease = OfficeDocumentService.AcquireDocument("excel", fullPath, null);
+                if (OfficeHostRouting.IsWps(lease.Handle.ProgId))
+                    throw new OfficeWorkerException("office_host_mismatch", $"期望 Microsoft Excel，实际 WPS: {fullPath}");
+                return;
+            }
+            catch (OfficeWorkerException exception) when (exception.Code == "office_host_mismatch")
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                lastError = exception;
+                Thread.Sleep(100);
+            }
+        }
+        throw new OfficeWorkerException(
+            "office_open_timeout",
+            $"EXCEL.EXE /x 启动后未在超时前枚举到工作簿: {fullPath}",
+            null,
+            lastError);
+    }
+
+    private static void CleanupExcelPids(IEnumerable<int> processIds)
+    {
+        foreach (var processId in processIds.Where(id => id > 0).Distinct())
+        {
+            try
+            {
+                using var process = Process.GetProcessById(processId);
+                process.Kill(entireProcessTree: true);
+                _ = process.WaitForExit(2_000);
+            }
+            catch { }
+        }
     }
 
     private void OpenEach(JsonElement paths, string app, string progId, List<int> processIds)
@@ -215,17 +378,34 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents, ExcelS
             {
                 foreach (var application in applications)
                 {
-                    try { ((dynamic)application).Quit(); } catch { }
-                    ComInterop.Release(application);
+                    try
+                    {
+                        dynamic api = application;
+                        try { api.DisplayAlerts = false; } catch { }
+                        try { api.Quit(); } catch { }
+                    }
+                    catch { }
+                    finally { ComInterop.Release(application); }
                 }
             }
+
             try
             {
-                var process = Process.GetProcessById(processId);
-                if (!process.WaitForExit(2_000)) process.Kill(entireProcessTree: true);
+                using var process = Process.GetProcessById(processId);
+                if (!process.HasExited && !process.WaitForExit(3_000))
+                {
+                    process.Kill(entireProcessTree: false);
+                    _ = process.WaitForExit(2_000);
+                }
             }
             catch { }
         }
+    }
+
+    private static void TraceSmoke(string message)
+    {
+        if (Environment.GetEnvironmentVariable("WENGGE_OFFICE_SMOKE") == "1")
+            Console.Error.WriteLine($"[office-smoke] fixtures:{message}");
     }
 
     private static int ProcessId(object application)

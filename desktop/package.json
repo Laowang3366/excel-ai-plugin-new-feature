@@ -32,6 +32,7 @@
     "test:excel-lifecycle": "npm run office:publish && vite-node scripts/smoke-excel-lifecycle.ts",
     "test:excel-dynamic-array": "npm run office:publish && vite-node scripts/smoke-excel-dynamic-array.ts",
     "test:excel-display-alerts": "npm run office:publish && vite-node scripts/smoke-excel-display-alerts.ts",
+    "test:excel-advanced-intent": "npm run office:publish && vite-node scripts/smoke-excel-advanced-intent.ts",
     "test:presentation-smoke": "npm run office:publish && vite-node scripts/smoke-presentation-advanced.ts",
     "test:office-reliability": "npm run office:publish && vite-node scripts/smoke-office-reliability.ts",
     "test:wps-routing": "npm run office:publish && vite-node scripts/smoke-wps-routing.ts",

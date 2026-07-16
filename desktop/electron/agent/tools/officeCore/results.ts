@@ -29,6 +29,12 @@ export function needsComResult(input: Omit<ResultBase, "engine">): OfficeActionR
 }
 
 export function failedResult(action: OfficeActionInput, error: unknown): OfficeActionResult {
+  const code =
+    error && typeof error === "object" && "code" in error && typeof error.code === "string"
+      ? error.code
+      : undefined;
+  const details =
+    error && typeof error === "object" && "details" in error ? error.details : undefined;
   return {
     status: "failed",
     engine: action.preferEngine || "openxml",
@@ -41,5 +47,6 @@ export function failedResult(action: OfficeActionInput, error: unknown): OfficeA
     summary: "Office action 执行失败",
     changes: [],
     error: error instanceof Error ? error.message : String(error),
+    ...(code ? { data: { code, details } } : {}),
   };
 }

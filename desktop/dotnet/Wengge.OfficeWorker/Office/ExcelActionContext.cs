@@ -7,7 +7,6 @@ internal sealed class ExcelActionContext : IDisposable
 {
     private readonly OfficeApplicationHandle? handle;
     private readonly OfficeDocumentLease? lease;
-    private readonly WpsDocumentLaunch? wpsLaunch;
     private readonly bool borrowedWorkbook;
     private readonly bool openedWorkbook;
 
@@ -19,15 +18,6 @@ internal sealed class ExcelActionContext : IDisposable
         {
             lease = OfficeDocumentService.AcquireDocument("excel", request.FilePath, instanceId);
             OfficeHostRouting.Validate("excel", host, lease.Handle.ProgId);
-            App = lease.Handle.Application;
-            Workbook = lease.Handle.Document;
-            borrowedWorkbook = true;
-            return;
-        }
-        if (!string.IsNullOrWhiteSpace(request.FilePath) && OfficeHostRouting.RequestsWps(host))
-        {
-            wpsLaunch = WpsFileLauncher.Open("excel", request.FilePath);
-            lease = wpsLaunch.Lease;
             App = lease.Handle.Application;
             Workbook = lease.Handle.Document;
             borrowedWorkbook = true;
@@ -100,13 +90,8 @@ internal sealed class ExcelActionContext : IDisposable
     {
         if (borrowedWorkbook)
         {
-            if (wpsLaunch is not null)
-            {
-                try { Workbook.Close(false); } catch { }
-                if (wpsLaunch.OwnsApplication) { try { App.Quit(); } catch { } }
-            }
             Workbook = null!;
-            if (wpsLaunch is not null) wpsLaunch.Dispose(); else lease?.Dispose();
+            lease?.Dispose();
             return;
         }
         if (Workbook is not null)

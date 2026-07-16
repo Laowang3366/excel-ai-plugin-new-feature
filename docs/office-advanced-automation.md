@@ -47,6 +47,8 @@
 
 `managePowerQuery.command` 支持 `create`、`update`、`upsert`、`duplicate`、`rename`、`load`、`refresh`、`unload`、`delete`。`loadMode` 支持 `worksheet`、`dataModel`、`connectionOnly`；工作表加载使用 `destination:"Sheet2!A1"`，可用 `tableName` 指定输出表名。重命名会重建已有加载关系，卸载/删除可用 `clearOutput:true` 清理输出数据。
 
+当前 WPS 表格宿主不会持久化 Power Query 对象。显式 `host:"wps"` 的 Power Query 请求会在启动 WPS 前返回 `power_query_unavailable`；未显式宿主但实际落到 WPS 时也返回同一码，不会把只生成临时连接的伪成功结果写回。WPS 的透视表和切片器仍按各自 operation 正常执行。
+
 #### 图表深度编辑
 
 `formatChart` 支持更换数据源、类型、标题、图例、样式和位置尺寸；`series` 支持新增、更新、删除、公式或数据范围、组合图类型、主次坐标轴、平滑线和数据标签；`axes` 支持类别/数值轴、主次轴、标题、最小/最大值、主单位、数字格式和逆序。趋势线、误差线、轴交叉值、对数轴、网格线以及图表区/绘图区的独立格式尚未实现，不应作为可用参数发送。
@@ -216,6 +218,7 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 - 文件级基础编辑优先使用 .NET Worker 内的 C# `DocumentFormat.OpenXml`，不要求 Office 进程运行；旧 TypeScript Open XML 实现已移除。
 - 高级对象操作需要本机安装对应 Microsoft Office 或 WPS，并提供兼容 COM 对象模型。
+- Excel/WPS 表格文件级 COM 操作通过对应 `Application` 创建本次 owned 实例，再由 `Workbooks.Open` 打开目标文件；不通过 WPS 聚合启动器重复派发同一文件。
 - COM 清理按进程归属执行：本次新建的 Office 进程会完整退出；复用用户已有 WPS 进程时只关闭本次打开的文件并释放 COM 对象，不遍历关闭其他文件，也不调用应用级 `Quit()`。
 - WPS 12.0 的主题色 COM 属性只读，且多页备注可能只持久化第一页。工具会在 WPS 保存并释放文件后使用 XML 解析器更新主题包或补齐备注部件及关系，再通过后续检查回读真实结果。
 - Power Query、切片器、动画和讲义等能力在不同 Office/WPS 版本中的对象模型覆盖不同；不支持时工具会返回 `failed`，不会伪报成功。

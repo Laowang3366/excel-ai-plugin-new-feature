@@ -199,6 +199,59 @@ internal sealed class OfficeDocumentService
         }
     }
 
+    /// <summary>
+    /// Smoke-only: detach Microsoft Excel Application RCW for a path+PID so the caller can Quit+Release.
+    /// Releases all other document/application RCWs from the enumeration.
+    /// </summary>
+    internal static object? DetachExcelApplication(string fullPath, int processId)
+    {
+        if (processId <= 0) return null;
+        var wanted = PathKey(fullPath);
+        var handles = EnumerateDocuments("excel");
+        object? ownedApp = null;
+        try
+        {
+            var match = handles.FirstOrDefault(handle =>
+                handle.ProcessId == processId
+                && !OfficeHostRouting.IsWps(handle.ProgId)
+                && string.Equals(
+                    PathKey(SafeString(() => ((dynamic)handle.Document).FullName)),
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase));
+            if (match is null)
+            {
+                ReleaseHandles(handles);
+                return null;
+            }
+
+            ownedApp = match.Application;
+            var otherApps = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            foreach (var handle in handles)
+            {
+                ComInterop.Release(handle.Document);
+                if (!ReferenceEquals(handle.Application, ownedApp))
+                    otherApps.Add(handle.Application);
+            }
+            foreach (var application in otherApps)
+                ComInterop.Release(application);
+            return ownedApp;
+        }
+        catch
+        {
+            if (ownedApp is null) ReleaseHandles(handles);
+            else
+            {
+                foreach (var handle in handles)
+                {
+                    ComInterop.Release(handle.Document);
+                    if (!ReferenceEquals(handle.Application, ownedApp))
+                        ComInterop.Release(handle.Application);
+                }
+            }
+            throw;
+        }
+    }
+
     internal static string EncodeLocator(string value) => Uri.EscapeDataString(value);
     internal static string DecodeLocator(string value) => Uri.UnescapeDataString(value);
     internal static string PathKey(string? filePath)
