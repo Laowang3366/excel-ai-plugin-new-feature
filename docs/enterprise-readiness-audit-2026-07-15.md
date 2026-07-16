@@ -40,7 +40,7 @@
 | M-11 | 已关闭（代码整改范围） | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地；所有者决定按代码整改目标关闭本项 | 非代码后续（不阻塞本项关闭）：LICENSE/NOTICE、正式隐私主体/法律条款、真实第二审查人、GitHub ruleset 强制 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除已登记活动根/旧根/应用导出副本并生成 bootstrap 删除证明；更新/Worker/迁移/后台登录/5xx/analytics 等稳定失败 `event` 字段已落地 | 生产负责人确认 RPO/RTO 并完成恢复演练；启用 timer；配置生产告警接收端；异机/外部未登记副本清理 |
 | L-01 | 已关闭 | 生产模块超限已清零（`legacyOversized=0`）；全量受治理源码 Prettier 债务已清零（`legacyFormatting=0`）；`desktop/scripts/smoke-*.ts` 按规则排除行数扫描、仍受 Prettier 检查 | 无 |
-| L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
+| L-02 | 已关闭 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试；旧 code review/会话/实施计划已清理 | 无 |
 | L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；当前首屏入口 448.41 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
 
 ## 1. 执行摘要
@@ -107,7 +107,7 @@
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
-| 真实 Office/WPS 冒烟 | 部分通过 | **M-10** 矩阵与 **M-09** DisplayAlerts 已通过；**M-05** 高级意图专项由 Codex 本地 Excel+WPS 实机通过。其余 CSE、图表、Worker 协议不匹配专项仍待执行，不得理解为全部 Office 场景已绿 |
+| 真实 Office/WPS 冒烟 | 部分通过 | **M-10**、**M-09**、**M-05** 已通过；Codex 本地 `OFFICE_SMOKE_OPERATIONS=insertChart,formatChart,inspectCharts npm run test:office-smoke` 返回 `ok:true`，真实 Excel 图表插入、格式化及标题/系列回读通过且无残留。其余 CSE、Worker 协议不匹配专项仍待执行 |
 
 ## 4. Critical — 上线硬阻断
 
@@ -677,6 +677,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - 多数 IPC 已开始使用 Zod 输入校验，文件/OCR 面板也已有路径授权框架。
 - COM 操作集中到带 Windows 消息泵的 STA 调度器，没有把 COM 移出线程模型。
 - 图表创建后已经检查对象、系列、可见性、尺寸和锚点；透视表创建后检查缓存、字段和目标范围。
+- Codex 本地真实 Excel 图表专项已通过：`insertChart`、`formatChart`、`inspectCharts` 均为 `done`，回读 `RevenueChart` 标题与非空系列成功，结束后无 Excel/Worker 残留。
 - Office Worker 超时会明确标注结果未知，并终止失控 Worker。
 - Open XML 动态数组 metadata 已使用独立 metadata part，并复用描述。
 - 完整更新清单已有 Ed25519 签名、size 和 SHA-256 校验基础。
@@ -734,7 +735,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [x] **M-10** Excel 365/WPS 动态数组矩阵与 Electron E2E（spill、多公式回滚、保存重开、Formula2 spill）已在专用 self-hosted Runner 跑绿（测试前无宿主进程）（见 M-10 章节 run/job）。
 - [x] **M-09** DisplayAlerts 恢复矩阵已由 Codex 本地 Excel+WPS 实机通过（见 M-09 章节）。
 - [x] **M-05** 高级意图专项已由 Codex 本地 Excel+WPS 实机通过（见 M-05 章节）。
-- [ ] 其余真实 Office 冒烟（CSE、图表、Worker 协议不匹配）仍待执行。
+- [ ] 其余真实 Office 冒烟（CSE、Worker 协议不匹配）仍待执行。
 - [ ] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载。
 - [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
@@ -743,4 +744,4 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1114 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、其余 CSE/图表/Worker 协议专项实机回归、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09 与 M-10 已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、其余 CSE/Worker 协议专项实机回归、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10 与真实 Excel 图表专项已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
