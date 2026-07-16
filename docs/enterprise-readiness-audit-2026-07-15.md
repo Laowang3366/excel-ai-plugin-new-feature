@@ -725,13 +725,14 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 满足以下全部条件前，结论保持 **No-Go**：
 
-- [ ] 3 个 Critical 全部关闭，并有负向安全测试。
-- [ ] 13 个 High 全部关闭；如确需接受，必须由安全负责人和业务负责人共同签字、写明补偿控制和到期日。
+- [x] 3 个 Critical 的代码整改全部关闭，并有负向安全测试；C-03 的真实凭据轮换、旧凭据失效和签名私钥迁出仍由下一项单独验收。
+- [x] 13 个 High 的代码整改全部关闭，并有自动化或专项验证；生产证书、真实发布资产、第三方服务、安装包故障注入和运维告警等外部验收仍按下列独立门槛执行，不视为已完成。
 - [ ] 所有可能使用过的凭据完成轮换，旧凭据失效，签名私钥离开开发工作区。
 - [x] **C-01** Electron 主窗口不能导航到远端；所有敏感 IPC 有 sender/origin 验证：`trustedIpc`/`windowNavigationPolicy`/Markdown 外链单元测试 + Electron E2E `navigation-external`（真实 Markdown 点击走 `openExternal`、主窗口 URL 不变、`location=`/`window.open` 拒绝）；Codex 2026-07-16 复跑 trustedIpc/windowManager/MarkdownContent 相关测试通过。
 - [x] **C-02** 宏、删除、未知工具、外传工具在策略要求下必定审批，审批缺失时默认拒绝：危险/未知/删除/外传强制审批，线程+工具+operation+目标+TTL 授权，全工具元数据表驱动测试；Codex 2026-07-16 复跑 `toolApproval.test.ts`/`toolExecutor.test.ts` 通过。
-- [ ] 安装包 Authenticode 为 `Valid`，更新 manifest、size、SHA-256 和发布资产全部端到端验签。
-- [ ] CI/Release 通过 npm audit、NuGet audit、lint、typecheck、Vitest、.NET tests、产品站 tests、build、SBOM 和签名验证。
+- [x] 仓库发布链已把 Authenticode `Valid`、更新 manifest 签名、size、SHA-256、发布资产清单和版本化 SPDX SBOM 纳入硬失败校验；`updateManifest.test.ts` 覆盖签名篡改，`workflowProvenance.test.ts` 约束工作流来源，`release:verify` 提供本地制品复验。
+- [x] 仓库 CI/Release 已覆盖 npm audit、NuGet audit、lint、governance、typecheck、Vitest、.NET tests、产品站 tests、build、SBOM 和签名验证，并以完整 SHA 固定第三方 Actions；Release 显式依赖可复用完整 CI。
+- [ ] 在受保护证书/HSM、Environment approval 和隔离发布账户中执行一次正式 Tag 发布，确认生产安装包 Authenticode 为 `Valid`，GitHub Release 与产品站 Ed25519 清单/size/SHA-256/SBOM 对同一批最终资产端到端验签通过。
 - [x] **M-10** Excel 365/WPS 动态数组矩阵与 Electron E2E（spill、多公式回滚、保存重开、Formula2 spill）已在专用 self-hosted Runner 跑绿（测试前无宿主进程）（见 M-10 章节 run/job）。
 - [x] **M-09** DisplayAlerts 恢复矩阵已由 Codex 本地 Excel+WPS 实机通过（见 M-09 章节）。
 - [x] **M-05** 高级意图专项已由 Codex 本地 Excel+WPS 实机通过（见 M-05 章节）。
@@ -739,10 +740,11 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [x] **H-10** Worker 协议不匹配专项已由 Codex 实机通过：基线 `660c0597` v1 Worker + 绝对路径 `WENGGE_OFFICE_WORKER_PATH` + `npm run test:office-worker-protocol` exit 0（`ok:true` / `code:protocol_mismatch` / 应用=2 Worker=1，残留 0）；当前 v2 Worker 同命令按预期 exit 1。
 - [x] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载：Codex 2026-07-16 `product-site/npm test` 16/16；`spoofed forwarded-for prefixes cannot bypass admin login throttling`（本地可信代理 + 轮换客户端 XFF，前 8 次 401、第 9 次 429）；`analytics failures do not block installer downloads`（`recordDownload` 抛 database read-only 时 `/download/windows` 仍 200 且 body 为 installer-bytes）。生产 Nginx/告警/留存配置仍待外部验收。
 - [x] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练：`settingsManager.migrateDataPath.test.ts` 在 `commitPreparedDataPathMigration` 成功后强制 `reloadKnowledgeRuntime` 对新根返回 `store:null`，断言 `success:false` 且错误保留、active/configured 路径回旧根；回滚后经 `previousSessionStore.createThread`+`flushRolloutWrites` 写入旧根 rollout 并可 `loadThread`；`updateStateRuntimeStore` 末次实例 `getDatabasePaths()` 的 state/logs/goals/memories 均位于旧根 `sessions/state-runtime`；旧根 Office backups/workflows/transactions 不分裂、已提交目标被清理；产品站 `analyticsBackup.test.mjs` 覆盖 SQLite 在线备份恢复与篡改拒绝；`transactionJournal.test.ts` 覆盖 Office 整组 undo/redo/冲突保护。H-06 安装包跨盘/断电/磁盘满与 M-12 生产 RPO/RTO/timer/告警仍待外部验收。
-- [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
+- [x] 工程数据处理事实说明已明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式，并区分应用可擦除副本与外部服务/未登记副本边界。
+- [ ] 由法律责任人确认并发布正式隐私政策，补齐主体、联系方式、处理依据、第三方处理者、跨境、数据主体请求、未成年人和投诉渠道等法律条款。
 
 ## 11. 最终结论
 
 代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 212 个 Vitest 文件、1115 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、H-06 安装包跨盘/断电/磁盘满实测、M-12 生产 RPO/RTO/timer/告警接收端，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、H-10、legacy CSE 与真实 Excel 图表专项已关闭**；数据目录 post-commit 回滚、产品站 SQLite 备份与 Office 事务 undo/redo 的代码故障演练已落地）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、正式 Tag 发布下的 SBOM 与最终发布清单端到端验签、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、H-06 安装包跨盘/断电/磁盘满实测、M-12 生产 RPO/RTO/timer/告警接收端，以及正式隐私政策与事件响应运营制度仍需落地（**M-05、M-09、M-10、H-10、legacy CSE 与真实 Excel 图表专项已关闭**；数据目录 post-commit 回滚、产品站 SQLite 备份与 Office 事务 undo/redo 的代码故障演练已落地）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
