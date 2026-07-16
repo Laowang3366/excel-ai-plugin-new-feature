@@ -34,7 +34,7 @@
 | M-05 | 已关闭 | `test:excel-advanced-intent`：7 个负向调用在 COM 前拒绝、bridgeCalls=0、SHA-256 不变；Codex 本地 Excel PQ/透视/切片器全绿，三同名文件以 3 个 PID/FullName/instanceId 正确激活；WPS 基础操作、透视表、切片器全绿，Power Query 返回结构化 `power_query_unavailable`；结束后无宿主/Worker 残留 | 无 |
 | M-06 | 已实现，待生产配置验收 | 下载统计 best-effort；90 天默认留存与 6 小时清理；IP 标识每 30 天轮换；UA/Referer 最小化迁移；故障与边界测试 | 上线环境确认周期配置并接入维护失败告警 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
-| M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
+| M-08 | 已关闭 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile；CI run `29490566136` / desktop job `87595394532` 依次通过 locked restore、`office:audit`、`office:test` 109/109 与 build | 无 |
 | M-09 | 已关闭 | 删除工作表 `finally` 恢复用户原 `DisplayAlerts`；`test:excel-display-alerts` 经 Codex 本地 Excel+WPS 实机矩阵通过（false 成功恢复、结构保护失败 true 恢复、最后可见表失败 true 恢复；无宿主/Worker 残留） | 无 |
 | M-10 | 已关闭 | `test:excel-dynamic-array` + `test:e2e-electron` + `office-matrix-and-e2e.yml`；E2E run 29456041445 / job 87489319942 success；Excel run 29457636677 / job 87494253080 success（spill/回滚/重开/Formula2）；WPS run 29458142234 / job 87495761434 success（formula2_spill_ok，SEQUENCE spill [[1],[2]]）；Runner `wengge-office-local-01` labels `wengge-office-excel-365`/`wengge-office-wps`，测试前宿主空、无残留 | 无 |
 | M-11 | 已关闭（代码整改范围） | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地；所有者决定按代码整改目标关闭本项 | 非代码后续（不阻塞本项关闭）：LICENSE/NOTICE、正式隐私主体/法律条款、真实第二审查人、GitHub ruleset 强制 |
@@ -99,10 +99,10 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 211 个测试文件、1109 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 211 个测试文件、1114 项测试全部通过 |
 | Desktop Vite build | 通过 | Renderer 首屏入口 448.41 KB（437.91 KiB），9 个异步 chunk；480 KiB entry budget 通过 |
 | Desktop `format:check` | 通过 | 受治理源码全量 Prettier 一致；`governance:check` 为 legacyFormatting=0、legacyOversized=0 |
-| .NET Worker test | 通过 | 最近一次 Worker 门禁 100 项 xUnit 测试全部通过；本批未修改 Worker |
+| .NET Worker test | 通过 | CI run `29490566136` / desktop job `87595394532`：locked restore、NuGet audit 与 109 项 xUnit 测试全部通过 |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
@@ -573,6 +573,8 @@
 
 ### M-08 .NET 测试依赖存在 High 漏洞且构建不可完全复现
 
+> **已关闭。** 测试依赖已升级，`global.json` 与 NuGet lockfile 已固定还原；CI run `29490566136` / desktop job `87595394532` 已真实通过 `dotnet restore --locked-mode`、`npm run office:audit`、`npm run office:test`（109/109）及后续 build。
+
 NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 - `System.Net.Http 4.3.0`，High，GHSA-7jgj-8wvc-jh57。
@@ -739,6 +741,6 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ## 11. 最终结论
 
-代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销和模型可见 Office 参数边界等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1109 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
+代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1114 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、**M-05 等非 M-09/M-10 的 Excel/WPS 专项实机回归**、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-09 DisplayAlerts 与 M-10 动态数组/E2E 已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、其余 CSE/图表/Worker 协议专项实机回归、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09 与 M-10 已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
