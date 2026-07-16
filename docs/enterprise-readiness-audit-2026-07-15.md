@@ -105,7 +105,7 @@
 | .NET Worker test | 通过 | CI run `29490566136` / desktop job `87595394532`：locked restore、NuGet audit 与 109 项 xUnit 测试全部通过 |
 | NuGet vulnerability scan | 通过 | Worker 与测试项目均未发现已知漏洞包 |
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
-| Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
+| Product-site test | 通过 | 16/16 通过：伪造 XFF 前缀不能绕过后台登录限流（前 8 次 401、第 9 次 429）、统计 `recordDownload` 失败不阻断安装包下载（仍 200）、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
 | 真实 Office/WPS 冒烟 | 部分通过 | **M-10**、**M-09**、**M-05**、图表专项、legacy CSE 与 **H-10** 已通过。CSE：Codex `WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=excel|wps` + `test:excel-dynamic-array` 全绿。H-10：Codex 基线 `660c0597` v1 Worker + 绝对路径 `WENGGE_OFFICE_WORKER_PATH` + `test:office-worker-protocol` exit 0（`protocol_mismatch`，应用=2 Worker=1）；当前 v2 Worker 按预期 exit 1 |
 
@@ -737,7 +737,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [x] **M-05** 高级意图专项已由 Codex 本地 Excel+WPS 实机通过（见 M-05 章节）。
 - [x] legacy CSE 已由 Codex 在真实 Excel/WPS 分别通过：`N1:N3` 写入 `=B2:B4` 后 `currentArray`、值与公式回读正确；超长 FormulaArray 失败返回结构化错误且 `O1:O3` 完整恢复；测试后宿主、Worker 与临时目录无残留。
 - [x] **H-10** Worker 协议不匹配专项已由 Codex 实机通过：基线 `660c0597` v1 Worker + 绝对路径 `WENGGE_OFFICE_WORKER_PATH` + `npm run test:office-worker-protocol` exit 0（`ok:true` / `code:protocol_mismatch` / 应用=2 Worker=1，残留 0）；当前 v2 Worker 同命令按预期 exit 1。
-- [ ] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载。
+- [x] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载：Codex 2026-07-16 `product-site/npm test` 16/16；`spoofed forwarded-for prefixes cannot bypass admin login throttling`（本地可信代理 + 轮换客户端 XFF，前 8 次 401、第 9 次 429）；`analytics failures do not block installer downloads`（`recordDownload` 抛 database read-only 时 `/download/windows` 仍 200 且 body 为 installer-bytes）。生产 Nginx/告警/留存配置仍待外部验收。
 - [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
 
