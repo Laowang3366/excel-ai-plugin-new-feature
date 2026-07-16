@@ -20,7 +20,7 @@
 | H-04 | 已实现 | 工具结果以结构化不可信 JSON 回送；系统提示明确外部数据边界；`memory.write` 必须引用当前轮用户原文并记录哈希/线程/turn/citation；未确认旧记忆不注入 system prompt；提示注入负向测试 | 红队场景与多模型遵循性实测 |
 | H-05 | 已实现 | `outboundUrlPolicy.ts` 强制 HTTPS/精确本地 allowlist，阻断私网、DNS rebinding 与跨源重定向；Provider/Embedding 负向测试 | 企业本地模型 allowlist 配置验收 |
 | H-06 | 已实现，待安装包实测 | 新安装默认 `%LOCALAPPDATA%` 用户隔离目录并自动迁移旧安装目录；全根目录 staging 复制、稳定文件 SHA-256、SQLite 实际打开校验、空目标原子改名、UNC 默认拒绝；失败恢复旧 store/runtime 并清理目标 | 安装包跨盘迁移、断电/磁盘满与旧目录停止写入实测 |
-| H-07 | 已实现，待真实 Office | `ExcelRangeWriteTransaction` 在任一公式失败时恢复整区；第二个公式失败与回滚失败测试 | Excel/WPS 当前窗口实机验证 |
+| H-07 | 已关闭 | `ExcelRangeWriteTransaction` 整区回滚 + 单元测试；Excel 365 矩阵 run 29457636677 / job 87494253080 验证第二项失败整区回滚；Codex 本地真实 WPS：`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=wps npm run test:excel-dynamic-array` 通过（`multiFormulaRollback=true`，`rollbackError=宿主无法通过 Formula2 写入公式`，SEQUENCE spill `[[1],[2]]`，C2:D2 写前/写后全等） | 无 |
 | H-08 | 已实现，待真实 Office | COM 所有现代公式统一 `Formula2`；表达式型 spill 识别覆盖范围表达式、IF、TRANSPOSE；COM/Open XML 测试 | Excel 365/WPS 保存重开与 spill 冒烟 |
 | H-09 | 已实现 | Open XML 不再先删除后跳过占位；覆盖写入克隆原单元格属性并保留样式；样式/非 spill 数据测试 | 大型真实工作簿兼容性回归 |
 | H-10 | 已实现 | Worker 协议升至 v2；`excel.range.write` 结果运行时字段校验；旧结果负向测试 | 安装覆盖失败/旧 Worker 实机握手测试 |
@@ -344,6 +344,8 @@
 
 ### H-07 Excel `range.write` 失败会留下部分提交
 
+> 整改完成：`ExcelRangeWriteTransaction` 在任一公式失败时恢复整区，并有第二项失败/回滚失败单元测试。生产写入对 `plan.Formulas` 顺序逐格执行，故合法第一项会先于失败第二项进入写入序列。Excel 365 隔离矩阵 run 29457636677 / job 87494253080 已验证 `C2:D2` 多公式第二项 overlong 失败后整区与写前一致。`smoke-excel-dynamic-array` WPS 路径同样做快照→真实 `writeRange`→必须失败→逐值回读；Codex 本地真实命令 `WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=wps npm run test:excel-dynamic-array` 通过：`multiFormulaRollback=true`，`rollbackError=宿主无法通过 Formula2 写入公式`，Formula2 SEQUENCE spill `[[1],[2]]`，C2:D2 写前/写后全等。以下“证据”为整改前基线。
+
 **证据**
 
 - `desktop/dotnet/Wengge.OfficeWorker/Excel/ExcelRangeService.cs:67-81` 先整块执行 `Value2 = BulkValues`，再逐单元格写公式。
@@ -359,6 +361,8 @@
 - 写入前预检公式 API 能力并保存目标范围值、公式类型和公式文本。
 - 任一写入或回读失败时，在同一 STA 内恢复完整目标范围。
 - 构造“第二个公式失败”的测试，断言整个区域与写前完全一致；Excel 和 WPS 都要真实冒烟。
+
+**验收状态**：H-07 已关闭。代码事务回滚、Excel 365 矩阵实机与 Codex 本地真实 WPS 多公式第二项失败整区回滚均已通过。
 
 ### H-08 动态数组识别仍依赖函数白名单
 

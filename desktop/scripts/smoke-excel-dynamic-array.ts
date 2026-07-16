@@ -195,6 +195,25 @@ async function runWpsFormula2Capability(
     }
     const spill = await bridge.readRange("Sheet1", "H1", "spill");
     assertSequenceSpill(spill.values, "WPS Formula2 SEQUENCE spill");
+
+    // H-07: same multi-formula path as Excel — first cell succeeds, second overlong fails; full region must restore.
+    const beforeRollback = await bridge.readRange("Sheet1", "C2:D2", "none");
+    const overlong = `=${"1+".repeat(9000)}1`;
+    let rollbackError: string | undefined;
+    try {
+      await bridge.writeRange("Sheet1", "C2:D2", [["=A2", overlong]]);
+      throw new Error("WPS 多公式第二项应失败，但写入成功");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("WPS 多公式第二项应失败")) throw error;
+      rollbackError = message;
+    }
+    if (!rollbackError) {
+      throw new Error("WPS 多公式第二项失败场景未捕获错误");
+    }
+    const afterRollback = await bridge.readRange("Sheet1", "C2:D2", "none");
+    assertMatrixEqual(afterRollback.values, beforeRollback.values, "WPS 多公式失败后整区回滚");
+
     const saved = await bridge.saveWorkbook();
     if (!saved.success) throw new Error(saved.error || "WPS 保存失败");
 
@@ -202,6 +221,8 @@ async function runWpsFormula2Capability(
       host: "wps",
       formula2Supported: true,
       capability: "formula2_spill_ok",
+      multiFormulaRollback: true,
+      rollbackError,
       write,
       spillValues: spill.values,
     };
