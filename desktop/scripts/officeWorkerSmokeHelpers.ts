@@ -59,12 +59,31 @@ export function closeOfficeFixtures(input: {
   return getOfficeWorkerClient().invoke("office.smoke.closeFixtures", input, 30_000);
 }
 
-export function listOfficeSmokeProcesses(): Promise<{ microsoft: number[]; wpsVisible: number[] }> {
+export function listOfficeSmokeProcesses(): Promise<{
+  microsoft: number[];
+  wpsVisible: number[];
+  wpsAll?: number[];
+}> {
   return getOfficeWorkerClient().invoke("office.smoke.listProcesses");
 }
 
 export function runningOfficeSmokeProcesses(ids: number[]): Promise<number[]> {
   return getOfficeWorkerClient().invoke("office.smoke.runningProcesses", { ids });
+}
+
+export function getExcelDisplayAlerts(): Promise<{ displayAlerts: boolean }> {
+  return getOfficeWorkerClient().invoke("office.smoke.excel.getDisplayAlerts");
+}
+
+export function setExcelDisplayAlerts(displayAlerts: boolean): Promise<{ displayAlerts: boolean }> {
+  return getOfficeWorkerClient().invoke("office.smoke.excel.setDisplayAlerts", { displayAlerts });
+}
+
+export function setExcelStructureProtected(input: {
+  protected: boolean;
+  password?: string;
+}): Promise<{ structureProtected: boolean; passwordUsed: boolean }> {
+  return getOfficeWorkerClient().invoke("office.smoke.excel.setStructureProtected", input);
 }
 
 export function disposeOfficeWorker(): Promise<void> {

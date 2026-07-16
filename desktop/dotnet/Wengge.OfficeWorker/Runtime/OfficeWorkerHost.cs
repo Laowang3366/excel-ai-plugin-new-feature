@@ -74,7 +74,7 @@ public sealed class OfficeWorkerHost : IDisposable
                 new PresentationLinkedContentActionService(applications),
                 new PresentationPlaybackActionService(applications)));
         officeObjects = new OfficeObjectService(officeDocuments);
-        officeSmoke = new OfficeSmokeService(officeDocuments);
+        officeSmoke = new OfficeSmokeService(officeDocuments, excelSessions);
         openXmlActions = new OpenXmlActionService(
             new OpenXmlExcelActionService(openXmlTables),
             new OpenXmlWordActionService(openXmlTables),
@@ -110,6 +110,9 @@ public sealed class OfficeWorkerHost : IDisposable
             "office.smoke.closeFixtures" => OnSta(() => officeSmoke.CloseFixtures(parameters), cancellationToken),
             "office.smoke.listProcesses" => Task.Run<object?>(officeSmoke.ListProcesses, cancellationToken),
             "office.smoke.runningProcesses" => Task.Run<object?>(() => officeSmoke.RunningProcesses(parameters.PropertyOrEmpty("ids")), cancellationToken),
+            "office.smoke.excel.getDisplayAlerts" => OnSta(officeSmoke.GetExcelDisplayAlerts, cancellationToken),
+            "office.smoke.excel.setDisplayAlerts" => OnSta(() => officeSmoke.SetExcelDisplayAlerts(parameters), cancellationToken),
+            "office.smoke.excel.setStructureProtected" => OnSta(() => officeSmoke.SetExcelStructureProtected(parameters), cancellationToken),
             "excel.detectStatus" => OnSta(excelSessions.DetectStatus, cancellationToken),
             "excel.connect" => OnSta(excelSessions.Connect, cancellationToken),
             "excel.selectHost" => OnSta(() => excelSessions.SelectHost(parameters.RequiredString("host")), cancellationToken),

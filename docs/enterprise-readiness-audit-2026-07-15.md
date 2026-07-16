@@ -35,7 +35,7 @@
 | M-06 | 已实现，待生产配置验收 | 下载统计 best-effort；90 天默认留存与 6 小时清理；IP 标识每 30 天轮换；UA/Referer 最小化迁移；故障与边界测试 | 上线环境确认周期配置并接入维护失败告警 |
 | M-07 | 已实现 | 生产 secret 强度/格式校验；密码哈希脚本只从 stdin 接收；HTTP 配置仅重定向 HTTPS | 生产环境配置验收 |
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
-| M-09 | 已实现，待真实 Office | 删除工作表用 `finally` 恢复用户原 `DisplayAlerts` | 最后可见表、保护表与原关闭状态实机验证 |
+| M-09 | 已关闭 | 删除工作表 `finally` 恢复用户原 `DisplayAlerts`；`test:excel-display-alerts` 经 Codex 本地 Excel+WPS 实机矩阵通过（false 成功恢复、结构保护失败 true 恢复、最后可见表失败 true 恢复；无宿主/Worker 残留） | 无 |
 | M-10 | 已关闭 | `test:excel-dynamic-array` + `test:e2e-electron` + `office-matrix-and-e2e.yml`；E2E run 29456041445 / job 87489319942 success；Excel run 29457636677 / job 87494253080 success（spill/回滚/重开/Formula2）；WPS run 29458142234 / job 87495761434 success（formula2_spill_ok，SEQUENCE spill [[1],[2]]）；Runner `wengge-office-local-01` labels `wengge-office-excel-365`/`wengge-office-wps`，测试前宿主空、无残留 | 无 |
 | M-11 | 已关闭（代码整改范围） | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地；所有者决定按代码整改目标关闭本项 | 非代码后续（不阻塞本项关闭）：LICENSE/NOTICE、正式隐私主体/法律条款、真实第二审查人、GitHub ruleset 强制 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除已登记活动根/旧根/应用导出副本并生成 bootstrap 删除证明；更新/Worker/迁移/后台登录/5xx/analytics 等稳定失败 `event` 字段已落地 | 生产负责人确认 RPO/RTO 并完成恢复演练；启用 timer；配置生产告警接收端；异机/外部未登记副本清理 |
@@ -107,7 +107,7 @@
 | Product-site `npm audit` | 通过 | 0 个高危 npm 漏洞 |
 | Product-site test | 通过 | 14/14 通过，包含 XFF 绕过、统计故障、周期标识、留存清理、旧数据迁移及备份恢复 |
 | Git 历史凭据扫描 | 通过 | 未发现敏感目录或高置信真实凭据被提交 |
-| 真实 Office/WPS 冒烟 | 部分通过 | **M-10 矩阵已通过**（E2E 29456041445、Excel 29457636677、WPS 29458142234，Runner `wengge-office-local-01`）。**M-05/M-09** 等专项实机回归仍待执行，不得理解为全部 Office 场景已绿 |
+| 真实 Office/WPS 冒烟 | 部分通过 | **M-10** 矩阵已通过（E2E 29456041445、Excel 29457636677、WPS 29458142234）。**M-09** DisplayAlerts 矩阵已由 Codex 本地 Excel+WPS 实机通过。**M-05** 等专项实机回归仍待执行，不得理解为全部 Office 场景已绿 |
 
 ## 4. Critical — 上线硬阻断
 
@@ -578,9 +578,18 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### M-09 删除工作表异常会永久改变用户 Excel 的 DisplayAlerts
 
-- `ExcelWorkbookService.cs:225-228` 先 `DisplayAlerts=false`，删除抛错时不会恢复；成功时也强制恢复为 `true`，没有保留用户原状态。
+> **已关闭。** 代码与 Codex 本地真实 Excel/WPS 矩阵均已验收。
+>
+> - 生产路径：`ExcelWorkbookService.SheetOperation` 删除分支先保存 `DisplayAlerts`，`finally` 恢复原值（不再强制 `true`）。
+> - 专用冒烟：`desktop/scripts/smoke-excel-display-alerts.ts`，`npm run test:excel-display-alerts`；宿主 `WENGGE_EXCEL_DISPLAY_ALERTS_HOST=excel|wps|both`；真实 `DotNetExcelBridge.sheetOperation("delete")` 命中生产路径。
+> - **Excel（Codex 本地）**：`ok=true hostMode=excel`；(a) false 成功删除后仍 false，再恢复 true；(b) 结构保护删除失败 COM「不能取得类 Worksheet 的 Delete 属性」，alerts 仍 true，表 S1/S3；(c) 最后可见表删除失败（宿主消息），alerts 仍 true，表 S1；final true。
+> - **WPS（Codex 本地）**：`ok=true hostMode=wps`；owned PIDs `[44880,46304,60336,67372,67560]` 全部退出；(a) false→false 再 true；(b) 结构错误 `0x8FE30C29`，alerts true，表 S1/S3；(c) 最后可见 `E_ACCESSDENIED`，alerts true，表 S1；final true。
+> - 无 Excel/et/wps/wpp/`Wengge.OfficeWorker` 残留。门禁：typecheck、lint、governance 0/0、.NET 108/108、Vitest 211/1112、build entry 437.91 KiB asyncChunks 9。
+> - 探针：`office.smoke.excel.*`（`WENGGE_OFFICE_SMOKE=1`）；COM dynamic 边界 `object?`；`wpsAll` 仅 et/wps；dispose → runningProcesses → dispose（无 `process.kill`）。
 
-**整改**：读取旧值，并在 `finally` 中恢复。测试删除最后可见工作表、受保护工作表和用户原本关闭提示三种情况。
+- 历史缺口：`ExcelWorkbookService` 删除路径曾在异常时不恢复 `DisplayAlerts`，成功时强制恢复为 `true`。
+
+**整改（已完成）**：读取旧值并在 `finally` 中恢复；专用冒烟覆盖最后可见表、结构保护与用户原本关闭提示；Codex 双宿主实机通过。
 
 ### M-10 缺少真实 Office 动态数组冒烟和 UI E2E
 
@@ -593,7 +602,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 > - 实现入口：`smoke-excel-dynamic-array.ts`、`e2e-electron.ts`、`office-matrix-and-e2e.yml`。
 
 - 历史缺口（Excel 365 表达式 spill、WPS Formula2、多公式第二项失败回滚、保存重开 spill、桌面 UI E2E）已由上述矩阵与 E2E 关闭。
-- 不覆盖 M-05（高级意图）或 M-09（DisplayAlerts）等其它 Office 专项实机项。
+- 不覆盖 M-05（高级意图）等其它 Office 专项实机项；M-09 DisplayAlerts 由独立冒烟关闭。
 
 **整改（已完成）**：专用 self-hosted Runner 小型矩阵 + Playwright Electron E2E；缺宿主 fail 不 skip-green。
 
@@ -715,7 +724,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [ ] 安装包 Authenticode 为 `Valid`，更新 manifest、size、SHA-256 和发布资产全部端到端验签。
 - [ ] CI/Release 通过 npm audit、NuGet audit、lint、typecheck、Vitest、.NET tests、产品站 tests、build、SBOM 和签名验证。
 - [x] **M-10** Excel 365/WPS 动态数组矩阵与 Electron E2E（spill、多公式回滚、保存重开、Formula2 spill）已在专用 self-hosted Runner 跑绿（测试前无宿主进程）（见 M-10 章节 run/job）。
-- [ ] 其余真实 Office 冒烟（CSE、图表、透视表、Worker 协议不匹配及 **M-05/M-09** 专项）仍待执行。
+- [x] **M-09** DisplayAlerts 恢复矩阵已由 Codex 本地 Excel+WPS 实机通过（见 M-09 章节）。
+- [ ] 其余真实 Office 冒烟（CSE、图表、透视表、Worker 协议不匹配及 **M-05** 专项）仍待执行。
 - [ ] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载。
 - [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
@@ -724,4 +734,4 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销和模型可见 Office 参数边界等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1109 项测试全部通过，最近一次 .NET Worker 门禁为 100 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、**M-05/M-09 等非 M-10 的 Excel/WPS 专项实机回归**、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-10 动态数组矩阵与 Electron E2E 已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、**M-05 等非 M-09/M-10 的 Excel/WPS 专项实机回归**、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-09 DisplayAlerts 与 M-10 动态数组/E2E 已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。

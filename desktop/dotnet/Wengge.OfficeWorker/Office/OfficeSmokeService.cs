@@ -2,14 +2,71 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Wengge.OfficeWorker.Com;
+using Wengge.OfficeWorker.Excel;
 using Wengge.OfficeWorker.Protocol;
 using Wengge.OfficeWorker.Runtime;
 
 namespace Wengge.OfficeWorker.Office;
 
-internal sealed class OfficeSmokeService(OfficeDocumentService documents) : IDisposable
+internal sealed class OfficeSmokeService(OfficeDocumentService documents, ExcelSessionService excelSessions) : IDisposable
 {
     private readonly Dictionary<int, List<object>> ownedApplications = [];
+
+    public object GetExcelDisplayAlerts()
+    {
+        EnsureEnabled();
+        using var handle = excelSessions.GetActiveRequired();
+        dynamic app = handle.Application;
+        // Quarantine COM dynamic at the acquisition boundary before ToBoolean.
+        object? displayAlerts = app.DisplayAlerts;
+        return new { displayAlerts = ToBoolean(displayAlerts) };
+    }
+
+    public object SetExcelDisplayAlerts(JsonElement parameters)
+    {
+        EnsureEnabled();
+        var value = RequiredBoolean(parameters, "displayAlerts");
+        using var handle = excelSessions.GetActiveRequired();
+        dynamic app = handle.Application;
+        app.DisplayAlerts = value;
+        object? displayAlerts = app.DisplayAlerts;
+        return new { displayAlerts = ToBoolean(displayAlerts) };
+    }
+
+    public object SetExcelStructureProtected(JsonElement parameters)
+    {
+        EnsureEnabled();
+        var protect = RequiredBoolean(parameters, "protected");
+        var password = parameters.OptionalString("password") ?? "wengge-smoke-m09";
+        using var handle = excelSessions.GetActiveRequired();
+        dynamic app = handle.Application;
+        object? workbook = null;
+        try
+        {
+            workbook = app.ActiveWorkbook ?? throw new OfficeWorkerException("workbook_not_found", "当前没有活动工作簿");
+            dynamic workbookApi = workbook;
+            if (protect)
+            {
+                // Workbook.Protect(Password, Structure, Windows)
+                workbookApi.Protect(password, true, false);
+            }
+            else
+            {
+                workbookApi.Unprotect(password);
+            }
+
+            object? structureProtected = workbookApi.ProtectStructure;
+            return new
+            {
+                structureProtected = ToBoolean(structureProtected),
+                passwordUsed = !string.IsNullOrEmpty(password),
+            };
+        }
+        finally
+        {
+            ComInterop.Release(workbook);
+        }
+    }
 
     public object MarkWordBookmarkDirty(JsonElement parameters)
     {
@@ -77,6 +134,8 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents) : IDis
         {
             microsoft = MicrosoftProcessIds(),
             wpsVisible = ProcessIds(["wps", "et", "wpp"], visibleOnly: true),
+            // Spreadsheet hosts only (et/wps, including hidden); exclude presentation wpp.
+            wpsAll = ProcessIds(["wps", "et"], visibleOnly: false),
         };
     }
 
@@ -204,6 +263,24 @@ internal sealed class OfficeSmokeService(OfficeDocumentService documents) : IDis
         if (Environment.GetEnvironmentVariable("WENGGE_OFFICE_SMOKE") != "1")
             throw new OfficeWorkerException("smoke_disabled", "Office smoke RPC 仅在 WENGGE_OFFICE_SMOKE=1 时可用");
     }
+
+    private static bool RequiredBoolean(JsonElement parameters, string name)
+    {
+        if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty(name, out var value)
+            || value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new OfficeWorkerException("invalid_params", $"缺少参数: {name}");
+        }
+
+        return value.GetBoolean();
+    }
+
+    private static bool ToBoolean(object? value) => value switch
+    {
+        bool boolean => boolean,
+        sbyte or byte or short or ushort or int or uint or long or ulong => Convert.ToInt64(value) != 0,
+        _ => Convert.ToBoolean(value),
+    };
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
