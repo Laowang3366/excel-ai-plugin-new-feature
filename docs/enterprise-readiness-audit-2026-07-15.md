@@ -738,11 +738,11 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [x] legacy CSE 已由 Codex 在真实 Excel/WPS 分别通过：`N1:N3` 写入 `=B2:B4` 后 `currentArray`、值与公式回读正确；超长 FormulaArray 失败返回结构化错误且 `O1:O3` 完整恢复；测试后宿主、Worker 与临时目录无残留。
 - [x] **H-10** Worker 协议不匹配专项已由 Codex 实机通过：基线 `660c0597` v1 Worker + 绝对路径 `WENGGE_OFFICE_WORKER_PATH` + `npm run test:office-worker-protocol` exit 0（`ok:true` / `code:protocol_mismatch` / 应用=2 Worker=1，残留 0）；当前 v2 Worker 同命令按预期 exit 1。
 - [x] 产品站伪造 XFF 无法绕过限流，统计数据库失败不影响下载：Codex 2026-07-16 `product-site/npm test` 16/16；`spoofed forwarded-for prefixes cannot bypass admin login throttling`（本地可信代理 + 轮换客户端 XFF，前 8 次 401、第 9 次 429）；`analytics failures do not block installer downloads`（`recordDownload` 抛 database read-only 时 `/download/windows` 仍 200 且 body 为 installer-bytes）。生产 Nginx/告警/留存配置仍待外部验收。
-- [ ] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练。
+- [x] 数据目录迁移、SQLite 备份和 Office 事务恢复均完成故障演练：`settingsManager.migrateDataPath.test.ts` 在 `commitPreparedDataPathMigration` 成功后强制 `reloadKnowledgeRuntime` 对新根返回 `store:null`，断言 `success:false` 且错误保留、active/configured 路径回旧根；回滚后经 `previousSessionStore.createThread`+`flushRolloutWrites` 写入旧根 rollout 并可 `loadThread`；`updateStateRuntimeStore` 末次实例 `getDatabasePaths()` 的 state/logs/goals/memories 均位于旧根 `sessions/state-runtime`；旧根 Office backups/workflows/transactions 不分裂、已提交目标被清理；产品站 `analyticsBackup.test.mjs` 覆盖 SQLite 在线备份恢复与篡改拒绝；`transactionJournal.test.ts` 覆盖 Office 整组 undo/redo/冲突保护。H-06 安装包跨盘/断电/磁盘满与 M-12 生产 RPO/RTO/timer/告警仍待外部验收。
 - [ ] 隐私政策明确 OCR、模型、搜索和下载统计的数据流、目的地、留存和删除方式。
 
 ## 11. 最终结论
 
 代码整改已关闭原报告中的 Electron 导航/IPC、工具审批、明文设置凭据、路径越界、Excel 部分提交、动态数组写入、Open XML 样式破坏、产品站代理信任、数据外传、提示注入、数据目录事务迁移、热补丁回滚/吊销、模型可见 Office 参数边界与 .NET 供应链复现等主要缺口，并建立全 operation 严格 Schema 与源码治理棘轮；当前自动化门禁为 211 个 Vitest 文件、1114 项测试全部通过，最近一次 .NET Worker 门禁为 109 项测试通过。
 
-总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、备份恢复演练，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、H-10、legacy CSE 与真实 Excel 图表专项已关闭**）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
+总体结论仍保持 **No-Go / Request Changes**，原因已从“存在可直接利用的代码攻击链”转为“生产外部验收和治理门槛尚未完成”：真实凭据轮换与 ACL、受保护 Authenticode 证书/HSM、Environment approval、SBOM 与最终发布清单端到端验签、打包 Electron 导航/热补丁白屏回滚、生产 Nginx/告警、H-06 安装包跨盘/断电/磁盘满实测、M-12 生产 RPO/RTO/timer/告警接收端，以及 SECURITY/隐私/事件响应制度仍需落地（**M-05、M-09、M-10、H-10、legacy CSE 与真实 Excel 图表专项已关闭**；数据目录 post-commit 回滚、产品站 SQLite 备份与 Office 事务 undo/redo 的代码故障演练已落地）。完成这些外部证据或经正式风险接受前，不应发布企业生产版本。
