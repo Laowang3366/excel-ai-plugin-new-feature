@@ -223,7 +223,7 @@ export async function checkForUpdates(manual = true): Promise<DesktopUpdateState
     return emitState(availableState(remoteManifest));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    updateLogger.warn("检查更新失败", { manual, message });
+    updateLogger.warn("检查更新失败", { event: "desktop.update.check_failed", manual, message });
     return emitState({ phase: manual ? "error" : "idle", error: manual ? message : undefined });
   }
 }
@@ -339,7 +339,7 @@ export async function downloadUpdate(kind: UpdateKind): Promise<DesktopUpdateSta
     return kind === "hotPatch" ? await downloadHotPatch() : await downloadInstaller();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    updateLogger.error("下载更新失败", { kind, message });
+    updateLogger.error("下载更新失败", { event: "desktop.update.download_failed", kind, message });
     return emitState({ phase: "error", error: message, progress: undefined });
   }
 }

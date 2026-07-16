@@ -30,7 +30,10 @@ export async function buildServer(overrides = {}) {
       retentionDays: config.analyticsRetentionDays,
       ipRotationDays: config.analyticsIpRotationDays,
       onMaintenanceError(error) {
-        app.log.warn({ error }, "download analytics maintenance failed");
+        app.log.warn(
+          { event: "product_site.analytics.maintenance_failed", error },
+          "download analytics maintenance failed",
+        );
       },
     });
   const releases = createReleaseStore(config.releasesDir);
@@ -59,6 +62,18 @@ export async function buildServer(overrides = {}) {
   });
 
   app.addHook("onClose", async () => analytics.close());
+  app.addHook("onResponse", async (request, reply) => {
+    if (reply.statusCode < 500) return;
+    request.log.error(
+      {
+        event: "product_site.http.5xx",
+        statusCode: reply.statusCode,
+        method: request.method,
+        route: request.routeOptions?.url,
+      },
+      "request completed with server error",
+    );
+  });
   app.get("/healthz", async () => ({ status: "ok" }));
 
   app.get("/api/v1/releases/current", async (_request, reply) => {
@@ -92,7 +107,10 @@ export async function buildServer(overrides = {}) {
             referer: request.headers.referer,
           });
         } catch (error) {
-          request.log.warn({ error }, "download analytics write failed");
+          request.log.warn(
+            { event: "product_site.analytics.write_failed", error },
+            "download analytics write failed",
+          );
         }
       }
       reply.header(
@@ -133,6 +151,10 @@ export async function buildServer(overrides = {}) {
       const password =
         typeof request.body?.password === "string" ? request.body.password : "";
       if (!(await verifyPassword(password, config.adminPasswordHash))) {
+        request.log.warn(
+          { event: "product_site.admin.login_failed" },
+          "admin login failed",
+        );
         return reply.code(401).send({ error: "账号或密码错误" });
       }
       setAdminSession(reply);

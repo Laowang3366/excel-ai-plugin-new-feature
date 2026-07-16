@@ -172,3 +172,128 @@ test("analytics failures do not block installer downloads", async (context) => {
   assert.equal(response.statusCode, 200);
   assert.equal(response.body, "installer-bytes");
 });
+
+function createCapturingLogger() {
+  const records = [];
+  const write = (chunk) => {
+    records.push(JSON.parse(String(chunk)));
+  };
+  return {
+    records,
+    logger: {
+      level: "warn",
+      stream: { write },
+    },
+  };
+}
+
+test("admin password failure emits one stable event without secrets", async (context) => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), "wenge-site-login-event-"),
+  );
+  const secretPassword = "strong-test-password";
+  const wrongPassword = "wrong-password-must-not-appear";
+  const { records, logger } = createCapturingLogger();
+  const { app } = await buildServer({
+    logger,
+    dataDir: path.join(root, "data"),
+    databasePath: path.join(root, "data", "analytics.sqlite"),
+    releasesDir: path.join(root, "releases"),
+    adminPasswordHash: await hashPassword(secretPassword),
+    cookieSecret: "test-cookie-secret-with-at-least-32-characters",
+    analyticsSalt: "test-analytics-salt",
+    publicDir: path.resolve(import.meta.dirname, "../public"),
+  });
+  context.after(async () => {
+    await app.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/admin/login",
+    remoteAddress: "203.0.113.50",
+    headers: { "x-forwarded-for": "198.51.100.20" },
+    payload: { password: wrongPassword },
+  });
+  assert.equal(response.statusCode, 401);
+
+  const loginEvents = records.filter(
+    (entry) => entry.event === "product_site.admin.login_failed",
+  );
+  assert.equal(loginEvents.length, 1);
+  const serialized = JSON.stringify(records);
+  assert.equal(serialized.includes(wrongPassword), false);
+  assert.equal(serialized.includes(secretPassword), false);
+  assert.equal(serialized.includes("203.0.113.50"), false);
+  assert.equal(serialized.includes("198.51.100.20"), false);
+  assert.equal(serialized.includes("x-forwarded-for"), false);
+});
+
+test("final 5xx responses emit stable events while 401 and 404 do not", async (context) => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), "wenge-site-5xx-event-"),
+  );
+  const password = "strong-test-password";
+  const { records, logger } = createCapturingLogger();
+  const { app } = await buildServer({
+    logger,
+    dataDir: path.join(root, "data"),
+    databasePath: path.join(root, "data", "analytics.sqlite"),
+    releasesDir: path.join(root, "releases"),
+    adminPasswordHash: await hashPassword(password),
+    cookieSecret: "test-cookie-secret-with-at-least-32-characters",
+    analyticsSalt: "test-analytics-salt",
+    publicDir: path.resolve(import.meta.dirname, "../public"),
+    analytics: {
+      recordDownload() {},
+      getStats() {
+        throw new Error("stats unavailable");
+      },
+      close() {},
+    },
+  });
+  context.after(async () => {
+    await app.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  const unauthorized = await app.inject({
+    method: "GET",
+    url: "/api/admin/stats",
+  });
+  assert.equal(unauthorized.statusCode, 401);
+
+  const missing = await app.inject({
+    method: "GET",
+    url: "/api/v1/releases/current",
+  });
+  assert.equal(missing.statusCode, 404);
+
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/admin/login",
+    payload: { password },
+  });
+  assert.equal(login.statusCode, 200);
+  const cookie = login.cookies.find((item) => item.name === "wenge_admin");
+  assert.ok(cookie);
+
+  const serverError = await app.inject({
+    method: "GET",
+    url: "/api/admin/stats?days=30&token=secret-query",
+    cookies: { wenge_admin: cookie.value },
+  });
+  assert.equal(serverError.statusCode, 500);
+
+  const fiveXxEvents = records.filter(
+    (entry) => entry.event === "product_site.http.5xx",
+  );
+  assert.equal(fiveXxEvents.length, 1);
+  assert.equal(fiveXxEvents[0].statusCode, 500);
+  assert.equal(fiveXxEvents[0].method, "GET");
+  assert.equal(fiveXxEvents[0].route, "/api/admin/stats");
+  const serialized = JSON.stringify(fiveXxEvents);
+  assert.equal(serialized.includes("token=secret-query"), false);
+  assert.equal(serialized.includes("secret-query"), false);
+});

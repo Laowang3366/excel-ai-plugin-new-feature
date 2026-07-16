@@ -82,6 +82,7 @@ export function getActiveDataPath(): string {
       });
     } catch (error) {
       dataPathLogger.warn("旧安装目录数据自动迁移失败", {
+        event: "desktop.data_path.legacy_auto_migrate_failed",
         from: installDataPath,
         to: userWritableDataPath,
         error: error instanceof Error ? error.message : String(error),
@@ -111,6 +112,13 @@ function containsSymbolicLinkSync(directory: string): boolean {
     }
   }
   return false;
+}
+
+export function logUserDataPathMigrateFailure(error: unknown): void {
+  dataPathLogger.error("用户主动数据目录迁移失败", {
+    event: "desktop.data_path.user_migrate_failed",
+    message: error instanceof Error ? error.message : "迁移数据失败",
+  });
 }
 
 export function migrateLegacyDataDirectorySync(

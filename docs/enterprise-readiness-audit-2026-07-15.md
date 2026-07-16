@@ -38,7 +38,7 @@
 | M-09 | 已实现，待真实 Office | 删除工作表用 `finally` 恢复用户原 `DisplayAlerts` | 最后可见表、保护表与原关闭状态实机验证 |
 | M-10 | 已关闭 | `test:excel-dynamic-array` + `test:e2e-electron` + `office-matrix-and-e2e.yml`；E2E run 29456041445 / job 87489319942 success；Excel run 29457636677 / job 87494253080 success（spill/回滚/重开/Formula2）；WPS run 29458142234 / job 87495761434 success（formula2_spill_ok，SEQUENCE spill [[1],[2]]）；Runner `wengge-office-local-01` labels `wengge-office-excel-365`/`wengge-office-wps`，测试前宿主空、无残留 | 无 |
 | M-11 | 已关闭（代码整改范围） | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地；所有者决定按代码整改目标关闭本项 | 非代码后续（不阻塞本项关闭）：LICENSE/NOTICE、正式隐私主体/法律条款、真实第二审查人、GitHub ruleset 强制 |
-| M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除已登记活动根/旧根/应用导出副本并生成 bootstrap 删除证明 | 生产负责人确认 RPO/RTO 并完成恢复演练；异机/外部未登记副本清理与生产全链路告警 |
+| M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除已登记活动根/旧根/应用导出副本并生成 bootstrap 删除证明；更新/Worker/迁移/后台登录/5xx/analytics 等稳定失败 `event` 字段已落地 | 生产负责人确认 RPO/RTO 并完成恢复演练；启用 timer；配置生产告警接收端；异机/外部未登记副本清理 |
 | L-01 | 已关闭 | 生产模块超限已清零（`legacyOversized=0`）；全量受治理源码 Prettier 债务已清零（`legacyFormatting=0`）；`desktop/scripts/smoke-*.ts` 按规则排除行数扫描、仍受 Prettier 检查 | 无 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
 | L-03 | 已实现 | 设置、Office 自动化和任务面板按需加载；当前首屏入口 448.41 KB；CI/打包共用 480 KiB budget | 打包应用冷启动与低速磁盘体验回归 |
@@ -599,7 +599,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 ### M-12 备份、留存、恢复和运行告警未形成可验证闭环
 
-> 部分整改：产品站新增 SQLite 原生在线备份命令，归档转换为自包含 journal、生成 SHA-256/大小元数据并执行 `quick_check`；恢复命令再次执行完整性校验且拒绝覆盖现有目标。新增每日 systemd timer、14 份轮换、RPO≤25 小时/RTO≤4 小时运维基线和季度恢复演练步骤。桌面端新增启动及每 6 小时本地维护：日志 30 天/30 文件/100 MiB，Office 备份 30 天/500 份/2 GiB，事务 30 天/200 份/2 GiB，工作流 90 天/500 份/100 MiB；运行中记录和当前日志受保护，清理失败不阻止启动。备份元数据路径限定在受控目录，避免清理跟随伪造路径。自动化测试覆盖活动 WAL 库一致性快照、备份篡改/轮换/恢复、桌面 TTL/配额、活动记录保护、目录边界和分类故障隔离。
+> 部分整改：产品站新增 SQLite 原生在线备份命令，归档转换为自包含 journal、生成 SHA-256/大小元数据并执行 `quick_check`；恢复命令再次执行完整性校验且拒绝覆盖现有目标。新增每日 systemd timer、14 份轮换、RPO≤25 小时/RTO≤4 小时运维基线和季度恢复演练步骤。桌面端新增启动及每 6 小时本地维护：日志 30 天/30 文件/100 MiB，Office 备份 30 天/500 份/2 GiB，事务 30 天/200 份/2 GiB，工作流 90 天/500 份/100 MiB；运行中记录和当前日志受保护，清理失败不阻止启动。备份元数据路径限定在受控目录，避免清理跟随伪造路径。自动化测试覆盖活动 WAL 库一致性快照、备份篡改/轮换/恢复、桌面 TTL/配额、活动记录保护、目录边界和分类故障隔离。更新检查/下载、Office Worker 停止、旧目录自动迁移、用户主动迁移、后台登录失败、最终 5xx 与 analytics 维护/写入失败日志已带稳定 `event` 字段；无内置告警发送端。
 
 - 产品站使用 SQLite WAL，但没有仓库内可验证的备份、恢复和完整性演练流程。
 - Office 事务快照、备份、日志和自动化状态缺少统一清理策略。
@@ -607,7 +607,7 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 **整改**：定义 RPO/RTO；执行在线 SQLite 备份和定期恢复演练；对 Office 备份/事务设置 TTL、配额和可审计清理；建立更新失败率、后台登录异常、下载 5xx、Worker 崩溃和数据迁移失败告警。
 
-**验收状态**：产品站备份与桌面本地数据 TTL/配额代码已完成；本机已登记活动根/旧根/应用导出可导出、擦除并生成 bootstrap 删除证明。生产仍需确认 RPO/RTO、启用 timer、接入失败告警并提交一次真实恢复演练记录。异机/外部未登记副本清理与更新/登录/下载/Worker/迁移全链路告警仍未完成，因此 M-12 不关闭。
+**验收状态**：产品站备份与桌面本地数据 TTL/配额代码已完成；本机已登记活动根/旧根/应用导出可导出、擦除并生成 bootstrap 删除证明。代码侧稳定失败事件已落地（`desktop.update.check_failed` / `desktop.update.download_failed` / `desktop.office_worker.stopped` / `desktop.data_path.legacy_auto_migrate_failed` / `desktop.data_path.user_migrate_failed` / `product_site.admin.login_failed` / `product_site.http.5xx` / `product_site.analytics.maintenance_failed` / `product_site.analytics.write_failed`），仅写日志字段、无内置告警发送端。生产仍需确认 RPO/RTO、启用 timer、在生产平台配置事件接收端并提交一次真实恢复演练记录；异机/外部未登记副本清理仍未完成，因此 M-12 不关闭。
 
 ## 7. Low — 工程治理观察项
 

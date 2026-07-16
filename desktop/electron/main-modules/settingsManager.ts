@@ -17,6 +17,7 @@ import { reloadKnowledgeRuntime, resetKnowledgeRuntime } from "../agent/runtime/
 import { configureLogDirectory } from "../shared/logger";
 import {
   getActiveDataPath,
+  logUserDataPathMigrateFailure,
   normalizePathForCompare,
   setConfiguredDataPath,
   SETTINGS_STORE_NAME,
@@ -51,7 +52,6 @@ import {
 } from "./settingsUserDataActions";
 
 export { getActiveDataPath };
-
 /** 迁移/导出/擦除/轮换互斥 — 与 dataMaintenance 活动操作共用忙判定 */
 let migrationInProgress = false;
 
@@ -298,6 +298,7 @@ export async function migrateDataPath(targetDataPath: string): Promise<{
       oldRootError: oldRoot.oldRootError,
     };
   } catch (error) {
+    logUserDataPathMigrateFailure(error);
     if (switchedDataPath || committedTarget) {
       await closeStateRuntimeStore().catch(() => {});
       setConfiguredDataPath(currentDataPath);

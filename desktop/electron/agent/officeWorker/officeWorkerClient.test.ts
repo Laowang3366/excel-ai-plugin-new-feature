@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
+const loggerMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  warn: vi.fn(),
+  info: vi.fn(),
+  debug: vi.fn(),
+}));
+
+vi.mock("../../shared/logger", () => ({
+  createLogger: () => loggerMocks,
+}));
+
 import { OfficeWorkerClient, OfficeWorkerError, validateWorkerResult } from "./officeWorkerClient";
 
 describe("OfficeWorkerClient process generations", () => {
@@ -26,6 +37,30 @@ describe("OfficeWorkerClient process generations", () => {
     expect(client.pending.has("2")).toBe(true);
     expect(reject).not.toHaveBeenCalled();
     clearTimeout(timer);
+  });
+
+  it("logs a stable event when the current worker stops", () => {
+    loggerMocks.error.mockClear();
+    const client = new OfficeWorkerClient() as unknown as {
+      process: ChildProcessWithoutNullStreams | null;
+      stdoutBuffer: string;
+      pending: Map<string, { timer: NodeJS.Timeout; reject: (error: Error) => void }>;
+      onWorkerExit: (worker: ChildProcessWithoutNullStreams, error: Error) => void;
+    };
+    const worker = { killed: false } as ChildProcessWithoutNullStreams;
+    client.process = worker;
+    client.stdoutBuffer = "buffer";
+    client.pending = new Map();
+
+    client.onWorkerExit(worker, new Error("worker exited"));
+
+    expect(loggerMocks.error).toHaveBeenCalledWith(
+      "Office Worker stopped",
+      expect.objectContaining({
+        event: "desktop.office_worker.stopped",
+        message: "worker exited",
+      }),
+    );
   });
 });
 

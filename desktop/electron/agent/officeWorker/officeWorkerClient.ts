@@ -245,7 +245,10 @@ export class OfficeWorkerClient {
     this.process = null;
     this.stdoutBuffer = "";
     this.rejectAll(error);
-    log.error("Office Worker stopped", { message: error.message });
+    log.error("Office Worker stopped", {
+      event: "desktop.office_worker.stopped",
+      message: error.message,
+    });
   }
 
   private failWorker(worker: ChildProcessWithoutNullStreams, error: Error): void {

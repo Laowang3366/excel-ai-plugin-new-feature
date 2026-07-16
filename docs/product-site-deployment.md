@@ -90,6 +90,29 @@ curl -fsS http://127.0.0.1:18120/healthz
 
 每次演练需记录备份时间、恢复开始/结束时间、`quick_check` 结果、后台统计抽样结果和实际 RPO/RTO。`wenge-product-backup.service` 失败必须接入 systemd/日志告警；当前仓库只提供可监控的失败退出码，告警接收端仍需在生产平台配置。
 
+## 稳定失败事件（日志字段）
+
+仓库在既有结构化日志中写入稳定、机器可匹配的 `event` 字段，供生产日志平台过滤；**不**内置 Webhook/邮件/Prometheus 等告警发送端，接收端与路由规则仍由生产平台配置。
+
+产品站（`product-site`，典型来源为 Fastify/`journald`）：
+
+| `event` | 级别 | 含义 |
+| --- | --- | --- |
+| `product_site.admin.login_failed` | warn | 后台密码校验失败（不记录密码、cookie、Authorization、原始 IP、`x-forwarded-for` 或请求体） |
+| `product_site.http.5xx` | error | 最终响应 `statusCode >= 500`（含 `statusCode`、`method`、路由模板 `route`；不含原始 URL/query、headers、body、IP） |
+| `product_site.analytics.maintenance_failed` | warn | 下载统计维护/清理失败 |
+| `product_site.analytics.write_failed` | warn | 下载统计写入失败（不阻塞安装包下载） |
+
+桌面端（应用日志，典型文件 `logs/app-YYYY-MM-DD.log`）：
+
+| `event` | 级别 | 含义 |
+| --- | --- | --- |
+| `desktop.update.check_failed` | warn | 更新检查失败 |
+| `desktop.update.download_failed` | error | 更新下载失败 |
+| `desktop.office_worker.stopped` | error | Office Worker 进程停止 |
+| `desktop.data_path.legacy_auto_migrate_failed` | warn | 旧安装目录数据自动迁移失败 |
+| `desktop.data_path.user_migrate_failed` | error | 用户主动数据目录迁移失败 |
+
 ## 验收
 
 ```bash
