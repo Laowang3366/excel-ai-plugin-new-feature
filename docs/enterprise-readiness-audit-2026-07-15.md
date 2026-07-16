@@ -37,7 +37,7 @@
 | M-08 | 已实现 | 测试依赖升级后 NuGet 高危漏洞为 0；`global.json`、NuGet lockfile、CI audit/test 门禁 | CI 首次运行确认锁定还原 |
 | M-09 | 已实现，待真实 Office | 删除工作表用 `finally` 恢复用户原 `DisplayAlerts` | 最后可见表、保护表与原关闭状态实机验证 |
 | M-10 | 已关闭 | `test:excel-dynamic-array` + `test:e2e-electron` + `office-matrix-and-e2e.yml`；E2E run 29456041445 / job 87489319942 success；Excel run 29457636677 / job 87494253080 success（spill/回滚/重开/Formula2）；WPS run 29458142234 / job 87495761434 success（formula2_spill_ok，SEQUENCE spill [[1],[2]]）；Runner `wengge-office-local-01` labels `wengge-office-excel-365`/`wengge-office-wps`，测试前宿主空、无残留 | 无 |
-| M-11 | 部分完成 | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地 | 在 GitHub ruleset 强制审批；法律负责人确定许可、主体信息、法律依据、处理者/跨境/权利请求条款及身份级/外部未登记副本删除流程 |
+| M-11 | 已关闭（代码整改范围） | `SECURITY.md` 私密披露渠道与响应目标；`CONTRIBUTING.md` 双人审查和门禁；敏感路径 `CODEOWNERS`；基于运行代码的数据处理/远程流向/留存/导出与已登记副本擦除边界清单及防回归测试；应用层加密与已登记旧根/导出删除证明已落地；所有者决定按代码整改目标关闭本项 | 非代码后续（不阻塞本项关闭）：LICENSE/NOTICE、正式隐私主体/法律条款、真实第二审查人、GitHub ruleset 强制 |
 | M-12 | 部分完成 | 产品站 SQLite 在线备份、SHA-256 元数据、完整性校验、安全恢复、14 份轮换与 timer；桌面日志/Office 备份/事务/工作流按 TTL、条目和字节配额周期清理并保护活动记录；用户可导出或擦除已登记活动根/旧根/应用导出副本并生成 bootstrap 删除证明 | 生产负责人确认 RPO/RTO 并完成恢复演练；异机/外部未登记副本清理与生产全链路告警 |
 | L-01 | 已关闭 | 生产模块超限已清零（`legacyOversized=0`）；全量受治理源码 Prettier 债务已清零（`legacyFormatting=0`）；`desktop/scripts/smoke-*.ts` 按规则排除行数扫描、仍受 Prettier 检查 | 无 |
 | L-02 | 已实现 | Node/.NET 版本事实源、当前/历史文档分层、实际 CI 门禁与防漂移测试 | 后续文档变更持续通过防回归测试 |
@@ -591,9 +591,11 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 
 **审计当时（历史缺口）**：仓库尚未建立 SECURITY.md、CODEOWNERS、CONTRIBUTING.md、LICENSE/NOTICE 和正式隐私政策；当前工程治理文件与事实型数据清单已补齐，剩余缺口见下方验收状态。
 
+**所有者决定（代码整改范围）**：工程侧漏洞披露（`SECURITY.md`）、仓库所有权（`CODEOWNERS`）、贡献与双人审查规则（`CONTRIBUTING.md`）、数据处理事实清单（`docs/data-handling-and-privacy.md`）、应用层加密/受管副本擦除与治理测试已落地；按当前“聚焦代码上存在问题”的整改目标，**关闭 M-11 的代码整改范围**。LICENSE/NOTICE、正式隐私主体与法律条款、真实第二审查人、GitHub ruleset 强制审批仍属所有者/法律/平台后续事项，**不得视为已完成**，也不得由代码虚构。
+
 **整改**：建立漏洞披露 SLA、敏感目录所有者、合并审批规则、依赖许可清单、OCR/模型/搜索/统计数据流说明和用户删除机制。
 
-**验收状态**：工程治理文件和事实型数据清单已落地，当前活动数据根已具备导出和受保护擦除，但文档规则尚未由 GitHub branch protection/ruleset 强制。仓库仍没有由法律责任人确认的 LICENSE/NOTICE 和正式隐私政策；主体、联系方式、处理依据、第三方处理者、跨境机制、数据主体请求、身份级跨副本删除与未成年人条款不能由代码审查者代为推定，因此 M-11 不关闭。
+**验收状态**：M-11 按当前代码整改目标**已关闭**。工程治理文件、事实型数据清单、应用层加密与已登记活动根/旧根/导出副本的受保护擦除及删除证明已落地。仍诚实保留且不声称完成：由法律责任人确认的 LICENSE/NOTICE 与正式隐私政策（主体、联系方式、处理依据、第三方处理者、跨境、DSR、未成年人等）、真实第二审查人配置，以及 GitHub branch protection/ruleset 的平台级强制。
 
 ### M-12 备份、留存、恢复和运行告警未形成可验证闭环
 
