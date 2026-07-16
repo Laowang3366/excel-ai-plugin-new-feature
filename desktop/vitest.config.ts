@@ -20,6 +20,7 @@ export default defineConfig({
     },
     // 全局 setup
     globals: true,
+    maxWorkers: process.env.CI ? 2 : undefined,
     // 超时
     testTimeout: 10_000,
   },
