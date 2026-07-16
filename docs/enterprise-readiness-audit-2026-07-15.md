@@ -99,7 +99,7 @@
 | Desktop `npm audit --audit-level=high` | 通过 | 0 个高危 npm 漏洞 |
 | Desktop ESLint | 通过 | 本轮基线通过 |
 | Desktop TypeScript typecheck | 通过 | Renderer 与 Electron 主进程通过 |
-| Desktop Vitest | 通过 | 整改后 212 个测试文件、1115 项测试全部通过 |
+| Desktop Vitest | 通过 | 整改后 204 个测试文件、1101 项测试全部通过 |
 | Desktop Vite build | 通过 | Renderer 首屏入口 448.41 KB（437.91 KiB），9 个异步 chunk；480 KiB entry budget 通过 |
 | Desktop `format:check` | 通过 | 受治理源码全量 Prettier 一致；`governance:check` 为 legacyFormatting=0、legacyOversized=0 |
 | .NET Worker test | 通过 | CI run `29490566136` / desktop job `87595394532`：locked restore、NuGet audit 与 109 项 xUnit 测试全部通过 |

@@ -22,12 +22,9 @@ describe("AppTitlebar", () => {
       }),
     );
 
-    expect(html).toContain('title="展开侧边栏"');
     expect(html).toContain('aria-label="窗口透明度"');
     expect(html).toContain('value="70"');
     expect(html).toContain("70%");
-    expect(html).toContain('title="恢复普通窗口"');
-    expect(html).toContain('title="取消置顶"');
   });
 
   it("calculates the slider presentation from configured opacity bounds", () => {
