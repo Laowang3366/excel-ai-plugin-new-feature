@@ -728,8 +728,8 @@ NuGet 扫描在 `Wengge.OfficeWorker.Tests` 发现：
 - [ ] 3 个 Critical 全部关闭，并有负向安全测试。
 - [ ] 13 个 High 全部关闭；如确需接受，必须由安全负责人和业务负责人共同签字、写明补偿控制和到期日。
 - [ ] 所有可能使用过的凭据完成轮换，旧凭据失效，签名私钥离开开发工作区。
-- [ ] Electron 主窗口不能导航到远端；所有敏感 IPC 有 sender/origin 验证。
-- [ ] 宏、删除、未知工具、外传工具在策略要求下必定审批，审批缺失时默认拒绝。
+- [x] **C-01** Electron 主窗口不能导航到远端；所有敏感 IPC 有 sender/origin 验证：`trustedIpc`/`windowNavigationPolicy`/Markdown 外链单元测试 + Electron E2E `navigation-external`（真实 Markdown 点击走 `openExternal`、主窗口 URL 不变、`location=`/`window.open` 拒绝）；Codex 2026-07-16 复跑 trustedIpc/windowManager/MarkdownContent 相关测试通过。
+- [x] **C-02** 宏、删除、未知工具、外传工具在策略要求下必定审批，审批缺失时默认拒绝：危险/未知/删除/外传强制审批，线程+工具+operation+目标+TTL 授权，全工具元数据表驱动测试；Codex 2026-07-16 复跑 `toolApproval.test.ts`/`toolExecutor.test.ts` 通过。
 - [ ] 安装包 Authenticode 为 `Valid`，更新 manifest、size、SHA-256 和发布资产全部端到端验签。
 - [ ] CI/Release 通过 npm audit、NuGet audit、lint、typecheck、Vitest、.NET tests、产品站 tests、build、SBOM 和签名验证。
 - [x] **M-10** Excel 365/WPS 动态数组矩阵与 Electron E2E（spill、多公式回滚、保存重开、Formula2 spill）已在专用 self-hosted Runner 跑绿（测试前无宿主进程）（见 M-10 章节 run/job）。
