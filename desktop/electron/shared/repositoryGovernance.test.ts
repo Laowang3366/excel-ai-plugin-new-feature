@@ -50,7 +50,7 @@ describe("repository governance baseline", () => {
     const dataHandling = readRepositoryFile("docs/data-handling-and-privacy.md");
 
     expect(dataHandling).toContain("不是经法律审核的最终隐私政策");
-    expect(dataHandling).toContain("远程数据处理\”默认关闭");
+    expect(dataHandling).toContain("高置信凭据会在 OCR、搜索、Embedding 和发票抽取");
     expect(dataHandling).toContain("删除任一文件失败时不继续删除数据库投影");
     expect(dataHandling).toContain("本地数据隐私导出");
     expect(dataHandling).toContain("API Key、OCR Token 和自定义请求头秘密被省略或掩码");

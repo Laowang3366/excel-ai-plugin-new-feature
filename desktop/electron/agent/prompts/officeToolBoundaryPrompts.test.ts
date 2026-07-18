@@ -22,9 +22,9 @@ describe("Office tool semantic boundaries", () => {
     });
     expect(officeToolsPrompt).toContain("createPowerQuery/managePowerQuery");
     expect(officeToolsPrompt).toContain("多来源可刷新 ETL");
-    expect(officeToolsPrompt).toContain("filePath");
-    expect(officeToolsPrompt).toContain('advancedIntent:"refreshable-etl"');
-    expect(officeToolsPrompt).toContain('sourceKind:"external"|"multi-source"');
+    expect(officeToolsPrompt).toContain("准确参数格式以本轮工具定义为准");
+    expect(officeToolsPrompt).not.toContain('advancedIntent:"refreshable-etl"');
+    expect(officeToolsPrompt).not.toContain('sourceKind:"external"|"multi-source"');
   });
 
   it("reserves pivot tables and slicers for interactive object behavior", () => {
@@ -34,19 +34,16 @@ describe("Office tool semantic boundaries", () => {
     expect(officeToolsPrompt).toContain("createPivotTable/refreshPivotTables");
     expect(officeToolsPrompt).toContain("明确要求交互式透视");
     expect(officeToolsPrompt).toContain("addSlicer");
-    expect(officeToolsPrompt).toContain("创建时明确源区域和字段");
-    expect(officeToolsPrompt).toContain('advancedIntent:"interactive-pivot"');
+    expect(officeToolsPrompt).toContain("准确参数格式以本轮工具定义为准");
+    expect(officeToolsPrompt).not.toContain('advancedIntent:"interactive-pivot"');
   });
 
   it("requires chart and pivot readback instead of trusting summaries", () => {
     const officeToolsPrompt = buildContextualPromptSections({
       content: "在 Excel 创建交互式数据透视表和图表",
     });
-    expect(officeToolsPrompt).toContain("data.verification.ok");
-    expect(officeToolsPrompt).toContain("inspectCharts");
-    expect(officeToolsPrompt).toContain("data.readback.verification.ok");
-    expect(officeToolsPrompt).toContain("inspectWorkbookObjects");
-    expect(officeToolsPrompt).toContain("失败不得声称成功");
+    expect(officeToolsPrompt).toContain("回读关键结果");
+    expect(officeToolsPrompt).toContain("失败或未验证不得声称成功");
   });
 
   it("keeps file-level actions behind an explicit file path", () => {
@@ -55,6 +52,19 @@ describe("Office tool semantic boundaries", () => {
     });
     expect(officeToolsPrompt).toMatch(/文件级修改.*`filePath`/);
     expect(officeToolsPrompt).toContain("明确磁盘 `filePath` 才用 `office.action.*`");
+  });
+
+  it("creates standalone Office files without requiring a connected desktop app", () => {
+    const officeToolsPrompt = buildContextualPromptSections({
+      content: "在桌面创建新的 Excel、Word 和约 15 页的防溺水 PPT",
+    });
+
+    expect(officeToolsPrompt).toContain("createWorkbook");
+    expect(officeToolsPrompt).toContain("createDocument");
+    expect(officeToolsPrompt).toContain("createPresentation");
+    expect(officeToolsPrompt).toContain("addSlides");
+    expect(officeToolsPrompt).toContain("独立新建不查连接");
+    expect(officeToolsPrompt).toContain("禁止先编辑不存在文件");
   });
 
   it("keeps general cleaning on typed Office tools without external scripts", () => {

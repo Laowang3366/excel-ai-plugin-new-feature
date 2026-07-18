@@ -13,16 +13,30 @@ internal sealed class ExcelSessionService(OfficeApplicationProvider applications
     public object DetectStatus()
     {
         var availableHosts = DetectProcesses();
-        if (availableHosts.Count == 0)
+        var activeProgIds = applications.DetectActiveProgIds([ExcelProgId, WpsProgId]);
+        var activeHosts = activeProgIds.Select(HostForProgId).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (availableHosts.Count == 0 && activeHosts.Count == 0)
         {
             selectedHost = null;
             return new { connected = false, host = "unknown", availableHosts };
         }
 
-        var active = TryGetActive(availableHosts);
+        if (selectedHost is null && activeHosts.Count == 1)
+        {
+            selectedHost = activeHosts[0];
+        }
+
+        var active = selectedHost is null ? null : applications.TryGetActive(ProgIdsForHost(selectedHost));
         if (active is null)
         {
-            return new { connected = false, host = availableHosts.Count == 1 ? availableHosts[0] : "unknown", availableHosts };
+            var visibleHosts = activeHosts.Count > 0 ? activeHosts : availableHosts;
+            return new
+            {
+                connected = false,
+                host = visibleHosts.Count == 1 ? visibleHosts[0] : "unknown",
+                availableHosts = visibleHosts,
+                hostSelectionRequired = visibleHosts.Count > 1,
+            };
         }
 
         using (active)
@@ -35,8 +49,10 @@ internal sealed class ExcelSessionService(OfficeApplicationProvider applications
                 connected = true,
                 host,
                 version = SafeString(() => app.Version),
+                build = SafeString(() => app.Build),
                 workbookName = SafeString(() => app.ActiveWorkbook?.Name),
                 availableHosts,
+                hostSelectionRequired = false,
             };
         }
     }
@@ -69,34 +85,50 @@ internal sealed class ExcelSessionService(OfficeApplicationProvider applications
 
     public OfficeApplicationHandle GetActiveRequired()
     {
-        var progIds = selectedHost is null
-            ? new[] { ExcelProgId, WpsProgId }
-            : ProgIdsForHost(selectedHost);
+        var progIds = ResolveProgIdsForActiveOperation();
         return applications.GetActiveRequired(progIds, "未连接到 Excel/WPS，请先打开应用并建立连接");
     }
 
     public OfficeApplicationHandle GetOrCreate()
     {
-        var progIds = selectedHost is null
-            ? new[] { ExcelProgId, WpsProgId }
-            : ProgIdsForHost(selectedHost);
+        var progIds = ResolveProgIdsForActiveOperation(allowNoActive: true);
         return applications.GetOrCreate(progIds, "无法启动 Excel/WPS");
     }
 
-    private OfficeApplicationHandle? TryGetActive(IReadOnlyCollection<string> availableHosts)
+    private string[] ResolveProgIdsForActiveOperation(bool allowNoActive = false)
     {
-        if (selectedHost is not null && availableHosts.Contains(selectedHost))
+        var activeProgIds = applications.DetectActiveProgIds([ExcelProgId, WpsProgId]);
+        return ResolveProgIdsForActiveOperation(selectedHost, activeProgIds, allowNoActive);
+    }
+
+    internal static string[] ResolveProgIdsForActiveOperation(
+        string? selectedHost,
+        IReadOnlyCollection<string> activeProgIds,
+        bool allowNoActive = false)
+    {
+        if (selectedHost is not null)
         {
-            var selected = applications.TryGetActive(ProgIdsForHost(selectedHost));
-            if (selected is not null)
-            {
-                return selected;
-            }
+            return ProgIdsForHost(selectedHost);
         }
 
-        return availableHosts.Count == 1
-            ? applications.TryGetActive(ProgIdsForHost(availableHosts.First()))
-            : null;
+        if (activeProgIds.Count > 1)
+        {
+            throw new OfficeWorkerException(
+                "office_host_ambiguous",
+                "同时检测到 Microsoft Excel 和 WPS 表格，请先选择目标宿主（excel.selectHost）。");
+        }
+
+        if (activeProgIds.Count == 1)
+        {
+            return [activeProgIds.First()];
+        }
+
+        if (allowNoActive)
+        {
+            return [ExcelProgId, WpsProgId];
+        }
+
+        return [ExcelProgId, WpsProgId];
     }
 
     private static List<string> DetectProcesses()

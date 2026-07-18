@@ -8,7 +8,6 @@ export const DEFAULT_SETTINGS = {
   closeToTray: false,
   officeAutoCompactEnabled: false,
   dynamicArrayFunctionsEnabled: true,
-  remoteDataProcessingEnabled: false,
   windowOpacity: 1,
   dataStoragePath: "",
   mineruApiToken: "",

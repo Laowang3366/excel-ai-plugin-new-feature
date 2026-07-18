@@ -3,7 +3,6 @@ import { parseFilesLocally } from "../agent/tools/executors/localDocumentParser"
 import { validateInput, OcrRecognizeInput } from "../shared/ipcSchemas";
 import {
   assertRemoteDataProcessingAllowed,
-  isRemoteDataProcessingEnabled,
   type RemoteDataTransferSummary,
 } from "../shared/egressPolicy";
 import { assertAuthorizedPath, createPathAuthorizer } from "./ipcPathSecurity";
@@ -65,10 +64,7 @@ export async function recognizeWithOcrFallbacks(
   const effectiveMode =
     mode === "invoice" || isLikelyInvoiceFileList(filePaths) ? "invoice" : "image";
 
-  const remoteEnabled = isRemoteDataProcessingEnabled(
-    getRuntimeSettingValue("remoteDataProcessingEnabled"),
-  );
-  const parsed = await parseFilesWithOcrFallbacks(filePaths, remoteEnabled);
+  const parsed = await parseFilesWithOcrFallbacks(filePaths);
   if (!hasAnyUsefulParsedDocument(parsed.documents)) {
     return emptyOcrResult(effectiveMode, [
       "未提取到可用 OCR 文本或表格，无法抽取字段",
@@ -77,7 +73,7 @@ export async function recognizeWithOcrFallbacks(
     ]);
   }
 
-  const result = await buildOcrResultFromDocuments(parsed.documents, effectiveMode, remoteEnabled);
+  const result = await buildOcrResultFromDocuments(parsed.documents, effectiveMode);
 
   return {
     ...result,
@@ -86,10 +82,7 @@ export async function recognizeWithOcrFallbacks(
   };
 }
 
-async function parseFilesWithOcrFallbacks(
-  filePaths: string[],
-  remoteEnabled: boolean,
-): Promise<{
+async function parseFilesWithOcrFallbacks(filePaths: string[]): Promise<{
   documents: MineruParsedDocument[];
   errors: string[];
   remoteProcessing: RemoteDataTransferSummary[];
@@ -105,14 +98,9 @@ async function parseFilesWithOcrFallbacks(
     localDocuments,
   );
 
-  if (unresolved.length > 0 && !remoteEnabled) {
-    errors.push("远程数据处理已关闭，本次 OCR 仅使用本地解析");
-  }
-
-  if (unresolved.length > 0 && remoteEnabled) {
+  if (unresolved.length > 0) {
     try {
       assertRemoteDataProcessingAllowed({
-        enabled: true,
         operation: "ocr",
         texts: unresolved.map((index) => localDocuments[index]?.text || ""),
       });
@@ -122,7 +110,7 @@ async function parseFilesWithOcrFallbacks(
     }
   }
 
-  if (unresolved.length > 0 && remoteEnabled && mineruToken) {
+  if (unresolved.length > 0 && mineruToken) {
     const pendingCount = unresolved.length;
     try {
       const pendingIndices = unresolved;
@@ -147,7 +135,7 @@ async function parseFilesWithOcrFallbacks(
     }
   }
 
-  if (unresolved.length > 0 && remoteEnabled) {
+  if (unresolved.length > 0) {
     const pendingIndices = unresolved;
     const pendingCount = unresolved.length;
     try {

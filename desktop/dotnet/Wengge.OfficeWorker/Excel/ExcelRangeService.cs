@@ -1,11 +1,12 @@
 using System.Text.Json;
 using Wengge.OfficeWorker.Com;
+using Wengge.OfficeWorker.Protocol;
 
 namespace Wengge.OfficeWorker.Excel;
 
 internal sealed class ExcelRangeService(ExcelSessionService sessions)
 {
-    private sealed record RangeSnapshot(bool UsesFormula2, object? Content);
+    private sealed record RangeSnapshot(object? Content);
 
     public object Read(string sheetName, string address, string expand)
     {
@@ -90,6 +91,47 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
                 };
             }
 
+            // WPS 的旧版当前窗口链路通过单元格默认 Value 入口写入，
+            // 由 WPS 自己解析以 '=' 开头的文本。不要把 WPS 的 range.write
+            // 重新送进 Formula/Formula2，否则动态数组会走另一套语义。
+            if (string.Equals(handle.ProgId, "Ket.Application", StringComparison.OrdinalIgnoreCase))
+            {
+                targetRange = startApi.Resize[matrix.GetLength(0), matrix.GetLength(1)];
+                dynamic wpsTargetApi = targetRange;
+                var wpsPlan = ExcelRangeWritePlan.Create(matrix, legacyCse);
+                ExcelRangeWriteTransaction.Execute(
+                    () => CaptureSnapshot(wpsTargetApi),
+                    () =>
+                    {
+                        for (var row = 0; row < matrix.GetLength(0); row++)
+                        {
+                            for (var column = 0; column < matrix.GetLength(1); column++)
+                            {
+                                object? cell = null;
+                                try
+                                {
+                                    cell = wpsTargetApi.Cells.Item(row + 1, column + 1);
+                                    dynamic cellApi = cell;
+                                    cellApi.Value = matrix[row, column];
+                                }
+                                finally
+                                {
+                                    ComInterop.Release(cell);
+                                }
+                            }
+                        }
+                    },
+                    snapshot => RestoreSnapshot(wpsTargetApi, snapshot));
+
+                return new
+                {
+                    written = matrix.Length,
+                    dynamicCells = wpsPlan.DynamicCells,
+                    arrayCells = wpsPlan.ArrayCells,
+                    plainCells = wpsPlan.PlainCells,
+                };
+            }
+
             targetRange = startApi.Resize[matrix.GetLength(0), matrix.GetLength(1)];
             dynamic targetApi = targetRange;
 
@@ -123,6 +165,22 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
                 plainCells = plan.PlainCells,
             };
         }
+        catch (OfficeWorkerException exception) when (exception.Code is "formula_rejected" or "legacy_array_unsupported")
+        {
+            var host = handle.ProgId == "Ket.Application" ? "WPS 表格" : "Microsoft Excel";
+            var version = "unknown";
+            var build = "unknown";
+            try { version = Convert.ToString(app.Version) ?? "unknown"; } catch { }
+            try { build = Convert.ToString(app.Build) ?? "unknown"; } catch { }
+            var diagnosis = exception.Code == "formula_rejected"
+                ? "当前宿主拒绝了 Formula 写入；请检查函数版本、区域语法和公式本地化"
+                : "当前宿主不支持传统 FormulaArray 写入";
+            throw new OfficeWorkerException(
+                exception.Code,
+                $"{exception.Message}。诊断：{diagnosis}。当前绑定宿主：{host}（{handle.ProgId}，版本 {version}，构建 {build}）。如果目标是另一个程序，请先在连接状态中选择对应宿主。",
+                exception.Details,
+                exception);
+        }
         finally
         {
             ComInterop.Release(targetRange);
@@ -136,18 +194,17 @@ internal sealed class ExcelRangeService(ExcelSessionService sessions)
     {
         try
         {
-            return new RangeSnapshot(true, target.Formula2);
+            return new RangeSnapshot(target.Formula);
         }
         catch
         {
-            return new RangeSnapshot(false, target.Formula);
+            return new RangeSnapshot(target.Formula);
         }
     }
 
     private static void RestoreSnapshot(dynamic target, RangeSnapshot snapshot)
     {
-        if (snapshot.UsesFormula2) target.Formula2 = snapshot.Content;
-        else target.Formula = snapshot.Content;
+        target.Formula = snapshot.Content;
     }
 
     public object Clear(string sheetName, string address)

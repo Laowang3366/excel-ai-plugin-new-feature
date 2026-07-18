@@ -21,7 +21,7 @@ import {
 const OFFICE_CONNECTION_STATUS_DEF: ToolDefinition = {
   name: "office.connection.status",
   description:
-    "检测指定 Office 环境是否已连接。每次执行 Excel/Word/PowerPoint 创建、编辑、读取或当前窗口操作前，先调用本工具判断 connected，再按连接状态选择 office.action.*、range.* 或专用 Office 工具。",
+    "检测指定 Office 当前窗口环境是否已连接。操作当前窗口、选区或需要 COM 的能力前调用；创建独立磁盘 Excel/Word/PPT 文件可直接使用 office.action.apply 的 Open XML 创建操作，不依赖连接。",
   parameters: {
     type: "object",
     properties: {
@@ -171,7 +171,7 @@ const OFFICE_ACTION_INSPECT_DEF: ToolDefinition = {
 const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
   name: "office.action.apply",
   description:
-    "统一 Office 文件级高级操作入口，必须提供 filePath。支持 Excel 治理、Word/PPT 高级编辑、Excel 链接报告及原位刷新。复杂多文件任务应交给 office.workflow.run，以获得暂停续跑和整体撤销；当前活动窗口或未保存内容仍使用 range.*、word.*、presentation.*。",
+    "统一 Office 文件级操作入口，必须提供 filePath。可用 createWorkbook/createDocument/createPresentation 创建不依赖桌面应用连接的新文件，也支持后续编辑、治理、链接报告及原位刷新。复杂多文件任务应交给 office.workflow.run，以获得暂停续跑和整体撤销；当前活动窗口或未保存内容仍使用 range.*、word.*、presentation.*。",
   parameters: withOfficeOperationDiscriminator(
     {
       type: "object",
@@ -189,7 +189,7 @@ const OFFICE_ACTION_APPLY_DEF: ToolDefinition = {
         operation: {
           type: "string",
           description:
-            "操作。Word: formatLongDocument/manageReferences/manageRevisions/compareDocuments/applyTrackedChanges/mailMerge/batchMailMerge/populateContentControls/manageContentControls/refreshLinkedOfficeContent/relinkLinkedOfficeContent；PowerPoint: insertTable/applyMasterBranding/layoutElements/configureAnimations/configureSlideShow/setSpeakerNotes/exportHandouts/refreshLinkedOfficeContent/relinkLinkedOfficeContent；Excel 跨应用: exportRangeToWord/exportRangeToPresentation/buildReportPackage（updateExisting 按 linkId 增量维护）；通用: snapshot。",
+            "操作。Excel 新建: createWorkbook；Word 新建: createDocument；PowerPoint 新建与批量页: createPresentation/addSlides；Word 高级: formatLongDocument/manageReferences/manageRevisions/compareDocuments/applyTrackedChanges/mailMerge/batchMailMerge/populateContentControls/manageContentControls/refreshLinkedOfficeContent/relinkLinkedOfficeContent；PowerPoint 高级: insertTable/applyMasterBranding/layoutElements/configureAnimations/configureSlideShow/setSpeakerNotes/exportHandouts/refreshLinkedOfficeContent/relinkLinkedOfficeContent；Excel 跨应用: exportRangeToWord/exportRangeToPresentation/buildReportPackage；通用: snapshot。",
         },
         filePath: { type: "string", description: "Office 文件绝对路径；文件级 apply 必填" },
         outputPath: {

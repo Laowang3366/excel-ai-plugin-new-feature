@@ -14,6 +14,8 @@ export interface OfficeAppStatus {
   version?: string;
   documentName?: string;
   presentationName?: string;
+  processId?: number;
+  instanceId?: string;
 }
 
 const INITIAL_STATUS: OfficeAppStatus = { connected: false, host: "unknown" };
@@ -30,7 +32,7 @@ export function useOfficeConnection() {
       const status = await ipcApi.office.detectWordStatus();
       const s = status as OfficeAppStatus;
       // 只在状态有变化时 setState，避免无效渲染
-      if (s.connected !== wordRef.current.connected || s.host !== wordRef.current.host) {
+      if (!sameStatus(s, wordRef.current)) {
         wordRef.current = s;
         setWordStatus(s);
       }
@@ -46,7 +48,7 @@ export function useOfficeConnection() {
     try {
       const status = await ipcApi.office.detectPresentationStatus();
       const s = status as OfficeAppStatus;
-      if (s.connected !== pptRef.current.connected || s.host !== pptRef.current.host) {
+      if (!sameStatus(s, pptRef.current)) {
         pptRef.current = s;
         setPresentationStatus(s);
       }
@@ -73,4 +75,16 @@ export function useOfficeConnection() {
     presentationStatus,
     detectAll,
   };
+}
+
+function sameStatus(left: OfficeAppStatus, right: OfficeAppStatus): boolean {
+  return (
+    left.connected === right.connected &&
+    left.host === right.host &&
+    left.version === right.version &&
+    left.documentName === right.documentName &&
+    left.presentationName === right.presentationName &&
+    left.processId === right.processId &&
+    left.instanceId === right.instanceId
+  );
 }

@@ -93,6 +93,8 @@ export function shouldRequireApproval(
   permissionMode: ToolApprovalConfig["permissionMode"] = "normal",
   scope?: ToolApprovalScope,
 ): boolean {
+  if (permissionMode === "confirm_all") return false;
+
   const args = scope?.arguments ?? {};
   const toolDef = TOOL_DEFINITIONS_MAP.get(toolName);
   if (!toolDef || isMandatoryApproval(toolName, args)) return true;
@@ -103,8 +105,6 @@ export function shouldRequireApproval(
       return true;
     case "auto_approve_safe":
       return toolDef.riskLevel !== "safe" || toolDef.requiresApproval;
-    case "confirm_all":
-      return false;
     default:
       return true;
   }

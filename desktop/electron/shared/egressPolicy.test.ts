@@ -7,24 +7,9 @@ import {
 } from "./egressPolicy";
 
 describe("egressPolicy", () => {
-  it("fails closed when remote processing is disabled", () => {
-    expect(() =>
-      assertRemoteDataProcessingAllowed({
-        enabled: false,
-        operation: "web-search",
-        texts: ["public query"],
-      }),
-    ).toThrowError(
-      expect.objectContaining({
-        code: "remote_data_processing_disabled",
-      }),
-    );
-  });
-
   it("blocks high-confidence credentials before remote processing", () => {
     expect(() =>
       assertRemoteDataProcessingAllowed({
-        enabled: true,
         operation: "embedding",
         texts: ["token sk-1234567890abcdefghijklmnop"],
       }),
@@ -46,7 +31,10 @@ describe("egressPolicy", () => {
 
   it("uses a typed policy error", () => {
     try {
-      assertRemoteDataProcessingAllowed({ enabled: false, operation: "ocr" });
+      assertRemoteDataProcessingAllowed({
+        operation: "ocr",
+        texts: ["sk-1234567890abcdefghijklmnop"],
+      });
     } catch (error) {
       expect(error).toBeInstanceOf(RemoteDataPolicyError);
     }

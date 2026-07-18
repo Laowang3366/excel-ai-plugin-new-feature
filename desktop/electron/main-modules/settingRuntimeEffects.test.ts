@@ -11,9 +11,7 @@ function createRuntimeDeps(): SettingRuntimeEffectsDeps {
     mainWindow: null,
     getActiveAIConfig: vi.fn(() => ({ contextWindowSize: 64_000 }) as any),
     getActiveDataPath: vi.fn(() => "C:\\app-data"),
-    getRuntimeSettingValue: vi.fn((key: string) =>
-      key === "remoteDataProcessingEnabled" ? true : undefined,
-    ),
+    getRuntimeSettingValue: vi.fn(() => undefined),
     refreshKnowledgeRuntime: vi.fn(async () => ({ ready: true })),
     applyWindowTheme: vi.fn(),
     applyWindowOpacity: vi.fn(),
@@ -40,8 +38,10 @@ describe("applySettingRuntimeEffects", () => {
     expect(agent.updateAIConfig).toHaveBeenCalledWith({ contextWindowSize: 64_000 });
     expect(agent.updateCompactionConfig).toHaveBeenCalledTimes(1);
     expect(deps.refreshKnowledgeRuntime).toHaveBeenCalledTimes(1);
-    const remotePolicy = vi.mocked(deps.refreshKnowledgeRuntime).mock.calls[0][2];
-    expect(remotePolicy()).toBe(true);
+    expect(deps.refreshKnowledgeRuntime).toHaveBeenCalledWith(
+      { contextWindowSize: 64_000 },
+      "C:\\app-data",
+    );
   });
 
   it("updates compaction without rebuilding unrelated runtime state", async () => {

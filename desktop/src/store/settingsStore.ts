@@ -69,8 +69,6 @@ export interface SettingsState {
   officeAutoCompactEnabled: boolean;
   /** 是否默认允许公式助手使用动态数组函数 */
   dynamicArrayFunctionsEnabled: boolean;
-  /** 是否允许把文件、文本或查询发送到第三方服务 */
-  remoteDataProcessingEnabled: boolean;
   /** Main window opacity, from 0.55 to 1. */
   windowOpacity: number;
   /** 是否启用上下文自动压缩 */
@@ -116,8 +114,6 @@ export interface SettingsActions {
   setOfficeAutoCompactEnabled: (enabled: boolean) => void;
   /** 设置动态数组函数环境支持 */
   setDynamicArrayFunctionsEnabled: (enabled: boolean) => void;
-  /** 设置是否允许远程数据处理 */
-  setRemoteDataProcessingEnabled: (enabled: boolean) => void;
   /** Set main window opacity. */
   setWindowOpacity: (opacity: number) => void;
   /** 设置是否启用上下文自动压缩 */
@@ -151,7 +147,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   closeToTray: false,
   officeAutoCompactEnabled: false,
   dynamicArrayFunctionsEnabled: true,
-  remoteDataProcessingEnabled: false,
   windowOpacity: MAX_WINDOW_OPACITY,
   compactionEnabled: true,
   autoCompactThresholdPercent: 80,
@@ -263,11 +258,6 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   setDynamicArrayFunctionsEnabled: (enabled: boolean) => {
     set({ dynamicArrayFunctionsEnabled: enabled });
     savePartial(["dynamicArrayFunctionsEnabled"], get);
-  },
-
-  setRemoteDataProcessingEnabled: (enabled: boolean) => {
-    set({ remoteDataProcessingEnabled: enabled });
-    savePartial(["remoteDataProcessingEnabled"], get);
   },
 
   setWindowOpacity: (opacity: number) => {

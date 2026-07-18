@@ -78,14 +78,6 @@ export const GENERAL_TEXT = {
     mineruApiTokenHint:
       "保存后 OCR 会优先使用 MinerU 通用解析；未配置或解析失败时会回退当前视觉模型。",
     saved: "已保存",
-    remoteDataTitle: "远程数据处理",
-    remoteDataDesc:
-      "统一控制 OCR、联网搜索、发票智能抽取和知识库向量化是否可把数据发送到第三方服务。默认关闭。",
-    remoteDataProcessingEnabled: "允许远程数据处理",
-    remoteDataEnabledHint:
-      "已开启：选中的文件、查询词、OCR 文本或知识片段可能发送到 MinerU、搜索引擎或当前模型服务商；高置信密钥仍会在发送前阻止。",
-    remoteDataDisabledHint:
-      "本地模式：OCR 仅使用本地解析，联网搜索被禁用，知识库自动降级为关键词索引和检索。",
   },
   "en-US": {
     title: "General",
@@ -172,14 +164,6 @@ export const GENERAL_TEXT = {
     mineruApiTokenHint:
       "OCR uses MinerU first after saving. If unset or parsing fails, it falls back to the current vision model.",
     saved: "Saved",
-    remoteDataTitle: "Remote Data Processing",
-    remoteDataDesc:
-      "Controls whether OCR, web search, invoice extraction, and knowledge embeddings may send data to third-party services. Disabled by default.",
-    remoteDataProcessingEnabled: "Allow remote data processing",
-    remoteDataEnabledHint:
-      "Enabled: selected files, queries, OCR text, or knowledge chunks may be sent to MinerU, search engines, or the active model provider. High-confidence secrets are still blocked before transmission.",
-    remoteDataDisabledHint:
-      "Local mode: OCR uses local parsing only, web search is disabled, and the knowledge base falls back to keyword indexing and retrieval.",
   },
 } as const;
 

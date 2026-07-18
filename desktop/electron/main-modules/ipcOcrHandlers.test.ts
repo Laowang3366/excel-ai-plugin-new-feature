@@ -37,7 +37,6 @@ import { recognizeWithOcrFallbacks } from "./ipcOcrHandlers";
 describe("ipc OCR remote-data policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getRuntimeSettingValue.mockReturnValue(false);
     mocks.parseFilesLocally.mockResolvedValue([
       {
         filename: "invoice.txt",
@@ -50,12 +49,12 @@ describe("ipc OCR remote-data policy", () => {
     ]);
   });
 
-  it("uses local parsing and makes no remote call when remote processing is disabled", async () => {
+  it("uses local parsing and allows invoice extraction without a remote-processing toggle", async () => {
     const result = await recognizeWithOcrFallbacks("invoice", ["C:\\docs\\invoice.txt"]);
 
     expect(mocks.parseFilesWithMineru).not.toHaveBeenCalled();
     expect(mocks.parseFilesWithMineruAgent).not.toHaveBeenCalled();
-    expect(mocks.createAIClient).not.toHaveBeenCalled();
+    expect(mocks.createAIClient).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       kind: "invoice",
       fields: { 发票号码: "001" },

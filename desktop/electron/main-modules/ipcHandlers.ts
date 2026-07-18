@@ -136,12 +136,7 @@ export function registerIpcHandlers(): void {
     getSessionStoreInstance,
     getStateRuntimeStoreInstance,
     getAgentGraphStoreInstance,
-    ensureKnowledgeRuntime: () =>
-      ensureKnowledgeRuntime(
-        getActiveAIConfig(),
-        getActiveDataPath(),
-        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      ),
+    ensureKnowledgeRuntime: () => ensureKnowledgeRuntime(getActiveAIConfig(), getActiveDataPath()),
     isDataMigrationInProgress,
     pathAuthorizer,
   });

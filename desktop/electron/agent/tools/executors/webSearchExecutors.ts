@@ -19,14 +19,7 @@ export interface WebSearchResponse extends WebSearchProviderResponse {
   remoteProcessing?: RemoteDataTransferSummary;
 }
 
-export interface WebSearchExecutorDeps {
-  isRemoteDataProcessingEnabled?: () => boolean;
-}
-
-export function addWebSearchExecutors(
-  target: Map<string, ToolExecutor>,
-  deps: WebSearchExecutorDeps = {},
-): void {
+export function addWebSearchExecutors(target: Map<string, ToolExecutor>): void {
   target.set("web.search", {
     name: "web.search",
     execute: async (args: Record<string, unknown>) => {
@@ -43,7 +36,6 @@ export function addWebSearchExecutors(
 
       try {
         assertRemoteDataProcessingAllowed({
-          enabled: deps.isRemoteDataProcessingEnabled?.() === true,
           operation: "web-search",
           texts: [query],
         });

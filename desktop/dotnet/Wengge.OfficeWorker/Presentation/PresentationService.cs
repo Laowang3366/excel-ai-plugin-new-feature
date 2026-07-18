@@ -1,9 +1,10 @@
 using Wengge.OfficeWorker.Com;
+using Wengge.OfficeWorker.Office;
 using Wengge.OfficeWorker.Protocol;
 
 namespace Wengge.OfficeWorker.Presentation;
 
-internal sealed class PresentationService(OfficeApplicationProvider applications)
+internal sealed class PresentationService(OfficeApplicationProvider applications, OfficeDocumentService documents)
 {
     private static readonly string[] ProgIds = ["PowerPoint.Application", "Wpp.Application", "Kwpp.Application"];
     private string? preferredProgId;
@@ -11,19 +12,7 @@ internal sealed class PresentationService(OfficeApplicationProvider applications
 
     public object DetectStatus()
     {
-        using var handle = applications.TryGetActive(OrderedProgIds());
-        if (handle is null) return new { connected = false, host = "unknown" };
-        preferredProgId = handle.ProgId;
-        dynamic app = handle.Application;
-        string? presentationName = null;
-        try { presentationName = Convert.ToString(app.ActivePresentation?.Name); } catch { }
-        return new
-        {
-            connected = true,
-            host = handle.ProgId.Contains("wpp", StringComparison.OrdinalIgnoreCase) ? "wpp" : "powerpoint",
-            version = Convert.ToString(app.Version),
-            presentationName,
-        };
+        return documents.DetectStatus("presentation");
     }
 
     public object Open(string filePath)

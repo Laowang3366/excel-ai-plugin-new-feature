@@ -15,17 +15,17 @@ describe("toolApproval", () => {
     clearAlwaysAllowedTools();
   });
 
-  it("keeps dangerous, destructive, egress and unknown tools fail-closed", () => {
-    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("web.search", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("ocr.parseDocument", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("memory.write", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("unknown.tool", "confirm_all")).toBe(true);
+  it("never opens approval in full-access mode", () => {
+    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("web.search", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("ocr.parseDocument", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("memory.write", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("unknown.tool", "confirm_all")).toBe(false);
   });
 
-  it("enforces mandatory approval metadata for every model-visible tool", () => {
+  it("bypasses mandatory approval metadata for every model-visible tool in full access", () => {
     for (const tool of ALL_TOOL_DEFINITIONS) {
       if (
         tool.riskLevel !== "dangerous" &&
@@ -37,8 +37,8 @@ describe("toolApproval", () => {
 
       expect(
         shouldRequireApproval(tool.name, "confirm_all"),
-        `${tool.name} must stay fail-closed`,
-      ).toBe(true);
+        `${tool.name} must not open an approval dialog in full access`,
+      ).toBe(false);
     }
   });
 
@@ -53,7 +53,7 @@ describe("toolApproval", () => {
     };
 
     expect(shouldRequireApproval("sheet.operation", "confirm_all", addScope)).toBe(false);
-    expect(shouldRequireApproval("sheet.operation", "confirm_all", deleteScope)).toBe(true);
+    expect(shouldRequireApproval("sheet.operation", "confirm_all", deleteScope)).toBe(false);
   });
 
   it("denies approval when no callback is configured", async () => {

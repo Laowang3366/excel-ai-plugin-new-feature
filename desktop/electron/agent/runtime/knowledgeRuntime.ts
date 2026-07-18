@@ -44,20 +44,15 @@ let knowledgeRuntimeError: string | null = null;
 export async function initializeKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot: string,
-  isRemoteDataProcessingEnabled: () => boolean = () => false,
 ): Promise<KnowledgeRuntimeState> {
   const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
   if (knowledgeStore && knowledgeRuntimeSignature !== signature) {
-    return reloadKnowledgeRuntime(aiConfig, dataRoot, isRemoteDataProcessingEnabled);
+    return reloadKnowledgeRuntime(aiConfig, dataRoot);
   }
 
   if (!knowledgeStore) {
     try {
-      const candidate = await createKnowledgeRuntime(
-        aiConfig,
-        dataRoot,
-        isRemoteDataProcessingEnabled,
-      );
+      const candidate = await createKnowledgeRuntime(aiConfig, dataRoot);
       activateKnowledgeRuntime(candidate, signature);
     } catch (e) {
       knowledgeRuntimeError = formatKnowledgeRuntimeError(e);
@@ -101,15 +96,10 @@ function clearKnowledgeRuntimeInstances(): void {
 export async function reloadKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot: string,
-  isRemoteDataProcessingEnabled: () => boolean = () => false,
 ): Promise<KnowledgeRuntimeState> {
   const signature = buildKnowledgeRuntimeSignature(aiConfig, dataRoot);
   try {
-    const candidate = await createKnowledgeRuntime(
-      aiConfig,
-      dataRoot,
-      isRemoteDataProcessingEnabled,
-    );
+    const candidate = await createKnowledgeRuntime(aiConfig, dataRoot);
     activateKnowledgeRuntime(candidate, signature);
   } catch (error) {
     knowledgeRuntimeError = formatKnowledgeRuntimeError(error);
@@ -134,7 +124,6 @@ interface CompleteKnowledgeRuntime {
 async function createKnowledgeRuntime(
   aiConfig: AIClientConfig,
   dataRoot: string,
-  isRemoteDataProcessingEnabled: () => boolean,
 ): Promise<CompleteKnowledgeRuntime> {
   const dbPath = await resolveKnowledgeDbPath(dataRoot);
   const store = new SqliteStore(dbPath);
@@ -145,7 +134,6 @@ async function createKnowledgeRuntime(
       baseUrl: aiConfig.baseUrl,
       apiKey: aiConfig.apiKey,
       customHeaders: aiConfig.customHeaders,
-      remoteDataProcessingEnabled: isRemoteDataProcessingEnabled,
     });
     const indexer = new KnowledgeIndexer(store, embedder);
     const candidate = {

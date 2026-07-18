@@ -3,6 +3,13 @@ import type { OfficeCapability } from "./capabilitiesTypes";
 export const EXCEL_CAPABILITIES: OfficeCapability[] = [
   {
     app: "excel",
+    operation: "createWorkbook",
+    preferredEngine: "openxml",
+    writesFile: true,
+    fallback: "none",
+  },
+  {
+    app: "excel",
     operation: "insertChart",
     preferredEngine: "openxml",
     writesFile: true,

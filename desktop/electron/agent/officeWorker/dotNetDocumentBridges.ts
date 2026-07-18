@@ -7,6 +7,8 @@ interface DocumentConnectionStatus {
   version?: string;
   documentName?: string;
   presentationName?: string;
+  processId?: number;
+  instanceId?: string;
 }
 
 export class DotNetWordBridge implements WordDocumentBridge {

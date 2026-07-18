@@ -347,6 +347,53 @@ describe("createOfficeActionBridge", () => {
     },
   );
 
+  it.each([
+    ["excel", "createWorkbook", ".xlsx"],
+    ["word", "createDocument", ".docx"],
+    ["presentation", "createPresentation", ".pptx"],
+  ] as const)(
+    "creates a new %s file through Open XML without backing up a nonexistent source",
+    async (app, operation, extension) => {
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-create-action-"));
+      try {
+        const filePath = path.join(tempDir, `new-file${extension}`);
+        const executeAction = vi.fn(async (input: OfficeActionInput) => {
+          await writeFile(input.filePath!, "created", "utf8");
+          return {
+            status: "done" as const,
+            engine: "openxml" as const,
+            app: input.app,
+            action: input.action,
+            operation: input.operation,
+            filePath: input.filePath,
+            outputPath: input.filePath,
+            summary: "created",
+            changes: [],
+          };
+        });
+        const bridge = createOfficeActionBridge({
+          officeFileBridge: { executeAction } as unknown as OfficeFileBridge,
+          backupRoot: path.join(tempDir, "backups"),
+        });
+        const input: OfficeActionInput = {
+          app,
+          action: "insert",
+          operation,
+          filePath,
+        };
+
+        await expect(bridge.executeAction(input)).resolves.toMatchObject({
+          status: "done",
+          engine: "openxml",
+        });
+        expect(executeAction).toHaveBeenCalledWith(input);
+        expect(await readFile(filePath, "utf8")).toBe("created");
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("creates and restores a transaction backup for an in-place COM edit", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "office-action-transaction-"));
     try {

@@ -4,6 +4,20 @@ namespace Wengge.OfficeWorker.Com;
 
 internal sealed class OfficeApplicationProvider(OwnedProcessJob ownedProcesses)
 {
+    public IReadOnlyList<string> DetectActiveProgIds(IEnumerable<string> progIds)
+    {
+        var active = new List<string>();
+        foreach (var progId in progIds)
+        {
+            var application = ComInterop.TryGetActiveObject(progId);
+            if (application is null) continue;
+            active.Add(progId);
+            ComInterop.Release(application);
+        }
+
+        return active;
+    }
+
     public OfficeApplicationHandle? TryGetActive(IEnumerable<string> progIds)
     {
         foreach (var progId in progIds)

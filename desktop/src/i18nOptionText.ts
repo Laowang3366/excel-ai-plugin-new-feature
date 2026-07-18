@@ -27,13 +27,13 @@ export const EN_INTENT_LABELS = {
 export const ZH_PERMISSION_LABELS = {
   normal: "逐次确认",
   auto_approve_safe: "自动批准",
-  confirm_all: "高权限自动（危险操作确认）",
+  confirm_all: "完整权限（自动执行）",
 } satisfies Record<PermissionMode, string>;
 
 export const EN_PERMISSION_LABELS = {
   normal: "Confirm each time",
   auto_approve_safe: "Auto approve",
-  confirm_all: "High access (confirm dangerous)",
+  confirm_all: "Full access (auto execute)",
 } satisfies Record<PermissionMode, string>;
 
 export const ZH_SIMPLE_PLACEHOLDERS = {

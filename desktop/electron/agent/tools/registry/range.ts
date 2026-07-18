@@ -33,7 +33,7 @@ const RANGE_READ_DEF: ToolDefinition = {
 const RANGE_WRITE_DEF: ToolDefinition = {
   name: "range.write",
   description:
-    "【写入】向单元格写入数据或公式。用途：填入计算值、写入公式、批量更新单元格。参数 values 为二维数组（行×列），写入公式时以=开头。注意：此工具只能写入，不能读取，读取请用 range.read",
+    "【写入】向单元格写入数据或公式。用途：填入计算值、写入公式、批量更新单元格。参数 values 为二维数组（行×列），写入公式时以=开头。公式填充任务只提供一个单元格作为 range（如 D2）时，该单元格视为动态数组锚点，只写入一个会 spill 的公式；不得擅自扩展为 D2:D10 逐格填充。只有明确给出多格范围并要求独立公式时才按范围写入。此工具只能写入，不能读取，读取请用 range.read",
   parameters: {
     type: "object",
     properties: {

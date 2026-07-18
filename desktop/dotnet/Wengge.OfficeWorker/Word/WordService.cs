@@ -1,9 +1,10 @@
 using Wengge.OfficeWorker.Com;
+using Wengge.OfficeWorker.Office;
 using Wengge.OfficeWorker.Protocol;
 
 namespace Wengge.OfficeWorker.Word;
 
-internal sealed class WordService(OfficeApplicationProvider applications)
+internal sealed class WordService(OfficeApplicationProvider applications, OfficeDocumentService documents)
 {
     private static readonly string[] ProgIds = ["Word.Application", "Kwps.Application", "Wps.Application"];
     private string? preferredProgId;
@@ -11,19 +12,7 @@ internal sealed class WordService(OfficeApplicationProvider applications)
 
     public object DetectStatus()
     {
-        using var handle = applications.TryGetActive(OrderedProgIds());
-        if (handle is null) return new { connected = false, host = "unknown" };
-        preferredProgId = handle.ProgId;
-        dynamic app = handle.Application;
-        string? documentName = null;
-        try { documentName = Convert.ToString(app.ActiveDocument?.Name); } catch { }
-        return new
-        {
-            connected = true,
-            host = handle.ProgId.Contains("wps", StringComparison.OrdinalIgnoreCase) ? "wps" : "word",
-            version = Convert.ToString(app.Version),
-            documentName,
-        };
+        return documents.DetectStatus("word");
     }
 
     public object Open(string filePath)

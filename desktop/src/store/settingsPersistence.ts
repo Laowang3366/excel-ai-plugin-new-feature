@@ -11,7 +11,6 @@ const KEY_MAP: Partial<Record<keyof SettingsState, string>> = {
   closeToTray: "closeToTray",
   officeAutoCompactEnabled: "officeAutoCompactEnabled",
   dynamicArrayFunctionsEnabled: "dynamicArrayFunctionsEnabled",
-  remoteDataProcessingEnabled: "remoteDataProcessingEnabled",
   windowOpacity: "windowOpacity",
   pinnedFolders: "pinnedFolders",
   knowledgeEnabled: "knowledgeEnabled",

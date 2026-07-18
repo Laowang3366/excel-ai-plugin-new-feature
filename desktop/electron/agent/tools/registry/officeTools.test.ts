@@ -74,6 +74,10 @@ describe("Office tool definitions", () => {
     expect(applyParameters.properties.action.description).toContain("必填");
     expect(apply.description).toContain("必须提供 filePath");
     expect(apply.description).toContain("当前活动窗口");
+    expect(apply.description).toContain("createWorkbook/createDocument/createPresentation");
+    expect(applyParameters.properties.operation.description).toContain(
+      "createPresentation/addSlides",
+    );
     expect(applyParameters.properties.operation.description).toContain("snapshot");
     expect(parameters("office.action.inspect").properties.operation.description).not.toContain(
       "snapshot",
@@ -109,6 +113,14 @@ describe("Office tool definitions", () => {
     ]);
     expect(read.description).toContain('expand:"spill"');
     expect(read.description).toContain("省略 expand 时会自动探测");
+  });
+
+  it("documents single-cell formula writes as dynamic-array anchors", () => {
+    const write = tool("range.write");
+
+    expect(write.description).toContain("单元格作为 range（如 D2）时");
+    expect(write.description).toContain("动态数组锚点");
+    expect(write.description).toContain("不得擅自扩展为 D2:D10");
   });
 
   it("uses one language-parameterized tool for internal macro code", () => {

@@ -22,11 +22,7 @@ export interface SettingRuntimeEffectsDeps {
   getActiveAIConfig: () => AIClientConfig;
   getActiveDataPath: () => string;
   getRuntimeSettingValue: (key: string) => unknown;
-  refreshKnowledgeRuntime: (
-    aiConfig: AIClientConfig,
-    dataRoot: string,
-    isRemoteDataProcessingEnabled: () => boolean,
-  ) => Promise<unknown>;
+  refreshKnowledgeRuntime: (aiConfig: AIClientConfig, dataRoot: string) => Promise<unknown>;
   applyWindowTheme: (mainWindow: BrowserWindow | null) => void;
   applyWindowOpacity: (mainWindow: BrowserWindow | null) => void;
   setDynamicArrayFunctionsEnabled: (value: unknown) => void;
@@ -51,11 +47,7 @@ export async function applySettingRuntimeEffects(
       agent.updateCompactionConfig(compactionConfig);
     }
     try {
-      await deps.refreshKnowledgeRuntime(
-        aiConfig,
-        deps.getActiveDataPath(),
-        () => deps.getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      );
+      await deps.refreshKnowledgeRuntime(aiConfig, deps.getActiveDataPath());
     } catch (error) {
       settingRuntimeLogger.warn("刷新知识库运行时失败，设置已保存:", error);
     }

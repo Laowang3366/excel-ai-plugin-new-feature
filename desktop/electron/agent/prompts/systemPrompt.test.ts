@@ -80,6 +80,8 @@ describe("buildRuntimePromptSection", () => {
     expect(prompt).toContain("<runtime_context>");
     expect(prompt).toContain("Office 应用连接状态：Word(未连接) | PPT(未连接)");
     expect(prompt).toContain("动态数组函数环境支持：已开启");
+    expect(prompt).toContain("默认优先使用“单个锚点公式 + spill”");
+    expect(prompt).toContain("只提供一个单元格地址（例如 `D2`）时，该单元格就是动态数组锚点");
     expect(prompt).toContain("版本号或模型记忆中的发布时间都不是函数兼容性证据");
     expect(prompt).toContain("#NAME? 只是名称解析失败的诊断信号");
     expect(prompt).toContain("语法正确的最小函数调用仍稳定返回 #NAME?");
@@ -87,6 +89,16 @@ describe("buildRuntimePromptSection", () => {
     expect(prompt).toContain("Asia/Shanghai");
     expect(prompt).toContain("近 N 日");
     expect(prompt).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+  });
+
+  test("keeps a single-cell anchor even when dynamic-array support is not confirmed", () => {
+    const prompt = buildRuntimePromptSection({
+      officeConnectionStatus: "Excel(已连接)",
+      dynamicArrayFunctionsEnabled: false,
+    });
+
+    expect(prompt).toContain("仍必须把它视为用户指定的动态数组锚点");
+    expect(prompt).toContain("不得擅自扩展成 `D2:D10` 逐格填充");
   });
 });
 
@@ -105,6 +117,9 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("输出形状");
     expect(prompt).toContain("参考答案为空时");
     expect(prompt).toContain("选择最小充分公式");
+    expect(prompt).toContain("默认优先设计“单个锚点公式 + spill”方案");
+    expect(prompt).toContain("只提供一个单元格地址（例如 `D2`）时");
+    expect(prompt).toContain("不要先写普通公式再建议用户下拉");
     expect(prompt).toContain("索引/掩码/状态");
     expect(prompt).toContain("生成业务键、条件或索引");
     expect(prompt).toContain("环境支持且模式稳定");
@@ -168,23 +183,24 @@ describe("buildContextualPromptSections", () => {
     expect(prompt).toContain("Word 文档、报告、方案");
     expect(prompt).toContain("判断写作难度");
     expect(prompt).toContain("简单改写或短文本补全不搜库");
-    expect(prompt).toContain('office.action.apply({ app, action:"snapshot", operation:"snapshot"');
+    expect(prompt).toContain("snapshot operation 并走审批");
+    expect(prompt).not.toContain('office.action.apply({ app, action:"snapshot"');
     expect(prompt).not.toContain("office.action.inspect 获取结构、表格和截图信息");
     expect(prompt).toContain('preferEngine:"com"');
-    expect(prompt).toContain("applyTrackedChanges");
-    expect(prompt).toContain("batchMailMerge");
+    expect(prompt).toContain("嵌套格式只看工具定义");
+    expect(prompt).not.toContain("applyTrackedChanges");
+    expect(prompt).not.toContain("batchMailMerge");
     expect(prompt).toContain("office.objects.list");
     expect(prompt).toContain("完整路径和 locator");
-    expect(prompt).toContain("exportRangeToWord");
-    expect(prompt).toContain("`linked:true`");
-    expect(prompt).toContain("每项必须有 `range`");
-    expect(prompt).toContain("不要使用 `newSourcePath`");
-    expect(prompt).toContain("refreshLinkedOfficeContent");
+    expect(prompt).not.toContain("exportRangeToWord");
+    expect(prompt).not.toContain("`linked:true`");
+    expect(prompt).not.toContain("不要使用 `newSourcePath`");
     expect(prompt).toContain("office.workflow.run");
-    expect(prompt).toContain("resume:true, workflowId");
+    expect(prompt).toContain("workflowId");
+    expect(prompt).toContain("失败步骤");
     expect(prompt).toContain("office.transaction.inspect");
-    expect(prompt).toContain("office.transaction.undo");
-    expect(prompt.length).toBeLessThan(3_200);
+    expect(prompt).toContain("整体撤销或重做");
+    expect(prompt.length).toBeLessThan(2_400);
   });
 
   test("injects the executable macro workflow only for macro tasks", () => {

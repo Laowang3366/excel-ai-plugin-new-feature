@@ -12,7 +12,7 @@ describe("application text resources", () => {
     expect(Object.keys(en.chat.simplePlaceholders)).toEqual(
       Object.keys(zh.chat.simplePlaceholders),
     );
-    expect(zh.chat.permissionLabels.confirm_all).toBe("高权限自动（危险操作确认）");
+    expect(zh.chat.permissionLabels.confirm_all).toBe("完整权限（自动执行）");
     expect(en.sidebar.intents.office).toBe("Office automation");
   });
 

@@ -88,6 +88,32 @@ describe("executeTool", () => {
     });
     expect(execute).not.toHaveBeenCalled();
   });
+
+  it("keeps strict Office operation validation after compacting model-visible schemas", async () => {
+    const execute = vi.fn(async () => ({ success: true }));
+    const executors = new Map<string, ToolExecutor>([
+      ["office.action.apply", { name: "office.action.apply", execute }],
+    ]);
+
+    const result = await executeTool(
+      "office.action.apply",
+      JSON.stringify({
+        app: "presentation",
+        action: "insert",
+        operation: "createPresentation",
+        filePath: "C:/deck.pptx",
+        params: { title: "标题", shellCommand: "whoami" },
+      }),
+      executors,
+      { threadId: "thread-1", turnId: "turn-1", userMessages: ["创建新的 PPT"] },
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("shellCommand"),
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
 });
 
 describe("shouldRequireApproval", () => {
@@ -99,9 +125,9 @@ describe("shouldRequireApproval", () => {
     expect(shouldRequireApproval("range.read", "normal")).toBe(true);
     expect(shouldRequireApproval("range.read", "auto_approve_safe")).toBe(false);
     expect(shouldRequireApproval("range.clear", "auto_approve_safe")).toBe(true);
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("unknown.tool", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("unknown.tool", "confirm_all")).toBe(false);
   });
 });
 

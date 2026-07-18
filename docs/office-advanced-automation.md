@@ -16,7 +16,7 @@
 - 透视表仅用于用户明确要求的透视对象或交互式多维字段布局；固定分组汇总能用公式产出时仍走 `range.write`。
 - 切片器只用于已有透视表或结构化表的交互筛选。
 - 执行层不只依赖提示词：Power Query 必须传 `params.advancedIntent:"refreshable-etl"`，创建/更新时还要传 `sourceKind:"external"|"multi-source"`；透视表和切片器必须传 `params.advancedIntent:"interactive-pivot"`。缺少这些显式语义标记时工具在进入 Worker 前拒绝。
-- 模型可见的全部文件级调用均按 `app + operation` 进入独立 `const` 分支并校验严格 params。基础检查/验证、快照、Excel 深度操作、跨 Office 报告、Word 排版/审阅/模板/链接维护及 PPT 品牌/布局/播放/链接维护均禁止未知字段；自动化覆盖测试会在任何 operation 重新落回开放兼容分支时失败。
+- 全部文件级调用在执行前均按 `app + operation` 进入独立 `const` 分支并校验严格 params。模型侧不重复发送体积巨大的完整 discriminator，而是从同一严格 Schema 自动生成 operation 参数目录，保留必填/可选、枚举、数组和嵌套格式；系统与场景提示不再维护参数副本。基础检查/验证、快照、Excel 深度操作、跨 Office 报告、Word 排版/审阅/模板/链接维护及 PPT 品牌/布局/播放/链接维护均禁止未知字段；自动化覆盖测试会在任何 operation 重新落回开放兼容分支时失败。
 - 工作流模板变量最多 128 个顶层键；键名仅允许字母或下划线开头，后续使用字母、数字、下划线或连字符。嵌套值使用 `{{vars.customer.name}}` 或 `{{vars.files.0}}` 引用，路径最多 32 段；空段、保留段和原型链属性不会解析。步骤 `id`、并行组、条件步骤和结果 `dataPath` 同样有类型、长度与格式限制。
 
 ## 高级 operation
@@ -77,7 +77,11 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 
 公式治理 operation 已按 Worker 的真实读取字段实施严格参数校验。依赖检查支持 `scope:"workbook"|"sheet"|"target"`；引用修复只接受显式 `replacements` 字符串映射。相邻公式推断、名称/结构化引用展开以及 `maxExpandedRangeCells` 当前没有 Worker 实现，不应作为可用参数发送。
 
-`range.write` 对 Excel/WPS 共用同一公式分类与写入策略：普通公式走 `Formula`，现代/动态公式走 `Formula2`，只有显式 `legacyCse:true` 才走 `FormulaArray`。现代公式缺少 `Formula2` 时明确失败，不回退 `Formula`，避免重新引入 `@`。返回值包含 `written`、`dynamicCells`、`arrayCells`、`plainCells`。
+`range.write` 对公式文本按宿主分别传递：Microsoft Excel 的普通、现代和动态公式走 `Formula`，只有显式 `legacyCse:true` 才走 `FormulaArray`；WPS 当前窗口恢复使用逐单元格 `Value` 默认入口，由 WPS 自己解析公式文本。工具不改写公式、不猜测动态数组语义，也不把宿主回读的 `@` 自行判定为工具错误；公式解析和溢出由对应宿主软件负责。模型不可传递 Formula2 类参数。返回值包含 `written`、`dynamicCells`、`arrayCells`、`plainCells`。
+
+当前窗口的 `range.*`、`workbook.*`、`formula.*` 和 `selection.*` 操作在 Microsoft Excel 与 WPS 表格同时运行时必须绑定明确宿主。连接状态检测若发现两个可用 COM 宿主会返回 `hostSelectionRequired:true`；桌面端选择后，Worker 在本次会话内只使用对应 ProgID。未选择时不会按 `Excel.Application`/`Ket.Application` 的固定顺序猜测，直接执行会返回 `office_host_ambiguous`。公式写入失败会带回实际 ProgID、宿主版本、COM 异常类型、HRESULT 和原始消息。
+
+当同一行级逻辑需要填充到一列或可变长度区域时，公式助手在动态数组环境开启且用户未要求逐格公式的情况下，默认只向目标锚点写入一个动态公式并回读 spill 结果；不会先生成普通公式再要求用户下拉。动态数组环境未开启、宿主验证失败或用户明确要求独立单元格公式时，才使用逐格公式或辅助区域。
 
 文件级 Open XML 写入使用同一函数分类和前缀规范化；动态锚点写入数组公式引用与 `c@cm`，工作簿通过 `CellMetadataPart` 保存 `XLDAPR` 动态数组 metadata。多个动态锚点复用同一 metadata 描述，不写工作表 `extLst`，也不使用 `aca=false` 冒充动态数组能力。
 
@@ -221,10 +225,11 @@ PDF 导出的目标文件使用 action 顶层 `outputPath`。Excel `exportPdf.pa
 - Excel/WPS 表格文件级 COM 操作通过对应 `Application` 创建本次 owned 实例，再由 `Workbooks.Open` 打开目标文件；不通过 WPS 聚合启动器重复派发同一文件。
 - COM 清理按进程归属执行：本次新建的 Office 进程会完整退出；复用用户已有 WPS 进程时只关闭本次打开的文件并释放 COM 对象，不遍历关闭其他文件，也不调用应用级 `Quit()`。
 - WPS 12.0 的主题色 COM 属性只读，且多页备注可能只持久化第一页。工具会在 WPS 保存并释放文件后使用 XML 解析器更新主题包或补齐备注部件及关系，再通过后续检查回读真实结果。
+- WPS 文字和演示的当前窗口状态通过活动文档枚举检测，不只依赖应用 ProgID；WPS 演示的 ROT 文档记录会用活动 `Wpp/Kwpp.Application` 补齐宿主、实例和有效进程信息。
 - Power Query、切片器、动画和讲义等能力在不同 Office/WPS 版本中的对象模型覆盖不同；不支持时工具会返回 `failed`，不会伪报成功。
 - 工具不暴露任意 Shell、Python、PowerShell 或 JScript 执行入口；Office 自动化统一由类型化的 .NET Worker 协议执行。
 
-安装了 Microsoft Office 的开发机可运行 `npm run test:office-smoke`、`npm run test:word-smoke` 和 `npm run test:presentation-smoke`，分别验证 Excel 深度能力、Word 排版/引用/修订/邮件合并/内容控件，以及 PPT 母版品牌、元素诊断、四类动画、放映、备注和讲义导出。`npm run test:office-reliability` 额外实测 Excel 链接 Word/PPT、原位刷新、流水线暂停续跑、跨文件撤销重做及多窗口对象选择。`npm run test:excel-lifecycle` 与 `npm run test:word-lifecycle` 验证同一文件连续打开和锁释放。`npm run test:excel-dynamic-array` 覆盖 Excel 365 表达式 spill（openFixtures 单次打开）、同次多公式第二项失败整区回滚、保存关闭本任务拥有文档后重开 spill；WPS 宿主必须产出 Formula2 SEQUENCE 有序 spill 才算通过（`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=excel|wps|both`）。`npm run test:office-worker-protocol` 验证新客户端对接历史 v1 Worker 时必须抛出 `protocol_mismatch`（强制 `WENGGE_OFFICE_WORKER_PATH`，不跑 `office:publish`）。隔离矩阵入口见 `.github/workflows/office-matrix-and-e2e.yml`。
+安装了 Microsoft Office 的开发机可运行 `npm run test:office-smoke`、`npm run test:word-smoke` 和 `npm run test:presentation-smoke`，分别验证 Excel 深度能力、Word 排版/引用/修订/邮件合并/内容控件，以及 PPT 母版品牌、元素诊断、四类动画、放映、备注和讲义导出。`npm run test:office-reliability` 额外实测 Excel 链接 Word/PPT、原位刷新、流水线暂停续跑、跨文件撤销重做及多窗口对象选择。`npm run test:excel-lifecycle` 与 `npm run test:word-lifecycle` 验证同一文件连续打开和锁释放。`npm run test:excel-dynamic-array` 覆盖 Excel 365 表达式 spill（openFixtures 单次打开）、同次多公式第二项失败整区回滚、保存关闭本任务拥有文档后重开 spill；WPS 宿主必须产出动态数组 SEQUENCE 有序 spill 才算通过（`WENGGE_EXCEL_DYNAMIC_ARRAY_HOST=excel|wps|both`）。`npm run test:office-worker-protocol` 验证新客户端对接历史 v1 Worker 时必须抛出 `protocol_mismatch`（强制 `WENGGE_OFFICE_WORKER_PATH`，不跑 `office:publish`）。隔离矩阵入口见 `.github/workflows/office-matrix-and-e2e.yml`。
 
 这些脚本只按变更范围定向执行，禁止把全套真实 Office 冒烟作为默认门禁长时间串行运行。生产 action 默认超时 120 秒；冒烟默认单动作 30 秒，并每 10 秒输出等待探测。可在 PowerShell 中设置 `$env:WENGGE_OFFICE_SMOKE_TIMEOUT_MS="45000"` 临时调整单动作时限。设置 `$env:PRESENTATION_SMOKE_HOST="wps"` 或 `"powerpoint"` 可明确演示宿主。
 

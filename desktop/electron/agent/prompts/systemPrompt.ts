@@ -76,12 +76,12 @@ function buildAdvancedExcelBoundary(context: PromptBuildContext): string {
   ];
   if (intents.has("refreshable-etl")) {
     rules.push(
-      '本轮明确要求外部/多来源可刷新 ETL，可开放 `createPowerQuery/managePowerQuery`；须 `filePath`、`params.advancedIntent:"refreshable-etl"`，创建/更新另传 `sourceKind:"external"|"multi-source"`。',
+      "本轮明确要求外部/多来源可刷新 ETL，可开放 `createPowerQuery/managePowerQuery`；准确参数格式以本轮工具定义为准。",
     );
   }
   if (intents.has("interactive-pivot")) {
     rules.push(
-      '本轮明确要求交互式透视，可开放 `createPivotTable/refreshPivotTables/addSlicer`；须 `params.advancedIntent:"interactive-pivot"`，创建时明确源区域和字段。',
+      "本轮明确要求交互式透视，可开放 `createPivotTable/refreshPivotTables/addSlicer`；准确参数格式以本轮工具定义为准。",
     );
   }
   if (rules.length === 1) {

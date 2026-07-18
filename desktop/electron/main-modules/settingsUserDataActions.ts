@@ -30,7 +30,6 @@ export interface SettingsLocalDataContext {
   reloadKnowledge: (
     config: AIClientConfig,
     dataPath: string,
-    remoteEnabled: () => boolean,
   ) => Promise<{ store: unknown; error?: string | null }>;
   getSanitizedSettings: () => Record<string, unknown>;
 }
@@ -50,11 +49,7 @@ export async function runExportUserData(
     resetKnowledgeRuntime: ctx.resetKnowledge,
     restoreRuntimes: async () => {
       await ctx.resetSessionStore();
-      await ctx.reloadKnowledge(
-        ctx.getActiveAIConfig(),
-        getActiveDataPath(),
-        () => ctx.getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      );
+      await ctx.reloadKnowledge(ctx.getActiveAIConfig(), getActiveDataPath());
     },
   });
   // Register any committed export path even when runtime restore failed (success:false + exportPath).
@@ -119,11 +114,7 @@ export async function runEraseUserData(
         agent.updateCompactionConfig(compactionConfig);
         agent.updatePermissionMode("normal");
       }
-      const restoredKnowledge = await ctx.reloadKnowledge(
-        aiConfig,
-        getActiveDataPath(),
-        () => ctx.getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      );
+      const restoredKnowledge = await ctx.reloadKnowledge(aiConfig, getActiveDataPath());
       if (!restoredKnowledge.store) {
         throw new Error(restoredKnowledge.error || "知识库恢复失败");
       }
@@ -168,11 +159,7 @@ export async function runRotateLocalDataEncryptionKey(
       restore: async () => {
         ctx.getSessionStore().resumeWrites();
         await ctx.resetSessionStore();
-        await ctx.reloadKnowledge(
-          ctx.getActiveAIConfig(),
-          getActiveDataPath(),
-          () => ctx.getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-        );
+        await ctx.reloadKnowledge(ctx.getActiveAIConfig(), getActiveDataPath());
       },
     });
   } finally {

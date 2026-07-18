@@ -277,11 +277,7 @@ export async function migrateDataPath(targetDataPath: string): Promise<{
     settingsStore = new Store(getSettingsStoreOptions(nextDataPath));
     configureLogDirectory(path.join(nextDataPath, "logs"));
     await resetSessionStore();
-    const nextKnowledgeRuntime = await reloadKnowledgeRuntime(
-      getActiveAIConfig(),
-      nextDataPath,
-      () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-    );
+    const nextKnowledgeRuntime = await reloadKnowledgeRuntime(getActiveAIConfig(), nextDataPath);
     if (!nextKnowledgeRuntime.store) {
       throw new Error(nextKnowledgeRuntime.error || "新数据目录的知识库初始化失败");
     }
@@ -316,11 +312,7 @@ export async function migrateDataPath(targetDataPath: string): Promise<{
         agent.updateSessionStore(previousSessionStore);
         agent.updateStateRuntimeStore(restoredStateRuntime);
       }
-      await reloadKnowledgeRuntime(
-        getActiveAIConfig(),
-        currentDataPath,
-        () => getRuntimeSettingValue("remoteDataProcessingEnabled") === true,
-      );
+      await reloadKnowledgeRuntime(getActiveAIConfig(), currentDataPath);
     } catch {
       // 返回原始迁移错误；恢复失败会由后续存储访问继续暴露。
     }

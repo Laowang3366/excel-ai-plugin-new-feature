@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { estimateTokens } from "../../memory/compaction";
 import { ALL_TOOL_DEFINITIONS } from "./toolDefinitions";
-import { filterToolDefinitionsForTurn } from "./officeToolVisibility";
+import {
+  compactToolDefinitionsForTurn,
+  filterToolDefinitionsForTurn,
+} from "./officeToolVisibility";
 import { parseAndValidateToolArguments } from "./toolSchema";
 
 const ADVANCED_OPERATIONS = [
@@ -14,6 +18,57 @@ const ADVANCED_OPERATIONS = [
 ];
 
 describe("filterToolDefinitionsForTurn", () => {
+  it("keeps model-visible tool schemas within a small-model context budget", () => {
+    const definitions = compactToolDefinitionsForTurn(ALL_TOOL_DEFINITIONS, { content: "测试" });
+
+    expect(estimateTokens(JSON.stringify(definitions))).toBeLessThan(64_000);
+    expect(getOperations(definitions, "office.action.apply")).toEqual(
+      expect.arrayContaining(["createWorkbook", "createDocument", "createPresentation"]),
+    );
+    expect(getWorkflowOperations(definitions)).toEqual(
+      expect.arrayContaining(["createWorkbook", "createDocument", "createPresentation"]),
+    );
+    for (const toolName of [
+      "office.action.inspect",
+      "office.action.apply",
+      "office.action.validate",
+    ]) {
+      expect(definitions.find((tool) => tool.name === toolName)?.parameters.oneOf).toBeUndefined();
+    }
+    for (const toolName of ["office.workflow.run", "office.workflow.template.save"]) {
+      expect(
+        officeOperationVariants(
+          definitions.find((tool) => tool.name === toolName)?.parameters,
+          toolName,
+        ),
+      ).toHaveLength(0);
+    }
+  });
+
+  it("publishes exact PowerPoint operation params without restoring full discriminators", () => {
+    const definitions = compactToolDefinitionsForTurn(ALL_TOOL_DEFINITIONS, {
+      content: "创建15页防溺水PPT演示文稿，然后删除第2到4页",
+    });
+    const applyDescription = getParamsDescription(definitions, "office.action.apply");
+    const workflowDescription = getWorkflowParamsDescription(definitions);
+
+    for (const description of [applyDescription, workflowDescription]) {
+      expect(description).toContain("operation 专属字段必须放在 params 对象内");
+      expect(description).toContain("target 是顶层定位字段，不能代替 slides、from、to");
+      expect(description).toContain("presentation.createPresentation: params?");
+      expect(description).toContain("title?:string");
+      expect(description).toContain("subtitle?:string");
+      expect(description).toContain("presentation.addSlides: params {slides:");
+      expect(description).toContain("bullets?");
+      expect(description).toContain('layout?:"title"|"titleOnly"|"titleAndContent"|"blank"');
+      expect(description).toContain("index?:integer>=1");
+      expect(description).toContain("presentation.deleteSlides: params?");
+      expect(description).toContain("slides?:(integer>=1)[]");
+      expect(description).toContain("from?:integer>=1");
+      expect(description).toContain("to?:integer>=1");
+    }
+  });
+
   it("keeps every Office operation on an independent strict params branch", () => {
     for (const toolName of [
       "office.action.inspect",
@@ -185,6 +240,72 @@ describe("filterToolDefinitionsForTurn", () => {
     );
   });
 
+  it("exposes strict standalone creation operations for Excel, Word, and PowerPoint", () => {
+    const definitions = filterToolDefinitionsForTurn(ALL_TOOL_DEFINITIONS, {
+      content: "分别创建新的 Excel、Word 和 PowerPoint 文件",
+    });
+    const apply = definitions.find((tool) => tool.name === "office.action.apply");
+    const workflow = definitions.find((tool) => tool.name === "office.workflow.run");
+
+    for (const input of [
+      {
+        app: "excel",
+        action: "insert",
+        operation: "createWorkbook",
+        filePath: "C:/new.xlsx",
+        params: { sheetNames: ["Data"], startCell: "A1", values: [["Name", "Score"]] },
+      },
+      {
+        app: "word",
+        action: "insert",
+        operation: "createDocument",
+        filePath: "C:/new.docx",
+        params: { title: "报告", paragraphs: ["正文"] },
+      },
+      {
+        app: "presentation",
+        action: "insert",
+        operation: "createPresentation",
+        filePath: "C:/new.pptx",
+        params: { title: "标题", subtitle: "副标题" },
+      },
+    ]) {
+      expect(
+        parseAndValidateToolArguments(JSON.stringify(input), apply?.parameters).error,
+      ).toBeUndefined();
+      expect(
+        parseAndValidateToolArguments(
+          JSON.stringify({ ...input, params: { ...input.params, unknown: true } }),
+          apply?.parameters,
+        ).error,
+      ).toContain("unknown");
+    }
+
+    expect(
+      parseAndValidateToolArguments(
+        JSON.stringify({
+          steps: [
+            {
+              app: "presentation",
+              action: "insert",
+              operation: "createPresentation",
+              filePath: "C:/new.pptx",
+              params: { title: "防溺水安全教育" },
+            },
+            {
+              app: "presentation",
+              action: "insert",
+              operation: "addSlides",
+              filePath: "C:/new.pptx",
+              params: { slides: [{ title: "远离危险水域", bullets: ["不私自下水"] }] },
+            },
+          ],
+        }),
+        workflow?.parameters,
+      ).error,
+    ).toBeUndefined();
+  });
+
   it("applies operation-specific params and bounded variables to workflow steps", () => {
     const pivotDefinitions = filterToolDefinitionsForTurn(ALL_TOOL_DEFINITIONS, {
       content: "创建交互式数据透视表",
@@ -291,6 +412,18 @@ function getWorkflowOperations(definitions: typeof ALL_TOOL_DEFINITIONS): string
   return properties?.steps?.items?.properties?.operation?.enum ?? [];
 }
 
+function getParamsDescription(definitions: typeof ALL_TOOL_DEFINITIONS, toolName: string): string {
+  const definition = definitions.find((tool) => tool.name === toolName);
+  const properties = definition?.parameters.properties as Record<string, any> | undefined;
+  return properties?.params?.description ?? "";
+}
+
+function getWorkflowParamsDescription(definitions: typeof ALL_TOOL_DEFINITIONS): string {
+  const definition = definitions.find((tool) => tool.name === "office.workflow.run");
+  const properties = definition?.parameters.properties as Record<string, any> | undefined;
+  return properties?.steps?.items?.properties?.params?.description ?? "";
+}
+
 function getDiscriminatedOperations(
   definitions: typeof ALL_TOOL_DEFINITIONS,
   toolName: string,
@@ -309,7 +442,9 @@ function officeOperationVariants(
   toolName: string,
 ): Array<Record<string, any>> {
   const schema =
-    toolName === "office.workflow.run" ? parameters?.properties?.steps?.items : parameters;
+    toolName === "office.workflow.run" || toolName === "office.workflow.template.save"
+      ? parameters?.properties?.steps?.items
+      : parameters;
   return Array.isArray(schema?.oneOf) ? schema.oneOf : [];
 }
 

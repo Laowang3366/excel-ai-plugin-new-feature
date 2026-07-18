@@ -3,6 +3,13 @@ import type { OfficeCapability } from "./capabilitiesTypes";
 export const PRESENTATION_CAPABILITIES: OfficeCapability[] = [
   {
     app: "presentation",
+    operation: "createPresentation",
+    preferredEngine: "openxml",
+    writesFile: true,
+    fallback: "none",
+  },
+  {
+    app: "presentation",
     operation: "addSlide",
     preferredEngine: "openxml",
     writesFile: true,

@@ -1,14 +1,4 @@
-/**
- * 工具执行与审批管理
- *
- * 从 AgentLoop 中提取的工具执行相关逻辑：
- * - executeTool: 执行单个工具
- * - getToolDefinitions: 获取可用工具定义列表
- * - shouldRequireApproval: 判断工具是否需要审批
- * - requestApproval: 通过回调请求用户审批
- * - alwaysAllowTool: 标记工具为"始终允许"
- * - processToolCalls: 批量处理工具调用（执行+审批+事件）
- */
+/** 工具执行、审批和工具调用事件编排。 */
 
 import {
   type ToolCallItem,
@@ -32,7 +22,7 @@ import {
 import { resolveExecutableToolName } from "./toolNameResolution";
 import { createToolResultItem } from "./toolResultItems";
 import { parseAndValidateToolArguments } from "../../tools/registry/toolSchema";
-import { filterToolDefinitionsForTurn } from "../../tools/registry/officeToolVisibility";
+import * as officeToolVisibility from "../../tools/registry/officeToolVisibility";
 import type { PromptRoutingContext } from "../../prompts/promptRouting";
 import {
   canAlwaysAllowTool,
@@ -107,7 +97,7 @@ export function getToolDefinitions(
   context: PromptRoutingContext = {},
 ): ToolDefinition[] {
   if (!executors || executors.size === 0) return [];
-  return filterToolDefinitionsForTurn(
+  return officeToolVisibility.compactToolDefinitionsForTurn(
     ALL_TOOL_DEFINITIONS.filter((def) => executors.has(def.name)),
     context,
   );
@@ -390,8 +380,13 @@ function getContextualToolDefinition(
   const content = userMessages?.[userMessages.length - 1];
   if (!content) return fallback;
   return (
-    getToolDefinitions(executors, { content }).find(
-      (definition) => definition.name === fallback?.name || definition.name === resolvedName,
-    ) ?? fallback
+    officeToolVisibility
+      .filterToolDefinitionsForTurn(
+        ALL_TOOL_DEFINITIONS.filter((definition) => executors.has(definition.name)),
+        { content },
+      )
+      .find(
+        (definition) => definition.name === fallback?.name || definition.name === resolvedName,
+      ) ?? fallback
   );
 }

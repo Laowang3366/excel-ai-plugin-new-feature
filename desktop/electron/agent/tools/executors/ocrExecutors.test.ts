@@ -304,25 +304,6 @@ describe("ocr executors", () => {
     });
   });
 
-  it("does not call MinerU when remote processing is disabled", async () => {
-    process.env.MINERU_API_TOKEN = "token";
-    const filePath = tempFile("ocr-local-only", ".pdf", "pdf");
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = await executeOcr({ filePaths: [filePath] }, false);
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      success: false,
-      data: {
-        provider: "local",
-        remoteProcessing: [],
-        warnings: expect.arrayContaining([expect.stringContaining("远程数据处理已关闭")]),
-      },
-    });
-  });
-
   function tempFile(prefix: string, ext: string, content: string): string {
     const filePath = path.join(
       os.tmpdir(),
@@ -334,11 +315,9 @@ describe("ocr executors", () => {
   }
 });
 
-async function executeOcr(args: Record<string, unknown>, remoteEnabled = true) {
+async function executeOcr(args: Record<string, unknown>) {
   const executors = new Map();
-  addOcrExecutors(executors, {
-    isRemoteDataProcessingEnabled: () => remoteEnabled,
-  });
+  addOcrExecutors(executors);
   return await executors.get("ocr.parseDocument")!.execute({
     maxTextChars: 2000,
     maxTableRows: 20,

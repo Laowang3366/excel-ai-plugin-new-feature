@@ -17,10 +17,9 @@ import { getActiveAIConfig } from "./settingsManager";
 export async function buildOcrResultFromDocuments(
   documents: MineruParsedDocument[],
   requestedMode: "image" | "invoice",
-  remoteEnabled: boolean,
 ): Promise<OcrVisionResult> {
   if (requestedMode === "invoice" || isLikelyInvoiceDocuments(documents)) {
-    return extractInvoiceFieldsFromDocuments(documents, remoteEnabled);
+    return extractInvoiceFieldsFromDocuments(documents);
   }
   return buildImageOcrResult(documents);
 }
@@ -86,14 +85,11 @@ function buildImageOcrResult(documents: MineruParsedDocument[]): OcrVisionResult
 
 async function extractInvoiceFieldsFromDocuments(
   documents: MineruParsedDocument[],
-  remoteEnabled: boolean,
 ): Promise<OcrVisionResult> {
   const fallback = buildInvoiceFallbackResult(documents);
-  if (!remoteEnabled) return fallback;
 
   try {
     assertRemoteDataProcessingAllowed({
-      enabled: true,
       operation: "invoice-extraction",
       texts: documents.map((document) => document.text),
     });

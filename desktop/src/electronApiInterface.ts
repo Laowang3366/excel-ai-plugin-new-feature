@@ -128,12 +128,16 @@ export interface ElectronAPI {
       host: string;
       version?: string;
       documentName?: string;
+      processId?: number;
+      instanceId?: string;
     }>;
     detectPresentationStatus: () => Promise<{
       connected: boolean;
       host: string;
       version?: string;
       presentationName?: string;
+      processId?: number;
+      instanceId?: string;
     }>;
     automation: {
       documents: {

@@ -32,7 +32,6 @@ import { validateArgs } from "./validation";
 
 export interface OcrExecutorDeps {
   getMineruApiToken?: () => string;
-  isRemoteDataProcessingEnabled?: () => boolean;
 }
 
 const SUPPORTED_EXTENSIONS = new Set([
@@ -85,7 +84,6 @@ export function addOcrExecutors(
       const allowFreeMineru = args.allowFreeMineru !== false;
       const allowLocalFallback = args.allowLocalFallback !== false;
       const token = getConfiguredMineruToken(deps);
-      const remoteDataProcessingEnabled = deps.isRemoteDataProcessingEnabled?.() === true;
 
       const fallbacks: OcrFallbackAttempt[] = [];
       const warnings: string[] = [];
@@ -113,17 +111,9 @@ export function addOcrExecutors(
         });
       }
 
-      if (unresolved.length > 0 && !remoteDataProcessingEnabled) {
-        const reason = "远程数据处理已关闭，仅保留本地解析结果";
-        fallbacks.push({ provider: "mineru", success: false, skipped: true, reason });
-        fallbacks.push({ provider: "mineru-agent", success: false, skipped: true, reason });
-        warnings.push(reason);
-      }
-
-      if (unresolved.length > 0 && remoteDataProcessingEnabled) {
+      if (unresolved.length > 0) {
         try {
           assertRemoteDataProcessingAllowed({
-            enabled: true,
             operation: "ocr",
             texts: unresolved.map((index) => localDocuments?.[index]?.text || ""),
           });
@@ -134,21 +124,21 @@ export function addOcrExecutors(
         }
       }
 
-      if (unresolved.length > 0 && remoteDataProcessingEnabled && !allowTokenMineru) {
+      if (unresolved.length > 0 && !allowTokenMineru) {
         fallbacks.push({
           provider: "mineru",
           success: false,
           skipped: true,
           reason: "调用参数 allowTokenMineru=false，已跳过配置 token 的 MinerU 标准解析",
         });
-      } else if (unresolved.length > 0 && remoteDataProcessingEnabled && !token) {
+      } else if (unresolved.length > 0 && !token) {
         fallbacks.push({
           provider: "mineru",
           success: false,
           skipped: true,
           reason: "MinerU API Token 未配置，直接尝试 MinerU 免费 Agent 轻量解析",
         });
-      } else if (unresolved.length > 0 && remoteDataProcessingEnabled) {
+      } else if (unresolved.length > 0) {
         const pendingIndices = unresolved;
         const standardAttempt = await tryParseWithProvider("mineru", () =>
           parseFilesWithMineru(
@@ -174,7 +164,7 @@ export function addOcrExecutors(
         }
       }
 
-      if (unresolved.length > 0 && remoteDataProcessingEnabled) {
+      if (unresolved.length > 0) {
         if (!allowFreeMineru) {
           fallbacks.push({
             provider: "mineru-agent",

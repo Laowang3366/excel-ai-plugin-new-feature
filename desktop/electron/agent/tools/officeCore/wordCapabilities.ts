@@ -3,6 +3,13 @@ import type { OfficeCapability } from "./capabilitiesTypes";
 export const WORD_CAPABILITIES: OfficeCapability[] = [
   {
     app: "word",
+    operation: "createDocument",
+    preferredEngine: "openxml",
+    writesFile: true,
+    fallback: "none",
+  },
+  {
+    app: "word",
     operation: "applyHeadingStyles",
     preferredEngine: "openxml",
     writesFile: true,

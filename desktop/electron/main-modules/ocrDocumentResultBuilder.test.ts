@@ -56,7 +56,6 @@ describe("buildOcrResultFromDocuments", () => {
         },
       ],
       "image",
-      false,
     );
 
     expect(result).toMatchObject({
@@ -67,7 +66,7 @@ describe("buildOcrResultFromDocuments", () => {
     });
   });
 
-  it("merges allowed remote invoice extraction with local fallback fields", async () => {
+  it("merges invoice extraction with local fallback fields", async () => {
     mocks.chat.mockResolvedValue({
       content: JSON.stringify({
         fields: { 发票号码: "001", 税额: "6.00" },
@@ -92,7 +91,6 @@ describe("buildOcrResultFromDocuments", () => {
         },
       ],
       "invoice",
-      true,
     );
 
     expect(mocks.chat).toHaveBeenCalledOnce();

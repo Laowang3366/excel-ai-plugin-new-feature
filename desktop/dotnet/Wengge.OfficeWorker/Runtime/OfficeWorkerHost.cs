@@ -48,10 +48,10 @@ public sealed class OfficeWorkerHost : IDisposable
         openXmlLayout = new OpenXmlLayoutService();
         openXmlTables = new OpenXmlTableService();
         openXmlDocumentParser = new OpenXmlDocumentParserService();
-        word = new WordService(applications);
-        presentation = new PresentationService(applications);
-        wpsJsa = new WpsJsaService(applications);
         officeDocuments = new OfficeDocumentService();
+        word = new WordService(applications, officeDocuments);
+        presentation = new PresentationService(applications, officeDocuments);
+        wpsJsa = new WpsJsaService(applications);
         officeActions = new OfficeActionService(
             new ExcelActionService(
                 applications,

@@ -1273,24 +1273,21 @@ describe("shouldRequireApproval", () => {
     expect(shouldRequireApproval("unknown_tool", "auto_approve_safe")).toBe(true);
   });
 
-  it("confirm_all: known non-dangerous tools can be auto-approved", () => {
+  it("confirm_all: all tools execute without approval dialogs", () => {
     expect(shouldRequireApproval("range.read", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("range.write", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("office.action.apply", "confirm_all")).toBe(false);
     expect(shouldRequireApproval("workbook.save", "confirm_all")).toBe(false);
-  });
-
-  it("confirm_all: dangerous, destructive, egress and unknown tools still require approval", () => {
-    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(true);
+    expect(shouldRequireApproval("range.clear", "confirm_all")).toBe(false);
     expect(
       shouldRequireApproval("sheet.operation", "confirm_all", {
         threadId: "thread-1",
         arguments: { operation: "delete", sheetName: "Sheet1" },
       }),
-    ).toBe(true);
-    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("web.search", "confirm_all")).toBe(true);
-    expect(shouldRequireApproval("unknown_tool", "confirm_all")).toBe(true);
+    ).toBe(false);
+    expect(shouldRequireApproval("macro.write", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("macro.run", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("web.search", "confirm_all")).toBe(false);
+    expect(shouldRequireApproval("unknown_tool", "confirm_all")).toBe(false);
   });
 });

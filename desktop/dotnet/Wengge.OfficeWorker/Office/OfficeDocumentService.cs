@@ -17,6 +17,20 @@ internal sealed class OfficeDocumentService
         new("presentation", ["PowerPoint.Application", "Wpp.Application", "Kwpp.Application"], "Presentations"),
     ];
 
+    public OfficeConnectionStatus DetectStatus(string app)
+    {
+        ValidateApp(app);
+        var handles = EnumerateDocuments(app);
+        try
+        {
+            var handle = handles.FirstOrDefault(IsActive) ?? handles.FirstOrDefault();
+            return handle is null
+                ? new OfficeConnectionStatus(false, "unknown")
+                : BuildConnectionStatus(app, handle);
+        }
+        finally { ReleaseHandles(handles); }
+    }
+
     public object ListDocuments(string? appFilter = null)
     {
         ValidateApp(appFilter, allowEmpty: true);
@@ -339,9 +353,13 @@ internal sealed class OfficeDocumentService
         if (handle is null) { ComInterop.Release(document); return; }
         var fullName = PathKey(SafeString(() => ((dynamic)document).FullName));
         var index = SafeInt32(() => ((dynamic)document).Index);
-        if (rotName.Length == 0 && fullName.Length > 0 && handles.Any(existing =>
-                existing.App == app && PathKey(SafeString(() => ((dynamic)existing.Document).FullName)) == fullName))
+        var duplicateIndex = rotName.Length == 0 && fullName.Length > 0
+            ? handles.FindIndex(existing =>
+                existing.App == app && PathKey(SafeString(() => ((dynamic)existing.Document).FullName)) == fullName)
+            : -1;
+        if (duplicateIndex >= 0)
         {
+            handles[duplicateIndex] = MergeDuplicateMetadata(handles[duplicateIndex], handle);
             ComInterop.Release(handle.Application);
             ComInterop.Release(document);
             return;
@@ -367,6 +385,7 @@ internal sealed class OfficeDocumentService
         }
         var hwnd = ApplicationHwnd(application, document, app);
         var processId = WindowProcessId(hwnd);
+        if (processId == 0) processId = UniqueApplicationProcessId(candidateProgId);
         var processName = processId > 0 ? SafeString(() => Process.GetProcessById(processId).ProcessName) : string.Empty;
         var host = WpsHost(processName, candidateProgId, applicationName) ? "wps"
             : MicrosoftHost(processName, candidateProgId, applicationName) ? "microsoft-office" : "unknown";
@@ -378,6 +397,43 @@ internal sealed class OfficeDocumentService
             ? $"{app}:{processId}:{hwnd}"
             : $"{app}:rot:{Uri.EscapeDataString(rotName)}";
         return new OfficeDocumentHandle(app, document, application, instanceId, processId, hwnd, host, progId);
+    }
+
+    internal static OfficeDocumentHandle MergeDuplicateMetadata(OfficeDocumentHandle existing, OfficeDocumentHandle candidate)
+    {
+        var processId = candidate.ProcessId > 0 ? candidate.ProcessId : existing.ProcessId;
+        var hwnd = candidate.Hwnd != 0 ? candidate.Hwnd : existing.Hwnd;
+        var useCandidateIdentity = candidate.ProcessId > 0 || candidate.Hwnd != 0;
+        return existing with
+        {
+            InstanceId = useCandidateIdentity ? candidate.InstanceId : existing.InstanceId,
+            ProcessId = processId,
+            Hwnd = hwnd,
+            Host = candidate.Host != "unknown" ? candidate.Host : existing.Host,
+            ProgId = candidate.ProgId != "ROT" ? candidate.ProgId : existing.ProgId,
+        };
+    }
+
+    internal static OfficeConnectionStatus BuildConnectionStatus(string app, OfficeDocumentHandle handle)
+    {
+        var host = handle.Host == "wps" || OfficeHostRouting.IsWps(handle.ProgId)
+            ? "wps"
+            : app switch
+            {
+                "excel" => "excel",
+                "word" => "word",
+                "presentation" => "powerpoint",
+                _ => "unknown",
+            };
+        var name = SafeString(() => ((dynamic)handle.Document).Name);
+        return new OfficeConnectionStatus(
+            true,
+            host,
+            SafeString(() => ((dynamic)handle.Application).Version),
+            app == "word" ? name : null,
+            app == "presentation" ? name : null,
+            handle.ProcessId > 0 ? handle.ProcessId : null,
+            handle.InstanceId);
     }
 
     private static long ComIdentity(object value)
@@ -453,6 +509,30 @@ internal sealed class OfficeDocumentService
         if (hwnd == 0) return 0;
         _ = GetWindowThreadProcessId(new IntPtr(hwnd), out var processId);
         return unchecked((int)processId);
+    }
+
+    private static int UniqueApplicationProcessId(string? progId)
+    {
+        var processName = progId?.ToLowerInvariant() switch
+        {
+            "excel.application" => "EXCEL",
+            "word.application" => "WINWORD",
+            "powerpoint.application" => "POWERPNT",
+            "ket.application" => "et",
+            "kwps.application" or "wps.application" => "wps",
+            "wpp.application" or "kwpp.application" => "wpp",
+            _ => null,
+        };
+        if (processName is null) return 0;
+        var processIds = Process.GetProcessesByName(processName)
+            .Select(process =>
+            {
+                using (process) return process.Id;
+            })
+            .Distinct()
+            .Take(2)
+            .ToArray();
+        return processIds.Length == 1 ? processIds[0] : 0;
     }
 
     private static bool MicrosoftHost(string process, string? progId, string applicationName) =>
@@ -637,6 +717,15 @@ internal sealed record OfficeDocumentHandle(
     long Hwnd,
     string Host,
     string ProgId);
+
+internal sealed record OfficeConnectionStatus(
+    bool Connected,
+    string Host,
+    string? Version = null,
+    string? DocumentName = null,
+    string? PresentationName = null,
+    int? ProcessId = null,
+    string? InstanceId = null);
 
 internal sealed class OfficeDocumentLease(OfficeDocumentHandle handle, IReadOnlyList<OfficeDocumentHandle> handles) : IDisposable
 {

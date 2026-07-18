@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Activity, FileScan, Maximize2, Shield } from "../common/IconMap";
+import { Activity, FileScan, Maximize2 } from "../common/IconMap";
 import { useSettingsStore, type AppLanguage, type AppTheme } from "../../store/settingsStore";
 import { formatTokensAsK, DEFAULT_CONTEXT_WINDOW } from "../../utils/modelContextWindows";
 import { ipcApi } from "../../services/ipcApi";
@@ -19,7 +19,6 @@ export const GeneralSettings: React.FC = () => {
     closeToTray,
     officeAutoCompactEnabled,
     dynamicArrayFunctionsEnabled,
-    remoteDataProcessingEnabled,
     compactionEnabled,
     autoCompactThresholdPercent,
     providers,
@@ -29,7 +28,6 @@ export const GeneralSettings: React.FC = () => {
     setCloseToTray,
     setOfficeAutoCompactEnabled,
     setDynamicArrayFunctionsEnabled,
-    setRemoteDataProcessingEnabled,
     setCompactionEnabled,
     setAutoCompactThresholdPercent,
     loadSettings,
@@ -78,26 +76,6 @@ export const GeneralSettings: React.FC = () => {
     <div className="settings-section-content">
       <h2>{text.title}</h2>
       <p className="section-desc">{text.desc}</p>
-
-      <div className="settings-card">
-        <div className="settings-card-header">
-          <div className="settings-card-title-row">
-            <Shield size={16} />
-            <h3>{text.remoteDataTitle}</h3>
-          </div>
-          <p>{text.remoteDataDesc}</p>
-        </div>
-
-        <SettingsSwitchField
-          groupLabel={text.remoteDataTitle}
-          label={text.remoteDataProcessingEnabled}
-          checked={remoteDataProcessingEnabled}
-          onChange={setRemoteDataProcessingEnabled}
-          hint={
-            remoteDataProcessingEnabled ? text.remoteDataEnabledHint : text.remoteDataDisabledHint
-          }
-        />
-      </div>
 
       <div className="settings-card">
         <div className="settings-card-header">
