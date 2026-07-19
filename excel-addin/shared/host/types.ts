@@ -238,11 +238,10 @@ export interface UnsupportedResult {
 export interface FailResult {
   ok: false;
   unsupported?: false;
+  capability: string;
+  host: HostKind;
   reason: string;
-  /** Absent on ordinary failures; kept optional so HostResult unions stay narrowable. */
-  capability?: undefined;
-  host?: undefined;
-  evidence?: undefined;
+  evidence?: string;
 }
 
 export interface OkResult<T> {
@@ -257,7 +256,9 @@ export function unsupported(
 ): UnsupportedResult {
   return { ok: false, unsupported: true, capability, host, reason, evidence };
 }
-export function fail(reason: string): FailResult {
-  return { ok: false, reason };
+export function fail(
+  capability: string, host: HostKind, reason: string, evidence?: string,
+): FailResult {
+  return { ok: false, unsupported: false, capability, host, reason, evidence };
 }
 export function ok<T>(data: T): OkResult<T> { return { ok: true, data }; }

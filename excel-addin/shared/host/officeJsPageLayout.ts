@@ -96,22 +96,31 @@ function pageLayoutUnsupported(capability: string, reason: string): HostResult<S
   return unsupported(capability, "office-js", reason, REQUIREMENT_EVIDENCE);
 }
 
+const EXCEL_RUN_EVIDENCE = "Requires Office.js Excel.run";
+
 /**
- * Local pageLayout runner: after ExcelApi 1.9 precheck, host/runtime errors are ordinary FailResult.
+ * Local pageLayout runner: after ExcelApi 1.9 precheck, missing Excel.run is typed unsupported;
+ * host/runtime errors inside the batch are ordinary FailResult with capability + host.
  * Does not use withExcel (which always marks catch as unsupported).
  */
 async function runPageLayout<T>(
+  capability: string,
   fn: (context: ExcelRequestContext) => Promise<T>,
 ): Promise<HostResult<T>> {
   const run = getExcelRun();
   if (!run) {
-    return fail("Excel.run is not available in this runtime");
+    return unsupported(
+      capability,
+      "office-js",
+      "Excel.run is not available in this runtime",
+      EXCEL_RUN_EVIDENCE,
+    );
   }
   try {
     return ok(await run(fn));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return fail(message);
+    return fail(capability, "office-js", message);
   }
 }
 
@@ -172,7 +181,7 @@ export async function officeJsGetSheetPageLayout(
       "ExcelApi 1.9 is not supported in this host (Office.context.requirements.isSetSupported)",
     );
   }
-  return runPageLayout(async (context) => {
+  return runPageLayout("sheet.pageLayout.get", async (context) => {
     const sheet = context.workbook.worksheets.getItem(sheetName);
     return readLayout(sheet, sheet.pageLayout, context);
   });
@@ -187,7 +196,7 @@ export async function officeJsSetSheetPageLayout(
       "ExcelApi 1.9 is not supported in this host (Office.context.requirements.isSetSupported)",
     );
   }
-  return runPageLayout(async (context) => {
+  return runPageLayout("sheet.pageLayout.set", async (context) => {
     const sheet = context.workbook.worksheets.getItem(input.sheetName);
     const layout = sheet.pageLayout;
     if (input.orientation != null) layout.orientation = toOfficeOrientation(input.orientation);

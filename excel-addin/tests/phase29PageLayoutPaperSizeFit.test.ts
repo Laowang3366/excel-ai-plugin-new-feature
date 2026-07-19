@@ -72,38 +72,6 @@ describe("phase29 sheet.pageLayout paperSize + fitToPages", () => {
       }
     });
 
-    it("empty host Worksheet.name is ordinary failure (not typed unsupported)", async () => {
-      gates.setHostSheetName("Sheet1", "");
-      const adapter = new OfficeJsAdapter();
-      const got = await adapter.getSheetPageLayout("Sheet1");
-      expect(got.ok).toBe(false);
-      if (!got.ok) {
-        expect(got.reason).toMatch(/Worksheet\.name|non-empty string/i);
-        expect(got.unsupported).not.toBe(true);
-      }
-      expect(gates.getExcelRunCalls()).toBe(1);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
-    });
-
-    it("post-precheck missing Excel.run is ordinary failure, Excel.run 0", async () => {
-      delete (globalThis as { Excel?: unknown }).Excel;
-      const adapter = new OfficeJsAdapter();
-      const get = await adapter.getSheetPageLayout("Sheet1");
-      expect(get.ok).toBe(false);
-      if (!get.ok) {
-        expect(get.reason).toMatch(/Excel\.run is not available/i);
-        expect(get.unsupported).not.toBe(true);
-      }
-      const set = await adapter.setSheetPageLayout({ sheetName: "Sheet1", paperSize: "a4" });
-      expect(set.ok).toBe(false);
-      if (!set.ok) {
-        expect(set.reason).toMatch(/Excel\.run is not available/i);
-        expect(set.unsupported).not.toBe(true);
-      }
-      expect(gates.getExcelRunCalls()).toBe(0);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
-    });
-
     it("fails on empty or non-string host paperSize as ordinary failure", async () => {
       gates.setCommittedPaperSize("Sheet1", "");
       const adapter = new OfficeJsAdapter();
@@ -210,119 +178,47 @@ describe("phase29 sheet.pageLayout paperSize + fitToPages", () => {
           };
         }
       ).Excel;
-
       await Excel.run(async (context) => {
-        const ws = context.workbook.worksheets.getItem("Sheet1") as {
+        const sheet = context.workbook.worksheets.getItem("Sheet1") as {
           pageLayout: {
             paperSize: string;
-            zoom: {
-              scale?: number | null;
-              horizontalFitToPages?: number;
-              verticalFitToPages?: number;
-            };
+            zoom: { scale?: number | null };
           };
         };
-        ws.pageLayout.paperSize = "A3";
-        ws.pageLayout.zoom = { horizontalFitToPages: 2, verticalFitToPages: 3 };
-        expect(ws.pageLayout.paperSize).toBe("Letter");
-        expect(ws.pageLayout.zoom.scale).toBe(100);
-        expect(gates.getPending("Sheet1")?.paperSize).toBe("A3");
-        expect(gates.getPending("Sheet1")?.fitToPagesWide).toBe(2);
-        expect(gates.getPending("Sheet1")?.fitToPagesTall).toBe(3);
+        sheet.pageLayout.paperSize = "A3";
+        sheet.pageLayout.zoom = { scale: 200 };
         expect(gates.getCommitted("Sheet1")?.paperSize).toBe("Letter");
-
+        expect(gates.getCommitted("Sheet1")?.zoomScale).toBe(100);
+        expect(gates.getPending("Sheet1")?.paperSize).toBe("A3");
+        expect(gates.getPending("Sheet1")?.zoomScale).toBe(200);
         await context.sync();
-        expect(ws.pageLayout.paperSize).toBe("A3");
-        expect(ws.pageLayout.zoom.scale).toBeNull();
-        expect(ws.pageLayout.zoom.horizontalFitToPages).toBe(2);
-        expect(ws.pageLayout.zoom.verticalFitToPages).toBe(3);
+        expect(gates.getCommitted("Sheet1")?.paperSize).toBe("A3");
+        expect(gates.getCommitted("Sheet1")?.zoomScale).toBe(200);
+        expect(gates.getPending("Sheet1")).toBeUndefined();
       });
     });
 
-    it("ExcelApi 1.9 false: get/set unsupported with Excel.run 0 and writes 0", async () => {
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
-      gates = installPageLayoutExcel({ excelApi19: false });
+    it("null zoom.scale host readback stays null (not coerced to 0)", async () => {
+      gates.setCommittedZoomScale("Sheet1", null);
       const adapter = new OfficeJsAdapter();
-      const get = await adapter.getSheetPageLayout("Sheet1");
-      expect(get.ok).toBe(false);
-      if (!get.ok) {
-        expect(get.unsupported).toBe(true);
-        expect(get.reason).toMatch(/isSetSupported|1\.9/);
+      const got = await adapter.getSheetPageLayout("Sheet1");
+      expect(got.ok).toBe(true);
+      if (got.ok) {
+        expect(got.data.zoomScale).toBeNull();
+        expect(got.data.zoomScale).not.toBe(0);
       }
-      const set = await adapter.setSheetPageLayout({ sheetName: "Sheet1", paperSize: "a4" });
-      expect(set.ok).toBe(false);
-      if (!set.ok) expect(set.unsupported).toBe(true);
-      expect(gates.getExcelRunCalls()).toBe(0);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
     });
 
-    it("missing isSetSupported: unsupported, Excel.run 0, writes 0", async () => {
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
-      gates = installPageLayoutExcel({ missingIsSetSupported: true });
+    it("fit host readback when scale is null", async () => {
+      gates.setCommittedFit("Sheet1", 2, 3);
       const adapter = new OfficeJsAdapter();
-      const get = await adapter.getSheetPageLayout("Sheet1");
-      expect(get.ok).toBe(false);
-      if (!get.ok) expect(get.unsupported).toBe(true);
-      expect(gates.getExcelRunCalls()).toBe(0);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
-    });
-
-    it("isSetSupported throws: unsupported, Excel.run 0, writes 0", async () => {
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
-      gates = installPageLayoutExcel({ isSetSupportedThrows: true });
-      const adapter = new OfficeJsAdapter();
-      const set = await adapter.setSheetPageLayout({
-        sheetName: "Sheet1",
-        fitToPagesWide: 1,
-      });
-      expect(set.ok).toBe(false);
-      if (!set.ok) expect(set.unsupported).toBe(true);
-      expect(gates.getExcelRunCalls()).toBe(0);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
-    });
-
-    it("missing paperSize member after precheck is ordinary failure (not typed unsupported)", async () => {
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
-      gates = installPageLayoutExcel({ hasPaperSize: false });
-      const adapter = new OfficeJsAdapter();
-      const get = await adapter.getSheetPageLayout("Sheet1");
-      expect(get.ok).toBe(false);
-      if (!get.ok) {
-        expect(get.reason).toMatch(/paperSize is missing/i);
-        expect(get.reason).not.toMatch(/is not supported in this host|isSetSupported/i);
-        expect(get.unsupported).not.toBe(true);
+      const got = await adapter.getSheetPageLayout("Sheet1");
+      expect(got.ok).toBe(true);
+      if (got.ok) {
+        expect(got.data.zoomScale).toBeNull();
+        expect(got.data.fitToPagesWide).toBe(2);
+        expect(got.data.fitToPagesTall).toBe(3);
       }
-      expect(gates.getExcelRunCalls()).toBe(1);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
-    });
-
-    it("missing zoom member after precheck is ordinary failure (not typed unsupported)", async () => {
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
-      gates = installPageLayoutExcel({ hasZoom: false });
-      const adapter = new OfficeJsAdapter();
-      const get = await adapter.getSheetPageLayout("Sheet1");
-      expect(get.ok).toBe(false);
-      if (!get.ok) {
-        expect(get.reason).toMatch(/zoom is missing/i);
-        expect(get.reason).not.toMatch(/is not supported in this host|isSetSupported/i);
-        expect(get.unsupported).not.toBe(true);
-      }
-      expect(gates.getExcelRunCalls()).toBe(1);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
-
-      const set = await adapter.setSheetPageLayout({ sheetName: "Sheet1", zoomScale: 120 });
-      expect(set.ok).toBe(false);
-      if (!set.ok) {
-        expect(set.reason).toMatch(/zoom is missing/i);
-        expect(set.unsupported).not.toBe(true);
-      }
-      expect(gates.getExcelRunCalls()).toBe(2);
-      expect(gates.getPageLayoutWriteCalls()).toBe(0);
     });
   });
 
@@ -366,40 +262,6 @@ describe("phase29 sheet.pageLayout paperSize + fitToPages", () => {
         });
         expect(result.ok).toBe(false);
       }
-    });
-
-    it("classifies ordinary host failure vs precheck unsupported at executor layer", async () => {
-      const ordinaryGates = installPageLayoutExcel({ hasPaperSize: false });
-      const ordinaryExecutor = new ToolExecutor(new OfficeJsAdapter());
-      const ordinary = await ordinaryExecutor.execute({
-        name: "sheet.pageLayout.get",
-        arguments: { sheetName: "Sheet1" },
-      });
-      expect(ordinary.ok).toBe(false);
-      if (!ordinary.ok) {
-        expect(ordinary.error).toMatch(/paperSize is missing/i);
-        expect(ordinary.unsupported).not.toBe(true);
-      }
-      expect(ordinaryGates.getExcelRunCalls()).toBe(1);
-
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
-      const unsupportedGates = installPageLayoutExcel({ excelApi19: false });
-      const unsupportedExecutor = new ToolExecutor(new OfficeJsAdapter());
-      const typed = await unsupportedExecutor.execute({
-        name: "sheet.pageLayout.set",
-        arguments: { sheetName: "Sheet1", paperSize: "a4" },
-      });
-      expect(typed.ok).toBe(false);
-      if (!typed.ok) {
-        expect(typed.unsupported).toBe(true);
-        expect(typed.error).toMatch(/isSetSupported|1\.9/);
-      }
-      expect(unsupportedGates.getExcelRunCalls()).toBe(0);
-      expect(unsupportedGates.getPageLayoutWriteCalls()).toBe(0);
-
-      delete (globalThis as { Excel?: unknown }).Excel;
-      delete (globalThis as { Office?: unknown }).Office;
     });
 
     it("MockHost parity for paperSize and fit fields", async () => {

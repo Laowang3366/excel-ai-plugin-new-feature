@@ -30,7 +30,8 @@ export function installPageLayoutExcel(options?: {
   };
 
   type SheetState = {
-    name: string;
+    /** Host-facing Worksheet.name after load; may be non-string for failure tests. */
+    name: unknown;
     committed: Layout;
     pending: Partial<Layout> | undefined;
   };
@@ -335,7 +336,7 @@ export function installPageLayoutExcel(options?: {
       if (sheet) sheet.committed.paperSize = paperSize;
     },
     /** Change host worksheet.name without changing getItem lookup key (anti input-echo). */
-    setHostSheetName(lookupName: string, hostName: string) {
+    setHostSheetName(lookupName: string, hostName: unknown) {
       const sheet = sheets.get(lookupName);
       if (sheet) sheet.name = hostName;
     },
