@@ -35,3 +35,6 @@ export type { ToolNameMaps } from "./openaiToolNameMap";
 
 export { OpenAIResponsesStreamProvider } from "./openaiResponsesProvider";
 export type { OpenAIResponsesStreamProviderOptions } from "./openaiResponsesProvider";
+
+export { AnthropicMessagesStreamProvider } from "./anthropicMessagesProvider";
+export type { AnthropicMessagesStreamProviderOptions } from "./anthropicMessagesProvider";
