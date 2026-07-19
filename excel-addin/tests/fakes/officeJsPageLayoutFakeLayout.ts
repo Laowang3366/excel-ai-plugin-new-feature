@@ -15,6 +15,8 @@ export type PageLayoutState = {
   bottomMargin: number;
   leftMargin: number;
   rightMargin: number;
+  headerMargin: number;
+  footerMargin: number;
   paperSize: string;
   /** Official PageLayoutZoomOptions.scale may be null (fit-to-pages). */
   zoomScale: number | null;
@@ -47,6 +49,8 @@ export function defaultPageLayoutState(): PageLayoutState {
     bottomMargin: 72,
     leftMargin: 72,
     rightMargin: 72,
+    headerMargin: 36,
+    footerMargin: 36,
     paperSize: "Letter",
     zoomScale: 100,
     fitToPagesWide: null,
@@ -63,6 +67,8 @@ export type MakePageLayoutOptions = {
   hasDraftMode: boolean;
   hasPrintOrder: boolean;
   hasFirstPageNumber: boolean;
+  hasHeaderMargin: boolean;
+  hasFooterMargin: boolean;
   queue: (sheet: PageLayoutSheetState, patch: Partial<PageLayoutState>) => void;
 };
 
@@ -218,6 +224,32 @@ export function makePageLayoutObject(
       },
       set(v: number | string | null) {
         queue(sheet, { firstPageNumber: v });
+      },
+    });
+  }
+
+  if (options.hasHeaderMargin) {
+    Object.defineProperty(layout, "headerMargin", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return sheet.committed.headerMargin;
+      },
+      set(v: number) {
+        queue(sheet, { headerMargin: v });
+      },
+    });
+  }
+
+  if (options.hasFooterMargin) {
+    Object.defineProperty(layout, "footerMargin", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return sheet.committed.footerMargin;
+      },
+      set(v: number) {
+        queue(sheet, { footerMargin: v });
       },
     });
   }

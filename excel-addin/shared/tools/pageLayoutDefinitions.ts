@@ -38,6 +38,8 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
             bottom: { type: "number" },
             left: { type: "number" },
             right: { type: "number" },
+            header: { type: "number" },
+            footer: { type: "number" },
           },
           additionalProperties: false,
         },

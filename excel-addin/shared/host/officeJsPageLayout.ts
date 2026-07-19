@@ -16,7 +16,7 @@ import type {
 import { fail, ok, unsupported } from "./types";
 
 const REQUIREMENT_EVIDENCE =
-  "PageLayout paperSize/zoom/draftMode/printOrder/firstPageNumber require ExcelApi 1.9";
+  "PageLayout paperSize/zoom/draftMode/printOrder/firstPageNumber/headerMargin/footerMargin require ExcelApi 1.9";
 
 const PAPER_SIZE_TO_HOST: Record<PagePaperSize, string> = {
   a3: "A3",
@@ -166,10 +166,12 @@ async function readLayout(
   requireMember(layout, "draftMode");
   requireMember(layout, "printOrder");
   requireMember(layout, "firstPageNumber");
+  requireMember(layout, "headerMargin");
+  requireMember(layout, "footerMargin");
   sheet.load("name");
   // Official: load whole zoom object, then read scale / fit fields after sync.
   layout.load(
-    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,paperSize,zoom",
+    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,headerMargin,footerMargin,paperSize,zoom",
   );
   const printArea = layout.getPrintAreaOrNullObject();
   const titleRows = layout.getPrintTitleRowsOrNullObject();
@@ -194,6 +196,8 @@ async function readLayout(
       bottom: Number(layout.bottomMargin),
       left: Number(layout.leftMargin),
       right: Number(layout.rightMargin),
+      header: Number(layout.headerMargin),
+      footer: Number(layout.footerMargin),
     },
     zoomScale: readZoomScale(layout.zoom),
     paperSize: mapPaperSizeFromHost(layout.paperSize),
@@ -255,6 +259,14 @@ export async function officeJsSetSheetPageLayout(
       if (input.margins.bottom != null) layout.bottomMargin = input.margins.bottom;
       if (input.margins.left != null) layout.leftMargin = input.margins.left;
       if (input.margins.right != null) layout.rightMargin = input.margins.right;
+      if (input.margins.header != null) {
+        requireMember(layout, "headerMargin");
+        layout.headerMargin = input.margins.header;
+      }
+      if (input.margins.footer != null) {
+        requireMember(layout, "footerMargin");
+        layout.footerMargin = input.margins.footer;
+      }
     }
     if (input.paperSize != null) {
       requireMember(layout, "paperSize");

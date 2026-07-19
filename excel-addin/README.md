@@ -84,7 +84,7 @@ API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入
 | `sheet.display.get/set` | Office.js：`tabColor`（空串=自动色或 `#RRGGBB`）、`showGridlines`、`showHeadings`；set ≥1 字段写后回读。WPS → unsupported |
 | `workbook.inspect` | Office.js：活动表 usedRange + 每表 `usedRangeAddress`/`rowCount`/`columnCount`（空表 null/0/0）。WPS：活动表 address；每表尺寸字段不填（未验证 Rows/Columns） |
 | `sheet.freeze.get/set` | Office.js：`freezePanes` rows/columns/at/clear；get 回读 location（无冻结 null/0/0）。WPS → unsupported |
-| `sheet.pageLayout.get/set` | Office.js：**ExcelApi 1.9** `pageLayout` 子集（orientation/margins/print flags/zoomScale/paperSize a3|a4|a5|letter|legal/fitToPagesWide|Tall 1..32767/draft/pageOrder downThenOver|overThenDown/firstPageNumber≥1/printArea/titles）；fit 与 zoomScale 互斥；print* 仅非空设置。**无** clear/headers/footers/page breaks/fitToOnePage。WPS → unsupported |
+| `sheet.pageLayout.get/set` | Office.js：**ExcelApi 1.9** `pageLayout` 子集（orientation/margins top|bottom|left|right|header|footer points/print flags/zoomScale/paperSize a3|a4|a5|letter|legal/fitToPagesWide|Tall 1..32767/draft/pageOrder downThenOver|overThenDown/firstPageNumber≥1/printArea/titles）；fit 与 zoomScale 互斥；print* 仅非空设置。**无** clear/headers|footers 文本/page breaks/fitToOnePage。WPS → unsupported |
 | `shape.list/create/delete/update` | Office.js ExcelApi 1.9：`list`；`create` 仅 `geometric`（rectangle\|ellipse\|triangle\|diamond\|rightArrow）或 `textBox`；`update` 浅层 newName/left/top/width/height/text/visible；text 仅 `hasText` 时回读。**无** image/line/group/fill/rotation。WPS → unsupported |
 
 ## 非目标

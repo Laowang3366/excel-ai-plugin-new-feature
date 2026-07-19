@@ -190,6 +190,8 @@ export interface ExcelPageLayout {
   bottomMargin: number;
   leftMargin: number;
   rightMargin: number;
+  headerMargin: number;
+  footerMargin: number;
   /** ExcelApi 1.9 PaperType string (e.g. A4, Letter). */
   paperSize: string;
   /** Assign whole object: pageLayout.zoom = { scale } or { horizontalFitToPages, verticalFitToPages }. Never write zoom.* subprops. */

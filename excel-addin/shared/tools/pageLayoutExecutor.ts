@@ -124,12 +124,12 @@ function optionalMargins(
   }
   const raw = args.margins as Record<string, unknown>;
   for (const key of Object.keys(raw)) {
-    if (!["top", "bottom", "left", "right"].includes(key)) {
+    if (!["top", "bottom", "left", "right", "header", "footer"].includes(key)) {
       throw new Error(`unknown margins field: ${key}`);
     }
   }
   const out: NonNullable<SheetPageLayoutUpdateInput["margins"]> = {};
-  for (const key of ["top", "bottom", "left", "right"] as const) {
+  for (const key of ["top", "bottom", "left", "right", "header", "footer"] as const) {
     if (!Object.prototype.hasOwnProperty.call(raw, key) || raw[key] === undefined) continue;
     if (typeof raw[key] !== "number" || !Number.isFinite(raw[key] as number) || (raw[key] as number) < 0) {
       throw new Error(`margins.${key} must be a non-negative finite number`);

@@ -54,7 +54,7 @@ Evidence columns:
 | sheet | visibility get/set (visible/hidden/veryHidden) | implemented | **unsupported** | hide/veryHide/show | Office.js `Worksheet.visibility` |
 | sheet | display get/set (tabColor/showGridlines/showHeadings) | implemented | **unsupported** | worksheet update tabColor/gridlines | Office.js `Worksheet.tabColor|showGridlines|showHeadings`; empty tabColor=auto |
 | sheet | freeze get/set (rows/columns/at/clear) | implemented | **unsupported** | template freezeRows | Office.js `Worksheet.freezePanes`; location writeback |
-| sheet | pageLayout get/set (print settings subset) | implemented | **unsupported** | inspectPrintSettings/configurePrint | Office.js **ExcelApi 1.9**: paperSize a3|a4|a5|letter|legal; zoom={scale} or {horizontalFitToPages,verticalFitToPages}; draftMode/printOrder/firstPageNumber; zoomScale/fit null mutual; printArea→RangeAreas, titles→Range OrNullObject; **unsupported**: clear/headers/footers/page breaks/fitToOnePage |
+| sheet | pageLayout get/set (print settings subset) | implemented | **unsupported** | inspectPrintSettings/configurePrint | Office.js **ExcelApi 1.9**: paperSize a3|a4|a5|letter|legal; zoom={scale} or {horizontalFitToPages,verticalFitToPages}; draftMode/printOrder/firstPageNumber; margins header/footer (headerMargin/footerMargin points); zoomScale/fit null mutual; printArea→RangeAreas, titles→Range OrNullObject; **unsupported**: clear/headers|footers text/page breaks/fitToOnePage |
 | sheet | protection get/protect/unprotect | implemented | **unsupported** | protect/unprotect | Office.js `Worksheet.protection`; password request-memory only |
 | named range | list/create/update/delete | implemented | **unsupported** | name.* | Office.js names；rename=add-then-delete（add 失败保留旧名；冲突大小写不敏感） |
 | shape | list/create/delete/update (MVP) | implemented | **unsupported** | manageWorkbookObject shape | Office.js ExcelApi 1.9 `Worksheet.shapes`；geometric whitelist + textBox；shallow pos/size/text/visible；**no** image/line/group/fill/lineFormat/rotation/zOrder |
@@ -88,7 +88,8 @@ Evidence columns:
 - Phase27: chart types expanded to column|line|bar|area|pie|scatter|doughnut|bubble|radar|linemarkers; create via ChartCollection.add enum **ExcelApi 1.1**; chart/series chartType property update **ExcelApi 1.7**; LineMarkers→linemarkers (not line), Doughnut→doughnut (not pie); WPS unsupported
 - Phase28: `table.unlist` (ExcelApi 1.2 `Table.convertToRange`; keep data; host absence check; Office.js; WPS unsupported). `table.delete` remains hard delete. **unsupported**: table resize/filter/sort/banded/highlight
 - Phase29: `sheet.pageLayout` adds `paperSize` + `fitToPagesWide`/`fitToPagesTall` (**ExcelApi 1.9** precheck; host readback; fit mutually exclusive with zoomScale; WPS unsupported)
-- Phase30: `sheet.pageLayout` adds `draft`/`pageOrder`/`firstPageNumber` (**ExcelApi 1.9** draftMode/printOrder/firstPageNumber; host readback; firstPageNumber ""/null→null, set only finite int≥1; WPS unsupported). **unsupported**: headers/footers, page breaks, printArea/titles clear, fitToOnePage alias
+- Phase30: `sheet.pageLayout` adds `draft`/`pageOrder`/`firstPageNumber` (**ExcelApi 1.9** draftMode/printOrder/firstPageNumber; host readback; firstPageNumber ""/null→null, set only finite int≥1; WPS unsupported)
+- Phase31: `sheet.pageLayout.margins` adds `header`/`footer` (**ExcelApi 1.9** headerMargin/footerMargin points; host readback; 0 allowed; WPS unsupported). **unsupported**: headers/footers text, page breaks, printArea/titles clear, fitToOnePage alias
 
 ## Phase5 Office.js contract notes
 

@@ -12,6 +12,10 @@ export interface PageLayoutMargins {
   bottom: number;
   left: number;
   right: number;
+  /** PageLayout.headerMargin (points). */
+  header: number;
+  /** PageLayout.footerMargin (points). */
+  footer: number;
 }
 
 /** Official Worksheet.pageLayout confirmed subset. */

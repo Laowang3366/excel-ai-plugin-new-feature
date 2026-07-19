@@ -20,6 +20,10 @@ export function installPageLayoutExcel(options?: {
   hasPrintOrder?: boolean;
   /** When false, pageLayout has no firstPageNumber member. */
   hasFirstPageNumber?: boolean;
+  /** When false, pageLayout has no headerMargin member. */
+  hasHeaderMargin?: boolean;
+  /** When false, pageLayout has no footerMargin member. */
+  hasFooterMargin?: boolean;
 }) {
   const excelApi19 = options?.excelApi19 !== false;
   const hasPaperSize = options?.hasPaperSize !== false;
@@ -27,6 +31,8 @@ export function installPageLayoutExcel(options?: {
   const hasDraftMode = options?.hasDraftMode !== false;
   const hasPrintOrder = options?.hasPrintOrder !== false;
   const hasFirstPageNumber = options?.hasFirstPageNumber !== false;
+  const hasHeaderMargin = options?.hasHeaderMargin !== false;
+  const hasFooterMargin = options?.hasFooterMargin !== false;
   let excelRunCalls = 0;
   let pageLayoutWriteCalls = 0;
 
@@ -61,6 +67,8 @@ export function installPageLayoutExcel(options?: {
         hasDraftMode,
         hasPrintOrder,
         hasFirstPageNumber,
+        hasHeaderMargin,
+        hasFooterMargin,
         queue,
       }),
     };
@@ -170,6 +178,13 @@ export function installPageLayoutExcel(options?: {
         sheet.committed.fitToPagesWide = wide;
         sheet.committed.fitToPagesTall = tall;
         if (wide != null || tall != null) sheet.committed.zoomScale = null;
+      }
+    },
+    setCommittedHeaderFooterMargins(name: string, header: number, footer: number) {
+      const sheet = sheets.get(name);
+      if (sheet) {
+        sheet.committed.headerMargin = header;
+        sheet.committed.footerMargin = footer;
       }
     },
   };
