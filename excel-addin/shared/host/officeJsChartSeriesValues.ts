@@ -33,11 +33,6 @@ function readSource(result: ClientResult, field: string): string {
   return value;
 }
 
-function isRequirementSetFailure(reason: string | undefined): boolean {
-  return /getDimensionDataSourceString|ExcelApi 1\.15|requirement|isSetSupported/i.test(
-    reason ?? "",
-  );
-}
 
 /** Official precheck before any series data-source write. */
 export function isExcelApi115Supported(): boolean {
@@ -110,13 +105,5 @@ export async function officeJsUpdateChartSeriesValues(
     if (xValuesResult) info.xValuesSource = readSource(xValuesResult, "xValuesSource");
     return info;
   });
-  if (!result.ok && result.unsupported === true && isRequirementSetFailure(result.reason)) {
-    return unsupported(
-      "chart.series.values.update",
-      "office-js",
-      result.reason ?? "ExcelApi 1.15 required for series source readback",
-      REQUIREMENT_EVIDENCE,
-    );
-  }
   return result;
 }

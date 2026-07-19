@@ -39,11 +39,6 @@ function requireLoadedBoolean(value: unknown, field: string): boolean {
 }
 
 /** Only explicit requirement-set precheck failures — not missing members / business errors. */
-function isRequirementSetFailure(reason: string | undefined): boolean {
-  return /isSetSupported|ExcelApi 1\.[78] is not supported|requirement set not supported/i.test(
-    reason ?? "",
-  );
-}
 
 function touchesDataLabelsFields(input: ChartDataLabelsUpdateInput): boolean {
   return (
@@ -168,15 +163,5 @@ export async function officeJsUpdateChartDataLabels(
     };
   });
 
-  if (!result.ok && result.unsupported === true && isRequirementSetFailure(result.reason)) {
-    return unsupported(
-      "chart.series.dataLabels.update",
-      "office-js",
-      result.reason ?? `ExcelApi ${version} required for dataLabels`,
-      version === "1.8"
-        ? "ChartSeries.dataLabels requires ExcelApi 1.8 (full snapshot path)"
-        : "ChartSeries.hasDataLabels requires ExcelApi 1.7 (enabled-only path)",
-    );
-  }
   return result;
 }

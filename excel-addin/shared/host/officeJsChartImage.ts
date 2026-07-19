@@ -80,17 +80,5 @@ export async function officeJsGetChartImage(
       imageBase64: requireImageBase64(imageResult.value),
     };
   });
-  if (
-    !result.ok &&
-    result.unsupported === true &&
-    /getImage|ExcelApi 1\.2|requirement|isSetSupported/i.test(result.reason ?? "")
-  ) {
-    return unsupported(
-      "chart.image.get",
-      "office-js",
-      result.reason ?? "ExcelApi 1.2 required for Chart.getImage",
-      REQUIREMENT_EVIDENCE,
-    );
-  }
   return result;
 }

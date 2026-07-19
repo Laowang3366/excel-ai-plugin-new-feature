@@ -33,11 +33,6 @@ function readSource(result: ClientResult, field: string): string {
 }
 
 /** Only true requirement-set signals — not setBubbleSizes/BubbleSizes business errors. */
-function isRequirementSetFailure(reason: string | undefined): boolean {
-  return /isSetSupported|ExcelApi 1\.15 is not supported|getDimensionDataSourceString missing \(ExcelApi 1\.15|requirement set not supported/i.test(
-    reason ?? "",
-  );
-}
 
 /** Official precheck before any bubble-sizes write. */
 export function isExcelApi115SupportedForBubbleSizes(): boolean {
@@ -106,13 +101,5 @@ export async function officeJsUpdateChartSeriesBubbleSizes(
       dataBound: true as const,
     };
   });
-  if (!result.ok && result.unsupported === true && isRequirementSetFailure(result.reason)) {
-    return unsupported(
-      "chart.series.bubbleSizes.update",
-      "office-js",
-      result.reason ?? "ExcelApi 1.15 required for bubble size source readback",
-      REQUIREMENT_EVIDENCE,
-    );
-  }
   return result;
 }

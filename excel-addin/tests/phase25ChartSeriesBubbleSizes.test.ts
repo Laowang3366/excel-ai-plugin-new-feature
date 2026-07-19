@@ -109,7 +109,7 @@ describe("phase25 chart series bubble sizes", () => {
       expect(f.getCommitted(0)?.bubbleSizesSource).toBeNull();
     });
 
-    it("missing getDimensionDataSourceString is requirement-set unsupported", async () => {
+    it("missing getDimensionDataSourceString is ordinary fail after precheck", async () => {
       delete (globalThis as { Excel?: unknown }).Excel;
       delete (globalThis as { Office?: unknown }).Office;
       const f = installChartSeriesBubbleSizesExcel({ supportReadback: false });
@@ -121,9 +121,11 @@ describe("phase25 chart series bubble sizes", () => {
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.unsupported).toBe(true);
+        expect(result.unsupported).not.toBe(true);
         expect(result.reason).toMatch(/getDimensionDataSourceString missing/);
-        expect(result.evidence).toMatch(/ExcelApi 1\.15/);
+        expect(result.capability).toBe("chart.series.bubbleSizes.update");
+        expect(result.host).toBe("office-js");
+        expect(result.reason).toMatch(/getDimensionDataSourceString/i);
       }
       expect(f.getSetterCallCounts().setBubbleSizesCalls).toBe(0);
       expect(f.getCommitted(0)?.bubbleSizesSource).toBeNull();
@@ -141,8 +143,10 @@ describe("phase25 chart series bubble sizes", () => {
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
+        expect(result.unsupported).not.toBe(true);
+        expect(result.capability).toBe("chart.series.bubbleSizes.update");
+        expect(result.host).toBe("office-js");
         expect(result.reason).toMatch(/readback sync rejected/);
-        expect(result.evidence).not.toMatch(/ExcelApi 1\.15 for verified/);
       }
       expect(f.getSetterCallCounts().setBubbleSizesCalls).toBeGreaterThan(0);
       expect(f.getCommitted(0)?.bubbleSizesSource).toBeNull();
@@ -167,8 +171,11 @@ describe("phase25 chart series bubble sizes", () => {
       excel.run = originalRun;
       expect(result.ok).toBe(false);
       if (!result.ok) {
+        expect(result.unsupported).not.toBe(true);
+        expect(result.capability).toBe("chart.series.bubbleSizes.update");
+        expect(result.host).toBe("office-js");
         expect(result.reason).toMatch(/only valid for Bubble/);
-        expect(result.evidence).not.toMatch(/ExcelApi 1\.15 for verified/);
+        expect(result.evidence).toBeUndefined();
       }
     });
 

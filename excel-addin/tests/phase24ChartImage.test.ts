@@ -99,6 +99,39 @@ describe("phase24 chart image get", () => {
         chartName: "C1",
       });
       expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.unsupported).not.toBe(true);
+    });
+
+    it("1.2 true but missing getImage is ordinary fail", async () => {
+      delete (globalThis as { Excel?: unknown }).Excel;
+      delete (globalThis as { Office?: unknown }).Office;
+      installChartImageExcel({ missingGetImage: true });
+      const result = await new OfficeJsAdapter().getChartImage({
+        sheetName: "Sheet1",
+        chartName: "C1",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.unsupported).not.toBe(true);
+        expect(result.capability).toBe("chart.image.get");
+        expect(result.host).toBe("office-js");
+        expect(result.reason).toMatch(/getImage/i);
+      }
+    });
+
+    it("sync failure is ordinary fail", async () => {
+      delete (globalThis as { Excel?: unknown }).Excel;
+      delete (globalThis as { Office?: unknown }).Office;
+      installChartImageExcel({ syncFails: true });
+      const result = await new OfficeJsAdapter().getChartImage({
+        sheetName: "Sheet1",
+        chartName: "C1",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.unsupported).not.toBe(true);
+        expect(result.reason).toMatch(/sync/i);
+      }
     });
   });
 

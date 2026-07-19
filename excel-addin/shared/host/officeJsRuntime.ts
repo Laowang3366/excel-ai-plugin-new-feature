@@ -2,6 +2,7 @@ import {
   type CellValue,
   type HostResult,
   type RangeFormat,
+  fail,
   ok,
   unsupported,
 } from "./types";
@@ -356,7 +357,8 @@ export async function withExcel<T>(
     return ok(await run(fn));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return unsupported(capability, "office-js", message, "Excel.run rejected the batch");
+    // Precheck already passed when Excel.run exists: batch/load/sync errors are ordinary failures.
+    return fail(capability, "office-js", message);
   }
 }
 

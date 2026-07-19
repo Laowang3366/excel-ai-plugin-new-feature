@@ -1,6 +1,7 @@
 import type { HostAdapter } from "../host/types";
 import { isChartType } from "../host/types";
 import type { ChartType, ToolCall, ToolResult } from "./types";
+import { mapHostResultToToolResult } from "./hostResultMapping";
 
 function requireString(args: Record<string, unknown>, key: string): string {
   const value = args[key];
@@ -47,27 +48,10 @@ function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
 }
 
 function fromHost(
-  tool: ToolCall["name"],
-  result: {
-    ok: boolean;
-    data?: unknown;
-    reason?: string;
-    unsupported?: boolean;
-    capability?: string;
-    host?: string;
-    evidence?: string;
-  },
-): ToolResult {
-  if (result.ok) {
-    return { ok: true, tool, data: result.data };
-  }
-  return {
-    ok: false,
-    tool,
-    unsupported: true,
-    error: result.reason ?? "unsupported",
-    detail: result,
-  };
+  tool: Parameters<typeof mapHostResultToToolResult>[0],
+  result: Parameters<typeof mapHostResultToToolResult>[1],
+): ReturnType<typeof mapHostResultToToolResult> {
+  return mapHostResultToToolResult(tool, result);
 }
 
 export async function executeChartTool(

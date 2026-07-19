@@ -122,7 +122,7 @@ describe("phase23 chart series values", () => {
       expect(f.getCommitted(0)?.xValuesSource).toBeNull();
     });
 
-    it("missing getDimensionDataSourceString is requirement-set unsupported", async () => {
+    it("missing getDimensionDataSourceString is ordinary fail after precheck", async () => {
       delete (globalThis as { Excel?: unknown }).Excel;
       delete (globalThis as { Office?: unknown }).Office;
       const f = installChartSeriesValuesExcel({ supportReadback: false });
@@ -134,14 +134,15 @@ describe("phase23 chart series values", () => {
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.unsupported).toBe(true);
-        expect(result.evidence).toMatch(/ExcelApi 1\.15/);
+        expect(result.unsupported).not.toBe(true);
+        expect(result.capability).toBe("chart.series.values.update");
+        expect(result.host).toBe("office-js");
+        expect(result.reason).toMatch(/getDimensionDataSourceString/i);
       }
-      // precheck passed but method missing after probe path may still call nothing if we fail early
       expect(f.getCommitted(0)?.valuesSource).toBeNull();
     });
 
-    it("readback sync rejection is unsupported and leaves no unverified write", async () => {
+    it("readback sync rejection is ordinary fail and leaves no unverified write", async () => {
       delete (globalThis as { Excel?: unknown }).Excel;
       delete (globalThis as { Office?: unknown }).Office;
       const f = installChartSeriesValuesExcel({ failReadbackSync: true });
@@ -154,9 +155,10 @@ describe("phase23 chart series values", () => {
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.unsupported).toBe(true);
-        expect(result.evidence).toMatch(/ExcelApi 1\.15/);
-        expect(result.reason).toMatch(/getDimensionDataSourceString|ExcelApi 1\.15/);
+        expect(result.unsupported).not.toBe(true);
+        expect(result.capability).toBe("chart.series.values.update");
+        expect(result.host).toBe("office-js");
+        expect(result.reason).toMatch(/getDimensionDataSourceString|sync|reject/i);
       }
       expect(f.getSetterCallCounts().setValuesCalls).toBeGreaterThan(0);
       expect(f.getCommitted(0)?.valuesSource).toBeNull();

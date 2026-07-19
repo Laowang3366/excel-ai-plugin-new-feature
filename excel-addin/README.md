@@ -30,6 +30,11 @@ npm run dev            # https 侧载前可用 http://localhost:3000
 
 API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入 `localStorage`。跨会话持久化需后续本地安全存储服务。public view 只暴露 `hasApiKey`，不包含密钥明文。
 
+## 失败分类
+
+- **typed unsupported**：缺 `Excel.run`、官方 requirement precheck 失败/缺失/抛错、或 WPS 无已验证映射。
+- **ordinary failure**：requirement precheck 已通过并进入 `Excel.run` 之后的 load/sync/缺成员/坏回读/业务错误；`ToolResult.unsupported` 不得为 true，`detail` 保留 capability/host/reason。
+
 ## Provider 连接测试 / 模型列表
 
 窄 `ProviderClient`（`shared/provider/client.ts`）与桌面 `ai:testConnection` / `ai:listModels` 语义对齐：

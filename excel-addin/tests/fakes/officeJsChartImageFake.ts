@@ -10,8 +10,12 @@ export function installChartImageExcel(options?: {
   /** Host worksheet.name after load (may differ from request key). */
   hostSheetName?: string;
   chartName?: unknown;
+  missingGetImage?: boolean;
+  syncFails?: boolean;
 }) {
   const excelApi12 = options?.excelApi12 !== false;
+  const missingGetImage = options?.missingGetImage === true;
+  const syncFails = options?.syncFails === true;
   let hostSheetName = options?.hostSheetName ?? "HostSheet";
   let chartNameValue: unknown = options?.chartName ?? "HostChart";
   let imagePayload = options?.imagePayload ?? "ZmFrZS1iYXNlNjQ=";
@@ -32,12 +36,18 @@ export function installChartImageExcel(options?: {
             charts: {
               getItem(chartName: string) {
                 if (chartName !== "C1") throw new Error(`missing chart ${chartName}`);
-                return {
+                const chart: {
+                  get name(): unknown;
+                  load(): void;
+                  getImage?: (width?: number, height?: number) => { get value(): string };
+                } = {
                   get name() {
                     return chartNameValue as string;
                   },
                   load() {},
-                  getImage(width?: number, height?: number) {
+                };
+                if (!missingGetImage) {
+                  chart.getImage = (width?: number, height?: number) => {
                     getImageCalls += 1;
                     const suffix =
                       width != null || height != null ? `:${width ?? ""}x${height ?? ""}` : "";
@@ -50,8 +60,9 @@ export function installChartImageExcel(options?: {
                         return committedImage;
                       },
                     };
-                  },
-                };
+                  };
+                }
+                return chart;
               },
             },
           };
@@ -59,6 +70,7 @@ export function installChartImageExcel(options?: {
       },
     },
     async sync() {
+      if (syncFails) throw new Error("sync failed");
       if (pendingImage != null) {
         committedImage = pendingImage;
         pendingImage = null;
@@ -105,6 +117,7 @@ export function installChartImageExcel(options?: {
     },
     async brokenSkipSync() {
       const chart = context.workbook.worksheets.getItem("Sheet1").charts.getItem("C1");
+      if (typeof chart.getImage !== "function") return null;
       const r = chart.getImage();
       try {
         return r.value;
@@ -115,6 +128,9 @@ export function installChartImageExcel(options?: {
     /** Commit A, change payload to B, getImage without sync → still A. */
     async staleAfterPayloadChange() {
       const chart = context.workbook.worksheets.getItem("Sheet1").charts.getItem("C1");
+      if (typeof chart.getImage !== "function") {
+        throw new Error("getImage missing");
+      }
       chart.getImage();
       await context.sync();
       const first = committedImage;

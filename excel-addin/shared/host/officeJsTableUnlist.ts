@@ -91,17 +91,5 @@ export async function officeJsUnlistTable(
     };
   });
 
-  if (
-    !result.ok &&
-    result.unsupported === true &&
-    /convertToRange|ExcelApi 1\.2|requirement|isSetSupported/i.test(result.reason ?? "")
-  ) {
-    return unsupported(
-      "table.unlist",
-      "office-js",
-      result.reason ?? "ExcelApi 1.2 required for Table.convertToRange",
-      REQUIREMENT_EVIDENCE,
-    );
-  }
   return result;
 }

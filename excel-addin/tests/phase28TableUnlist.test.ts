@@ -86,13 +86,16 @@ describe("phase28 table.unlist", () => {
       expect(f.convertCalls()).toBe(0);
     });
 
-    it("missing convertToRange fails and is not a success", async () => {
+    it("missing convertToRange is ordinary fail after precheck", async () => {
       delete (globalThis as { Excel?: unknown }).Excel;
       delete (globalThis as { Office?: unknown }).Office;
       const f = installTableUnlistExcel({ hasConvertToRange: false });
       const result = await new OfficeJsAdapter().unlistTable("Sheet1", "Sales");
       expect(result.ok).toBe(false);
       if (!result.ok) {
+        expect(result.unsupported).not.toBe(true);
+        expect(result.capability).toBe("table.unlist");
+        expect(result.host).toBe("office-js");
         expect(result.reason ?? "").toMatch(/convertToRange/);
       }
       expect(f.convertCalls()).toBe(0);
