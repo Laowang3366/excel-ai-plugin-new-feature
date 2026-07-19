@@ -34,12 +34,12 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
         margins: {
           type: "object",
           properties: {
-            top: { type: "number" },
-            bottom: { type: "number" },
-            left: { type: "number" },
-            right: { type: "number" },
-            header: { type: "number" },
-            footer: { type: "number" },
+            top: { type: "number", minimum: 0 },
+            bottom: { type: "number", minimum: 0 },
+            left: { type: "number", minimum: 0 },
+            right: { type: "number", minimum: 0 },
+            header: { type: "number", minimum: 0 },
+            footer: { type: "number", minimum: 0 },
           },
           additionalProperties: false,
         },

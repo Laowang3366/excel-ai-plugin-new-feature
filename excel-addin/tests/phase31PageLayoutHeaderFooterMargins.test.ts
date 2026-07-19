@@ -2,19 +2,24 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeJsAdapter } from "../shared/host/officeJsAdapter";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
 import { PAGE_LAYOUT_TOOL_DEFINITIONS } from "../shared/tools/pageLayoutDefinitions";
+import { buildAdvancedExcelBoundary } from "../shared/prompts/advancedExcelBoundary";
 import { ToolExecutor } from "../shared/tools";
 import { installPageLayoutExcel } from "./fakes/officeJsPageLayoutFake";
 import { MockHostAdapter } from "./mockHost";
 
 describe("phase31 sheet.pageLayout margins header/footer", () => {
   describe("schema", () => {
-    it("set schema margins include header and footer", () => {
+    it("set schema margins include header/footer with minimum 0", () => {
       const setDef = PAGE_LAYOUT_TOOL_DEFINITIONS.find((t) => t.name === "sheet.pageLayout.set");
       expect(setDef).toBeDefined();
       const margins = (setDef!.parameters.properties as Record<string, Record<string, unknown>>)
-        .margins as { properties?: Record<string, unknown>; additionalProperties?: boolean };
-      expect(margins.properties?.header).toEqual({ type: "number" });
-      expect(margins.properties?.footer).toEqual({ type: "number" });
+        .margins as {
+        properties?: Record<string, Record<string, unknown>>;
+        additionalProperties?: boolean;
+      };
+      for (const key of ["top", "bottom", "left", "right", "header", "footer"] as const) {
+        expect(margins.properties?.[key]).toEqual({ type: "number", minimum: 0 });
+      }
       expect(margins.additionalProperties).toBe(false);
     });
   });
@@ -34,7 +39,7 @@ describe("phase31 sheet.pageLayout margins header/footer", () => {
       }
     });
 
-    it("rejects invalid header/footer and unknown margin keys", async () => {
+    it("rejects invalid header/footer, empty margins, and unknown margin keys", async () => {
       const executor = new ToolExecutor(new MockHostAdapter());
       const cases: Array<Record<string, unknown>> = [
         { sheetName: "Sheet1", margins: { header: -1 } },
@@ -44,6 +49,8 @@ describe("phase31 sheet.pageLayout margins header/footer", () => {
         { sheetName: "Sheet1", margins: { header: "0" } },
         { sheetName: "Sheet1", margins: { headerMargin: 12 } },
         { sheetName: "Sheet1", margins: { gutter: 1 } },
+        { sheetName: "Sheet1", margins: {} },
+        { sheetName: "Sheet1", margins: { header: undefined } },
       ];
       for (const args of cases) {
         const result = await executor.execute({ name: "sheet.pageLayout.set", arguments: args });
@@ -126,6 +133,15 @@ describe("phase31 sheet.pageLayout margins header/footer", () => {
     });
   });
 
+
+  describe("prompt boundary", () => {
+    it("documents six-side margins and headers/footers text unsupported", () => {
+      const text = buildAdvancedExcelBoundary({});
+      expect(text).toMatch(/margins\.\{top,bottom,left,right,header,footer\}/);
+      expect(text).toMatch(/headers\/footers 文本内容/);
+      expect(text).not.toMatch(/headers\/footers\/page breaks/);
+    });
+  });
   describe("WPS", () => {
     it("still returns typed unsupported for pageLayout get/set", async () => {
       const executor = new ToolExecutor(new WpsJsaAdapter());
