@@ -57,7 +57,7 @@ export function ToolDemoPanel({ adapter }: Props) {
 
   return (
     <section className="card">
-      <h2>Excel 工具演示（Phase 1–29）</h2>
+      <h2>Excel 工具演示（Phase 1–36）</h2>
       <div className="row">
         <label>
           工具

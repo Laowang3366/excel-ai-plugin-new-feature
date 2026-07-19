@@ -18,19 +18,23 @@ import { PAGE_LAYOUT_TOOL_DEFINITIONS } from "./pageLayoutDefinitions";
 import { SHAPE_TOOL_DEFINITIONS } from "./shapeDefinitions";
 import { STRUCTURE_TOOL_DEFINITIONS } from "./structureDefinitions";
 import { TABLE_UNLIST_TOOL_DEFINITIONS } from "./tableUnlistDefinitions";
+import {
+  CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
+  DATA_VALIDATION_TOOL_DEFINITIONS,
+} from "./validationDefinitions";
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "host.status",
     description: "读取当前宿主连接状态与工作簿名称",
     riskLevel: "safe",
-    parameters: { type: "object", properties: {}, required: [] },
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
     name: "selection.get",
     description: "读取当前选区地址、值与公式",
     riskLevel: "safe",
-    parameters: { type: "object", properties: {}, required: [] },
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
     name: "range.read",
@@ -48,6 +52,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         },
       },
       required: ["sheetName", "range"],
+      additionalProperties: false,
     },
   },
   {
@@ -63,6 +68,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         verify: { type: "boolean" },
       },
       required: ["sheetName", "range", "values"],
+      additionalProperties: false,
     },
   },
   {
@@ -76,6 +82,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         range: { type: "string" },
       },
       required: ["sheetName", "range"],
+      additionalProperties: false,
     },
   },
   {
@@ -89,6 +96,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         range: { type: "string" },
       },
       required: ["sheetName", "range"],
+      additionalProperties: false,
     },
   },
   {
@@ -100,9 +108,24 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       properties: {
         sheetName: { type: "string" },
         range: { type: "string" },
-        format: { type: "object" },
+        format: {
+          type: "object",
+          properties: {
+            fontName: { type: "string" },
+            fontSize: { type: "number" },
+            fontBold: { type: "boolean" },
+            fontColor: { type: "string" },
+            fillColor: { type: "string" },
+            numberFormat: { type: "string" },
+            horizontalAlignment: { type: "string" },
+            verticalAlignment: { type: "string" },
+            wrapText: { type: "boolean" },
+          },
+          additionalProperties: false,
+        },
       },
       required: ["sheetName", "range", "format"],
+      additionalProperties: false,
     },
   },
   {
@@ -116,6 +139,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         range: { type: "string" },
       },
       required: ["sheetName", "range"],
+      additionalProperties: false,
     },
   },
   {
@@ -131,6 +155,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         verify: { type: "boolean" },
       },
       required: ["sheetName", "range", "formula"],
+      additionalProperties: false,
     },
   },
   {
@@ -145,13 +170,14 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         range: { type: "string" },
       },
       required: ["sheetName"],
+      additionalProperties: false,
     },
   },
   {
     name: "sheet.list",
     description: "列出工作表",
     riskLevel: "safe",
-    parameters: { type: "object", properties: {}, required: [] },
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
     name: "sheet.operation",
@@ -170,6 +196,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         position: { type: "integer", minimum: 1 },
       },
       required: ["operation", "sheetName"],
+      additionalProperties: false,
     },
   },
   {
@@ -180,6 +207,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: "object",
       properties: { sheetName: { type: "string" } },
       required: ["sheetName"],
+      additionalProperties: false,
     },
   },
   {
@@ -193,6 +221,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         newName: { type: "string" },
       },
       required: ["sheetName", "newName"],
+      additionalProperties: false,
     },
   },
   {
@@ -203,6 +232,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: "object",
       properties: { sheetName: { type: "string" } },
       required: ["sheetName"],
+      additionalProperties: false,
     },
   },
   {
@@ -213,6 +243,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: "object",
       properties: { sheetName: { type: "string" } },
       required: [],
+      additionalProperties: false,
     },
   },
   {
@@ -228,6 +259,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         hasHeaders: { type: "boolean" },
       },
       required: ["sheetName", "range"],
+      additionalProperties: false,
     },
   },
   {
@@ -241,132 +273,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         tableName: { type: "string" },
       },
       required: ["sheetName", "tableName"],
+      additionalProperties: false,
     },
   },
   {
     name: "workbook.inspect",
     description: "检查工作簿/活动表 used range；Office.js 每表含 usedRangeAddress/rowCount/columnCount",
     riskLevel: "safe",
-    parameters: { type: "object", properties: {}, required: [] },
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
-  {
-    name: "conditionalFormat.list",
-    description: "列出区域条件格式（Office.js；WPS unsupported）",
-    riskLevel: "safe",
-    parameters: {
-      type: "object",
-      properties: {
-        sheetName: { type: "string" },
-        range: { type: "string" },
-      },
-      required: ["sheetName", "range"],
-    },
-  },
-  {
-    name: "conditionalFormat.add",
-    description:
-      "添加条件格式。rule.kind=cellValue|custom；cellValue 需 operator/formula1；custom 需 formula",
-    riskLevel: "moderate",
-    parameters: {
-      type: "object",
-      properties: {
-        sheetName: { type: "string" },
-        range: { type: "string" },
-        rule: {
-          type: "object",
-          properties: {
-            kind: { type: "string", enum: ["cellValue", "custom"] },
-            operator: {
-              type: "string",
-              enum: ["greaterThan", "lessThan", "equalTo", "between", "notBetween"],
-            },
-            formula1: { type: "string" },
-            formula2: { type: "string" },
-            formula: { type: "string" },
-            fillColor: { type: "string" },
-            fontColor: { type: "string" },
-          },
-          required: ["kind"],
-          additionalProperties: false,
-        },
-      },
-      required: ["sheetName", "range", "rule"],
-    },
-  },
-  {
-    name: "conditionalFormat.delete",
-    description: "按 id 删除区域条件格式",
-    riskLevel: "moderate",
-    parameters: {
-      type: "object",
-      properties: {
-        sheetName: { type: "string" },
-        range: { type: "string" },
-        id: { type: "string" },
-      },
-      required: ["sheetName", "range", "id"],
-    },
-  },
-  {
-    name: "dataValidation.read",
-    description: "读取区域数据验证规则（Office.js；WPS unsupported）",
-    riskLevel: "safe",
-    parameters: {
-      type: "object",
-      properties: {
-        sheetName: { type: "string" },
-        range: { type: "string" },
-      },
-      required: ["sheetName", "range"],
-    },
-  },
-  {
-    name: "dataValidation.write",
-    description:
-      "写入数据验证。rule.type=list|wholeNumber；list 用 listValues；wholeNumber 用 operator/formula1/formula2",
-    riskLevel: "moderate",
-    parameters: {
-      type: "object",
-      properties: {
-        sheetName: { type: "string" },
-        range: { type: "string" },
-        rule: {
-          type: "object",
-          properties: {
-            type: { type: "string", enum: ["list", "wholeNumber"] },
-            operator: {
-              type: "string",
-              enum: ["between", "notBetween", "equalTo", "greaterThan", "lessThan"],
-            },
-            formula1: { type: "string" },
-            formula2: { type: "string" },
-            listValues: {
-              type: "array",
-              items: { type: "string", minLength: 1 },
-              minItems: 1,
-            },
-            allowBlank: { type: "boolean" },
-          },
-          required: ["type"],
-          additionalProperties: false,
-        },
-      },
-      required: ["sheetName", "range", "rule"],
-    },
-  },
-  {
-    name: "dataValidation.clear",
-    description: "清除区域数据验证",
-    riskLevel: "moderate",
-    parameters: {
-      type: "object",
-      properties: {
-        sheetName: { type: "string" },
-        range: { type: "string" },
-      },
-      required: ["sheetName", "range"],
-    },
-  },
+  ...CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
+  ...DATA_VALIDATION_TOOL_DEFINITIONS,
   ...CHART_TOOL_DEFINITIONS,
   ...CHART_SERIES_TOOL_DEFINITIONS,
   ...CHART_SOURCE_TOOL_DEFINITIONS,

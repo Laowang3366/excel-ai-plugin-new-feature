@@ -19,7 +19,7 @@ npm run dev            # https 侧载前可用 http://localhost:3000
 | 路径 | 职责 |
 |------|------|
 | `shared/host` | HostAdapter、Office.js / WPS JSA 适配 |
-| `shared/tools` | Phase 1–29 工具合同与执行（写后回读可显式开启） |
+| `shared/tools` | Phase 1–36 工具合同与执行（写后回读可显式开启；**schema 默认 `additionalProperties:false`，拒绝未知字段**）
 | `shared/provider` | 供应商模板 CRUD / active / apiFormat；key 仅内存 |
 | `shared/prompts` | 同步生成的提示词与 manifest |
 | `docs/capability-matrix.md` | 能力矩阵与证据 |

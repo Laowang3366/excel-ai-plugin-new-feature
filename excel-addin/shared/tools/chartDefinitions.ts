@@ -10,6 +10,7 @@ export const CHART_TOOL_DEFINITIONS: ToolDefinition[] = [
       type: "object",
       properties: { sheetName: { type: "string" } },
       required: [],
+      additionalProperties: false,
     },
   },
   {
@@ -45,6 +46,7 @@ export const CHART_TOOL_DEFINITIONS: ToolDefinition[] = [
         chartName: { type: "string" },
       },
       required: ["sheetName", "chartName"],
+      additionalProperties: false,
     },
   },
 ];
