@@ -2,8 +2,11 @@ import type { HostAdapter, RangeExpandMode, RangeFormat } from "../host/types";
 import type { CellValue, ToolCall, ToolFailure, ToolName, ToolResult } from "./types";
 import { mapHostResultToToolResult } from "./hostResultMapping";
 import {
+  optionalIdent,
   rejectUnknownCoreToolArguments,
   rejectUnknownRangeFormatFields,
+  requireIdent,
+  requireValueString,
 } from "./argValidation";
 import { requireCfRule, requireDvRule } from "./ruleValidation";
 import { executeSheetOperation } from "./sheetOperation";
@@ -30,21 +33,6 @@ import { writeFormulaWithVerify, writeRangeWithVerify } from "./writeWithVerify"
 
 function fail(tool: ToolName, error: string, detail?: unknown): ToolFailure {
   return { ok: false, tool, error, detail };
-}
-
-function requireString(args: Record<string, unknown>, key: string): string {
-  const value = args[key];
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`Missing string argument: ${key}`);
-  }
-  return value;
-}
-
-function optionalString(args: Record<string, unknown>, key: string): string | undefined {
-  const value = args[key];
-  if (value == null || value === "") return undefined;
-  if (typeof value !== "string") throw new Error(`Invalid string argument: ${key}`);
-  return value;
 }
 
 function requireValues(args: Record<string, unknown>): CellValue[][] {
@@ -85,7 +73,11 @@ function optionalExpand(args: Record<string, unknown>): RangeExpandMode | undefi
   if (!("expand" in args) || args.expand === undefined || args.expand === "") {
     return undefined;
   }
-  const value = args.expand;
+  const raw = args.expand;
+  if (typeof raw !== "string") {
+    throw new Error("expand must be none|spill|currentArray|currentRegion");
+  }
+  const value = raw.trim();
   if (
     value !== "none" &&
     value !== "spill" &&
@@ -98,7 +90,11 @@ function optionalExpand(args: Record<string, unknown>): RangeExpandMode | undefi
 }
 
 function requireSheetOperation(args: Record<string, unknown>): "add" | "rename" | "delete" | "copy" | "move" {
-  const value = args.operation;
+  const raw = args.operation;
+  if (typeof raw !== "string") {
+    throw new Error("operation must be add|rename|delete|copy|move");
+  }
+  const value = raw.trim();
   if (
     value !== "add" &&
     value !== "rename" &&
@@ -108,7 +104,7 @@ function requireSheetOperation(args: Record<string, unknown>): "add" | "rename" 
   ) {
     throw new Error("operation must be add|rename|delete|copy|move");
   }
-  return value;
+  return value as "add" | "rename" | "delete" | "copy" | "move";
 }
 
 function fromHost(
@@ -133,15 +129,15 @@ export class ToolExecutor {
           return fromHost(
             call.name,
             await this.host.readRange(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
               optionalExpand(call.arguments),
             ),
           );
         case "range.write":
           return await writeRangeWithVerify(this.host, {
-            sheetName: requireString(call.arguments, "sheetName"),
-            range: requireString(call.arguments, "range"),
+            sheetName: requireIdent(call.arguments, "sheetName"),
+            range: requireIdent(call.arguments, "range"),
             values: requireValues(call.arguments),
             verify: call.arguments.verify !== false,
           });
@@ -149,31 +145,31 @@ export class ToolExecutor {
           return fromHost(
             call.name,
             await this.host.clearRange(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
             ),
           );
         case "range.format.read":
           return fromHost(
             call.name,
             await this.host.readFormat(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
             ),
           );
         case "range.format.write":
           return fromHost(
             call.name,
             await this.host.writeFormat(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
               requireFormat(call.arguments),
             ),
           );
         case "formula.read": {
           const read = await this.host.readRange(
-            requireString(call.arguments, "sheetName"),
-            requireString(call.arguments, "range"),
+            requireIdent(call.arguments, "sheetName"),
+            requireIdent(call.arguments, "range"),
           );
           if (!read.ok) return fromHost(call.name, read);
           return {
@@ -188,17 +184,17 @@ export class ToolExecutor {
         }
         case "formula.write":
           return await writeFormulaWithVerify(this.host, {
-            sheetName: requireString(call.arguments, "sheetName"),
-            range: requireString(call.arguments, "range"),
-            formula: requireString(call.arguments, "formula"),
+            sheetName: requireIdent(call.arguments, "sheetName"),
+            range: requireIdent(call.arguments, "range"),
+            formula: requireValueString(call.arguments, "formula"),
             verify: call.arguments.verify !== false,
           });
         case "formula.context":
           return fromHost(
             call.name,
             await this.host.getFormulaContext(
-              requireString(call.arguments, "sheetName"),
-              optionalString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              optionalIdent(call.arguments, "range"),
             ),
           );
         case "sheet.list":
@@ -206,40 +202,40 @@ export class ToolExecutor {
         case "sheet.add":
           return fromHost(
             call.name,
-            await this.host.addSheet(requireString(call.arguments, "sheetName")),
+            await this.host.addSheet(requireIdent(call.arguments, "sheetName")),
           );
         case "sheet.rename":
           return fromHost(
             call.name,
             await this.host.renameSheet(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "newName"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "newName"),
             ),
           );
         case "sheet.delete":
           return fromHost(
             call.name,
-            await this.host.deleteSheet(requireString(call.arguments, "sheetName")),
+            await this.host.deleteSheet(requireIdent(call.arguments, "sheetName")),
           );
         case "sheet.operation":
           return await executeSheetOperation(this.host, call.arguments, fromHost, {
-            requireString,
-            optionalString,
+            requireString: requireIdent,
+            optionalString: optionalIdent,
             optionalFiniteNumber,
             requireSheetOperation,
           });
         case "table.list":
           return fromHost(
             call.name,
-            await this.host.listTables(optionalString(call.arguments, "sheetName")),
+            await this.host.listTables(optionalIdent(call.arguments, "sheetName")),
           );
         case "table.create":
           return fromHost(
             call.name,
             await this.host.createTable({
-              sheetName: requireString(call.arguments, "sheetName"),
-              address: requireString(call.arguments, "range"),
-              name: optionalString(call.arguments, "name"),
+              sheetName: requireIdent(call.arguments, "sheetName"),
+              address: requireIdent(call.arguments, "range"),
+              name: optionalIdent(call.arguments, "name"),
               hasHeaders: optionalBoolean(call.arguments, "hasHeaders"),
             }),
           );
@@ -247,8 +243,8 @@ export class ToolExecutor {
           return fromHost(
             call.name,
             await this.host.deleteTable(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "tableName"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "tableName"),
             ),
           );
         case "workbook.inspect":
@@ -257,16 +253,16 @@ export class ToolExecutor {
           return fromHost(
             call.name,
             await this.host.listConditionalFormats(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
             ),
           );
         case "conditionalFormat.add":
           return fromHost(
             call.name,
             await this.host.addConditionalFormat({
-              sheetName: requireString(call.arguments, "sheetName"),
-              range: requireString(call.arguments, "range"),
+              sheetName: requireIdent(call.arguments, "sheetName"),
+              range: requireIdent(call.arguments, "range"),
               rule: requireCfRule(call.arguments),
             }),
           );
@@ -274,25 +270,25 @@ export class ToolExecutor {
           return fromHost(
             call.name,
             await this.host.deleteConditionalFormat(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
-              requireString(call.arguments, "id"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
+              requireIdent(call.arguments, "id"),
             ),
           );
         case "dataValidation.read":
           return fromHost(
             call.name,
             await this.host.readDataValidation(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
             ),
           );
         case "dataValidation.write":
           return fromHost(
             call.name,
             await this.host.writeDataValidation({
-              sheetName: requireString(call.arguments, "sheetName"),
-              range: requireString(call.arguments, "range"),
+              sheetName: requireIdent(call.arguments, "sheetName"),
+              range: requireIdent(call.arguments, "range"),
               rule: requireDvRule(call.arguments),
             }),
           );
@@ -300,8 +296,8 @@ export class ToolExecutor {
           return fromHost(
             call.name,
             await this.host.clearDataValidation(
-              requireString(call.arguments, "sheetName"),
-              requireString(call.arguments, "range"),
+              requireIdent(call.arguments, "sheetName"),
+              requireIdent(call.arguments, "range"),
             ),
           );
         default: {

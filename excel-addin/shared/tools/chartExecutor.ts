@@ -2,20 +2,17 @@ import type { HostAdapter } from "../host/types";
 import { isChartType } from "../host/types";
 import type { ChartType, ToolCall, ToolResult } from "./types";
 import { mapHostResultToToolResult } from "./hostResultMapping";
-import { rejectUnknownFields } from "./argValidation";
+import {
+  optionalIdent,
+  rejectUnknownFields,
+  requireIdent,
+} from "./argValidation";
 
-function requireString(args: Record<string, unknown>, key: string): string {
-  const value = args[key];
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`Missing string argument: ${key}`);
-  }
-  return value;
-}
-
-function optionalString(args: Record<string, unknown>, key: string): string | undefined {
-  const value = args[key];
+/** Title is clearable/special: keep raw spaces; null/"" omit. */
+function optionalChartTitle(args: Record<string, unknown>): string | undefined {
+  const value = args.title;
   if (value == null || value === "") return undefined;
-  if (typeof value !== "string") throw new Error(`Invalid string argument: ${key}`);
+  if (typeof value !== "string") throw new Error("Invalid string argument: title");
   return value;
 }
 
@@ -34,12 +31,18 @@ function optionalChartType(args: Record<string, unknown>): ChartType | undefined
   const value = args.chartType;
   if (value === undefined) throw new Error("chartType must not be undefined");
   if (value === null) throw new Error("chartType must not be null");
-  if (typeof value !== "string" || value === "" || !isChartType(value)) {
+  if (typeof value !== "string" || value === "") {
     throw new Error(
       "chartType must be column|line|bar|area|pie|scatter|doughnut|bubble|radar|linemarkers",
     );
   }
-  return value;
+  const trimmed = value.trim();
+  if (!isChartType(trimmed)) {
+    throw new Error(
+      "chartType must be column|line|bar|area|pie|scatter|doughnut|bubble|radar|linemarkers",
+    );
+  }
+  return trimmed;
 }
 
 function fromHost(
@@ -55,7 +58,7 @@ export async function executeChartTool(
 ): Promise<ToolResult | null> {
   if (call.name === "chart.list") {
     rejectUnknownFields(call.arguments, ["sheetName"]);
-    return fromHost(call.name, await host.listCharts(optionalString(call.arguments, "sheetName")));
+    return fromHost(call.name, await host.listCharts(optionalIdent(call.arguments, "sheetName")));
   }
 
   if (call.name === "chart.create") {
@@ -73,11 +76,11 @@ export async function executeChartTool(
     return fromHost(
       call.name,
       await host.createChart({
-        sheetName: requireString(call.arguments, "sheetName"),
-        sourceRange: requireString(call.arguments, "sourceRange"),
+        sheetName: requireIdent(call.arguments, "sheetName"),
+        sourceRange: requireIdent(call.arguments, "sourceRange"),
         chartType: optionalChartType(call.arguments),
-        name: optionalString(call.arguments, "name"),
-        title: optionalString(call.arguments, "title"),
+        name: optionalIdent(call.arguments, "name"),
+        title: optionalChartTitle(call.arguments),
         left: optionalFiniteNumber(call.arguments, "left"),
         top: optionalFiniteNumber(call.arguments, "top"),
         width: optionalFiniteNumber(call.arguments, "width"),
@@ -91,8 +94,8 @@ export async function executeChartTool(
     return fromHost(
       call.name,
       await host.deleteChart(
-        requireString(call.arguments, "sheetName"),
-        requireString(call.arguments, "chartName"),
+        requireIdent(call.arguments, "sheetName"),
+        requireIdent(call.arguments, "chartName"),
       ),
     );
   }

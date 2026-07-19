@@ -1,18 +1,16 @@
 import type { HostAdapter, NamedRangeScope, SheetVisibility } from "../host/types";
 import type { ToolCall, ToolResult } from "./types";
+import {
+  optionalValueString,
+  requireIdent,
+  requireValueString,
+} from "./argValidation";
 
-function requireString(args: Record<string, unknown>, key: string): string {
-  const value = args[key];
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`Missing string argument: ${key}`);
-  }
-  return value;
-}
-
-function optionalString(args: Record<string, unknown>, key: string): string | undefined {
-  const value = args[key];
+/** Password is special: null/"" omit; spaces and padding preserved raw. */
+function optionalPassword(args: Record<string, unknown>): string | undefined {
+  const value = args.password;
   if (value == null || value === "") return undefined;
-  if (typeof value !== "string") throw new Error(`Invalid string argument: ${key}`);
+  if (typeof value !== "string") throw new Error("Invalid string argument: password");
   return value;
 }
 
@@ -51,7 +49,7 @@ function optionalBoolean(args: Record<string, unknown>, key: string): boolean | 
 }
 
 function requireVisibility(args: Record<string, unknown>): SheetVisibility {
-  const value = args.visibility;
+  const value = requireIdent(args, "visibility");
   if (value !== "visible" && value !== "hidden" && value !== "veryHidden") {
     throw new Error("visibility must be visible|hidden|veryHidden");
   }
@@ -59,7 +57,7 @@ function requireVisibility(args: Record<string, unknown>): SheetVisibility {
 }
 
 function requireScope(args: Record<string, unknown>): NamedRangeScope {
-  const value = args.scope;
+  const value = requireIdent(args, "scope");
   if (value !== "workbook" && value !== "worksheet") {
     throw new Error("scope must be workbook|worksheet");
   }
@@ -98,14 +96,14 @@ export async function executeStructureTool(
       rejectUnknown(call.arguments, ["sheetName"]);
       return fromHost(
         call.name,
-        await host.getSheetVisibility(requireString(call.arguments, "sheetName")),
+        await host.getSheetVisibility(requireIdent(call.arguments, "sheetName")),
       );
     case "sheet.visibility.set":
       rejectUnknown(call.arguments, ["sheetName", "visibility"]);
       return fromHost(
         call.name,
         await host.setSheetVisibility(
-          requireString(call.arguments, "sheetName"),
+          requireIdent(call.arguments, "sheetName"),
           requireVisibility(call.arguments),
         ),
       );
@@ -113,15 +111,15 @@ export async function executeStructureTool(
       rejectUnknown(call.arguments, ["sheetName"]);
       return fromHost(
         call.name,
-        await host.getSheetProtection(requireString(call.arguments, "sheetName")),
+        await host.getSheetProtection(requireIdent(call.arguments, "sheetName")),
       );
     case "sheet.protection.protect":
       rejectUnknown(call.arguments, ["sheetName", "password"]);
       return fromHost(
         call.name,
         await host.protectSheet(
-          requireString(call.arguments, "sheetName"),
-          optionalString(call.arguments, "password"),
+          requireIdent(call.arguments, "sheetName"),
+          optionalPassword(call.arguments),
         ),
       );
     case "sheet.protection.unprotect":
@@ -129,8 +127,8 @@ export async function executeStructureTool(
       return fromHost(
         call.name,
         await host.unprotectSheet(
-          requireString(call.arguments, "sheetName"),
-          optionalString(call.arguments, "password"),
+          requireIdent(call.arguments, "sheetName"),
+          optionalPassword(call.arguments),
         ),
       );
     case "namedRange.list": {
@@ -155,8 +153,8 @@ export async function executeStructureTool(
       return fromHost(
         call.name,
         await host.createNamedRange({
-          name: requireString(call.arguments, "name"),
-          refersTo: requireString(call.arguments, "refersTo"),
+          name: requireIdent(call.arguments, "name"),
+          refersTo: requireValueString(call.arguments, "refersTo"),
           ...scoped,
           visible: optionalBoolean(call.arguments, "visible"),
         }),
@@ -175,10 +173,10 @@ export async function executeStructureTool(
       return fromHost(
         call.name,
         await host.updateNamedRange({
-          name: requireString(call.arguments, "name"),
+          name: requireIdent(call.arguments, "name"),
           ...scoped,
           newName: optionalTrimmedName(call.arguments, "newName"),
-          refersTo: optionalTrimmedName(call.arguments, "refersTo"),
+          refersTo: optionalValueString(call.arguments, "refersTo"),
           visible: optionalBoolean(call.arguments, "visible"),
         }),
       );
@@ -189,7 +187,7 @@ export async function executeStructureTool(
       return fromHost(
         call.name,
         await host.deleteNamedRange({
-          name: requireString(call.arguments, "name"),
+          name: requireIdent(call.arguments, "name"),
           ...scoped,
         }),
       );

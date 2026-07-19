@@ -55,7 +55,10 @@ export async function writeFormulaWithVerify(
   host: HostAdapter,
   args: FormulaWriteArgs,
 ): Promise<ToolResult> {
-  const formula = args.formula.startsWith("=") ? args.formula : `=${args.formula}`;
+  // Preserve raw formula text; only auto-prefix '=' when the value has none (after leading space).
+  const formula = args.formula.trimStart().startsWith("=")
+    ? args.formula
+    : `=${args.formula}`;
   const written = await host.writeFormulas(args.sheetName, args.range, [[formula]]);
   if (!written.ok) return fromHost("formula.write", written);
   if (!args.verify) {

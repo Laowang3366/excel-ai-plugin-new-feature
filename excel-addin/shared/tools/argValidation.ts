@@ -80,3 +80,51 @@ export function rejectUnknownCoreToolArguments(
 export function rejectUnknownRangeFormatFields(format: Record<string, unknown>): void {
   rejectUnknownFields(format, RANGE_FORMAT_FIELD_KEYS, "unknown format field");
 }
+
+/** Ident: name/A1/enum — trim before host; empty after trim fails. */
+export function requireIdent(args: Record<string, unknown>, key: string): string {
+  const value = args[key];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Missing string argument: ${key}`);
+  }
+  return value.trim();
+}
+
+/**
+ * Optional Ident: missing/null/"" → undefined; non-string → Invalid;
+ * pure whitespace → error (not silent omit); else trimmed.
+ */
+export function optionalIdent(args: Record<string, unknown>, key: string): string | undefined {
+  const value = args[key];
+  if (value == null || value === "") return undefined;
+  if (typeof value !== "string") throw new Error(`Invalid string argument: ${key}`);
+  const trimmed = value.trim();
+  if (trimmed === "") throw new Error(`${key} must be non-empty`);
+  return trimmed;
+}
+
+/**
+ * Value content (formula/refersTo): emptiness via trim; return original string.
+ */
+export function requireValueString(args: Record<string, unknown>, key: string): string {
+  const value = args[key];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Missing string argument: ${key}`);
+  }
+  return value;
+}
+
+/**
+ * Optional value: missing/null/"" → undefined; non-string → Invalid;
+ * pure whitespace → error; else original string (spaces preserved).
+ */
+export function optionalValueString(
+  args: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = args[key];
+  if (value == null || value === "") return undefined;
+  if (typeof value !== "string") throw new Error(`Invalid string argument: ${key}`);
+  if (value.trim() === "") throw new Error(`${key} must be non-empty`);
+  return value;
+}
