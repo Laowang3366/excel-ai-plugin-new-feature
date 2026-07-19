@@ -45,7 +45,7 @@ function trimBase(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
-function joinUrl(baseUrl: string, path: string): string {
+export function joinUrl(baseUrl: string, path: string): string {
   const base = trimBase(baseUrl);
   if (base.endsWith(path)) return base;
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
@@ -55,7 +55,7 @@ function missingKey(): ProviderClientErr {
   return { ok: false, kind: "missing_key", error: "API key 未设置，无法发起请求" };
 }
 
-function classifyNetworkError(error: unknown, url: string): ProviderClientErr {
+export function classifyNetworkError(error: unknown, url: string): ProviderClientErr {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
   const looksCors =
@@ -73,7 +73,7 @@ function classifyNetworkError(error: unknown, url: string): ProviderClientErr {
   };
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+export async function readErrorMessage(response: Response): Promise<string> {
   const text = await response.text().catch(() => "");
   if (!text) return `HTTP ${response.status}`;
   try {

@@ -2,6 +2,9 @@ export {
   ProviderClient,
   buildListModelsRequest,
   buildTestConnectionRequest,
+  classifyNetworkError,
+  joinUrl,
+  readErrorMessage,
   type ConnectionTestResult,
   type ListModelsResult,
   type ProviderClientErrorKind,
@@ -24,3 +27,9 @@ export type {
   ReasoningOption,
   UpdateProviderInput,
 } from "./types";
+
+export { OpenAIChatCompletionsStreamProvider } from "./openaiChatCompletionsProvider";
+export type { OpenAIChatCompletionsStreamProviderOptions } from "./openaiChatCompletionsProvider";
+export { buildToolNameMaps, isToolNameMaps } from "./openaiToolNameMap";
+export type { ToolNameMaps } from "./openaiToolNameMap";
+
