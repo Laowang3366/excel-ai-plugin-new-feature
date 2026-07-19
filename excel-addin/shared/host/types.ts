@@ -199,6 +199,7 @@ export type { SheetFreezeCommand, SheetFreezeInfo, SheetFreezeSetInput } from ".
 export type {
   PageOrientation,
   PagePaperSize,
+  PageOrder,
   PageLayoutMargins,
   SheetPageLayoutInfo,
   SheetPageLayoutUpdateInput,

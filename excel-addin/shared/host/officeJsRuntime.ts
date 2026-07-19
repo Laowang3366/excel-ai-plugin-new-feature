@@ -180,6 +180,12 @@ export interface ExcelPageLayout {
   printGridlines: boolean;
   printHeadings: boolean;
   blackAndWhite: boolean;
+  /** ExcelApi 1.9 draft quality print. */
+  draftMode: boolean;
+  /** ExcelApi 1.9 PrintOrder: DownThenOver | OverThenDown. */
+  printOrder: string;
+  /** ExcelApi 1.9; host may return "" for auto. */
+  firstPageNumber: number | string | null;
   topMargin: number;
   bottomMargin: number;
   leftMargin: number;

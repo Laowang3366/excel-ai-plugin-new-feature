@@ -44,6 +44,7 @@ export {
   type SheetPageLayoutInfo,
   type SheetPageLayoutUpdateInput,
   type PageOrientation,
+  type PageOrder,
   type ShapeInfo,
   type ShapeCreateInput,
   type ShapeCreateKind,

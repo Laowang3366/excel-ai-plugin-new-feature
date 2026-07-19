@@ -4,7 +4,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.get",
     description:
-      "读取工作表页面布局/打印设置（orientation/margins/paperSize/fitToPages/zoomScale/printArea 等；ExcelApi 1.9；WPS unsupported）",
+      "读取工作表页面布局/打印设置（orientation/margins/paperSize/fitToPages/zoomScale/draft/pageOrder/firstPageNumber/printArea 等；ExcelApi 1.9；WPS unsupported）",
     riskLevel: "safe",
     parameters: {
       type: "object",
@@ -16,7 +16,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.set",
     description:
-      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/margins/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空（clear 未承诺）。ExcelApi 1.9；WPS unsupported",
+      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空（clear 未承诺）；firstPageNumber 仅有限整数≥1。ExcelApi 1.9；WPS unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -28,6 +28,9 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
         printGridlines: { type: "boolean" },
         printHeadings: { type: "boolean" },
         blackAndWhite: { type: "boolean" },
+        draft: { type: "boolean" },
+        pageOrder: { type: "string", enum: ["downThenOver", "overThenDown"] },
+        firstPageNumber: { type: "integer", minimum: 1 },
         margins: {
           type: "object",
           properties: {

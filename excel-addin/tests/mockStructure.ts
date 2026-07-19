@@ -42,6 +42,9 @@ export function createMockStructureState() {
         printGridlines: false,
         printHeadings: false,
         blackAndWhite: false,
+        draft: false,
+        pageOrder: "downThenOver",
+        firstPageNumber: null,
         margins: { top: 72, bottom: 72, left: 72, right: 72 },
         zoomScale: 100,
         paperSize: "letter",
@@ -212,6 +215,10 @@ export function createMockStructureState() {
         printGridlines: input.printGridlines ?? current.printGridlines,
         printHeadings: input.printHeadings ?? current.printHeadings,
         blackAndWhite: input.blackAndWhite ?? current.blackAndWhite,
+        draft: input.draft !== undefined ? input.draft : current.draft,
+        pageOrder: input.pageOrder ?? current.pageOrder,
+        firstPageNumber:
+          input.firstPageNumber !== undefined ? input.firstPageNumber : current.firstPageNumber,
         margins: {
           top: input.margins?.top ?? current.margins.top,
           bottom: input.margins?.bottom ?? current.margins.bottom,

@@ -1,5 +1,6 @@
 import type {
   HostAdapter,
+  PageOrder,
   PageOrientation,
   PagePaperSize,
   SheetPageLayoutUpdateInput,
@@ -7,6 +8,7 @@ import type {
 import type { ToolCall, ToolResult } from "./types";
 
 const PAPER_SIZES: PagePaperSize[] = ["a3", "a4", "a5", "letter", "legal"];
+const PAGE_ORDERS: PageOrder[] = ["downThenOver", "overThenDown"];
 
 function requireString(args: Record<string, unknown>, key: string): string {
   if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) {
@@ -31,6 +33,33 @@ function optionalOrientation(args: Record<string, unknown>): PageOrientation | u
   const value = args.orientation;
   if (value !== "portrait" && value !== "landscape") {
     throw new Error("orientation must be portrait|landscape");
+  }
+  return value;
+}
+
+function optionalPageOrder(args: Record<string, unknown>): PageOrder | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "pageOrder") || args.pageOrder === undefined) {
+    return undefined;
+  }
+  const value = args.pageOrder;
+  if (typeof value !== "string" || !(PAGE_ORDERS as string[]).includes(value)) {
+    throw new Error("pageOrder must be downThenOver|overThenDown");
+  }
+  return value as PageOrder;
+}
+
+function optionalFirstPageNumber(args: Record<string, unknown>): number | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "firstPageNumber")) return undefined;
+  const value = args.firstPageNumber;
+  if (
+    value === undefined ||
+    value === null ||
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1
+  ) {
+    throw new Error("firstPageNumber must be a finite integer >= 1");
   }
   return value;
 }
@@ -154,6 +183,9 @@ export async function executePageLayoutTool(
       "printGridlines",
       "printHeadings",
       "blackAndWhite",
+      "draft",
+      "pageOrder",
+      "firstPageNumber",
       "margins",
       "zoomScale",
       "paperSize",
@@ -171,6 +203,9 @@ export async function executePageLayoutTool(
       printGridlines: optionalBoolean(call.arguments, "printGridlines"),
       printHeadings: optionalBoolean(call.arguments, "printHeadings"),
       blackAndWhite: optionalBoolean(call.arguments, "blackAndWhite"),
+      draft: optionalBoolean(call.arguments, "draft"),
+      pageOrder: optionalPageOrder(call.arguments),
+      firstPageNumber: optionalFirstPageNumber(call.arguments),
       margins: optionalMargins(call.arguments),
       zoomScale: optionalZoomScale(call.arguments),
       paperSize: optionalPaperSize(call.arguments),
@@ -193,6 +228,9 @@ export async function executePageLayoutTool(
       input.printGridlines === undefined &&
       input.printHeadings === undefined &&
       input.blackAndWhite === undefined &&
+      input.draft === undefined &&
+      input.pageOrder === undefined &&
+      input.firstPageNumber === undefined &&
       input.margins === undefined &&
       input.zoomScale === undefined &&
       input.paperSize === undefined &&

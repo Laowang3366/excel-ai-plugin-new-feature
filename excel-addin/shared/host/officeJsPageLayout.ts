@@ -7,6 +7,7 @@ import type {
 import { getExcelRun } from "./officeJsRuntime";
 import type {
   HostResult,
+  PageOrder,
   PageOrientation,
   PagePaperSize,
   SheetPageLayoutInfo,
@@ -33,12 +34,24 @@ const HOST_PAPER_SIZE_TO_PUBLIC: Record<string, PagePaperSize> = {
   Legal: "legal",
 };
 
+const PAGE_ORDER_TO_HOST: Record<PageOrder, string> = {
+  downThenOver: "DownThenOver",
+  overThenDown: "OverThenDown",
+};
+
 function mapOrientation(value: string): PageOrientation {
   return String(value).toLowerCase().includes("landscape") ? "landscape" : "portrait";
 }
 
 function toOfficeOrientation(value: PageOrientation): string {
   return value === "landscape" ? "Landscape" : "Portrait";
+}
+
+function mapPageOrderFromHost(value: unknown): PageOrder {
+  const raw = String(value ?? "");
+  if (raw === "OverThenDown" || raw.toLowerCase() === "overthendown") return "overThenDown";
+  if (raw === "DownThenOver" || raw.toLowerCase() === "downthenover") return "downThenOver";
+  throw new Error(`PageLayout.printOrder has unknown host value: ${raw}`);
 }
 
 function addressOrNull(areas: { isNullObject: boolean; address: string }): string | null {
@@ -58,6 +71,18 @@ function readFitPages(value: unknown): number | null {
   return value;
 }
 
+/**
+ * Host firstPageNumber: "" or null → null; finite integer >= 1 → number;
+ * other values are ordinary failures.
+ */
+function readFirstPageNumber(value: unknown): number | null {
+  if (value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value >= 1) {
+    return value;
+  }
+  throw new Error("PageLayout.firstPageNumber is not a finite integer >= 1 or empty/null");
+}
+
 function mapPaperSizeFromHost(value: unknown): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error("paperSize is not a loaded non-empty string");
@@ -70,6 +95,12 @@ function requireLoadedString(value: unknown, field: string): string {
     throw new Error(`${field} is not a loaded non-empty string`);
   }
   return value;
+}
+
+function requireMember(layout: ExcelPageLayout, key: string): void {
+  if (!(key in layout)) {
+    throw new Error(`PageLayout.${key} is missing on host layout object`);
+  }
 }
 
 /** Official precheck before any Excel.run / pageLayout access. */
@@ -130,16 +161,15 @@ async function readLayout(
   context: ExcelRequestContext,
 ): Promise<SheetPageLayoutInfo> {
   // Post-precheck: missing members are ordinary failures, not requirement-set unsupported.
-  if (!("paperSize" in layout)) {
-    throw new Error("PageLayout.paperSize is missing on host layout object");
-  }
-  if (!("zoom" in layout)) {
-    throw new Error("PageLayout.zoom is missing on host layout object");
-  }
+  requireMember(layout, "paperSize");
+  requireMember(layout, "zoom");
+  requireMember(layout, "draftMode");
+  requireMember(layout, "printOrder");
+  requireMember(layout, "firstPageNumber");
   sheet.load("name");
   // Official: load whole zoom object, then read scale / fit fields after sync.
   layout.load(
-    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,topMargin,bottomMargin,leftMargin,rightMargin,paperSize,zoom",
+    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,paperSize,zoom",
   );
   const printArea = layout.getPrintAreaOrNullObject();
   const titleRows = layout.getPrintTitleRowsOrNullObject();
@@ -156,6 +186,9 @@ async function readLayout(
     printGridlines: Boolean(layout.printGridlines),
     printHeadings: Boolean(layout.printHeadings),
     blackAndWhite: Boolean(layout.blackAndWhite),
+    draft: Boolean(layout.draftMode),
+    pageOrder: mapPageOrderFromHost(layout.printOrder),
+    firstPageNumber: readFirstPageNumber(layout.firstPageNumber),
     margins: {
       top: Number(layout.topMargin),
       bottom: Number(layout.bottomMargin),
@@ -205,6 +238,18 @@ export async function officeJsSetSheetPageLayout(
     if (input.printGridlines != null) layout.printGridlines = input.printGridlines;
     if (input.printHeadings != null) layout.printHeadings = input.printHeadings;
     if (input.blackAndWhite != null) layout.blackAndWhite = input.blackAndWhite;
+    if (input.draft !== undefined) {
+      requireMember(layout, "draftMode");
+      layout.draftMode = input.draft;
+    }
+    if (input.pageOrder != null) {
+      requireMember(layout, "printOrder");
+      layout.printOrder = PAGE_ORDER_TO_HOST[input.pageOrder];
+    }
+    if (input.firstPageNumber !== undefined) {
+      requireMember(layout, "firstPageNumber");
+      layout.firstPageNumber = input.firstPageNumber;
+    }
     if (input.margins) {
       if (input.margins.top != null) layout.topMargin = input.margins.top;
       if (input.margins.bottom != null) layout.bottomMargin = input.margins.bottom;
@@ -212,23 +257,17 @@ export async function officeJsSetSheetPageLayout(
       if (input.margins.right != null) layout.rightMargin = input.margins.right;
     }
     if (input.paperSize != null) {
-      if (!("paperSize" in layout)) {
-        throw new Error("PageLayout.paperSize is missing on host layout object");
-      }
+      requireMember(layout, "paperSize");
       layout.paperSize = PAPER_SIZE_TO_HOST[input.paperSize];
     }
     // Official: assign whole zoom options object (not zoom.scale / zoom.fit sub-property writes).
     const hasFit =
       input.fitToPagesWide !== undefined || input.fitToPagesTall !== undefined;
     if (input.zoomScale != null) {
-      if (!("zoom" in layout)) {
-        throw new Error("PageLayout.zoom is missing on host layout object");
-      }
+      requireMember(layout, "zoom");
       layout.zoom = { scale: input.zoomScale };
     } else if (hasFit) {
-      if (!("zoom" in layout)) {
-        throw new Error("PageLayout.zoom is missing on host layout object");
-      }
+      requireMember(layout, "zoom");
       const zoom: ExcelPageLayoutZoomOptions = {};
       if (input.fitToPagesWide !== undefined) zoom.horizontalFitToPages = input.fitToPagesWide;
       if (input.fitToPagesTall !== undefined) zoom.verticalFitToPages = input.fitToPagesTall;

@@ -4,6 +4,9 @@ export type PageOrientation = "portrait" | "landscape";
 /** Public paperSize labels (exact lowercase input). */
 export type PagePaperSize = "a3" | "a4" | "a5" | "letter" | "legal";
 
+/** Public print order (maps to PageLayout.printOrder). */
+export type PageOrder = "downThenOver" | "overThenDown";
+
 export interface PageLayoutMargins {
   top: number;
   bottom: number;
@@ -20,6 +23,15 @@ export interface SheetPageLayoutInfo {
   printGridlines: boolean;
   printHeadings: boolean;
   blackAndWhite: boolean;
+  /** Maps PageLayout.draftMode. */
+  draft: boolean;
+  /** Maps PageLayout.printOrder DownThenOver|OverThenDown. */
+  pageOrder: PageOrder;
+  /**
+   * Maps PageLayout.firstPageNumber.
+   * Host "" or null → null; finite integer >= 1 → number; other host values fail.
+   */
+  firstPageNumber: number | null;
   margins: PageLayoutMargins;
   /**
    * Percent scale from pageLayout.zoom.scale after load+sync.
@@ -47,6 +59,11 @@ export interface SheetPageLayoutUpdateInput {
   printGridlines?: boolean;
   printHeadings?: boolean;
   blackAndWhite?: boolean;
+  /** Must accept false (draftMode). */
+  draft?: boolean;
+  pageOrder?: PageOrder;
+  /** Finite integer >= 1 only; clear/auto unsupported. */
+  firstPageNumber?: number;
   margins?: Partial<PageLayoutMargins>;
   zoomScale?: number;
   /** Exact lowercase; maps to host A3|A4|A5|Letter|Legal. */
