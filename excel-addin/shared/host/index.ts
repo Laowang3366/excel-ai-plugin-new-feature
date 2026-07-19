@@ -1,0 +1,84 @@
+export { createHostAdapter, detectHostKind, waitForOfficeReady } from "./detectHost";
+export { OfficeJsAdapter } from "./officeJsAdapter";
+export { WpsJsaAdapter } from "./wpsJsaAdapter";
+export {
+  ok,
+  fail,
+  unsupported,
+  type CellValue,
+  type FailResult,
+  type ChartInfo,
+  type ChartSeriesAddInput,
+  type ChartSeriesAddResult,
+  type ChartSeriesDeleteResult,
+  type ChartSeriesInfo,
+  type ChartSeriesUpdateInput,
+  type ChartSeriesValuesInfo,
+  type ChartSeriesValuesUpdateInput,
+  type ChartSeriesBubbleSizesInfo,
+  type ChartSeriesBubbleSizesUpdateInput,
+  type ChartImageGetInput,
+  type ChartImageInfo,
+  type ChartType,
+  type HostAdapter,
+  type HostKind,
+  type HostResult,
+  type HostStatus,
+  type OkResult,
+  type ConditionalFormatInfo,
+  type ConditionalFormatRule,
+  type DataValidationInfo,
+  type DataValidationRule,
+  type FormulaContextData,
+  type FormulaContextEntry,
+  type RangeData,
+  type RangeExpandMode,
+  type RangeFormat,
+  type RangeFormatData,
+  type SelectionInfo,
+  type SheetDisplayInfo,
+  type SheetDisplayUpdateInput,
+  type SheetFreezeCommand,
+  type SheetFreezeInfo,
+  type SheetFreezeSetInput,
+  type SheetPageLayoutInfo,
+  type SheetPageLayoutUpdateInput,
+  type PageOrientation,
+  type ShapeInfo,
+  type ShapeCreateInput,
+  type ShapeCreateKind,
+  type ShapeUpdateInput,
+  type GeometricShapeType,
+  type SheetInfo,
+  type SheetOperation,
+  type TableInfo,
+  type TableUnlistInfo,
+  type UnsupportedResult,
+  type WorkbookInspectInfo,
+} from "./types";
+export type {
+  ChartSeriesBy,
+  ChartSourceInfo,
+  ChartSourceUpdateInput,
+} from "./chartSourceTypes";
+export { CHART_SERIES_BY, isChartSeriesBy } from "./chartSourceTypes";
+export type {
+  ChartAxisGroup,
+  ChartAxisInfo,
+  ChartAxisKind,
+  ChartAxisUpdateInput,
+} from "./chartAxisTypes";
+export {
+  CHART_AXIS_GROUPS,
+  CHART_AXIS_KINDS,
+  isChartAxisGroup,
+  isChartAxisKind,
+} from "./chartAxisTypes";
+export type {
+  ChartDataLabelsInfo,
+  ChartDataLabelsUpdateInput,
+} from "./chartDataLabelsTypes";
+export type {
+  ChartSeriesAxisGroupInfo,
+  ChartSeriesAxisGroupUpdateInput,
+} from "./chartSeriesAxisGroupTypes";

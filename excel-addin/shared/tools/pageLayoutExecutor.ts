@@ -1,0 +1,210 @@
+import type {
+  HostAdapter,
+  PageOrientation,
+  PagePaperSize,
+  SheetPageLayoutUpdateInput,
+} from "../host/types";
+import type { ToolCall, ToolResult } from "./types";
+
+const PAPER_SIZES: PagePaperSize[] = ["a3", "a4", "a5", "letter", "legal"];
+
+function requireString(args: Record<string, unknown>, key: string): string {
+  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) {
+    throw new Error(`Missing string argument: ${key}`);
+  }
+  if (typeof args[key] !== "string" || (args[key] as string).trim() === "") {
+    throw new Error(`Missing string argument: ${key}`);
+  }
+  return (args[key] as string).trim();
+}
+
+function optionalBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) return undefined;
+  if (typeof args[key] !== "boolean") throw new Error(`Invalid boolean argument: ${key}`);
+  return args[key] as boolean;
+}
+
+function optionalOrientation(args: Record<string, unknown>): PageOrientation | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "orientation") || args.orientation === undefined) {
+    return undefined;
+  }
+  const value = args.orientation;
+  if (value !== "portrait" && value !== "landscape") {
+    throw new Error("orientation must be portrait|landscape");
+  }
+  return value;
+}
+
+function optionalZoomScale(args: Record<string, unknown>): number | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "zoomScale") || args.zoomScale === undefined) {
+    return undefined;
+  }
+  const value = args.zoomScale;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 10 || value > 400) {
+    throw new Error("zoomScale must be a finite number between 10 and 400");
+  }
+  return value;
+}
+
+function optionalPaperSize(args: Record<string, unknown>): PagePaperSize | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "paperSize")) return undefined;
+  const value = args.paperSize;
+  if (value === undefined || value === null) {
+    throw new Error("paperSize must be a3|a4|a5|letter|legal");
+  }
+  if (typeof value !== "string" || !(PAPER_SIZES as string[]).includes(value)) {
+    throw new Error("paperSize must be a3|a4|a5|letter|legal");
+  }
+  return value as PagePaperSize;
+}
+
+function optionalFitPages(args: Record<string, unknown>, key: string): number | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, key)) return undefined;
+  const value = args[key];
+  if (
+    value === undefined ||
+    value === null ||
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 32767
+  ) {
+    throw new Error(`${key} must be a finite integer between 1 and 32767`);
+  }
+  return value;
+}
+
+/** Non-empty string only; null/empty rejected (clear not a proven Office.js contract). */
+function optionalNonEmptyString(args: Record<string, unknown>, key: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) return undefined;
+  if (typeof args[key] !== "string" || (args[key] as string).trim() === "") {
+    throw new Error(`${key} must be a non-empty string (clear unsupported)`);
+  }
+  return (args[key] as string).trim();
+}
+
+function optionalMargins(
+  args: Record<string, unknown>,
+): SheetPageLayoutUpdateInput["margins"] | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "margins") || args.margins === undefined) {
+    return undefined;
+  }
+  if (args.margins === null || typeof args.margins !== "object" || Array.isArray(args.margins)) {
+    throw new Error("margins must be an object");
+  }
+  const raw = args.margins as Record<string, unknown>;
+  for (const key of Object.keys(raw)) {
+    if (!["top", "bottom", "left", "right"].includes(key)) {
+      throw new Error(`unknown margins field: ${key}`);
+    }
+  }
+  const out: NonNullable<SheetPageLayoutUpdateInput["margins"]> = {};
+  for (const key of ["top", "bottom", "left", "right"] as const) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key) || raw[key] === undefined) continue;
+    if (typeof raw[key] !== "number" || !Number.isFinite(raw[key] as number) || (raw[key] as number) < 0) {
+      throw new Error(`margins.${key} must be a non-negative finite number`);
+    }
+    out[key] = raw[key] as number;
+  }
+  if (Object.keys(out).length === 0) throw new Error("margins requires at least one side");
+  return out;
+}
+
+function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
+  for (const key of Object.keys(args)) {
+    if (!allowed.includes(key)) throw new Error(`unknown field: ${key}`);
+  }
+}
+
+function fromHost(
+  tool: ToolCall["name"],
+  result: { ok: boolean; data?: unknown; reason?: string; unsupported?: boolean },
+): ToolResult {
+  if (result.ok) return { ok: true, tool, data: result.data };
+  if (result.unsupported === true) {
+    return {
+      ok: false,
+      tool,
+      error: result.reason ?? "host failed",
+      detail: result,
+      unsupported: true,
+    };
+  }
+  return { ok: false, tool, error: result.reason ?? "host failed", detail: result };
+}
+
+export async function executePageLayoutTool(
+  host: HostAdapter,
+  call: ToolCall,
+): Promise<ToolResult | null> {
+  if (call.name === "sheet.pageLayout.get") {
+    rejectUnknown(call.arguments, ["sheetName"]);
+    return fromHost(
+      call.name,
+      await host.getSheetPageLayout(requireString(call.arguments, "sheetName")),
+    );
+  }
+  if (call.name === "sheet.pageLayout.set") {
+    rejectUnknown(call.arguments, [
+      "sheetName",
+      "orientation",
+      "centerHorizontally",
+      "centerVertically",
+      "printGridlines",
+      "printHeadings",
+      "blackAndWhite",
+      "margins",
+      "zoomScale",
+      "paperSize",
+      "fitToPagesWide",
+      "fitToPagesTall",
+      "printArea",
+      "printTitleRows",
+      "printTitleColumns",
+    ]);
+    const input: SheetPageLayoutUpdateInput = {
+      sheetName: requireString(call.arguments, "sheetName"),
+      orientation: optionalOrientation(call.arguments),
+      centerHorizontally: optionalBoolean(call.arguments, "centerHorizontally"),
+      centerVertically: optionalBoolean(call.arguments, "centerVertically"),
+      printGridlines: optionalBoolean(call.arguments, "printGridlines"),
+      printHeadings: optionalBoolean(call.arguments, "printHeadings"),
+      blackAndWhite: optionalBoolean(call.arguments, "blackAndWhite"),
+      margins: optionalMargins(call.arguments),
+      zoomScale: optionalZoomScale(call.arguments),
+      paperSize: optionalPaperSize(call.arguments),
+      fitToPagesWide: optionalFitPages(call.arguments, "fitToPagesWide"),
+      fitToPagesTall: optionalFitPages(call.arguments, "fitToPagesTall"),
+      printArea: optionalNonEmptyString(call.arguments, "printArea"),
+      printTitleRows: optionalNonEmptyString(call.arguments, "printTitleRows"),
+      printTitleColumns: optionalNonEmptyString(call.arguments, "printTitleColumns"),
+    };
+    if (
+      input.zoomScale !== undefined &&
+      (input.fitToPagesWide !== undefined || input.fitToPagesTall !== undefined)
+    ) {
+      throw new Error("zoomScale is mutually exclusive with fitToPagesWide/fitToPagesTall");
+    }
+    if (
+      input.orientation === undefined &&
+      input.centerHorizontally === undefined &&
+      input.centerVertically === undefined &&
+      input.printGridlines === undefined &&
+      input.printHeadings === undefined &&
+      input.blackAndWhite === undefined &&
+      input.margins === undefined &&
+      input.zoomScale === undefined &&
+      input.paperSize === undefined &&
+      input.fitToPagesWide === undefined &&
+      input.fitToPagesTall === undefined &&
+      input.printArea === undefined &&
+      input.printTitleRows === undefined &&
+      input.printTitleColumns === undefined
+    ) {
+      throw new Error("sheet.pageLayout.set requires at least one update field");
+    }
+    return fromHost(call.name, await host.setSheetPageLayout(input));
+  }
+  return null;
+}

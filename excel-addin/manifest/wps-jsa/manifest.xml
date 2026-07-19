@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<JsPlugin>
+  <ApiVersion>1.0.0</ApiVersion>
+  <Name>Wengge Excel Add-in Validation</Name>
+  <Description>独立 Excel 加载项验证：任务窗格 UI + WPS JSA 宿主适配（非桌面 COM 桥）</Description>
+</JsPlugin>
