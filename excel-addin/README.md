@@ -52,7 +52,7 @@ API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入
 - Microsoft Excel：侧载 `manifest/office-excel-manifest.xml`（开发时 SourceLocation / 图标均指向 `https://localhost:3000`，图标文件在 `public/assets/icon-16|32|64|80.png`，`npm run dev` / `build` 会由 Vite 提供；需按 Office 要求配置 HTTPS 证书）。
 - WPS：见 `manifest/wps-jsa/README.md`。
 
-## Excel 工具 parity（Phase 4–33）
+## Excel 工具 parity（Phase 4–34）
 
 | 工具 | 说明 |
 |------|------|
@@ -78,6 +78,7 @@ API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入
 | `chart.series.values.update` | Office.js：**ExcelApi 1.15**；`setValues`/`setXAxisValues` + `getDimensionDataSourceString` 真源回读；`valuesRange`/`xValuesRange` 同表 A1（≥1）；`dataBound:true`。**无** formula/categoryFormula/export/跨表/数组字面量。bubble sizes 见 `chart.series.bubbleSizes.update`。WPS → unsupported |
 | `chart.series.bubbleSizes.update` | Office.js：**ExcelApi 1.15** verified readback；`setBubbleSizes` + `getDimensionDataSourceString("BubbleSizes")`；`bubbleSizesRange` 同表 A1；仅 bubble chart 有效；`dataBound:true`。bubble chart type 见 create/update（Phase27）。**无** formula/categoryFormula、数组值、Categories/YValues、跨表、trendlines、bubbleScale、dataLabels.showBubbleSize、getDimensionValues 主验证、PDF/path export。WPS → unsupported |
 | `chart.image.get` | Office.js：**ExcelApi 1.2** `Chart.getImage` → 内存 Base64；可选 width/height（1–4096）；宿主 chartName 回读。**无** 路径写入/PDF/fittingMode/MIME 声明。WPS → unsupported |
+| `range.image.get` | Office.js：**ExcelApi 1.7** `Range.getImage` → 内存 Base64 区域 PNG；宿主 sheetName/address 真回读。**无** width/height、路径、PDF、MIME 声明。WPS → unsupported |
 
 
 

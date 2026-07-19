@@ -190,6 +190,7 @@ export type {
   ChartSeriesBubbleSizesUpdateInput,
 } from "./chartSeriesBubbleSizesTypes";
 export type { ChartImageGetInput, ChartImageInfo } from "./chartImageTypes";
+export type { RangeImageGetInput, RangeImageInfo } from "./rangeImageTypes";
 export type {
   GeometricShapeType, ShapeCreateInput, ShapeCreateKind, ShapeInfo, ShapeUpdateInput,
 } from "./shapeTypes";

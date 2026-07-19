@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-19T17:56:27.439Z",
+  "generatedAt": "2026-07-19T18:29:11.700Z",
   "sourceRoot": "desktop/electron/agent/prompts/templates",
   "note": "Synced Excel-related prompts only; OCR/Word/PPT scenarios excluded by design.",
   "files": [

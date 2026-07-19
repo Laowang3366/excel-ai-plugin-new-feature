@@ -34,6 +34,7 @@ Evidence columns:
 | chart | series values/xValues update | implemented | **unsupported** | formatChart series | Office.js `setValues`/`setXAxisValues` (1.7) + `getDimensionDataSourceString` (**ExcelApi 1.15**); same-sheet A1; host source string readback; **unsupported**: formula/categoryFormula/export/cross-sheet/array literals; bubble sizes via dedicated tool |
 | chart | series bubbleSizes update | implemented | **unsupported** | formatChart series bubble | Office.js `setBubbleSizes` (1.7) + `getDimensionDataSourceString("BubbleSizes")` (**ExcelApi 1.15**); same-sheet A1; bubble chart only; host source string readback; bubble type via create/update (Phase27); **unsupported**: formula/categoryFormula/array/cross-sheet/trendlines/bubbleScale/showBubbleSize/getDimensionValues-as-primary/PDF/path export |
 | chart | image get (Base64) | implemented | **unsupported** | formatChart export PNG path | Office.js `Chart.getImage` **ExcelApi 1.2** → memory Base64 only; optional width/height 1–4096; **unsupported**: path write/PDF/MIME claim/fittingMode |
+| range | image get (Base64 PNG) | implemented | **unsupported** | office.action snapshot range PNG | Office.js `Range.getImage` **ExcelApi 1.7** → memory Base64 only; host sheetName/address readback; **unsupported**: path write/PDF/MIME claim/width/height |
 
 
 
@@ -92,6 +93,7 @@ Evidence columns:
 - Phase31: `sheet.pageLayout.margins` adds `header`/`footer` (**ExcelApi 1.9** headerMargin/footerMargin points; host readback; 0 allowed; WPS unsupported)
 - Phase32: `sheet.pageLayout` adds default-page `headers`/`footers` left|center|right text (**ExcelApi 1.9** headersFooters.defaultForAllPages; "" clears; host readback; WPS unsupported)
 - Phase33: `sheet.pageLayout` adds manual `horizontalPageBreaks`/`verticalPageBreaks` + `clearPageBreaks` (**ExcelApi 1.9** Worksheet page break collections; bare A1; append not replace; [] no-op; WPS unsupported). **unsupported**: automatic page breaks, single-break delete tool, printArea/titles clear, fitToOnePage
+- Phase34: `range.image.get` (ExcelApi 1.7 Range.getImage Base64 PNG; memory only; no width/height/path/PDF/MIME; Office.js; WPS unsupported)
 
 ## Phase5 Office.js contract notes
 

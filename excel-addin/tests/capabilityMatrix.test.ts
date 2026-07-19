@@ -47,6 +47,7 @@ describe("capability matrix", () => {
       "chart.series.bubbleSizes.update",
       "BubbleSizes",
       "chart.image.get",
+      "range.image.get",
       "ExcelApi 1.2",
       "workbook.inspect",
       "Power Query",

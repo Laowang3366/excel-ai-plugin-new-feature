@@ -7,6 +7,7 @@ import type {
   ChartDataLabelsUpdateInput,
 } from "./chartDataLabelsTypes";
 import type { ChartImageGetInput, ChartImageInfo } from "./chartImageTypes";
+import type { RangeImageGetInput, RangeImageInfo } from "./rangeImageTypes";
 import type {
   ChartSeriesAxisGroupInfo,
   ChartSeriesAxisGroupUpdateInput,
@@ -141,6 +142,7 @@ export interface HostAdapter {
     input: ChartSeriesBubbleSizesUpdateInput,
   ): Promise<HostResult<ChartSeriesBubbleSizesInfo>>;
   getChartImage(input: ChartImageGetInput): Promise<HostResult<ChartImageInfo>>;
+  getRangeImage(input: RangeImageGetInput): Promise<HostResult<RangeImageInfo>>;
   updateChartSource(input: ChartSourceUpdateInput): Promise<HostResult<ChartSourceInfo>>;
   updateChartAxis(input: ChartAxisUpdateInput): Promise<HostResult<ChartAxisInfo>>;
   updateChartDataLabels(

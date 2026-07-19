@@ -42,6 +42,7 @@ export type ToolName =
   | "chart.series.values.update"
   | "chart.series.bubbleSizes.update"
   | "chart.image.get"
+  | "range.image.get"
   | "workbook.inspect"
   | "conditionalFormat.list"
   | "conditionalFormat.add"

@@ -94,6 +94,8 @@ export interface ExcelRange {
   dataValidation: ExcelDataValidation;
   load(props: string): void;
   clear(): void;
+  /** ExcelApi 1.7: host Base64 PNG; no width/height params. */
+  getImage(): { value: string };
   getSpillingToRange(): ExcelRange;
   getSurroundingRegion(): ExcelRange;
   getCurrentArray(): ExcelRange;

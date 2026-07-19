@@ -350,6 +350,7 @@ export class WpsJsaAdapter implements HostAdapter {
   updateChartSeriesValues = wpsStructureSurface.updateChartSeriesValues;
   updateChartSeriesBubbleSizes = wpsStructureSurface.updateChartSeriesBubbleSizes;
   getChartImage = wpsStructureSurface.getChartImage;
+  getRangeImage = wpsStructureSurface.getRangeImage;
   updateChartSource = wpsStructureSurface.updateChartSource;
   updateChartAxis = wpsStructureSurface.updateChartAxis;
   updateChartDataLabels = wpsStructureSurface.updateChartDataLabels;

@@ -31,6 +31,7 @@ import {
   wpsUpdateChartSeriesValues,
   wpsUpdateChartSource,
 } from "./wpsJsaChartSeriesUnsupported";
+import { wpsGetRangeImage } from "./wpsJsaRangeImageUnsupported";
 
 /** WPS structure surface: typed unsupported for non-range chart/structure caps. */
 export const wpsStructureSurface = {
@@ -52,6 +53,7 @@ export const wpsStructureSurface = {
   updateChartSeriesValues: wpsUpdateChartSeriesValues,
   updateChartSeriesBubbleSizes: wpsUpdateChartSeriesBubbleSizes,
   getChartImage: wpsGetChartImage,
+  getRangeImage: wpsGetRangeImage,
   updateChartSource: wpsUpdateChartSource,
   updateChartAxis: wpsUpdateChartAxis,
   updateChartDataLabels: wpsUpdateChartDataLabels,

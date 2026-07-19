@@ -56,6 +56,7 @@ describe("prompt runtime parity", () => {
     expect(boundary).toContain("dataBound");
     expect(boundary).toContain("ExcelApi 1.15");
     expect(boundary).toContain("`chart.image.get`");
+    expect(boundary).toContain("`range.image.get`");
     expect(boundary).toContain("Base64");
     expect(boundary).toMatch(/WPS JSA[\s\S]*chart\.image\.get|chart\.image\.get[\s\S]*WPS JSA/);
     expect(boundary).toContain("WPS JSA");

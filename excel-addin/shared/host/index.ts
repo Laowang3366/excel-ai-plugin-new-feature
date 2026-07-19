@@ -19,6 +19,8 @@ export {
   type ChartSeriesBubbleSizesUpdateInput,
   type ChartImageGetInput,
   type ChartImageInfo,
+  type RangeImageGetInput,
+  type RangeImageInfo,
   type ChartType,
   type HostAdapter,
   type HostKind,

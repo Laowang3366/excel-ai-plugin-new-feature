@@ -30,6 +30,7 @@ import type {
   ChartSeriesBubbleSizesUpdateInput,
 } from "../shared/host/chartSeriesBubbleSizesTypes";
 import type { ChartImageGetInput, ChartImageInfo } from "../shared/host/chartImageTypes";
+import type { RangeImageGetInput, RangeImageInfo } from "../shared/host/rangeImageTypes";
 import type { ChartSourceUpdateInput } from "../shared/host/chartSourceTypes";
 import type { ChartAxisUpdateInput } from "../shared/host/chartAxisTypes";
 import type { ChartAxisInfo } from "../shared/host/chartAxisTypes";
@@ -569,6 +570,17 @@ export class MockHostAdapter implements HostAdapter {
       sheetName: chart.sheetName,
       chartName: chart.name,
       imageBase64: `bW9ja2ltYWdl${dim}`,
+    });
+  }
+
+  async getRangeImage(input: RangeImageGetInput): Promise<HostResult<RangeImageInfo>> {
+    const sheet = this.sheets.find((item) => item.name === input.sheetName);
+    if (!sheet) throw new Error(`sheet not found: ${input.sheetName}`);
+    const bare = input.range.includes("!") ? input.range.split("!")[1]! : input.range;
+    return ok({
+      sheetName: sheet.name,
+      address: `${sheet.name}!${bare}`,
+      imageBase64: "bW9ja3JhbmdlaW1hZ2U=",
     });
   }
 
