@@ -38,3 +38,14 @@ export type { OpenAIResponsesStreamProviderOptions } from "./openaiResponsesProv
 
 export { AnthropicMessagesStreamProvider } from "./anthropicMessagesProvider";
 export type { AnthropicMessagesStreamProviderOptions } from "./anthropicMessagesProvider";
+
+export {
+  createStreamProvider,
+  createStreamProviderFromStore,
+} from "./createStreamProvider";
+export type {
+  CreateStreamProviderInput,
+  CreateStreamProviderResult,
+  CreateStreamProviderOk,
+  CreateStreamProviderErr,
+} from "./createStreamProvider";
