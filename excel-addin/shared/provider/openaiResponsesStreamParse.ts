@@ -1,9 +1,11 @@
-import type {
-  AgentFinishReason,
-  AgentStreamEvent,
-  AgentTokenUsage,
-} from "../agent/types";
+import type { AgentStreamEvent } from "../agent/types";
 import type { ToolNameMaps } from "./openaiToolNameMap";
+import {
+  extractResponsesErrorMessage,
+  finishEvent,
+  mapIncompleteReason,
+  parseResponsesUsage,
+} from "./openaiResponsesHelpers";
 
 interface TextSlot {
   emitted: string;
@@ -15,8 +17,14 @@ interface ToolSlot {
   externalName?: string;
   internalName?: string;
   deltaArgs: string;
+  /** Present when function_call_arguments.done provided arguments (including ""). */
   doneArgs?: string;
+  hasDoneArgs: boolean;
+  /** Present when output_item.done provided arguments (including ""). */
   itemDoneArgs?: string;
+  hasItemDoneArgs: boolean;
+  itemDone: boolean;
+  argsDone: boolean;
   began: boolean;
   ended: boolean;
 }
@@ -25,7 +33,7 @@ type IngestResult = AgentStreamEvent[] | { error: string; provider?: boolean };
 
 /**
  * OpenAI Responses SSE → AgentStreamEvent.
- * Tool slots keyed by item_id; agent toolCallId is always real call_id.
+ * Tool slots keyed by item_id; agent toolCallId is always frozen call_id.
  */
 export class OpenAiResponsesStreamAssembler {
   private textSlots = new Map<string, TextSlot>();
@@ -66,7 +74,7 @@ export class OpenAiResponsesStreamAssembler {
       case "response.failed":
       case "error":
         return {
-          error: extractErrorMessage(obj) || "provider error event",
+          error: extractResponsesErrorMessage(obj) || "provider error event",
           provider: true,
         };
       default:
@@ -105,7 +113,7 @@ export class OpenAiResponsesStreamAssembler {
   }
 
   private onTextDone(obj: Record<string, unknown>): IngestResult {
-    let full =
+    const full =
       typeof obj.text === "string"
         ? obj.text
         : typeof (obj.part as { text?: unknown } | undefined)?.text === "string"
@@ -124,17 +132,54 @@ export class OpenAiResponsesStreamAssembler {
   private ensure(itemId: string): ToolSlot {
     let slot = this.tools.get(itemId);
     if (!slot) {
-      slot = { itemId, deltaArgs: "", began: false, ended: false };
+      slot = {
+        itemId,
+        deltaArgs: "",
+        hasDoneArgs: false,
+        hasItemDoneArgs: false,
+        itemDone: false,
+        argsDone: false,
+        began: false,
+        ended: false,
+      };
       this.tools.set(itemId, slot);
       this.hasAnyTool = true;
     }
     return slot;
   }
 
-  private applyFunctionFields(slot: ToolSlot, src: Record<string, unknown>): void {
-    if (typeof src.call_id === "string" && src.call_id) slot.callId = src.call_id;
-    if (typeof src.name === "string" && src.name) slot.externalName = src.name;
-    if (typeof src.arguments === "string") slot.itemDoneArgs = src.arguments;
+  /** Stable setter: only identical full call_id/name repeats are allowed. */
+  private setCallId(slot: ToolSlot, value: string): { error: string } | null {
+    if (!value) return null;
+    if (slot.callId != null && slot.callId !== value) {
+      return { error: `tool call_id conflict at item ${slot.itemId}` };
+    }
+    slot.callId = value;
+    return null;
+  }
+
+  private setExternalName(slot: ToolSlot, value: string): { error: string } | null {
+    if (!value) return null;
+    if (slot.externalName != null && slot.externalName !== value) {
+      return { error: `tool name conflict at item ${slot.itemId}` };
+    }
+    slot.externalName = value;
+    return null;
+  }
+
+  private applyIdentity(
+    slot: ToolSlot,
+    src: Record<string, unknown>,
+  ): { error: string } | null {
+    if (typeof src.call_id === "string" && src.call_id) {
+      const err = this.setCallId(slot, src.call_id);
+      if (err) return err;
+    }
+    if (typeof src.name === "string" && src.name) {
+      const err = this.setExternalName(slot, src.name);
+      if (err) return err;
+    }
+    return null;
   }
 
   private onItem(obj: Record<string, unknown>, done: boolean): IngestResult {
@@ -150,13 +195,27 @@ export class OpenAiResponsesStreamAssembler {
           : "";
     if (!itemId) return { error: "function_call item missing item id" };
     const slot = this.ensure(itemId);
-    this.applyFunctionFields(slot, it);
+    const idErr = this.applyIdentity(slot, it);
+    if (idErr) return idErr;
+
+    // output_item.added may carry draft arguments; not a final marker.
+    if (!done && typeof it.arguments === "string" && !slot.hasItemDoneArgs && !slot.hasDoneArgs) {
+      // Keep as provisional delta only if no final args yet and no deltas.
+      if (!slot.deltaArgs && it.arguments) slot.deltaArgs = it.arguments;
+    }
+
     const events: AgentStreamEvent[] = [];
     const begin = this.tryBegin(slot);
     if (begin && "error" in begin) return begin;
     if (Array.isArray(begin)) events.push(...begin);
+
     if (done) {
-      const end = this.endSlot(slot);
+      slot.itemDone = true;
+      if (typeof it.arguments === "string") {
+        slot.itemDoneArgs = it.arguments; // may be ""
+        slot.hasItemDoneArgs = true;
+      }
+      const end = this.endSlot(slot, /*requireFinalMarker*/ false);
       if (end && "error" in end) return end;
       if (Array.isArray(end)) events.push(...end);
     }
@@ -167,17 +226,17 @@ export class OpenAiResponsesStreamAssembler {
     const itemId = typeof obj.item_id === "string" ? obj.item_id : "";
     if (!itemId) return { error: "function_call_arguments.delta missing item_id" };
     const slot = this.ensure(itemId);
+    const idErr = this.applyIdentity(slot, obj);
+    if (idErr) return idErr;
     const delta = typeof obj.delta === "string" ? obj.delta : "";
     if (!delta) return [];
+
     const events: AgentStreamEvent[] = [];
     if (!slot.began) {
       slot.deltaArgs += delta;
       const begin = this.tryBegin(slot);
       if (begin && "error" in begin) return begin;
-      if (Array.isArray(begin)) {
-        events.push(...begin);
-        // tryBegin already replays full deltaArgs once.
-      }
+      if (Array.isArray(begin)) events.push(...begin);
     } else {
       slot.deltaArgs += delta;
       events.push({
@@ -193,9 +252,13 @@ export class OpenAiResponsesStreamAssembler {
     const itemId = typeof obj.item_id === "string" ? obj.item_id : "";
     if (!itemId) return { error: "function_call_arguments.done missing item_id" };
     const slot = this.ensure(itemId);
-    if (typeof obj.arguments === "string") slot.doneArgs = obj.arguments;
-    if (typeof obj.call_id === "string" && obj.call_id) slot.callId = obj.call_id;
-    if (typeof obj.name === "string" && obj.name) slot.externalName = obj.name;
+    const idErr = this.applyIdentity(slot, obj);
+    if (idErr) return idErr;
+    if (typeof obj.arguments === "string") {
+      slot.doneArgs = obj.arguments; // may be ""
+      slot.hasDoneArgs = true;
+    }
+    slot.argsDone = true;
     const begin = this.tryBegin(slot);
     if (begin && "error" in begin) return begin;
     return Array.isArray(begin) ? begin : [];
@@ -213,6 +276,7 @@ export class OpenAiResponsesStreamAssembler {
     }
     slot.began = true;
     slot.internalName = internal;
+    // Freeze identity for all subsequent events.
     const events: AgentStreamEvent[] = [
       { type: "tool_call_begin", toolCallId: slot.callId, toolName: internal },
     ];
@@ -226,18 +290,31 @@ export class OpenAiResponsesStreamAssembler {
     return events;
   }
 
+  /**
+   * Priority: item.done.arguments (incl "") > args.done.arguments (incl "") > delta > "{}".
+   * Presence of key/field is tracked via has* flags so empty string wins over deltas.
+   */
   private finalArgs(slot: ToolSlot): string {
-    if (typeof slot.itemDoneArgs === "string" && slot.itemDoneArgs !== "") {
-      return slot.itemDoneArgs;
-    }
-    if (typeof slot.doneArgs === "string" && slot.doneArgs !== "") return slot.doneArgs;
+    if (slot.hasItemDoneArgs) return slot.itemDoneArgs === "" ? "{}" : (slot.itemDoneArgs ?? "{}");
+    if (slot.hasDoneArgs) return slot.doneArgs === "" ? "{}" : (slot.doneArgs ?? "{}");
     if (slot.deltaArgs !== "") return slot.deltaArgs;
     return "{}";
   }
 
-  /** Begin (if needed) + end; returns events or error. */
-  private endSlot(slot: ToolSlot): AgentStreamEvent[] | { error: string } | null {
+  /**
+   * @param requireFinalMarker when true (terminal flush), need itemDone or argsDone.
+   */
+  private endSlot(
+    slot: ToolSlot,
+    requireFinalMarker: boolean,
+  ): AgentStreamEvent[] | { error: string } | null {
     if (slot.ended) return null;
+    if (requireFinalMarker && !slot.itemDone && !slot.argsDone) {
+      return {
+        error: `tool slot ${slot.itemId} incomplete at terminal (need item.done or arguments.done)`,
+      };
+    }
+
     const events: AgentStreamEvent[] = [];
     if (!slot.began) {
       const begin = this.tryBegin(slot);
@@ -265,7 +342,7 @@ export class OpenAiResponsesStreamAssembler {
   private flushAllTools(): AgentStreamEvent[] | { error: string } {
     const events: AgentStreamEvent[] = [];
     for (const slot of this.tools.values()) {
-      const part = this.endSlot(slot);
+      const part = this.endSlot(slot, /*requireFinalMarker*/ true);
       if (part && "error" in part) return part;
       if (Array.isArray(part)) events.push(...part);
     }
@@ -282,7 +359,7 @@ export class OpenAiResponsesStreamAssembler {
     ) as Record<string, unknown>;
     for (const src of [response, obj]) {
       if (src.usage && typeof src.usage === "object") {
-        const usage = parseUsage(src.usage as Record<string, unknown>);
+        const usage = parseResponsesUsage(src.usage as Record<string, unknown>);
         if (usage) events.push({ type: "usage", usage });
       }
     }
@@ -291,10 +368,7 @@ export class OpenAiResponsesStreamAssembler {
     events.push(...flushed);
 
     if (kind === "completed") {
-      this.pendingFinish = {
-        type: "finish",
-        reason: this.hasAnyTool ? "tool_calls" : "stop",
-      };
+      this.pendingFinish = finishEvent(this.hasAnyTool ? "tool_calls" : "stop");
     } else {
       const reasonRaw =
         typeof response.incomplete_details === "object" &&
@@ -304,52 +378,10 @@ export class OpenAiResponsesStreamAssembler {
           : typeof obj.reason === "string"
             ? obj.reason
             : "incomplete";
-      let reason: AgentFinishReason = "unknown";
-      if (reasonRaw === "max_output_tokens" || reasonRaw === "length") reason = "length";
-      else if (reasonRaw === "content_filter") reason = "content_filter";
-      this.pendingFinish = { type: "finish", reason, rawReason: reasonRaw };
+      const mapped = mapIncompleteReason(reasonRaw);
+      this.pendingFinish = finishEvent(mapped.reason, mapped.rawReason);
     }
     this.sawTerminal = true;
     return events;
   }
-}
-
-function extractErrorMessage(obj: Record<string, unknown>): string {
-  if (typeof obj.error === "string") return obj.error;
-  if (obj.error && typeof obj.error === "object") {
-    const msg = (obj.error as { message?: unknown }).message;
-    if (typeof msg === "string") return msg;
-  }
-  if (typeof obj.message === "string") return obj.message;
-  return "";
-}
-
-function parseUsage(raw: Record<string, unknown>): AgentTokenUsage | undefined {
-  const input =
-    typeof raw.input_tokens === "number"
-      ? raw.input_tokens
-      : typeof raw.prompt_tokens === "number"
-        ? raw.prompt_tokens
-        : undefined;
-  const output =
-    typeof raw.output_tokens === "number"
-      ? raw.output_tokens
-      : typeof raw.completion_tokens === "number"
-        ? raw.completion_tokens
-        : undefined;
-  if (input == null || output == null) return undefined;
-  const usage: AgentTokenUsage = { inputTokens: input, outputTokens: output };
-  const inDetails = raw.input_tokens_details;
-  if (inDetails && typeof inDetails === "object") {
-    const cached = (inDetails as { cached_tokens?: unknown }).cached_tokens;
-    if (typeof cached === "number") usage.cachedInputTokens = cached;
-  }
-  if (typeof raw.cached_tokens === "number") usage.cachedInputTokens = raw.cached_tokens;
-  const outDetails = raw.output_tokens_details;
-  if (outDetails && typeof outDetails === "object") {
-    const reasoning = (outDetails as { reasoning_tokens?: unknown }).reasoning_tokens;
-    if (typeof reasoning === "number") usage.reasoningOutputTokens = reasoning;
-  }
-  if (typeof raw.reasoning_tokens === "number") usage.reasoningOutputTokens = raw.reasoning_tokens;
-  return usage;
 }
