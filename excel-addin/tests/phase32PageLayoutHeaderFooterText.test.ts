@@ -145,6 +145,16 @@ describe("phase32 sheet.pageLayout headers/footers default text", () => {
       expect(gates.getCommitted("Sheet1")?.rightHeader).toBe("");
     });
 
+
+    it("parent layout.load does not include headersFooters navigation property", async () => {
+      const adapter = new OfficeJsAdapter();
+      const got = await adapter.getSheetPageLayout("Sheet1");
+      expect(got.ok).toBe(true);
+      const props = gates.getLastLayoutLoadProps("Sheet1") ?? "";
+      expect(props).toMatch(/orientation/);
+      expect(props).not.toMatch(/headersFooters/);
+    });
+
     it("missing headersFooters/defaultForAllPages/slot is ordinary failure", async () => {
       for (const opts of [
         { hasHeadersFooters: false },

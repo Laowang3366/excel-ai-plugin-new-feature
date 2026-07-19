@@ -161,6 +161,9 @@ export function installPageLayoutExcel(options?: {
     getPageLayoutWriteCalls() {
       return pageLayoutWriteCalls;
     },
+    getLastLayoutLoadProps(name: string) {
+      return sheets.get(name)?.lastLayoutLoadProps;
+    },
     /** Seed committed zoom.scale (including null) for null-readback tests. */
     setCommittedZoomScale(name: string, scale: number | null) {
       const sheet = sheets.get(name);

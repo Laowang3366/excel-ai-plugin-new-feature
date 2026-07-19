@@ -189,7 +189,7 @@ async function readLayout(
   sheet.load("name");
   // Official: load whole zoom object, then read scale / fit fields after sync.
   layout.load(
-    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,headerMargin,footerMargin,paperSize,zoom,headersFooters",
+    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,headerMargin,footerMargin,paperSize,zoom",
   );
   loadDefaultHeadersFooters(layout.headersFooters.defaultForAllPages);
   const printArea = layout.getPrintAreaOrNullObject();

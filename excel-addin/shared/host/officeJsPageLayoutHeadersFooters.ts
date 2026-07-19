@@ -1,22 +1,8 @@
 /**
- * Minimal ExcelApi 1.9 PageLayout.headersFooters.defaultForAllPages surface.
- * Kept out of officeJsRuntime.ts to preserve single-file line limits.
+ * Minimal ExcelApi 1.9 PageLayout.headersFooters.defaultForAllPages helpers.
+ * Types live in officeJsRuntime.ts (single facade source).
  */
-
-export interface ExcelHeaderFooter {
-  leftHeader: string;
-  centerHeader: string;
-  rightHeader: string;
-  leftFooter: string;
-  centerFooter: string;
-  rightFooter: string;
-  load(props: string): void;
-}
-
-export interface ExcelHeaderFooterGroup {
-  defaultForAllPages: ExcelHeaderFooter;
-  load(props: string): void;
-}
+import type { ExcelHeaderFooter } from "./officeJsRuntime";
 
 export const HEADER_FOOTER_SLOTS = [
   "leftHeader",

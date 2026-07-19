@@ -39,6 +39,8 @@ export type PageLayoutSheetState = {
   name: unknown;
   committed: PageLayoutState;
   pending: Partial<PageLayoutState> | undefined;
+  /** Last pageLayout.load(...) props string (for tests). */
+  lastLayoutLoadProps?: string;
 };
 
 export function defaultPageLayoutState(): PageLayoutState {
@@ -124,7 +126,9 @@ export function makePageLayoutObject(
 ): Record<string, unknown> {
   const { queue } = options;
   const layout: Record<string, unknown> = {
-    load() {},
+    load(props?: string) {
+      sheet.lastLayoutLoadProps = props ?? "";
+    },
     get orientation() {
       return sheet.committed.orientation;
     },

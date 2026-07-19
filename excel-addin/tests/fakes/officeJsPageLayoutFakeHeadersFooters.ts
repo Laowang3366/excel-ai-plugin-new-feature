@@ -10,17 +10,6 @@ export type HeadersFootersState = {
   rightFooter: string;
 };
 
-export function defaultHeadersFootersState(): HeadersFootersState {
-  return {
-    leftHeader: "",
-    centerHeader: "",
-    rightHeader: "",
-    leftFooter: "",
-    centerFooter: "",
-    rightFooter: "",
-  };
-}
-
 export type MakeHeadersFootersOptions = {
   hasHeadersFooters: boolean;
   hasDefaultForAllPages: boolean;
