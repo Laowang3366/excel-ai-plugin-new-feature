@@ -124,11 +124,6 @@ export class AnthropicMessagesStreamAssembler {
     if (typeof raw.cache_read_input_tokens === "number") {
       this.usage.cachedInputTokens = raw.cache_read_input_tokens;
     }
-    if (typeof raw.cache_creation_input_tokens === "number") {
-      if (this.usage.cachedInputTokens == null) {
-        this.usage.cachedInputTokens = raw.cache_creation_input_tokens;
-      }
-    }
   }
 
   /** Emit only when both input and output tokens are known (complete snapshot). */

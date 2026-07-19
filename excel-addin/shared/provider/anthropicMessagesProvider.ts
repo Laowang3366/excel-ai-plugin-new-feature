@@ -219,6 +219,12 @@ export class AnthropicMessagesStreamProvider implements AgentStreamProvider {
         kind: classified.kind === "cors" ? "cors" : "network",
         url,
       };
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        /* ignore — must not mask stream result */
+      }
     }
   }
 }
