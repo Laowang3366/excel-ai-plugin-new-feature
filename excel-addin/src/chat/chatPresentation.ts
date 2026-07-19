@@ -1,0 +1,198 @@
+import type { AgentToolOutcome } from "../../shared/agent/types";
+import type {
+  ChatPublicError,
+  ChatTraceEvent,
+  ChatTurnStatus,
+} from "@shared/agentChat";
+
+export const MAX_TRACE_TEXT = 160;
+
+export type DisplayRole = "user" | "assistant" | "system";
+
+export interface DisplayMessage {
+  id: string;
+  role: DisplayRole;
+  content: string;
+  pending?: boolean;
+}
+
+export interface DisplayTraceItem {
+  id: string;
+  kind: "round" | "tool_parsed" | "tool_outcome";
+  text: string;
+  tone?: "ok" | "fail" | "info";
+}
+
+export interface DisplayTurn {
+  id: string;
+  userText: string;
+  assistantText: string;
+  pending: boolean;
+  turnStatus?: ChatTurnStatus;
+  errorText?: string;
+  traces: DisplayTraceItem[];
+}
+
+export function truncateDisplay(text: string, max = MAX_TRACE_TEXT): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= max) return normalized;
+  return `${normalized.slice(0, Math.max(0, max - 1))}…`;
+}
+
+/** Collapse huge base64/json blobs for UI-only display. */
+export function summarizePayload(raw: string, max = MAX_TRACE_TEXT): string {
+  if (!raw) return "";
+  // Long base64-looking payload
+  if (raw.length > 80 && /^[A-Za-z0-9+/=\s]+$/.test(raw.slice(0, 200)) && raw.length > max) {
+    return `[binary/base64 ${raw.length} chars]`;
+  }
+  if (raw.length > max * 2) {
+    return truncateDisplay(raw, max);
+  }
+  return truncateDisplay(raw, max);
+}
+
+export function formatToolArgs(argsJson: string | undefined): string {
+  if (argsJson == null || argsJson === "") return "{}";
+  return summarizePayload(argsJson);
+}
+
+export function formatToolOutcome(outcome: AgentToolOutcome): {
+  text: string;
+  tone: "ok" | "fail" | "info";
+} {
+  if (outcome.kind === "host") {
+    if (outcome.result.ok) {
+      const dataPreview = summarizePayload(safeJson(outcome.result.data));
+      return {
+        text: `✓ ${outcome.toolName}${dataPreview ? ` · ${dataPreview}` : ""}`,
+        tone: "ok",
+      };
+    }
+    const err = outcome.result.error || "failed";
+    return {
+      text: `✗ ${outcome.toolName} · ${truncateDisplay(err)}`,
+      tone: "fail",
+    };
+  }
+  if (outcome.kind === "unknown_tool") {
+    return {
+      text: `? 未知工具 ${outcome.toolName} · ${truncateDisplay(outcome.error)}`,
+      tone: "fail",
+    };
+  }
+  return {
+    text: `! 参数无效 ${outcome.toolName} · ${truncateDisplay(outcome.error)}`,
+    tone: "fail",
+  };
+}
+
+export function mapChatError(
+  error: ChatPublicError | undefined,
+  turnStatus?: ChatTurnStatus,
+): string | undefined {
+  if (turnStatus === "busy") return "当前对话进行中，请稍候。";
+  if (turnStatus === "empty") return "请输入内容后再发送。";
+  if (turnStatus === "max_rounds") {
+    return "已达到本轮最大工具调用轮数，请精简问题后重试。";
+  }
+  if (turnStatus === "aborted") return "已停止生成。进行中的表格读取可能仍会完成。";
+  if (!error) {
+    if (turnStatus === "failed") return "请求失败，请稍后重试。";
+    return undefined;
+  }
+  const kind = error.kind ?? "";
+  const msg = error.message || "";
+  if (kind === "missing_key" || /API key|密钥|未设置/.test(msg)) {
+    return "未配置 API 密钥。请到「模型供应商」页添加并选择可用供应商。";
+  }
+  if (/no active provider/i.test(msg) || /active provider/i.test(msg)) {
+    return "未选择活动模型供应商。请到「模型供应商」页配置并设为当前。";
+  }
+  if (kind === "cors") {
+    return "浏览器 CORS/网络拦截：任务窗格直连第三方 API 常被拒绝。请检查供应商地址或网络环境。";
+  }
+  if (kind === "network") {
+    return `网络错误：${truncateDisplay(msg, 120)}`;
+  }
+  if (kind === "http") {
+    const status = error.status != null ? `HTTP ${error.status}` : "HTTP 错误";
+    return `${status}：${truncateDisplay(msg, 120)}`;
+  }
+  if (kind === "parse") {
+    return `响应解析失败：${truncateDisplay(msg, 120)}`;
+  }
+  if (kind === "provider") {
+    return `模型服务错误：${truncateDisplay(msg, 120)}`;
+  }
+  if (kind === "aborted") {
+    return "已停止生成。进行中的表格读取可能仍会完成。";
+  }
+  return truncateDisplay(msg || "请求失败", 160);
+}
+
+export function projectTraceEvent(
+  event: ChatTraceEvent,
+  seq: number,
+): DisplayTraceItem | null {
+  switch (event.type) {
+    case "round_start":
+      return {
+        id: `tr-${seq}`,
+        kind: "round",
+        text: `回合 ${event.round} 开始`,
+        tone: "info",
+      };
+    case "round_end":
+      return {
+        id: `tr-${seq}`,
+        kind: "round",
+        text: `回合 ${event.round} 结束 · ${event.finishReason} · 工具 ${event.toolCallCount}`,
+        tone: "info",
+      };
+    case "tool_call_parsed":
+      return {
+        id: `tr-${seq}`,
+        kind: "tool_parsed",
+        text: `调用 ${event.call.name}(${formatToolArgs(event.call.argumentsJson)})`,
+        tone: "info",
+      };
+    case "tool_outcome": {
+      const formatted = formatToolOutcome(event.outcome);
+      return {
+        id: `tr-${seq}`,
+        kind: "tool_outcome",
+        text: formatted.text,
+        tone: formatted.tone,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function redactLongStrings(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (value.length > 64 && /^[A-Za-z0-9+/=\s]+$/.test(value)) {
+      return `[binary/base64 ${value.length} chars]`;
+    }
+    return value.length > MAX_TRACE_TEXT ? truncateDisplay(value) : value;
+  }
+  if (Array.isArray(value)) return value.map(redactLongStrings);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = redactLongStrings(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(redactLongStrings(value)) ?? "";
+  } catch {
+    return String(value);
+  }
+}
