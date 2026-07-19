@@ -48,6 +48,8 @@ export function createMockStructureState() {
         margins: { top: 72, bottom: 72, left: 72, right: 72, header: 36, footer: 36 },
         headers: { left: "", center: "", right: "" },
         footers: { left: "", center: "", right: "" },
+        horizontalPageBreaks: [],
+        verticalPageBreaks: [],
         zoomScale: 100,
         paperSize: "letter",
         fitToPagesWide: null,
@@ -239,6 +241,18 @@ export function createMockStructureState() {
           center: input.footers?.center ?? current.footers.center,
           right: input.footers?.right ?? current.footers.right,
         },
+        horizontalPageBreaks: (() => {
+          let list = [...current.horizontalPageBreaks];
+          if (input.clearPageBreaks === true) list = [];
+          if (input.horizontalPageBreaks) list = [...list, ...input.horizontalPageBreaks];
+          return list;
+        })(),
+        verticalPageBreaks: (() => {
+          let list = [...current.verticalPageBreaks];
+          if (input.clearPageBreaks === true) list = [];
+          if (input.verticalPageBreaks) list = [...list, ...input.verticalPageBreaks];
+          return list;
+        })(),
         zoomScale:
           input.fitToPagesWide !== undefined || input.fitToPagesTall !== undefined
             ? null

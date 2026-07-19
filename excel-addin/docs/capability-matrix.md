@@ -54,7 +54,7 @@ Evidence columns:
 | sheet | visibility get/set (visible/hidden/veryHidden) | implemented | **unsupported** | hide/veryHide/show | Office.js `Worksheet.visibility` |
 | sheet | display get/set (tabColor/showGridlines/showHeadings) | implemented | **unsupported** | worksheet update tabColor/gridlines | Office.js `Worksheet.tabColor|showGridlines|showHeadings`; empty tabColor=auto |
 | sheet | freeze get/set (rows/columns/at/clear) | implemented | **unsupported** | template freezeRows | Office.js `Worksheet.freezePanes`; location writeback |
-| sheet | pageLayout get/set (print settings subset) | implemented | **unsupported** | inspectPrintSettings/configurePrint | Office.js **ExcelApi 1.9**: paperSize; zoom scale/fit; draftMode/printOrder/firstPageNumber; margins incl header/footer points; headers/footers defaultForAllPages left|center|right text; zoomScale/fit null mutual; printArea→RangeAreas, titles→Range OrNullObject; **unsupported**: clear/first|even|odd/state/images/page breaks/fitToOnePage |
+| sheet | pageLayout get/set (print settings subset) | implemented | **unsupported** | inspectPrintSettings/configurePrint | Office.js **ExcelApi 1.9**: paperSize/zoom/fit; draftMode/printOrder/firstPageNumber; margins header/footer points; headers/footers default text; **manual** horizontal/vertical page breaks (A1 append + clearPageBreaks); **unsupported**: auto page breaks/clear titles/first|even|odd/state/images/fitToOnePage |
 | sheet | protection get/protect/unprotect | implemented | **unsupported** | protect/unprotect | Office.js `Worksheet.protection`; password request-memory only |
 | named range | list/create/update/delete | implemented | **unsupported** | name.* | Office.js names；rename=add-then-delete（add 失败保留旧名；冲突大小写不敏感） |
 | shape | list/create/delete/update (MVP) | implemented | **unsupported** | manageWorkbookObject shape | Office.js ExcelApi 1.9 `Worksheet.shapes`；geometric whitelist + textBox；shallow pos/size/text/visible；**no** image/line/group/fill/lineFormat/rotation/zOrder |
@@ -90,7 +90,8 @@ Evidence columns:
 - Phase29: `sheet.pageLayout` adds `paperSize` + `fitToPagesWide`/`fitToPagesTall` (**ExcelApi 1.9** precheck; host readback; fit mutually exclusive with zoomScale; WPS unsupported)
 - Phase30: `sheet.pageLayout` adds `draft`/`pageOrder`/`firstPageNumber` (**ExcelApi 1.9** draftMode/printOrder/firstPageNumber; host readback; firstPageNumber ""/null→null, set only finite int≥1; WPS unsupported)
 - Phase31: `sheet.pageLayout.margins` adds `header`/`footer` (**ExcelApi 1.9** headerMargin/footerMargin points; host readback; 0 allowed; WPS unsupported)
-- Phase32: `sheet.pageLayout` adds default-page `headers`/`footers` left|center|right text (**ExcelApi 1.9** headersFooters.defaultForAllPages; "" clears; host readback; WPS unsupported). **unsupported**: first/even/odd pages, headersFooters state/images, page breaks, printArea/titles clear, fitToOnePage
+- Phase32: `sheet.pageLayout` adds default-page `headers`/`footers` left|center|right text (**ExcelApi 1.9** headersFooters.defaultForAllPages; "" clears; host readback; WPS unsupported)
+- Phase33: `sheet.pageLayout` adds manual `horizontalPageBreaks`/`verticalPageBreaks` + `clearPageBreaks` (**ExcelApi 1.9** Worksheet page break collections; bare A1; append not replace; [] no-op; WPS unsupported). **unsupported**: automatic page breaks, single-break delete tool, printArea/titles clear, fitToOnePage
 
 ## Phase5 Office.js contract notes
 

@@ -244,6 +244,8 @@ describe("phase32 sheet.pageLayout headers/footers default text", () => {
       expect(text).toMatch(/headers\|footers default 页 left\|center\|right 文本/);
       expect(text).toMatch(/first\/even\/odd pages/);
       expect(text).toMatch(/margins\.\{top,bottom,left,right,header,footer\} points/);
+      expect(text).toMatch(/manual horizontalPageBreaks\|verticalPageBreaks/);
+      expect(text).toMatch(/自动分页/);
       expect(text).not.toMatch(/headers\/footers 文本内容\/page breaks/);
     });
   });

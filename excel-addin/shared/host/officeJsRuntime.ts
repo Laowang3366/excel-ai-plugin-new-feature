@@ -5,6 +5,7 @@ import {
   ok,
   unsupported,
 } from "./types";
+import type { ExcelPageBreakCollection } from "./officeJsPageBreakTypes";
 
 export type ExcelRunFn = <T>(batch: (context: ExcelRequestContext) => Promise<T>) => Promise<T>;
 
@@ -237,6 +238,9 @@ export interface ExcelWorksheet {
   protection: ExcelWorksheetProtection;
   freezePanes: ExcelFreezePanes;
   pageLayout: ExcelPageLayout;
+  /** ExcelApi 1.9 manual page breaks only. */
+  horizontalPageBreaks: ExcelPageBreakCollection;
+  verticalPageBreaks: ExcelPageBreakCollection;
   names: ExcelNamedItemCollection;
   load(props: string): void;
   getRange(address: string): ExcelRange;

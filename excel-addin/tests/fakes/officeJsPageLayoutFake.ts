@@ -5,6 +5,12 @@ import {
   type PageLayoutSheetState,
   type PageLayoutState,
 } from "./officeJsPageLayoutFakeLayout";
+import {
+  attachPageBreaks,
+  commitPageBreaks,
+  defaultPageBreakSheetState,
+  type PageBreakSheetState,
+} from "./officeJsPageBreaksFake";
 
 export function installPageLayoutExcel(options?: {
   excelApi19?: boolean;
@@ -36,6 +42,12 @@ export function installPageLayoutExcel(options?: {
     | "leftFooter"
     | "centerFooter"
     | "rightFooter";
+  hasHorizontalPageBreaks?: boolean;
+  hasVerticalPageBreaks?: boolean;
+  hasPageBreakAdd?: boolean;
+  hasPageBreakRemove?: boolean;
+  hasPageBreakItems?: boolean;
+  hasGetCellAfterBreak?: boolean;
 }) {
   const excelApi19 = options?.excelApi19 !== false;
   const hasPaperSize = options?.hasPaperSize !== false;
@@ -51,16 +63,24 @@ export function installPageLayoutExcel(options?: {
   let pageLayoutWriteCalls = 0;
 
   const sheets = new Map<string, PageLayoutSheetState>();
-  sheets.set("Sheet1", {
-    name: "Sheet1",
-    committed: defaultPageLayoutState(),
-    pending: undefined,
-  });
-  sheets.set("Sheet2", {
-    name: "Sheet2",
-    committed: defaultPageLayoutState(),
-    pending: undefined,
-  });
+  const pageBreaks = new Map<string, PageBreakSheetState>();
+  function seedSheet(name: string) {
+    sheets.set(name, {
+      name,
+      committed: defaultPageLayoutState(),
+      pending: undefined,
+    });
+    const pb = defaultPageBreakSheetState();
+    pb.hasHorizontal = options?.hasHorizontalPageBreaks !== false;
+    pb.hasVertical = options?.hasVerticalPageBreaks !== false;
+    pb.hasAdd = options?.hasPageBreakAdd !== false;
+    pb.hasRemove = options?.hasPageBreakRemove !== false;
+    pb.hasItems = options?.hasPageBreakItems !== false;
+    pb.hasGetCellAfterBreak = options?.hasGetCellAfterBreak !== false;
+    pageBreaks.set(name, pb);
+  }
+  seedSheet("Sheet1");
+  seedSheet("Sheet2");
 
   function queue(sheet: PageLayoutSheetState, patch: Partial<PageLayoutState>) {
     pageLayoutWriteCalls += 1;
@@ -70,7 +90,9 @@ export function installPageLayoutExcel(options?: {
   function makeSheet(name: string) {
     const sheet = sheets.get(name);
     if (!sheet) throw new Error(`missing sheet ${name}`);
-    return {
+    const pb = pageBreaks.get(name);
+    if (!pb) throw new Error(`missing page breaks ${name}`);
+    const sheetObj: Record<string, unknown> = {
       get name() {
         return sheet.name;
       },
@@ -89,6 +111,10 @@ export function installPageLayoutExcel(options?: {
         queue,
       }),
     };
+    attachPageBreaks(sheetObj, pb, () => {
+      pageLayoutWriteCalls += 1;
+    });
+    return sheetObj;
   }
 
   const context = {
@@ -105,6 +131,9 @@ export function installPageLayoutExcel(options?: {
           sheet.committed = { ...sheet.committed, ...sheet.pending };
           sheet.pending = undefined;
         }
+      }
+      for (const pb of pageBreaks.values()) {
+        commitPageBreaks(pb);
       }
     },
   };
@@ -221,6 +250,23 @@ export function installPageLayoutExcel(options?: {
       const sheet = sheets.get(name);
       if (!sheet) return;
       Object.assign(sheet.committed, values);
+    },
+    getCommittedPageBreaks(name: string) {
+      const pb = pageBreaks.get(name);
+      if (!pb) return undefined;
+      return {
+        horizontal: pb.horizontal.map((c) => c.address),
+        vertical: pb.vertical.map((c) => c.address),
+      };
+    },
+    setCommittedPageBreaks(
+      name: string,
+      values: { horizontal?: string[]; vertical?: string[] },
+    ) {
+      const pb = pageBreaks.get(name);
+      if (!pb) return;
+      if (values.horizontal) pb.horizontal = values.horizontal.map((address) => ({ address }));
+      if (values.vertical) pb.vertical = values.vertical.map((address) => ({ address }));
     },
   };
 }

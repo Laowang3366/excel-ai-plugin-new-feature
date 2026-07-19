@@ -4,7 +4,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.get",
     description:
-      "读取工作表页面布局/打印设置（orientation/margins/headers|footers default 六槽/paperSize/fitToPages/zoomScale/draft/pageOrder/firstPageNumber/printArea 等；ExcelApi 1.9；WPS unsupported）",
+      "读取工作表页面布局/打印设置（orientation/margins/headers|footers default 六槽/manual pageBreaks A1/paperSize/fitToPages/zoomScale/draft/pageOrder/firstPageNumber/printArea 等；ExcelApi 1.9；WPS unsupported）",
     riskLevel: "safe",
     parameters: {
       type: "object",
@@ -16,7 +16,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.set",
     description:
-      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/headers|footers(default left|center|right 文本,空串清除)/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空；firstPageNumber 仅有限整数≥1。ExcelApi 1.9；WPS unsupported",
+      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/headers|footers(default left|center|right 文本,空串清除)/clearPageBreaks/horizontalPageBreaks|verticalPageBreaks(A1 append,[] no-op)/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空；firstPageNumber 仅有限整数≥1。ExcelApi 1.9；WPS unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -71,6 +71,17 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
         printArea: { type: "string", minLength: 1 },
         printTitleRows: { type: "string", minLength: 1 },
         printTitleColumns: { type: "string", minLength: 1 },
+        clearPageBreaks: { type: "boolean" },
+        horizontalPageBreaks: {
+          type: "array",
+          items: { type: "string", minLength: 1 },
+          maxItems: 1000,
+        },
+        verticalPageBreaks: {
+          type: "array",
+          items: { type: "string", minLength: 1 },
+          maxItems: 1000,
+        },
       },
       required: ["sheetName"],
       additionalProperties: false,

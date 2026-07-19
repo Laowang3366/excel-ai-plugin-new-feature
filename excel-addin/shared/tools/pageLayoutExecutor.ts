@@ -172,6 +172,31 @@ function optionalTextSides(
   return out;
 }
 
+
+function optionalPageBreakAddresses(
+  args: Record<string, unknown>,
+  key: "horizontalPageBreaks" | "verticalPageBreaks",
+): string[] | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) {
+    return undefined;
+  }
+  const raw = args[key];
+  if (raw === null || !Array.isArray(raw)) {
+    throw new Error(`${key} must be an array of non-empty strings`);
+  }
+  if (raw.length > 1000) {
+    throw new Error(`${key} must have at most 1000 items`);
+  }
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string" || item.trim() === "") {
+      throw new Error(`${key} items must be non-empty strings`);
+    }
+    out.push(item.trim());
+  }
+  return out;
+}
+
 function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
   for (const key of Object.keys(args)) {
     if (!allowed.includes(key)) throw new Error(`unknown field: ${key}`);
@@ -221,6 +246,9 @@ export async function executePageLayoutTool(
       "margins",
       "headers",
       "footers",
+      "clearPageBreaks",
+      "horizontalPageBreaks",
+      "verticalPageBreaks",
       "zoomScale",
       "paperSize",
       "fitToPagesWide",
@@ -243,6 +271,9 @@ export async function executePageLayoutTool(
       margins: optionalMargins(call.arguments),
       headers: optionalTextSides(call.arguments, "headers"),
       footers: optionalTextSides(call.arguments, "footers"),
+      clearPageBreaks: optionalBoolean(call.arguments, "clearPageBreaks"),
+      horizontalPageBreaks: optionalPageBreakAddresses(call.arguments, "horizontalPageBreaks"),
+      verticalPageBreaks: optionalPageBreakAddresses(call.arguments, "verticalPageBreaks"),
       zoomScale: optionalZoomScale(call.arguments),
       paperSize: optionalPaperSize(call.arguments),
       fitToPagesWide: optionalFitPages(call.arguments, "fitToPagesWide"),
@@ -270,6 +301,9 @@ export async function executePageLayoutTool(
       input.margins === undefined &&
       input.headers === undefined &&
       input.footers === undefined &&
+      input.clearPageBreaks === undefined &&
+      input.horizontalPageBreaks === undefined &&
+      input.verticalPageBreaks === undefined &&
       input.zoomScale === undefined &&
       input.paperSize === undefined &&
       input.fitToPagesWide === undefined &&

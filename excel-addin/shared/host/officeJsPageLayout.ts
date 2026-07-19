@@ -9,6 +9,7 @@ import {
   loadDefaultHeadersFooters,
   readDefaultHeadersFooters,
 } from "./officeJsPageLayoutHeadersFooters";
+import { applyManualPageBreaks, readManualPageBreaks } from "./officeJsPageBreaks";
 import { getExcelRun } from "./officeJsRuntime";
 import type {
   HostResult,
@@ -21,7 +22,7 @@ import type {
 import { fail, ok, unsupported } from "./types";
 
 const REQUIREMENT_EVIDENCE =
-  "PageLayout paperSize/zoom/draftMode/printOrder/firstPageNumber/headerMargin/footerMargin/headersFooters.defaultForAllPages require ExcelApi 1.9";
+  "PageLayout + Worksheet page breaks require ExcelApi 1.9 (paperSize/zoom/draftMode/printOrder/firstPageNumber/headerMargin/footerMargin/headersFooters.defaultForAllPages/horizontalPageBreaks/verticalPageBreaks)";
 
 const PAPER_SIZE_TO_HOST: Record<PagePaperSize, string> = {
   a3: "A3",
@@ -200,6 +201,7 @@ async function readLayout(
   titleCols.load("address");
   await context.sync();
   const headersFootersText = readDefaultHeadersFooters(layout.headersFooters.defaultForAllPages);
+  const pageBreaks = await readManualPageBreaks(sheet, context);
   return {
     sheetName: requireLoadedString(sheet.name, "Worksheet.name"),
     orientation: mapOrientation(String(layout.orientation)),
@@ -228,6 +230,8 @@ async function readLayout(
     printArea: addressOrNull(printArea),
     printTitleRows: addressOrNull(titleRows),
     printTitleColumns: addressOrNull(titleCols),
+    horizontalPageBreaks: pageBreaks.horizontalPageBreaks,
+    verticalPageBreaks: pageBreaks.verticalPageBreaks,
   };
 }
 
@@ -331,6 +335,19 @@ export async function officeJsSetSheetPageLayout(
     if (input.printArea != null) layout.setPrintArea(input.printArea);
     if (input.printTitleRows != null) layout.setPrintTitleRows(input.printTitleRows);
     if (input.printTitleColumns != null) layout.setPrintTitleColumns(input.printTitleColumns);
+    if (
+      input.clearPageBreaks !== undefined ||
+      input.horizontalPageBreaks !== undefined ||
+      input.verticalPageBreaks !== undefined
+    ) {
+      applyManualPageBreaks(sheet, {
+        clearPageBreaks: input.clearPageBreaks,
+        horizontalPageBreaks: input.horizontalPageBreaks,
+        verticalPageBreaks: input.verticalPageBreaks,
+      });
+      // Ensure break mutations commit before full readback.
+      await context.sync();
+    }
     return readLayout(sheet, layout, context);
   });
 }

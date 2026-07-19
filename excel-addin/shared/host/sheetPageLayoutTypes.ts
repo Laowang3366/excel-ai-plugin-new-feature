@@ -64,6 +64,10 @@ export interface SheetPageLayoutInfo {
   printArea: string | null;
   printTitleRows: string | null;
   printTitleColumns: string | null;
+  /** Manual horizontal page breaks as bare single-cell A1 (host order). */
+  horizontalPageBreaks: string[];
+  /** Manual vertical page breaks as bare single-cell A1 (host order). */
+  verticalPageBreaks: string[];
 }
 
 export interface SheetPageLayoutUpdateInput {
@@ -95,4 +99,10 @@ export interface SheetPageLayoutUpdateInput {
   printArea?: string;
   printTitleRows?: string;
   printTitleColumns?: string;
+  /** true: clear both manual break collections before appends in this request. */
+  clearPageBreaks?: boolean;
+  /** Append manual horizontal breaks (bare A1); [] is no-op, not clear. */
+  horizontalPageBreaks?: string[];
+  /** Append manual vertical breaks (bare A1); [] is no-op, not clear. */
+  verticalPageBreaks?: string[];
 }
