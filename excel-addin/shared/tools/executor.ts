@@ -1,6 +1,10 @@
 import type { HostAdapter, RangeExpandMode, RangeFormat } from "../host/types";
 import type { CellValue, ToolCall, ToolFailure, ToolName, ToolResult } from "./types";
 import { mapHostResultToToolResult } from "./hostResultMapping";
+import {
+  rejectUnknownCoreToolArguments,
+  rejectUnknownRangeFormatFields,
+} from "./argValidation";
 import { requireCfRule, requireDvRule } from "./ruleValidation";
 import { executeSheetOperation } from "./sheetOperation";
 import { executeDisplayTool } from "./displayExecutor";
@@ -56,6 +60,7 @@ function requireFormat(args: Record<string, unknown>): RangeFormat {
   if (!format || typeof format !== "object" || Array.isArray(format)) {
     throw new Error("format must be an object");
   }
+  rejectUnknownRangeFormatFields(format as Record<string, unknown>);
   return format as RangeFormat;
 }
 
@@ -118,6 +123,7 @@ export class ToolExecutor {
 
   async execute(call: ToolCall): Promise<ToolResult> {
     try {
+      rejectUnknownCoreToolArguments(call.name, call.arguments);
       switch (call.name) {
         case "host.status":
           return fromHost(call.name, await this.host.getStatus());

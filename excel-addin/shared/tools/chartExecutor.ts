@@ -2,6 +2,7 @@ import type { HostAdapter } from "../host/types";
 import { isChartType } from "../host/types";
 import type { ChartType, ToolCall, ToolResult } from "./types";
 import { mapHostResultToToolResult } from "./hostResultMapping";
+import { rejectUnknownFields } from "./argValidation";
 
 function requireString(args: Record<string, unknown>, key: string): string {
   const value = args[key];
@@ -41,12 +42,6 @@ function optionalChartType(args: Record<string, unknown>): ChartType | undefined
   return value;
 }
 
-function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
-  for (const key of Object.keys(args)) {
-    if (!allowed.includes(key)) throw new Error(`unknown field: ${key}`);
-  }
-}
-
 function fromHost(
   tool: Parameters<typeof mapHostResultToToolResult>[0],
   result: Parameters<typeof mapHostResultToToolResult>[1],
@@ -59,11 +54,12 @@ export async function executeChartTool(
   call: ToolCall,
 ): Promise<ToolResult | null> {
   if (call.name === "chart.list") {
+    rejectUnknownFields(call.arguments, ["sheetName"]);
     return fromHost(call.name, await host.listCharts(optionalString(call.arguments, "sheetName")));
   }
 
   if (call.name === "chart.create") {
-    rejectUnknown(call.arguments, [
+    rejectUnknownFields(call.arguments, [
       "sheetName",
       "sourceRange",
       "chartType",
@@ -91,6 +87,7 @@ export async function executeChartTool(
   }
 
   if (call.name === "chart.delete") {
+    rejectUnknownFields(call.arguments, ["sheetName", "chartName"]);
     return fromHost(
       call.name,
       await host.deleteChart(
