@@ -90,6 +90,46 @@ API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入
 - **ordinary failure**（`unsupported` 不得为 `true`）：requirement precheck 已通过并进入 `Excel.run` 之后的 load/sync/缺 API 成员/坏回读/业务错误；`detail` 保留原 `capability` / `host` / `reason`（及 evidence）。
 - Tool 层把 HostResult 映射为 ToolResult 时：仅 `result.unsupported === true` 才保留 typed unsupported；其它 fail 一律 ordinary failure。
 
+
+## CI 与生产静态包
+
+仓级 CI（`.github/workflows/ci.yml` → job `excel-addin`，`working-directory: excel-addin`）：
+
+```text
+npm ci
+npm audit --audit-level=high
+npm run manifest:check
+npm run typecheck
+npm test
+npm run build
+```
+
+手动生产打包（不部署）：`.github/workflows/excel-addin-package.yml`（仅 `workflow_dispatch`）。
+
+Inputs：
+
+| input | 说明 |
+|------|------|
+| `base_url` | 必填 HTTPS 生产 base（如 `https://addin.example.com/excel-addin`） |
+| `version` | 可选四段版本；空则 `package.json` 的 `x.y.z` → `x.y.z.0` |
+| `vite_base` | 可选；空则从 `base_url` pathname 推导；显式值必须与推导结果一致 |
+
+本地：
+
+```bash
+npm run package:prod -- --base-url https://example.com/excel-addin
+# 可选: --version 0.1.0.0 --vite-base /excel-addin/ --git-sha <sha>
+```
+
+`package:prod` 会以对应 `VITE_BASE` 执行 `npm run build`，并向 `dist/` 写入：
+
+- Vite 产物：`index.html`、`assets/**`、public 图标
+- `office-excel-manifest.xml`（**prod**，不提交到 Git；仅入包）
+- `BUILD_INFO.json`（gitSha / packageVersion / manifestVersion / baseUrl / viteBase；无 secrets）
+- `SHA256SUMS.txt`（稳定排序相对路径哈希）
+
+GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅为 `excel-addin/dist/**`（Actions 自带压缩，本批不另造 zip）。**Artifact ≠ 真实 Excel/WPS 宿主验收**；下载后仍需在 Windows 上信任/部署 HTTPS 来源并侧载验证。
+
 ## 非目标
 
 - 不替换 `desktop/` Electron 产品

@@ -18,7 +18,8 @@
     "certs:uninstall": "office-addin-dev-certs uninstall",
     "manifest:dev": "node scripts/render-office-manifest.mjs --mode dev --out manifest/office-excel-manifest.xml",
     "manifest:prod": "node scripts/render-office-manifest.mjs --mode prod",
-    "manifest:check": "node scripts/check-office-manifest.mjs"
+    "manifest:check": "node scripts/check-office-manifest.mjs",
+    "package:prod": "node scripts/package-prod.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",

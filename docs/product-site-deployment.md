@@ -124,3 +124,7 @@ nginx -t
 ```
 
 还需要在浏览器验证产品页、后台登录、统计周期切换，以及实际下载后后台计数增加。
+
+## Excel 加载项静态资源边界
+
+`excel-addin` 生产静态包**不由** product-site Fastify 应用或 `product-site/public` 承载。推荐使用独立 Nginx `root`/`alias` 托管 artifact 中的 `dist/`（HTTPS 与路径需与 prod manifest / `VITE_BASE` 一致）。具体上线部署另立项；本仓库 CI 只做质量门禁与可下载静态 artifact。

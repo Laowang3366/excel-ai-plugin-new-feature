@@ -1,0 +1,91 @@
+name: Excel Add-in Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "HTTPS production base URL (e.g. https://addin.example.com/excel-addin)"
+        required: true
+        type: string
+      version:
+        description: "Four-part manifest version (empty = package.json x.y.z → x.y.z.0)"
+        required: false
+        type: string
+        default: ""
+      vite_base:
+        description: "Optional VITE_BASE; empty derives from base_url pathname"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: excel-addin
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: excel-addin/package-lock.json
+
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run manifest:check
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build production static package
+        id: package
+        env:
+          INPUT_BASE_URL: ${{ inputs.base_url }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_VITE_BASE: ${{ inputs.vite_base }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          args=(--base-url "$INPUT_BASE_URL" --git-sha "$GITHUB_SHA")
+          if [ -n "${INPUT_VERSION}" ]; then
+            args+=(--version "$INPUT_VERSION")
+          fi
+          if [ -n "${INPUT_VITE_BASE}" ]; then
+            args+=(--vite-base "$INPUT_VITE_BASE")
+          fi
+          # Capture last JSON line only (summary).
+          out="$(npm run package:prod -- "${args[@]}" | tee /tmp/package-prod.log | tail -n 1)"
+          echo "$out" | node -e '
+            const fs = require("fs");
+            const line = fs.readFileSync(0, "utf8").trim();
+            let j;
+            try { j = JSON.parse(line); } catch (e) {
+              console.error("package:prod did not emit valid JSON summary");
+              console.error(line);
+              process.exit(1);
+            }
+            if (!j.ok || !j.artifactName) {
+              console.error("invalid package summary", j);
+              process.exit(1);
+            }
+            if (!/^[A-Za-z0-9._-]+$/.test(j.artifactName)) {
+              console.error("unsafe artifact name", j.artifactName);
+              process.exit(1);
+            }
+            const { appendFileSync } = require("fs");
+            appendFileSync(process.env.GITHUB_OUTPUT, `artifact_name=${j.artifactName}\n`);
+            console.log("artifact_name=" + j.artifactName);
+          '
+
+      - name: Upload static package artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            excel-addin/dist/**

@@ -1,12 +1,13 @@
 # AGENTS.md
 
-ZCode 工作区指令文件。本仓库包含两个独立运行的 Node 项目，不存在根 package workspace 或根构建命令。
+ZCode 工作区指令文件。本仓库包含三个独立运行的 Node 项目，不存在根 package workspace 或根构建命令。
 
 ## 项目结构
 
 ```text
 desktop/        Windows Electron + React 桌面应用、Agent Runtime、.NET 8 Office Worker
 product-site/   Fastify 产品页、更新清单 API、下载统计后台、发布脚本
+excel-addin/    独立 Excel Office.js / WPS JSA 任务窗格加载项（浏览器侧载验证，无 Electron/COM/.NET）
 release-notes/  面向用户的版本更新日志（每个版本一个 JSON）
 docs/           当前架构、开发规范、发布与历史设计文档
 overview.md     简明架构总览（项目说明的入口）
@@ -56,7 +57,7 @@ npm run office:test -- --filter "FullyQualifiedName~Namespace.TestClass"
 
 真实 Office 冒烟（按需运行，不是默认门禁，会启动真实 Office/WPS 进程）：`test:office-smoke`、`test:word-smoke`、`test:word-lifecycle`、`test:excel-lifecycle`、`test:presentation-smoke`、`test:office-reliability`、`test:wps-routing`。可用 `WENGGE_OFFICE_SMOKE_TIMEOUT_MS` 调整默认超时。冒烟脚本必须遵守进程所有权规则，不得关闭或附加到与任务无关的用户 Office 进程。
 
-CI 桌面端门禁（`.github/workflows/ci.yml`）：`npm ci` → `npm audit --audit-level=high` → `lint` → `typecheck` → `test` → `build`。CI 不跑 `format:check`、coverage、`.NET` 测试、真实 Office 冒烟和 NSIS 打包；修改 Worker 或 TypeScript/Worker 协议时需本地跑 `office:test`。Tag 触发的桌面发布工作流额外跑 `electron:build`。
+CI 仓级 workflow（`.github/workflows/ci.yml`）含并行 job：`desktop` / `product-site` / `excel-addin`。桌面端：`npm ci` → `npm audit --audit-level=high` → `lint` → `typecheck` → `test` → `build`（及 office restore/audit/test）。CI 不跑 `format:check`、coverage、真实 Office 冒烟和 NSIS 打包；修改 Worker 或 TypeScript/Worker 协议时需本地跑 `office:test`。Tag 触发的桌面发布工作流额外跑 `electron:build`。
 
 ## 产品站命令（在 `product-site/` 下执行）
 
@@ -71,7 +72,20 @@ npm run hash-password -- "a-password-of-at-least-12-characters"
 npm run publish-release -- --version <ver> --installer <exe> --blockmap <blockmap> --latest-yml <yml> --notes-file <json> --private-key <pem> --output ./.local/releases --base-url https://plugin.shelelove.top
 ```
 
-产品站无 lint / typecheck / build 脚本；`npm start` 不自动加载 `.env`，由 systemd `EnvironmentFile` 注入。产品站 CI 跑 `npm ci` + 高危 `npm audit` + `npm test`。Ed25519 私钥（`desktop/.secrets/update-private.pem`）必须留在 Git 外。生产只监听 `127.0.0.1:18120`，由独立 Nginx 站点代理；下载使用 `X-Accel-Redirect`，不通过 Node 流式传输安装包。
+产品站无 lint / typecheck / build 脚本；`npm start` 不自动加载 `.env`，由 systemd `EnvironmentFile` 注入。产品站 CI 跑 `npm ci` + 高危 `npm audit` + `npm test`。
+
+## Excel 加载项命令（在 `excel-addin/` 下执行）
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm run manifest:check
+npm run package:prod -- --base-url https://example.com/excel-addin
+```
+
+Excel 加载项 CI 门禁（`.github/workflows/ci.yml` 的 `excel-addin` job）：`npm ci` → `npm audit --audit-level=high` → `manifest:check` → `typecheck` → `test` → `build`。不跑 `sync:prompts`、证书安装、真实 Office/WPS、生产部署。手动生产静态包：`.github/workflows/excel-addin-package.yml`（`workflow_dispatch` only），产出 GitHub Actions artifact（`excel-addin/dist/**`），与桌面 NSIS 发布完全分离。Ed25519 私钥（`desktop/.secrets/update-private.pem`）必须留在 Git 外。生产只监听 `127.0.0.1:18120`，由独立 Nginx 站点代理；下载使用 `X-Accel-Redirect`，不通过 Node 流式传输安装包。
 
 ## 桌面端运行时架构
 
