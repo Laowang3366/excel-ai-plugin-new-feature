@@ -3,6 +3,9 @@ export const DEFAULT_VERSION: string;
 export const DEFAULT_DEV_BASE_URL: string;
 export const SUPPORT_URL: string;
 
+export function escapeXmlAttr(value: string): string;
+export function unescapeXmlAttr(value: string): string;
+export function extractAttr(xml: string, name: string): string | null;
 export function normalizeBaseUrl(input: string): string;
 export function baseUrlOrigin(baseUrl: string): string;
 export function joinBaseUrl(baseUrl: string, relPath: string): string;

@@ -12,13 +12,71 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VERSION_RE = /^\d+\.\d+\.\d+\.\d+$/;
 const PLACEHOLDER_RE = /__\w+__/g;
+const UNSAFE_URL_CHAR_RE = /[<>"'&]/;
+/** Raw & not starting a known entity → invalid XML attribute. */
+const RAW_AMP_RE = /&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)/i;
+
+export function escapeXmlAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+export function unescapeXmlAttr(value) {
+  return String(value)
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function assertSafeAttrRaw(raw, label) {
+  if (RAW_AMP_RE.test(raw)) {
+    throw new Error(`invalid XML attribute entity in ${label}: ${raw}`);
+  }
+  return unescapeXmlAttr(raw);
+}
+
+/** Match first `name="..."` attribute value with entity checks. */
+export function extractAttr(xml, name) {
+  const re = new RegExp(`${name}\\s*=\\s*"([^"]*)"`, "i");
+  const m = xml.match(re);
+  if (!m) return null;
+  return assertSafeAttrRaw(m[1], name);
+}
+
+function extractTaggedDefault(xml, tagName) {
+  const re = new RegExp(`<${tagName}\\s+DefaultValue="([^"]*)"`, "i");
+  const m = xml.match(re);
+  if (!m) return "";
+  return assertSafeAttrRaw(m[1], tagName);
+}
+
+function extractResidDefault(xml, tag, id) {
+  const re = new RegExp(
+    `<${tag}\\s+id="${id}"\\s+DefaultValue="([^"]*)"`,
+    "i",
+  );
+  const m = xml.match(re);
+  if (!m) return "";
+  return assertSafeAttrRaw(m[1], id);
+}
 
 export function normalizeBaseUrl(input) {
   if (typeof input !== "string" || input.trim() === "") {
     throw new Error("baseUrl is required");
   }
-  let raw = input.trim();
-  raw = raw.replace(/\/+$/, "");
+  const original = input.trim();
+  if (UNSAFE_URL_CHAR_RE.test(original)) {
+    throw new Error(
+      `baseUrl contains characters unsafe for XML attributes (& < > " '): ${input}`,
+    );
+  }
+  let raw = original.replace(/\/+$/, "");
   let url;
   try {
     url = new URL(raw);
@@ -34,24 +92,51 @@ export function normalizeBaseUrl(input) {
   if (url.search || url.hash) {
     throw new Error("baseUrl must not include query or hash");
   }
+  let pathDecoded;
+  try {
+    pathDecoded = decodeURIComponent(url.pathname);
+  } catch {
+    throw new Error(`baseUrl path is not valid percent-encoding: ${input}`);
+  }
+  if (UNSAFE_URL_CHAR_RE.test(pathDecoded) || UNSAFE_URL_CHAR_RE.test(url.pathname)) {
+    throw new Error(
+      `baseUrl path contains characters unsafe for XML attributes: ${input}`,
+    );
+  }
   const pathPart = url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, "");
   return `${url.origin}${pathPart}`;
 }
 
 export function baseUrlOrigin(baseUrl) {
-  const normalized = normalizeBaseUrl(baseUrl);
-  return new URL(normalized).origin;
+  return new URL(normalizeBaseUrl(baseUrl)).origin;
 }
 
 export function joinBaseUrl(baseUrl, relPath) {
   const base = normalizeBaseUrl(baseUrl);
   const rel = String(relPath || "").replace(/^\/+/, "");
+  if (UNSAFE_URL_CHAR_RE.test(rel)) {
+    throw new Error(`relative path contains unsafe characters: ${relPath}`);
+  }
   return `${base}/${rel}`;
 }
 
 export function isLocalhostHost(hostname) {
   const h = String(hostname || "").toLowerCase();
   return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+}
+
+function urlUnderBase(candidate, baseUrl) {
+  try {
+    const base = new URL(baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+    const u = new URL(candidate);
+    if (u.origin !== base.origin) return false;
+    const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
+    const path = u.pathname.startsWith("/") ? u.pathname : `/${u.pathname}`;
+    if (basePath === "/") return true;
+    return path === basePath.slice(0, -1) || path.startsWith(basePath);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -79,23 +164,25 @@ export function renderOfficeManifest(opts) {
 
   const asset = (p) => joinBaseUrl(baseUrl, p);
   const replacements = {
-    __APP_ID__: appId,
-    __VERSION__: version,
-    __BASE_URL__: baseUrl,
-    __APP_DOMAIN__: origin,
-    __SUPPORT_URL__: SUPPORT_URL,
-    __ICON_16__: asset("assets/icon-16.png"),
-    __ICON_32__: asset("assets/icon-32.png"),
-    __ICON_64__: asset("assets/icon-64.png"),
-    __ICON_80__: asset("assets/icon-80.png"),
-    __SOURCE_LOCATION__: asset("index.html"),
-    __COMMANDS_URL__: asset("index.html"),
-    __TASKPANE_URL__: asset("index.html"),
-    __DISPLAY_NAME__: "文格 Excel AI 验证加载项",
-    __DESCRIPTION__:
+    __APP_ID__: escapeXmlAttr(appId),
+    __VERSION__: escapeXmlAttr(version),
+    __BASE_URL__: escapeXmlAttr(baseUrl),
+    __APP_DOMAIN__: escapeXmlAttr(origin),
+    __SUPPORT_URL__: escapeXmlAttr(SUPPORT_URL),
+    __ICON_16__: escapeXmlAttr(asset("assets/icon-16.png")),
+    __ICON_32__: escapeXmlAttr(asset("assets/icon-32.png")),
+    __ICON_64__: escapeXmlAttr(asset("assets/icon-64.png")),
+    __ICON_80__: escapeXmlAttr(asset("assets/icon-80.png")),
+    __SOURCE_LOCATION__: escapeXmlAttr(asset("index.html")),
+    __COMMANDS_URL__: escapeXmlAttr(asset("index.html")),
+    __TASKPANE_URL__: escapeXmlAttr(asset("index.html")),
+    __DISPLAY_NAME__: escapeXmlAttr("文格 Excel AI 验证加载项"),
+    __DESCRIPTION__: escapeXmlAttr(
       "Excel AI chat + tools development validation add-in (Office.js task pane). Host verification on real Excel/WPS is not claimed.",
-    __GETSTARTED_DESCRIPTION__:
+    ),
+    __GETSTARTED_DESCRIPTION__: escapeXmlAttr(
       "Open the task pane to validate Excel AI chat, read-only queries, and approval-gated workbook tools.",
+    ),
   };
 
   let out = opts.template;
@@ -103,14 +190,13 @@ export function renderOfficeManifest(opts) {
     out = out.split(key).join(value);
   }
   const leftover = out.match(PLACEHOLDER_RE);
-  if (leftover && leftover.length) {
+  if (leftover?.length) {
     throw new Error(`Unresolved template placeholders: ${[...new Set(leftover)].join(", ")}`);
   }
   return out;
 }
 
 /**
- * Validate a rendered Office manifest XML string.
  * @param {string} xml
  * @param {{ mode?: "dev"|"prod" }} [opts]
  */
@@ -119,14 +205,10 @@ export function validateOfficeManifest(xml, opts = {}) {
   if (typeof xml !== "string" || xml.trim() === "") {
     return { ok: false, errors: ["manifest is empty"] };
   }
-  if (PLACEHOLDER_RE.test(xml)) {
-    errors.push("unresolved template placeholders remain");
-  }
-  // reset lastIndex after global test
+  if (PLACEHOLDER_RE.test(xml)) errors.push("unresolved template placeholders remain");
   PLACEHOLDER_RE.lastIndex = 0;
-  if (!xml.includes('xsi:type="TaskPaneApp"')) {
-    errors.push("missing xsi:type=TaskPaneApp");
-  }
+  if (!xml.includes('xsi:type="TaskPaneApp"')) errors.push("missing xsi:type=TaskPaneApp");
+
   const id = xml.match(/<Id>([^<]+)<\/Id>/)?.[1] ?? "";
   if (!UUID_RE.test(id)) errors.push(`invalid Id UUID: ${id}`);
   const version = xml.match(/<Version>([^<]+)<\/Version>/)?.[1] ?? "";
@@ -135,52 +217,100 @@ export function validateOfficeManifest(xml, opts = {}) {
     errors.push("missing ReadWriteDocument permissions");
   }
 
-  const source = xml.match(/<SourceLocation\s+DefaultValue="([^"]+)"/)?.[1] ?? "";
-  let sourceOrigin = "";
+  let source = "";
+  let commands = "";
+  let taskpane = "";
+  let icon16 = "";
+  let icon32 = "";
+  let icon64 = "";
+  let icon80 = "";
+  let support = "";
   try {
-    const u = new URL(source);
-    if (u.protocol !== "https:") errors.push(`SourceLocation not HTTPS: ${source}`);
-    sourceOrigin = u.origin;
-  } catch {
-    errors.push(`invalid SourceLocation: ${source}`);
+    // Fail closed on any DefaultValue with bare &.
+    for (const m of xml.matchAll(/DefaultValue="([^"]*)"/g)) {
+      assertSafeAttrRaw(m[1], "DefaultValue");
+    }
+    source = extractTaggedDefault(xml, "SourceLocation");
+    commands = extractResidDefault(xml, "bt:Url", "Commands.Url");
+    taskpane = extractResidDefault(xml, "bt:Url", "Taskpane.Url");
+    icon16 = extractResidDefault(xml, "bt:Image", "Icon.16");
+    icon32 = extractResidDefault(xml, "bt:Image", "Icon.32");
+    icon80 = extractResidDefault(xml, "bt:Image", "Icon.80");
+    icon64 = extractTaggedDefault(xml, "HighResolutionIconUrl");
+    support = extractTaggedDefault(xml, "SupportUrl");
+    // IconUrl should match 32 when present.
+    const iconUrl = extractTaggedDefault(xml, "IconUrl");
+    if (!icon16) icon16 = iconUrl;
+    if (!icon32) icon32 = iconUrl;
+  } catch (err) {
+    return { ok: false, errors: [String(err?.message || err)] };
   }
 
-  const httpsAttrs = [...xml.matchAll(/DefaultValue="(https?:\/\/[^"]+)"/g)].map((m) => m[1]);
-  for (const u of httpsAttrs) {
-    if (!u.startsWith("https://")) errors.push(`non-HTTPS URL: ${u}`);
+  if (!source) errors.push("missing SourceLocation");
+  if (!commands) errors.push("missing Commands.Url");
+  if (!taskpane) errors.push("missing Taskpane.Url");
+  if (!icon16?.includes("icon-16.png")) errors.push("missing icon-16");
+  if (!icon32?.includes("icon-32.png")) errors.push("missing icon-32");
+  if (!icon64?.includes("icon-64.png")) {
+    errors.push("missing icon-64 HighResolutionIconUrl");
   }
+  if (!icon80?.includes("icon-80.png")) errors.push("missing icon-80");
 
-  const domains = [...xml.matchAll(/<AppDomain>([^<]+)<\/AppDomain>/g)].map((m) => m[1]);
-  if (sourceOrigin && !domains.includes(sourceOrigin)) {
-    errors.push(
-      `AppDomains missing SourceLocation origin ${sourceOrigin} (have: ${domains.join(", ")})`,
-    );
-  }
-
-  for (const needle of [
-    "Commands.Url",
-    "Taskpane.Url",
-    "icon-16.png",
-    "icon-32.png",
-    "icon-80.png",
-  ]) {
-    if (!xml.includes(needle)) errors.push(`missing resource reference: ${needle}`);
-  }
-
-  if (/first batch|首批/i.test(xml)) {
-    errors.push("stale first-batch wording remains in manifest");
-  }
-
-  if (opts.mode === "prod") {
-    for (const u of httpsAttrs) {
-      try {
-        const host = new URL(u).hostname;
-        if (isLocalhostHost(host)) errors.push(`prod forbids localhost host: ${u}`);
-      } catch {
-        errors.push(`invalid URL: ${u}`);
-      }
+  const addinUrls = [source, commands, taskpane, icon16, icon32, icon64, icon80].filter(
+    Boolean,
+  );
+  for (const u of addinUrls) {
+    try {
+      if (new URL(u).protocol !== "https:") errors.push(`non-HTTPS URL: ${u}`);
+    } catch {
+      errors.push(`invalid URL: ${u}`);
     }
   }
 
+  let baseUrl = "";
+  try {
+    const su = new URL(source);
+    const path = su.pathname.endsWith(".html")
+      ? su.pathname.replace(/\/[^/]*$/, "")
+      : su.pathname.replace(/\/+$/, "");
+    baseUrl = `${su.origin}${path === "/" ? "" : path}`;
+  } catch {
+    /* reported */
+  }
+
+  if (baseUrl) {
+    for (const u of addinUrls) {
+      if (!urlUnderBase(u, baseUrl)) {
+        errors.push(`add-in URL not under base ${baseUrl}: ${u}`);
+      }
+    }
+    const domains = [...xml.matchAll(/<AppDomain>([^<]+)<\/AppDomain>/g)].map((m) => m[1]);
+    try {
+      const origin = new URL(baseUrl).origin;
+      if (!domains.includes(origin)) {
+        errors.push(`AppDomains missing SourceLocation origin ${origin}`);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (support && !support.startsWith("https://")) {
+    errors.push(`SupportUrl not HTTPS: ${support}`);
+  }
+  if (/first batch|首批/i.test(xml)) {
+    errors.push("stale first-batch wording remains in manifest");
+  }
+  if (opts.mode === "prod") {
+    for (const u of addinUrls) {
+      try {
+        if (isLocalhostHost(new URL(u).hostname)) {
+          errors.push(`prod forbids localhost host: ${u}`);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
   return { ok: errors.length === 0, errors };
 }

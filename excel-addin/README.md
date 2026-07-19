@@ -86,8 +86,9 @@ API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入
 
 ## 失败分类
 
-- **unsupported**：缺 runtime / requirement set / WPS 未验证能力
-- **ordinary failure**：已进入 `Excel.run` 后的运行错误（缺 API 成员、sync 失败、坏回读等）
+- **typed unsupported**（`unsupported === true`）：仅用于官方 requirement precheck 失败/缺失/抛错、缺 `Excel.run` runtime、或 WPS 无已验证能力等“宿主能力不可用”路径。
+- **ordinary failure**（`unsupported` 不得为 `true`）：requirement precheck 已通过并进入 `Excel.run` 之后的 load/sync/缺 API 成员/坏回读/业务错误；`detail` 保留原 `capability` / `host` / `reason`（及 evidence）。
+- Tool 层把 HostResult 映射为 ToolResult 时：仅 `result.unsupported === true` 才保留 typed unsupported；其它 fail 一律 ordinary failure。
 
 ## 非目标
 
