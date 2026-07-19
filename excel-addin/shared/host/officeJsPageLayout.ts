@@ -16,7 +16,7 @@ import type {
 import { fail, ok, unsupported } from "./types";
 
 const REQUIREMENT_EVIDENCE =
-  "PageLayout.paperSize and PageLayout.zoom require ExcelApi 1.9";
+  "PageLayout paperSize/zoom/draftMode/printOrder/firstPageNumber require ExcelApi 1.9";
 
 const PAPER_SIZE_TO_HOST: Record<PagePaperSize, string> = {
   a3: "A3",

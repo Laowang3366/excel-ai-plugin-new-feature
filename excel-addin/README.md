@@ -52,7 +52,7 @@ API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入
 - Microsoft Excel：侧载 `manifest/office-excel-manifest.xml`（开发时 SourceLocation / 图标均指向 `https://localhost:3000`，图标文件在 `public/assets/icon-16|32|64|80.png`，`npm run dev` / `build` 会由 Vite 提供；需按 Office 要求配置 HTTPS 证书）。
 - WPS：见 `manifest/wps-jsa/README.md`。
 
-## Excel 工具 parity（Phase 4–29）
+## Excel 工具 parity（Phase 4–30）
 
 | 工具 | 说明 |
 |------|------|

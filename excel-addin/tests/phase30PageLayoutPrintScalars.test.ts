@@ -21,10 +21,23 @@ describe("phase30 sheet.pageLayout draft/pageOrder/firstPageNumber", () => {
   });
 
   describe("executor validation", () => {
-    it("accepts draft:false, both pageOrders, and firstPageNumber=1", async () => {
+    it("accepts draft:false (after true), both pageOrders, and firstPageNumber=1", async () => {
       const executor = new ToolExecutor(new MockHostAdapter());
+      const setTrue = await executor.execute({
+        name: "sheet.pageLayout.set",
+        arguments: { sheetName: "Sheet1", draft: true },
+      });
+      expect(setTrue.ok).toBe(true);
+      if (setTrue.ok) expect((setTrue.data as { draft: boolean }).draft).toBe(true);
+
+      const setFalse = await executor.execute({
+        name: "sheet.pageLayout.set",
+        arguments: { sheetName: "Sheet1", draft: false },
+      });
+      expect(setFalse.ok).toBe(true);
+      if (setFalse.ok) expect((setFalse.data as { draft: boolean }).draft).toBe(false);
+
       for (const args of [
-        { sheetName: "Sheet1", draft: false },
         { sheetName: "Sheet1", pageOrder: "downThenOver" },
         { sheetName: "Sheet1", pageOrder: "overThenDown" },
         { sheetName: "Sheet1", firstPageNumber: 1 },
@@ -46,6 +59,9 @@ describe("phase30 sheet.pageLayout draft/pageOrder/firstPageNumber", () => {
         { args: { sheetName: "Sheet1", firstPageNumber: null }, match: /firstPageNumber/i },
         { args: { sheetName: "Sheet1", firstPageNumber: "1" }, match: /firstPageNumber/i },
         { args: { sheetName: "Sheet1", draft: "false" }, match: /boolean|draft/i },
+        { args: { sheetName: "Sheet1", draft: null }, match: /boolean|draft/i },
+        { args: { sheetName: "Sheet1", pageOrder: null }, match: /pageOrder/i },
+        { args: { sheetName: "Sheet1", firstPageNumber: undefined }, match: /at least one update field|firstPageNumber/i },
         { args: { sheetName: "Sheet1", draftMode: true }, match: /unknown field/i },
         { args: { sheetName: "Sheet1", headers: "x" }, match: /unknown field/i },
       ];
@@ -68,20 +84,26 @@ describe("phase30 sheet.pageLayout draft/pageOrder/firstPageNumber", () => {
       delete (globalThis as { Office?: unknown }).Office;
     });
 
-    it("sets draft/pageOrder/firstPageNumber with real fake host readback (not input echo)", async () => {
+    it("writes draft true then false with real fake host readback (not default/input echo)", async () => {
       const adapter = new OfficeJsAdapter();
-      const set = await adapter.setSheetPageLayout({
+      // Establish non-default draft=true first so draft:false cannot pass via defaults.
+      const setTrue = await adapter.setSheetPageLayout({ sheetName: "Sheet1", draft: true });
+      expect(setTrue.ok).toBe(true);
+      if (setTrue.ok) expect(setTrue.data.draft).toBe(true);
+      expect(gates.getCommitted("Sheet1")?.draftMode).toBe(true);
+
+      const setFalse = await adapter.setSheetPageLayout({
         sheetName: "Sheet1",
         draft: false,
         pageOrder: "overThenDown",
         firstPageNumber: 3,
       });
-      expect(set.ok).toBe(true);
-      if (set.ok) {
-        expect(set.data.draft).toBe(false);
-        expect(set.data.pageOrder).toBe("overThenDown");
-        expect(set.data.firstPageNumber).toBe(3);
-        expect(set.data.sheetName).toBe("Sheet1");
+      expect(setFalse.ok).toBe(true);
+      if (setFalse.ok) {
+        expect(setFalse.data.draft).toBe(false);
+        expect(setFalse.data.pageOrder).toBe("overThenDown");
+        expect(setFalse.data.firstPageNumber).toBe(3);
+        expect(setFalse.data.sheetName).toBe("Sheet1");
       }
       const committed = gates.getCommitted("Sheet1");
       expect(committed?.draftMode).toBe(false);
