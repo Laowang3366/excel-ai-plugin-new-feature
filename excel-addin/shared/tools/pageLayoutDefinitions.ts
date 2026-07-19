@@ -4,7 +4,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.get",
     description:
-      "读取工作表页面布局/打印设置（orientation/margins/paperSize/fitToPages/zoomScale/draft/pageOrder/firstPageNumber/printArea 等；ExcelApi 1.9；WPS unsupported）",
+      "读取工作表页面布局/打印设置（orientation/margins/headers|footers default 六槽/paperSize/fitToPages/zoomScale/draft/pageOrder/firstPageNumber/printArea 等；ExcelApi 1.9；WPS unsupported）",
     riskLevel: "safe",
     parameters: {
       type: "object",
@@ -16,7 +16,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.set",
     description:
-      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空（clear 未承诺）；firstPageNumber 仅有限整数≥1。ExcelApi 1.9；WPS unsupported",
+      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/headers|footers(default left|center|right 文本,空串清除)/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空；firstPageNumber 仅有限整数≥1。ExcelApi 1.9；WPS unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -40,6 +40,24 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
             right: { type: "number", minimum: 0 },
             header: { type: "number", minimum: 0 },
             footer: { type: "number", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+        headers: {
+          type: "object",
+          properties: {
+            left: { type: "string" },
+            center: { type: "string" },
+            right: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+        footers: {
+          type: "object",
+          properties: {
+            left: { type: "string" },
+            center: { type: "string" },
+            right: { type: "string" },
           },
           additionalProperties: false,
         },

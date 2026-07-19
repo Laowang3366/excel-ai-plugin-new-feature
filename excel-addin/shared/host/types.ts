@@ -201,6 +201,7 @@ export type {
   PagePaperSize,
   PageOrder,
   PageLayoutMargins,
+  PageLayoutTextSides,
   SheetPageLayoutInfo,
   SheetPageLayoutUpdateInput,
 } from "./sheetPageLayoutTypes";

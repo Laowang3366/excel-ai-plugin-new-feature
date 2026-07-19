@@ -173,6 +173,23 @@ export interface ExcelRangeAreas {
   load(props: string): void;
 }
 
+
+/** ExcelApi 1.9 HeaderFooter (default page slots only). */
+export interface ExcelHeaderFooter {
+  leftHeader: string;
+  centerHeader: string;
+  rightHeader: string;
+  leftFooter: string;
+  centerFooter: string;
+  rightFooter: string;
+  load(props: string): void;
+}
+
+export interface ExcelHeaderFooterGroup {
+  defaultForAllPages: ExcelHeaderFooter;
+  load(props: string): void;
+}
+
 export interface ExcelPageLayout {
   orientation: string;
   centerHorizontally: boolean;
@@ -194,6 +211,8 @@ export interface ExcelPageLayout {
   footerMargin: number;
   /** ExcelApi 1.9 PaperType string (e.g. A4, Letter). */
   paperSize: string;
+  /** ExcelApi 1.9 headers/footers group (defaultForAllPages only). */
+  headersFooters: ExcelHeaderFooterGroup;
   /** Assign whole object: pageLayout.zoom = { scale } or { horizontalFitToPages, verticalFitToPages }. Never write zoom.* subprops. */
   zoom: ExcelPageLayoutZoomOptions;
   load(props: string): void;

@@ -21,6 +21,8 @@ describe("capability matrix", () => {
       "Phase29",
       "Phase30",
       "Phase31",
+      "Phase32",
+      "defaultForAllPages",
       "headerMargin",
       "footerMargin",
       "draft",

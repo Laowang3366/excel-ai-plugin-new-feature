@@ -24,6 +24,18 @@ export function installPageLayoutExcel(options?: {
   hasHeaderMargin?: boolean;
   /** When false, pageLayout has no footerMargin member. */
   hasFooterMargin?: boolean;
+  /** When false, pageLayout has no headersFooters member. */
+  hasHeadersFooters?: boolean;
+  /** When false, headersFooters has no defaultForAllPages. */
+  hasDefaultForAllPages?: boolean;
+  /** Omit one defaultForAllPages slot property. */
+  missingHeaderFooterSlot?:
+    | "leftHeader"
+    | "centerHeader"
+    | "rightHeader"
+    | "leftFooter"
+    | "centerFooter"
+    | "rightFooter";
 }) {
   const excelApi19 = options?.excelApi19 !== false;
   const hasPaperSize = options?.hasPaperSize !== false;
@@ -33,6 +45,8 @@ export function installPageLayoutExcel(options?: {
   const hasFirstPageNumber = options?.hasFirstPageNumber !== false;
   const hasHeaderMargin = options?.hasHeaderMargin !== false;
   const hasFooterMargin = options?.hasFooterMargin !== false;
+  const hasHeadersFooters = options?.hasHeadersFooters !== false;
+  const hasDefaultForAllPages = options?.hasDefaultForAllPages !== false;
   let excelRunCalls = 0;
   let pageLayoutWriteCalls = 0;
 
@@ -69,6 +83,9 @@ export function installPageLayoutExcel(options?: {
         hasFirstPageNumber,
         hasHeaderMargin,
         hasFooterMargin,
+        hasHeadersFooters,
+        hasDefaultForAllPages,
+        missingHeaderFooterSlot: options?.missingHeaderFooterSlot,
         queue,
       }),
     };
@@ -186,6 +203,21 @@ export function installPageLayoutExcel(options?: {
         sheet.committed.headerMargin = header;
         sheet.committed.footerMargin = footer;
       }
+    },
+    setCommittedHeadersFooters(
+      name: string,
+      values: Partial<{
+        leftHeader: string;
+        centerHeader: string;
+        rightHeader: string;
+        leftFooter: string;
+        centerFooter: string;
+        rightFooter: string;
+      }>,
+    ) {
+      const sheet = sheets.get(name);
+      if (!sheet) return;
+      Object.assign(sheet.committed, values);
     },
   };
 }

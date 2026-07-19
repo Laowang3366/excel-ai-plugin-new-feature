@@ -18,6 +18,13 @@ export interface PageLayoutMargins {
   footer: number;
 }
 
+/** Default-page header/footer text sides (Office.js HeaderFooter). */
+export interface PageLayoutTextSides {
+  left: string;
+  center: string;
+  right: string;
+}
+
 /** Official Worksheet.pageLayout confirmed subset. */
 export interface SheetPageLayoutInfo {
   sheetName: string;
@@ -37,6 +44,10 @@ export interface SheetPageLayoutInfo {
    */
   firstPageNumber: number | null;
   margins: PageLayoutMargins;
+  /** defaultForAllPages left/center/rightHeader; "" when empty. */
+  headers: PageLayoutTextSides;
+  /** defaultForAllPages left/center/rightFooter; "" when empty. */
+  footers: PageLayoutTextSides;
   /**
    * Percent scale from pageLayout.zoom.scale after load+sync.
    * Missing/non-finite scale → null (never coerce null → 0).
@@ -69,6 +80,10 @@ export interface SheetPageLayoutUpdateInput {
   /** Finite integer >= 1 only; clear/auto unsupported. */
   firstPageNumber?: number;
   margins?: Partial<PageLayoutMargins>;
+  /** Partial default-page header sides; "" clears that side. */
+  headers?: Partial<PageLayoutTextSides>;
+  /** Partial default-page footer sides; "" clears that side. */
+  footers?: Partial<PageLayoutTextSides>;
   zoomScale?: number;
   /** Exact lowercase; maps to host A3|A4|A5|Letter|Legal. */
   paperSize?: PagePaperSize;

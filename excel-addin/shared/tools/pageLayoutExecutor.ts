@@ -140,6 +140,38 @@ function optionalMargins(
   return out;
 }
 
+
+function optionalTextSides(
+  args: Record<string, unknown>,
+  key: "headers" | "footers",
+): Partial<{ left: string; center: string; right: string }> | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) {
+    return undefined;
+  }
+  const raw = args[key];
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`${key} must be an object`);
+  }
+  const obj = raw as Record<string, unknown>;
+  for (const side of Object.keys(obj)) {
+    if (!["left", "center", "right"].includes(side)) {
+      throw new Error(`unknown ${key} field: ${side}`);
+    }
+  }
+  const out: Partial<{ left: string; center: string; right: string }> = {};
+  for (const side of ["left", "center", "right"] as const) {
+    if (!Object.prototype.hasOwnProperty.call(obj, side) || obj[side] === undefined) continue;
+    if (typeof obj[side] !== "string") {
+      throw new Error(`${key}.${side} must be a string`);
+    }
+    out[side] = obj[side] as string;
+  }
+  if (Object.keys(out).length === 0) {
+    throw new Error(`${key} requires at least one of left|center|right`);
+  }
+  return out;
+}
+
 function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
   for (const key of Object.keys(args)) {
     if (!allowed.includes(key)) throw new Error(`unknown field: ${key}`);
@@ -187,6 +219,8 @@ export async function executePageLayoutTool(
       "pageOrder",
       "firstPageNumber",
       "margins",
+      "headers",
+      "footers",
       "zoomScale",
       "paperSize",
       "fitToPagesWide",
@@ -207,6 +241,8 @@ export async function executePageLayoutTool(
       pageOrder: optionalPageOrder(call.arguments),
       firstPageNumber: optionalFirstPageNumber(call.arguments),
       margins: optionalMargins(call.arguments),
+      headers: optionalTextSides(call.arguments, "headers"),
+      footers: optionalTextSides(call.arguments, "footers"),
       zoomScale: optionalZoomScale(call.arguments),
       paperSize: optionalPaperSize(call.arguments),
       fitToPagesWide: optionalFitPages(call.arguments, "fitToPagesWide"),
@@ -232,6 +268,8 @@ export async function executePageLayoutTool(
       input.pageOrder === undefined &&
       input.firstPageNumber === undefined &&
       input.margins === undefined &&
+      input.headers === undefined &&
+      input.footers === undefined &&
       input.zoomScale === undefined &&
       input.paperSize === undefined &&
       input.fitToPagesWide === undefined &&

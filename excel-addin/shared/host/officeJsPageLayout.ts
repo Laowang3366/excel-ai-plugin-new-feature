@@ -4,6 +4,11 @@ import type {
   ExcelRequestContext,
   ExcelWorksheet,
 } from "./officeJsRuntime";
+import {
+  applyDefaultHeadersFooters,
+  loadDefaultHeadersFooters,
+  readDefaultHeadersFooters,
+} from "./officeJsPageLayoutHeadersFooters";
 import { getExcelRun } from "./officeJsRuntime";
 import type {
   HostResult,
@@ -16,7 +21,7 @@ import type {
 import { fail, ok, unsupported } from "./types";
 
 const REQUIREMENT_EVIDENCE =
-  "PageLayout paperSize/zoom/draftMode/printOrder/firstPageNumber/headerMargin/footerMargin require ExcelApi 1.9";
+  "PageLayout paperSize/zoom/draftMode/printOrder/firstPageNumber/headerMargin/footerMargin/headersFooters.defaultForAllPages require ExcelApi 1.9";
 
 const PAPER_SIZE_TO_HOST: Record<PagePaperSize, string> = {
   a3: "A3",
@@ -168,11 +173,25 @@ async function readLayout(
   requireMember(layout, "firstPageNumber");
   requireMember(layout, "headerMargin");
   requireMember(layout, "footerMargin");
+  requireMember(layout, "headersFooters");
+  if (!layout.headersFooters || typeof layout.headersFooters !== "object") {
+    throw new Error("PageLayout.headersFooters is missing on host layout object");
+  }
+  if (
+    !("defaultForAllPages" in layout.headersFooters) ||
+    layout.headersFooters.defaultForAllPages == null ||
+    typeof layout.headersFooters.defaultForAllPages !== "object"
+  ) {
+    throw new Error(
+      "PageLayout.headersFooters.defaultForAllPages is missing on host layout object",
+    );
+  }
   sheet.load("name");
   // Official: load whole zoom object, then read scale / fit fields after sync.
   layout.load(
-    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,headerMargin,footerMargin,paperSize,zoom",
+    "orientation,centerHorizontally,centerVertically,printGridlines,printHeadings,blackAndWhite,draftMode,printOrder,firstPageNumber,topMargin,bottomMargin,leftMargin,rightMargin,headerMargin,footerMargin,paperSize,zoom,headersFooters",
   );
+  loadDefaultHeadersFooters(layout.headersFooters.defaultForAllPages);
   const printArea = layout.getPrintAreaOrNullObject();
   const titleRows = layout.getPrintTitleRowsOrNullObject();
   const titleCols = layout.getPrintTitleColumnsOrNullObject();
@@ -180,6 +199,7 @@ async function readLayout(
   titleRows.load("address");
   titleCols.load("address");
   await context.sync();
+  const headersFootersText = readDefaultHeadersFooters(layout.headersFooters.defaultForAllPages);
   return {
     sheetName: requireLoadedString(sheet.name, "Worksheet.name"),
     orientation: mapOrientation(String(layout.orientation)),
@@ -199,6 +219,8 @@ async function readLayout(
       header: Number(layout.headerMargin),
       footer: Number(layout.footerMargin),
     },
+    headers: headersFootersText.headers,
+    footers: headersFootersText.footers,
     zoomScale: readZoomScale(layout.zoom),
     paperSize: mapPaperSizeFromHost(layout.paperSize),
     fitToPagesWide: readFitPages(layout.zoom?.horizontalFitToPages),
@@ -267,6 +289,26 @@ export async function officeJsSetSheetPageLayout(
         requireMember(layout, "footerMargin");
         layout.footerMargin = input.margins.footer;
       }
+    }
+    if (input.headers !== undefined || input.footers !== undefined) {
+      requireMember(layout, "headersFooters");
+      if (!layout.headersFooters || typeof layout.headersFooters !== "object") {
+        throw new Error("PageLayout.headersFooters is missing on host layout object");
+      }
+      if (
+        !("defaultForAllPages" in layout.headersFooters) ||
+        layout.headersFooters.defaultForAllPages == null ||
+        typeof layout.headersFooters.defaultForAllPages !== "object"
+      ) {
+        throw new Error(
+          "PageLayout.headersFooters.defaultForAllPages is missing on host layout object",
+        );
+      }
+      applyDefaultHeadersFooters(
+        layout.headersFooters.defaultForAllPages,
+        input.headers,
+        input.footers,
+      );
     }
     if (input.paperSize != null) {
       requireMember(layout, "paperSize");

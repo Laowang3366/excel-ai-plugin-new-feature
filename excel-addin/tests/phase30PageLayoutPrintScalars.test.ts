@@ -63,7 +63,8 @@ describe("phase30 sheet.pageLayout draft/pageOrder/firstPageNumber", () => {
         { args: { sheetName: "Sheet1", pageOrder: null }, match: /pageOrder/i },
         { args: { sheetName: "Sheet1", firstPageNumber: undefined }, match: /at least one update field|firstPageNumber/i },
         { args: { sheetName: "Sheet1", draftMode: true }, match: /unknown field/i },
-        { args: { sheetName: "Sheet1", headers: "x" }, match: /unknown field/i },
+        { args: { sheetName: "Sheet1", headers: "x" }, match: /headers must be an object|unknown field/i },
+        { args: { sheetName: "Sheet1", header: "legacy" }, match: /unknown field/i },
       ];
       for (const { args, match } of cases) {
         const result = await executor.execute({ name: "sheet.pageLayout.set", arguments: args });

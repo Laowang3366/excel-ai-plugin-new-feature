@@ -46,6 +46,8 @@ export function createMockStructureState() {
         pageOrder: "downThenOver",
         firstPageNumber: null,
         margins: { top: 72, bottom: 72, left: 72, right: 72, header: 36, footer: 36 },
+        headers: { left: "", center: "", right: "" },
+        footers: { left: "", center: "", right: "" },
         zoomScale: 100,
         paperSize: "letter",
         fitToPagesWide: null,
@@ -226,6 +228,16 @@ export function createMockStructureState() {
           right: input.margins?.right ?? current.margins.right,
           header: input.margins?.header ?? current.margins.header,
           footer: input.margins?.footer ?? current.margins.footer,
+        },
+        headers: {
+          left: input.headers?.left ?? current.headers.left,
+          center: input.headers?.center ?? current.headers.center,
+          right: input.headers?.right ?? current.headers.right,
+        },
+        footers: {
+          left: input.footers?.left ?? current.footers.left,
+          center: input.footers?.center ?? current.footers.center,
+          right: input.footers?.right ?? current.footers.right,
         },
         zoomScale:
           input.fitToPagesWide !== undefined || input.fitToPagesTall !== undefined

@@ -135,11 +135,11 @@ describe("phase31 sheet.pageLayout margins header/footer", () => {
 
 
   describe("prompt boundary", () => {
-    it("documents six-side margins and headers/footers text unsupported", () => {
+    it("documents six-side margins points (header/footer margin, not text)", () => {
       const text = buildAdvancedExcelBoundary({});
+      expect(text).toMatch(/margins\.\{top,bottom,left,right,header,footer\} points/);
+      // Phase32 owns default headers/footers text support; margins must not regress.
       expect(text).toMatch(/margins\.\{top,bottom,left,right,header,footer\}/);
-      expect(text).toMatch(/headers\/footers 文本内容/);
-      expect(text).not.toMatch(/headers\/footers\/page breaks/);
     });
   });
   describe("WPS", () => {

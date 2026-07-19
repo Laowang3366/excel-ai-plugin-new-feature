@@ -1,3 +1,4 @@
+import { attachHeadersFooters } from "./officeJsPageLayoutFakeHeadersFooters";
 /** Layout state + pageLayout object factory for sync-gated pageLayout fake. */
 
 export type PageLayoutState = {
@@ -25,6 +26,12 @@ export type PageLayoutState = {
   printArea: string | null;
   printTitleRows: string | null;
   printTitleColumns: string | null;
+  leftHeader: string;
+  centerHeader: string;
+  rightHeader: string;
+  leftFooter: string;
+  centerFooter: string;
+  rightFooter: string;
 };
 
 export type PageLayoutSheetState = {
@@ -58,6 +65,12 @@ export function defaultPageLayoutState(): PageLayoutState {
     printArea: null,
     printTitleRows: null,
     printTitleColumns: null,
+    leftHeader: "",
+    centerHeader: "",
+    rightHeader: "",
+    leftFooter: "",
+    centerFooter: "",
+    rightFooter: "",
   };
 }
 
@@ -69,6 +82,9 @@ export type MakePageLayoutOptions = {
   hasFirstPageNumber: boolean;
   hasHeaderMargin: boolean;
   hasFooterMargin: boolean;
+  hasHeadersFooters: boolean;
+  hasDefaultForAllPages: boolean;
+  missingHeaderFooterSlot?: "leftHeader" | "centerHeader" | "rightHeader" | "leftFooter" | "centerFooter" | "rightFooter";
   queue: (sheet: PageLayoutSheetState, patch: Partial<PageLayoutState>) => void;
 };
 
@@ -302,6 +318,13 @@ export function makePageLayoutObject(
       },
     });
   }
+
+  attachHeadersFooters(layout, sheet, {
+    hasHeadersFooters: options.hasHeadersFooters,
+    hasDefaultForAllPages: options.hasDefaultForAllPages,
+    missingSlot: options.missingHeaderFooterSlot,
+    queue: options.queue,
+  });
 
   return layout;
 }
