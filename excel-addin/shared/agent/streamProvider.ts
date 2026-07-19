@@ -1,21 +1,29 @@
 export type { AgentStreamProvider, StreamChatRequest } from "./types";
 
-/** Throw if signal is already aborted (DOMException when available). */
+function makeAbortError(reason?: unknown): Error {
+  const message =
+    reason instanceof Error
+      ? reason.message
+      : reason != null && reason !== ""
+        ? String(reason)
+        : "The operation was aborted.";
+  if (typeof DOMException !== "undefined") {
+    return new DOMException(message, "AbortError");
+  }
+  return Object.assign(new Error(message), { name: "AbortError" });
+}
+
+/** Normalize any aborted signal (including custom reasons) to AbortError. */
 export function throwIfAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return;
   const reason = signal.reason;
-  if (reason instanceof Error) throw reason;
-  const err =
-    typeof DOMException !== "undefined"
-      ? new DOMException("The operation was aborted.", "AbortError")
-      : Object.assign(new Error("The operation was aborted."), { name: "AbortError" });
-  throw err;
+  if (reason instanceof Error && reason.name === "AbortError") throw reason;
+  throw makeAbortError(reason);
 }
 
 export function isAbortError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  const name = (error as { name?: string }).name;
-  return name === "AbortError";
+  return (error as { name?: string }).name === "AbortError";
 }
 
 /** Abortable delay for scripted providers; zero-ms skips timer. */

@@ -232,6 +232,7 @@ describe("AgentLoop", () => {
     expect(r.rounds).toBe(0);
     expect(r.messages.some((m) => m.role === "assistant")).toBe(false);
     expect(r.error?.message).toBe("down");
+    expect(r.lastFinishReason).toBe("error");
 
     const throwProvider = {
       async *streamChat() {
@@ -246,6 +247,7 @@ describe("AgentLoop", () => {
     expect(r.status).toBe("failed");
     expect(r.rounds).toBe(0);
     expect(r.error?.message).toBe("network boom");
+    expect(r.lastFinishReason).toBe("error");
   });
 
   it("finish does not gate tools; length without tools completes", async () => {

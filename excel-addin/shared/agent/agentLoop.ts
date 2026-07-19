@@ -117,12 +117,21 @@ export class AgentLoop {
           const stream = this.options.provider.streamChat({
             systemPrompt: this.options.systemPrompt,
             messages: messages.slice(),
-            tools,
+            tools: tools.slice(),
             signal,
           });
-          collected = await collectAgentStream(stream, signal);
+          collected = await collectAgentStream(stream, {
+            signal,
+            onTextDelta: (delta) => {
+              emit(this.options.onEvent, {
+                type: "text_delta",
+                delta,
+                round: nextRound,
+              });
+            },
+          });
         } catch (error) {
-          if (isAbortError(error)) {
+          if (isAbortError(error) || signal?.aborted) {
             return finish({
               status: "aborted",
               assistantText,
@@ -140,7 +149,7 @@ export class AgentLoop {
             messages,
             rounds,
             usage,
-            lastFinishReason,
+            lastFinishReason: "error",
             error: { message, kind: "provider" },
           });
         }
@@ -153,7 +162,7 @@ export class AgentLoop {
             messages,
             rounds,
             usage,
-            lastFinishReason: aborted ? "aborted" : lastFinishReason,
+            lastFinishReason: aborted ? "aborted" : "error",
             error: collected.error,
           });
         }
@@ -163,11 +172,6 @@ export class AgentLoop {
         usage = sumUsage(usage, collected.usage);
         if (collected.assistantText) {
           assistantText += collected.assistantText;
-          emit(this.options.onEvent, {
-            type: "text_delta",
-            delta: collected.assistantText,
-            round: rounds,
-          });
         }
         lastFinishReason = collected.finishReason;
         messages.push({
@@ -251,6 +255,7 @@ export class AgentLoop {
 
           emit(this.options.onEvent, {
             type: "tool_outcome",
+            toolCallId: parsed.id,
             outcome,
             round: rounds,
           });
@@ -276,7 +281,7 @@ export class AgentLoop {
         }
       }
     } catch (error) {
-      if (isAbortError(error)) {
+      if (isAbortError(error) || signal?.aborted) {
         return finish({
           status: "aborted",
           assistantText,
@@ -294,7 +299,7 @@ export class AgentLoop {
         messages,
         rounds,
         usage,
-        lastFinishReason,
+        lastFinishReason: "error",
         error: { message, kind: "provider" },
       });
     }

@@ -19,6 +19,7 @@ export type {
 } from "./types";
 export { AgentLoop } from "./agentLoop";
 export { collectAgentStream, sumUsage, emptyUsage } from "./collectStream";
+export type { CollectAgentStreamOptions } from "./collectStream";
 export {
   abortableDelay,
   isAbortError,

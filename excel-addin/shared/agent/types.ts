@@ -118,7 +118,7 @@ export type LoopEvent =
   | { type: "round_start"; round: number }
   | { type: "text_delta"; delta: string; round: number }
   | { type: "tool_call_parsed"; call: ParsedToolCall; round: number }
-  | { type: "tool_outcome"; outcome: AgentToolOutcome; round: number }
+  | { type: "tool_outcome"; toolCallId: string; outcome: AgentToolOutcome; round: number }
   | {
       type: "round_end";
       round: number;

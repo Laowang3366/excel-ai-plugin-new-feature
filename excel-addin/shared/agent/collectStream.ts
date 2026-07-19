@@ -1,4 +1,4 @@
-import { isAbortError, throwIfAborted } from "./streamProvider";
+import { throwIfAborted } from "./streamProvider";
 import type {
   AgentFinishReason,
   AgentRoundStreamResult,
@@ -16,19 +16,31 @@ interface Slot {
   ended: boolean;
 }
 
+export interface CollectAgentStreamOptions {
+  signal?: AbortSignal;
+  onTextDelta?: (delta: string) => void;
+}
+
 function emptyUsage(): AgentTokenUsage {
   return { inputTokens: 0, outputTokens: 0 };
 }
 
-/**
- * Aggregate one provider stream into a round result.
- * Only ended tool calls are emitted, in first-seen id order.
- * Does not JSON.parse arguments.
- */
+function asOptions(
+  signalOrOptions?: AbortSignal | CollectAgentStreamOptions,
+): CollectAgentStreamOptions {
+  if (signalOrOptions == null) return {};
+  if (typeof signalOrOptions === "object" && "aborted" in signalOrOptions) {
+    return { signal: signalOrOptions as AbortSignal };
+  }
+  return signalOrOptions as CollectAgentStreamOptions;
+}
+
+/** Aggregate one stream; only ended tool calls, first-seen order; no JSON.parse. */
 export async function collectAgentStream(
   stream: AsyncIterable<AgentStreamEvent>,
-  signal?: AbortSignal,
+  signalOrOptions?: AbortSignal | CollectAgentStreamOptions,
 ): Promise<AgentRoundStreamResult> {
+  const { signal, onTextDelta } = asOptions(signalOrOptions);
   throwIfAborted(signal);
   let assistantText = "";
   const order: string[] = [];
@@ -47,58 +59,49 @@ export async function collectAgentStream(
     return slot;
   };
 
-  try {
-    for await (const event of stream) {
-      throwIfAborted(signal);
-      switch (event.type) {
-        case "text_delta":
-          assistantText += event.delta;
-          break;
-        case "tool_call_begin": {
-          const slot = ensure(event.toolCallId);
-          // Non-empty name writes; existing non-empty name is not overwritten by empty.
-          if (event.toolName) {
-            if (!slot.name) slot.name = event.toolName;
-          }
-          break;
-        }
-        case "tool_call_delta": {
-          const slot = ensure(event.toolCallId);
-          slot.delta += event.argumentsDelta;
-          break;
-        }
-        case "tool_call_end": {
-          const slot = ensure(event.toolCallId);
-          if (slot.ended) break;
-          if (event.toolName) slot.name = event.toolName;
-          if (typeof event.argumentsJson === "string" && event.argumentsJson !== "") {
-            slot.endArgs = event.argumentsJson;
-          }
-          slot.ended = true;
-          break;
-        }
-        case "usage":
-          usage = { ...event.usage };
-          break;
-        case "finish":
-          finishReason = event.reason;
-          break;
-        case "error":
-          error = {
-            message: event.message,
-            kind: event.kind,
-            status: event.status,
-            url: event.url,
-          };
-          break;
-        default:
-          break;
+  for await (const event of stream) {
+    throwIfAborted(signal);
+    switch (event.type) {
+      case "text_delta":
+        assistantText += event.delta;
+        onTextDelta?.(event.delta);
+        break;
+      case "tool_call_begin": {
+        const slot = ensure(event.toolCallId);
+        if (event.toolName && !slot.name) slot.name = event.toolName;
+        break;
       }
-      if (error) break;
+      case "tool_call_delta":
+        ensure(event.toolCallId).delta += event.argumentsDelta;
+        break;
+      case "tool_call_end": {
+        const slot = ensure(event.toolCallId);
+        if (slot.ended) break;
+        if (event.toolName) slot.name = event.toolName;
+        if (typeof event.argumentsJson === "string" && event.argumentsJson !== "") {
+          slot.endArgs = event.argumentsJson;
+        }
+        slot.ended = true;
+        break;
+      }
+      case "usage":
+        usage = { ...event.usage };
+        break;
+      case "finish":
+        finishReason = event.reason;
+        break;
+      case "error":
+        error = {
+          message: event.message,
+          kind: event.kind,
+          status: event.status,
+          url: event.url,
+        };
+        break;
+      default:
+        break;
     }
-  } catch (caught) {
-    if (isAbortError(caught)) throw caught;
-    throw caught;
+    if (error) break;
   }
 
   throwIfAborted(signal);
@@ -113,11 +116,7 @@ export async function collectAgentStream(
     } else if (slot.delta !== "") {
       argumentsJson = slot.delta;
     }
-    toolCalls.push({
-      id: slot.id,
-      name: slot.name,
-      argumentsJson,
-    });
+    toolCalls.push({ id: slot.id, name: slot.name, argumentsJson });
   }
 
   return {
@@ -129,10 +128,7 @@ export async function collectAgentStream(
   };
 }
 
-export function sumUsage(
-  total: AgentTokenUsage,
-  next?: AgentTokenUsage,
-): AgentTokenUsage {
+export function sumUsage(total: AgentTokenUsage, next?: AgentTokenUsage): AgentTokenUsage {
   if (!next) return total;
   const out: AgentTokenUsage = {
     inputTokens: total.inputTokens + next.inputTokens,
