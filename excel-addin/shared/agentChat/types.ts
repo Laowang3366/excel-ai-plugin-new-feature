@@ -9,8 +9,13 @@ import type { ProviderFetch } from "../provider/client";
 import type { ProviderStore } from "../provider/store";
 import type { HostAdapter } from "../host/hostAdapter";
 import type { CreateStreamProviderResult } from "../provider/createStreamProvider";
+import type { ApprovalDecision, ApprovalRequest } from "./approvalGate";
 
-export type ChatControllerStatus = "idle" | "running" | "stopping";
+export type ChatControllerStatus =
+  | "idle"
+  | "running"
+  | "awaiting_approval"
+  | "stopping";
 
 export type ChatTurnStatus =
   | "completed"
@@ -39,9 +44,11 @@ export interface ChatControllerState {
     AgentRunResult,
     "status" | "rounds" | "assistantText" | "lastFinishReason"
   >;
+  /** Public-only pending approval (no raw args). */
+  pendingApproval?: ApprovalRequest | null;
 }
 
-/** Projected loop events (no stream-level tool arg deltas). */
+/** Projected loop + approval events (no stream-level tool arg deltas). */
 export type ChatTraceEvent =
   | { type: "round_start"; round: number }
   | { type: "text_delta"; delta: string; round: number }
@@ -59,7 +66,14 @@ export type ChatTraceEvent =
       toolCallCount: number;
     }
   | { type: "run_end"; status: AgentRunResult["status"]; rounds: number }
-  | { type: "turn_end"; turnStatus: ChatTurnStatus };
+  | { type: "turn_end"; turnStatus: ChatTurnStatus }
+  | { type: "approval_needed"; request: ApprovalRequest }
+  | {
+      type: "approval_resolved";
+      requestId: string;
+      decision: ApprovalDecision;
+      request: ApprovalRequest;
+    };
 
 export interface ChatControllerDeps {
   store: ProviderStore;
@@ -79,4 +93,4 @@ export interface ChatSendResult {
   run?: AgentRunResult;
 }
 
-export type { LoopEvent };
+export type { LoopEvent, ApprovalRequest, ApprovalDecision };

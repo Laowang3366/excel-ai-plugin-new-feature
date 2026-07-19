@@ -5,14 +5,13 @@ import { createStreamProviderFromStore } from "../provider/createStreamProvider"
 import type { ProviderFetch } from "../provider/client";
 import type { ProviderStore } from "../provider/store";
 import { ToolExecutor } from "../tools/executor";
+import { ApprovalGate, type ApprovalRequest } from "./approvalGate";
+import { ApprovingToolExecutor } from "./approvingToolExecutor";
 import {
-  GuardedChatExecutor,
-  listChatReadOnlyTools,
-} from "./chatReadOnlyTools";
-import {
-  CHAT_READONLY_PROMPT_MARKER,
-  composeChatReadonlySystemPrompt,
-} from "./chatReadonlyPrompt";
+  CHAT_APPROVAL_PROMPT_MARKER,
+  composeChatApprovalSystemPrompt,
+} from "./chatApprovalPrompt";
+import { listChatTools } from "./chatToolPolicy";
 import type {
   ChatControllerDeps,
   ChatControllerState,
@@ -31,13 +30,19 @@ export class ChatController {
   private readonly createProvider: ChatControllerDeps["createProvider"];
   private readonly onEvent?: (event: ChatTraceEvent) => void;
 
-  private status: ChatControllerStatusState = "idle";
+  private status: ChatControllerState["status"] = "idle";
   private committed: AgentMessage[] = [];
   private lastTurnStatus?: ChatTurnStatus;
   private lastAssistantText?: string;
   private lastError?: ChatPublicError;
   private lastRunSummary?: ChatControllerState["lastRun"];
   private abortController: AbortController | null = null;
+  private gate: ApprovalGate | null = null;
+  private pendingApproval: ApprovalRequest | null = null;
+  private currentToolCallId: string | undefined;
+  private currentRound: number | undefined;
+  private abortListener: (() => void) | null = null;
+  private unsubGate: (() => void) | null = null;
 
   constructor(deps: ChatControllerDeps) {
     this.store = deps.store;
@@ -47,7 +52,7 @@ export class ChatController {
     this.composeSystemPrompt =
       deps.composeSystemPrompt ??
       ((userMessage: string) =>
-        composeChatReadonlySystemPrompt({
+        composeChatApprovalSystemPrompt({
           routing: { content: userMessage },
         }));
     this.createProvider =
@@ -67,10 +72,12 @@ export class ChatController {
       lastAssistantText: this.lastAssistantText,
       lastError: this.lastError,
       lastRun: this.lastRunSummary,
+      pendingApproval: this.pendingApproval
+        ? { ...this.pendingApproval }
+        : null,
     };
   }
 
-  /** Clear committed history; only allowed while idle. */
   clear(): { ok: true } | { ok: false; error: string } {
     if (this.status !== "idle") {
       return { ok: false, error: "cannot clear while busy" };
@@ -80,13 +87,36 @@ export class ChatController {
     this.lastAssistantText = undefined;
     this.lastError = undefined;
     this.lastRunSummary = undefined;
+    this.pendingApproval = null;
     return { ok: true };
   }
 
   stop(): void {
-    if (this.status !== "running" || !this.abortController) return;
+    if (
+      (this.status !== "running" && this.status !== "awaiting_approval") ||
+      !this.abortController
+    ) {
+      return;
+    }
     this.status = "stopping";
+    this.gate?.cancelAll("chat stop");
     this.abortController.abort();
+  }
+
+  approve(requestId?: string): boolean {
+    const gate = this.gate;
+    const pending = this.pendingApproval;
+    if (!gate || !pending) return false;
+    const id = requestId ?? pending.requestId;
+    return gate.approve(id);
+  }
+
+  reject(requestId?: string): boolean {
+    const gate = this.gate;
+    const pending = this.pendingApproval;
+    if (!gate || !pending) return false;
+    const id = requestId ?? pending.requestId;
+    return gate.reject(id);
   }
 
   async send(userMessage: string): Promise<ChatSendResult> {
@@ -107,10 +137,56 @@ export class ChatController {
     }
 
     const systemPrompt = this.composeSystemPrompt(trimmed);
-    const tools = listChatReadOnlyTools();
-    const executor = new GuardedChatExecutor(new ToolExecutor(this.host));
+    const tools = listChatTools();
     const ac = new AbortController();
     this.abortController = ac;
+    const gate = new ApprovalGate();
+    this.gate = gate;
+    this.pendingApproval = null;
+    this.currentToolCallId = undefined;
+    this.currentRound = undefined;
+
+    this.abortListener = () => {
+      gate.cancelAll("aborted");
+    };
+    ac.signal.addEventListener("abort", this.abortListener);
+
+    this.unsubGate = gate.subscribe((event) => {
+      if (event.type === "requested") {
+        this.pendingApproval = { ...event.request };
+        if (this.status !== "stopping") {
+          this.status = "awaiting_approval";
+        }
+        this.emit({ type: "approval_needed", request: { ...event.request } });
+        return;
+      }
+      // resolved
+      if (this.pendingApproval?.requestId === event.requestId) {
+        this.pendingApproval = null;
+      }
+      if (
+        (event.decision === "approved" || event.decision === "rejected") &&
+        this.status === "awaiting_approval"
+      ) {
+        this.status = "running";
+      }
+      this.emit({
+        type: "approval_resolved",
+        requestId: event.requestId,
+        decision: event.decision,
+        request: { ...event.request },
+      });
+    });
+
+    const executor = new ApprovingToolExecutor(
+      new ToolExecutor(this.host),
+      gate,
+      () => ({
+        toolCallId: this.currentToolCallId,
+        round: this.currentRound,
+      }),
+    );
+
     this.status = "running";
     this.lastError = undefined;
 
@@ -126,9 +202,7 @@ export class ChatController {
     });
 
     try {
-      const runPromise = loop.run({ userMessage: trimmed, history });
-      const result = await runPromise;
-      // Commit always after a started run, regardless of terminal status.
+      const result = await loop.run({ userMessage: trimmed, history });
       this.committed = result.messages.slice();
       this.lastAssistantText = result.assistantText;
       this.lastRunSummary = {
@@ -160,13 +234,26 @@ export class ChatController {
       this.emit({ type: "turn_end", turnStatus: "failed" });
       return { turnStatus: "failed", error: this.lastError };
     } finally {
-      this.status = "idle";
+      this.gate?.cancelAll("turn end");
+      if (this.abortListener && this.abortController) {
+        this.abortController.signal.removeEventListener(
+          "abort",
+          this.abortListener,
+        );
+      }
+      this.unsubGate?.();
+      this.unsubGate = null;
+      this.abortListener = null;
+      this.gate = null;
       this.abortController = null;
+      this.pendingApproval = null;
+      this.currentToolCallId = undefined;
+      this.currentRound = undefined;
+      this.status = "idle";
     }
   }
 
-  /** Test/debug helper: expose whether prompt marker is expected. */
-  static readonly readonlyMarker = CHAT_READONLY_PROMPT_MARKER;
+  static readonly approvalMarker = CHAT_APPROVAL_PROMPT_MARKER;
 
   private preflightEnd(
     turnStatus: ChatTurnStatus,
@@ -181,6 +268,7 @@ export class ChatController {
   private projectEvent(event: LoopEvent): void {
     switch (event.type) {
       case "round_start":
+        this.currentRound = event.round;
         this.emit({ type: "round_start", round: event.round });
         break;
       case "text_delta":
@@ -191,6 +279,8 @@ export class ChatController {
         });
         break;
       case "tool_call_parsed":
+        this.currentToolCallId = event.call.id;
+        this.currentRound = event.round;
         this.emit({
           type: "tool_call_parsed",
           call: event.call,
@@ -204,6 +294,7 @@ export class ChatController {
           outcome: event.outcome,
           round: event.round,
         });
+        this.currentToolCallId = undefined;
         break;
       case "round_end":
         this.emit({
@@ -229,8 +320,6 @@ export class ChatController {
     this.onEvent?.(event);
   }
 }
-
-type ChatControllerStatusState = ChatControllerState["status"];
 
 function mapRunStatus(status: AgentRunResult["status"]): ChatTurnStatus {
   switch (status) {

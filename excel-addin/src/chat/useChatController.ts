@@ -15,7 +15,7 @@ import {
 } from "./chatPresentation";
 
 export interface ChatViewState {
-  status: "idle" | "running" | "stopping";
+  status: "idle" | "running" | "awaiting_approval" | "stopping";
   turns: DisplayTurn[];
   liveAssistant: string;
   bannerError?: string;
@@ -79,6 +79,16 @@ export function useChatController(options: UseChatControllerOptions): {
   const handleEvent = useCallback(
     (gen: number, event: ChatTraceEvent) => {
       if (!isLive(gen)) return;
+      if (event.type === "approval_needed") {
+        setStatus("awaiting_approval");
+        return;
+      }
+      if (event.type === "approval_resolved") {
+        setStatus((prev) =>
+          prev === "stopping" ? "stopping" : "running",
+        );
+        return;
+      }
       if (event.type === "text_delta") {
         setLiveAssistant((prev) => prev + event.delta);
         const id = activeTurnId.current;
@@ -251,7 +261,10 @@ export function useChatController(options: UseChatControllerOptions): {
     activeTurnId.current = null;
   }, []);
 
-  const busy = status === "running" || status === "stopping";
+  const busy =
+    status === "running" ||
+    status === "awaiting_approval" ||
+    status === "stopping";
   return {
     controller,
     view: {
@@ -260,7 +273,7 @@ export function useChatController(options: UseChatControllerOptions): {
       liveAssistant,
       bannerError,
       canSend: !!controller && !busy,
-      canStop: status === "running",
+      canStop: status === "running" || status === "awaiting_approval",
       canClear: !!controller && status === "idle",
     },
     send,

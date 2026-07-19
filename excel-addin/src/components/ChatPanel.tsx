@@ -84,6 +84,11 @@ export function ChatPanel({ store, adapter, createController }: Props) {
               停止
             </button>
           )}
+          {view.status === "awaiting_approval" && (
+            <span className="muted">
+              等待审批…（F4 将提供批准/拒绝按钮；当前可点停止取消）
+            </span>
+          )}
           {view.status === "stopping" && (
             <span className="muted">
               正在停止…进行中的表格读取可能仍会完成
