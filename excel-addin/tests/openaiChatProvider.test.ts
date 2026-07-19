@@ -117,10 +117,11 @@ describe("OpenAIChatCompletionsStreamProvider", () => {
       baseReq(),
     );
     const nonError = events.filter((e) => e.type !== "error");
+    // Begin only when first arguments fragment arrives (id+name already complete).
     expect(nonError.map((e) => e.type)).toEqual([
       "tool_call_begin",
-      "tool_call_begin",
       "tool_call_delta",
+      "tool_call_begin",
       "tool_call_delta",
       "tool_call_delta",
       "tool_call_delta",
@@ -133,7 +134,7 @@ describe("OpenAIChatCompletionsStreamProvider", () => {
       toolCallId: "call_a",
       toolName: "host.status",
     });
-    expect(nonError[1]).toEqual({
+    expect(nonError[2]).toEqual({
       type: "tool_call_begin",
       toolCallId: "call_b",
       toolName: "range.read",
@@ -395,4 +396,3 @@ describe("OpenAIChatCompletionsStreamProvider", () => {
   });
 
 });
-

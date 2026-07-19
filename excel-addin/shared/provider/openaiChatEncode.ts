@@ -33,6 +33,9 @@ export function encodeChatCompletionsBody(
       if (msg.toolCalls && msg.toolCalls.length > 0) {
         const tool_calls = [];
         for (const call of msg.toolCalls) {
+          if (typeof call.id !== "string" || call.id.trim() === "") {
+            return { error: "assistant tool call id is empty" };
+          }
           const external = maps.internalToExternal.get(call.name);
           if (external == null) {
             return {
@@ -54,7 +57,7 @@ export function encodeChatCompletionsBody(
       continue;
     }
     if (msg.role === "tool") {
-      if (!msg.toolCallId) {
+      if (typeof msg.toolCallId !== "string" || msg.toolCallId.trim() === "") {
         return { error: "tool message missing tool_call_id" };
       }
       out.push({

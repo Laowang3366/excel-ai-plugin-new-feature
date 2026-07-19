@@ -12,8 +12,13 @@ import type {
 } from "../agent/types";
 import { encodeChatCompletionsBody } from "./openaiChatEncode";
 import { OpenAiChatStreamAssembler } from "./openaiChatStreamParse";
-import { SseByteParser } from "./openaiSse";
+import { SseByteParser, type SseParseResult } from "./openaiSse";
 import { buildToolNameMaps, isToolNameMaps } from "./openaiToolNameMap";
+
+function redactSecrets(message: string, apiKey: string): string {
+  if (!apiKey) return message;
+  return message.split(apiKey).join("[REDACTED]");
+}
 
 export interface OpenAIChatCompletionsStreamProviderOptions {
   baseUrl: string;
@@ -40,7 +45,6 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
       yield { type: "error", message: "aborted", kind: "aborted" };
       return;
     }
-
     if (!this.apiKey.trim()) {
       yield { type: "error", message: "API key 未设置，无法发起请求", kind: "missing_key" };
       return;
@@ -71,6 +75,7 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
     }
 
     const url = joinUrl(this.baseUrl, "/chat/completions");
+    const apiKey = this.apiKey;
     const body = {
       model: this.model,
       stream: true,
@@ -84,7 +89,7 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
       response = await this.fetchImpl(url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           Accept: "text/event-stream",
         },
@@ -99,7 +104,7 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
       const classified = classifyNetworkError(error, url);
       yield {
         type: "error",
-        message: classified.error,
+        message: redactSecrets(classified.error, apiKey),
         kind: classified.kind === "cors" ? "cors" : "network",
         url,
       };
@@ -108,7 +113,13 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
 
     if (!response.ok) {
       const message = await readErrorMessage(response);
-      yield { type: "error", message, kind: "http", status: response.status, url };
+      yield {
+        type: "error",
+        message: redactSecrets(message, apiKey),
+        kind: "http",
+        status: response.status,
+        url,
+      };
       return;
     }
     if (!response.body) {
@@ -129,32 +140,45 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
       for (const e of final) yield e;
     };
 
+    const handleParts = function* (
+      parts: SseParseResult[],
+    ): Generator<AgentStreamEvent, boolean> {
+      for (const part of parts) {
+        if (part.kind === "done") {
+          yield* emitFinalize();
+          return true;
+        }
+        let json: unknown;
+        try {
+          json = JSON.parse(part.data);
+        } catch {
+          yield { type: "error", message: "malformed SSE JSON", kind: "parse", url };
+          return true;
+        }
+        const ingested = assembler.ingest(json);
+        if ("error" in ingested) {
+          yield {
+            type: "error",
+            message: redactSecrets(ingested.error, apiKey),
+            kind: "parse",
+            url,
+          };
+          return true;
+        }
+        for (const e of ingested) yield e;
+      }
+      return false;
+    };
+
     try {
       while (true) {
         throwIfAborted(request.signal);
         const { done, value } = await reader.read();
         if (done) break;
         if (!value) continue;
-        for (const part of sse.push(value)) {
-          if (part.kind === "done") {
-            yield* emitFinalize();
-            return;
-          }
-          let json: unknown;
-          try {
-            json = JSON.parse(part.data);
-          } catch {
-            yield { type: "error", message: "malformed SSE JSON", kind: "parse", url };
-            return;
-          }
-          const ingested = assembler.ingest(json);
-          if ("error" in ingested) {
-            yield { type: "error", message: ingested.error, kind: "parse", url };
-            return;
-          }
-          for (const e of ingested) yield e;
-        }
+        if (yield* handleParts(sse.push(value))) return;
       }
+      if (yield* handleParts(sse.flush())) return;
       yield* emitFinalize();
     } catch (error) {
       if (isAbortError(error) || request.signal?.aborted) {
@@ -164,7 +188,7 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
       const classified = classifyNetworkError(error, url);
       yield {
         type: "error",
-        message: classified.error,
+        message: redactSecrets(classified.error, apiKey),
         kind: classified.kind === "cors" ? "cors" : "network",
         url,
       };

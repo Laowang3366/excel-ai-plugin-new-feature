@@ -3,12 +3,15 @@ import type { ToolNameMaps } from "./openaiToolNameMap";
 
 interface ToolSlot {
   index: number;
-  id?: string;
-  externalName?: string;
+  idParts: string[];
+  nameParts: string[];
+  pendingArgs: string[];
   args: string;
   began: boolean;
   ended: boolean;
-  pendingArgs: string[];
+  frozenId?: string;
+  frozenExternalName?: string;
+  frozenInternalName?: string;
 }
 
 export class OpenAiChatStreamAssembler {
@@ -27,7 +30,6 @@ export class OpenAiChatStreamAssembler {
     return this.emittedFinish;
   }
 
-  /** Parse one SSE data JSON object into events, or return parse error. */
   ingest(data: unknown): AgentStreamEvent[] | { error: string } {
     if (data == null || typeof data !== "object") {
       return { error: "SSE data is not an object" };
@@ -59,26 +61,37 @@ export class OpenAiChatStreamAssembler {
             return { error: "tool_calls item missing integer index" };
           }
           const slot = this.ensure(item.index);
-          if (typeof item.id === "string" && item.id) slot.id = item.id;
+
+          if (typeof item.id === "string" && item.id.length > 0) {
+            const err = this.appendField(slot, "id", item.id);
+            if (err) return err;
+          }
+
           const fn = item.function;
           if (fn && typeof fn === "object") {
             const f = fn as Record<string, unknown>;
-            if (typeof f.name === "string" && f.name) slot.externalName = f.name;
+            if (typeof f.name === "string" && f.name.length > 0) {
+              const err = this.appendField(slot, "name", f.name);
+              if (err) return err;
+            }
             if (typeof f.arguments === "string") {
-              if (!slot.began) slot.pendingArgs.push(f.arguments);
-              else {
+              const begin = this.tryBegin(slot);
+              if (begin && "error" in begin) return begin;
+              if (begin && Array.isArray(begin)) events.push(...begin);
+
+              if (!slot.began) {
+                // Still waiting for complete id+name; buffer args in order.
+                slot.pendingArgs.push(f.arguments);
+              } else {
                 slot.args += f.arguments;
                 events.push({
                   type: "tool_call_delta",
-                  toolCallId: slot.id!,
+                  toolCallId: slot.frozenId!,
                   argumentsDelta: f.arguments,
                 });
               }
             }
           }
-          const begin = this.tryBegin(slot);
-          if (begin && "error" in begin) return begin;
-          if (begin && Array.isArray(begin)) events.push(...begin);
         }
       }
 
@@ -100,7 +113,6 @@ export class OpenAiChatStreamAssembler {
     return events;
   }
 
-  /** Emit buffered finish as the last normal event when stream completes. */
   finalize(): AgentStreamEvent[] | { error: string } {
     if (!this.sawFinishReason || !this.pendingFinish) {
       return { error: "stream ended without finish_reason" };
@@ -113,28 +125,80 @@ export class OpenAiChatStreamAssembler {
   private ensure(index: number): ToolSlot {
     let slot = this.slots.get(index);
     if (!slot) {
-      slot = { index, args: "", began: false, ended: false, pendingArgs: [] };
+      slot = {
+        index,
+        idParts: [],
+        nameParts: [],
+        pendingArgs: [],
+        args: "",
+        began: false,
+        ended: false,
+      };
       this.slots.set(index, slot);
     }
     return slot;
   }
 
+  private currentId(slot: ToolSlot): string {
+    return slot.frozenId ?? slot.idParts.join("");
+  }
+
+  private currentName(slot: ToolSlot): string {
+    return slot.frozenExternalName ?? slot.nameParts.join("");
+  }
+
+  /** Append id/name fragments; after freeze only identical full value is accepted. */
+  private appendField(
+    slot: ToolSlot,
+    field: "id" | "name",
+    piece: string,
+  ): { error: string } | null {
+    if (field === "id") {
+      if (slot.frozenId != null) {
+        if (piece === slot.frozenId) return null;
+        return { error: `tool call id conflict at index ${slot.index}` };
+      }
+      slot.idParts.push(piece);
+      return null;
+    }
+    if (slot.frozenExternalName != null) {
+      if (piece === slot.frozenExternalName) return null;
+      return { error: `tool call name conflict at index ${slot.index}` };
+    }
+    slot.nameParts.push(piece);
+    return null;
+  }
+
+  /**
+   * Begin only with non-empty id and exact external map key.
+   * Prefix of a known key waits; unknown complete name is parse error.
+   */
   private tryBegin(slot: ToolSlot): AgentStreamEvent[] | { error: string } | null {
     if (slot.began) return null;
-    if (!slot.id || !slot.externalName) return null;
-    const internal = this.maps.externalToInternal.get(slot.externalName);
+    const id = this.currentId(slot);
+    const external = this.currentName(slot);
+    if (!id || !external) return null;
+
+    const internal = this.maps.externalToInternal.get(external);
     if (internal == null) {
-      return { error: `unknown external tool name: ${slot.externalName}` };
+      for (const key of this.maps.externalToInternal.keys()) {
+        if (key.startsWith(external) && key !== external) return null;
+      }
+      return { error: `unknown external tool name: ${external}` };
     }
+
     slot.began = true;
+    slot.frozenId = id;
+    slot.frozenExternalName = external;
+    slot.frozenInternalName = internal;
     const events: AgentStreamEvent[] = [
-      { type: "tool_call_begin", toolCallId: slot.id, toolName: internal },
+      { type: "tool_call_begin", toolCallId: id, toolName: internal },
     ];
     for (const piece of slot.pendingArgs) {
       slot.args += piece;
       events.push({
         type: "tool_call_delta",
-        toolCallId: slot.id,
+        toolCallId: id,
         argumentsDelta: piece,
       });
     }
@@ -147,22 +211,31 @@ export class OpenAiChatStreamAssembler {
     const ordered = [...this.slots.values()].sort((a, b) => a.index - b.index);
     for (const slot of ordered) {
       if (slot.ended) continue;
+
       if (!slot.began) {
-        if (slot.id || slot.externalName || slot.pendingArgs.length || slot.args) {
-          if (!slot.id) return { error: "tool call missing id before finish" };
-          if (!slot.externalName) return { error: "tool call missing name before finish" };
-          return { error: "tool call incomplete before finish" };
-        }
-        continue;
+        const begin = this.tryBegin(slot);
+        if (begin && "error" in begin) return begin;
+        if (begin && Array.isArray(begin)) events.push(...begin);
       }
-      if (!slot.id) return { error: "tool call missing id before end" };
-      const argumentsJson = slot.args === "" ? "{}" : slot.args;
-      const toolName = this.maps.externalToInternal.get(slot.externalName ?? "");
+
+      if (!slot.began) {
+        if (!this.currentId(slot)) return { error: "tool call missing id before finish" };
+        if (!this.currentName(slot)) return { error: "tool call missing name before finish" };
+        return { error: "tool call incomplete before finish" };
+      }
+      if (!slot.frozenId || !slot.frozenInternalName) {
+        return { error: "tool call missing frozen id/name before end" };
+      }
+
+      // Include any args that arrived before begin but were not flushed (should be empty).
+      for (const piece of slot.pendingArgs) slot.args += piece;
+      slot.pendingArgs = [];
+
       events.push({
         type: "tool_call_end",
-        toolCallId: slot.id,
-        toolName,
-        argumentsJson,
+        toolCallId: slot.frozenId,
+        toolName: slot.frozenInternalName,
+        argumentsJson: slot.args === "" ? "{}" : slot.args,
       });
       slot.ended = true;
     }
