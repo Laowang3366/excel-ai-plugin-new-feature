@@ -4,23 +4,23 @@
   xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
-  <Id>8f3c2a91-6b4e-4d1a-9c77-a1b2c3d4e5f6</Id>
-  <Version>0.1.0.0</Version>
+  <Id>__APP_ID__</Id>
+  <Version>__VERSION__</Version>
   <ProviderName>Wengge</ProviderName>
   <DefaultLocale>zh-CN</DefaultLocale>
-  <DisplayName DefaultValue="文格 Excel AI 验证加载项"/>
-  <Description DefaultValue="Excel AI chat + tools development validation add-in (Office.js task pane). Host verification on real Excel/WPS is not claimed."/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/>
-  <SupportUrl DefaultValue="https://plugin.shelelove.top"/>
+  <DisplayName DefaultValue="__DISPLAY_NAME__"/>
+  <Description DefaultValue="__DESCRIPTION__"/>
+  <IconUrl DefaultValue="__ICON_32__"/>
+  <HighResolutionIconUrl DefaultValue="__ICON_64__"/>
+  <SupportUrl DefaultValue="__SUPPORT_URL__"/>
   <AppDomains>
-    <AppDomain>https://localhost:3000</AppDomain>
+    <AppDomain>__APP_DOMAIN__</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Workbook"/>
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://localhost:3000/index.html"/>
+    <SourceLocation DefaultValue="__SOURCE_LOCATION__"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
@@ -66,14 +66,14 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://localhost:3000/assets/icon-16.png"/>
-        <bt:Image id="Icon.32" DefaultValue="https://localhost:3000/assets/icon-32.png"/>
-        <bt:Image id="Icon.80" DefaultValue="https://localhost:3000/assets/icon-80.png"/>
+        <bt:Image id="Icon.16" DefaultValue="__ICON_16__"/>
+        <bt:Image id="Icon.32" DefaultValue="__ICON_32__"/>
+        <bt:Image id="Icon.80" DefaultValue="__ICON_80__"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://plugin.shelelove.top"/>
-        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/index.html"/>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/index.html"/>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="__SUPPORT_URL__"/>
+        <bt:Url id="Commands.Url" DefaultValue="__COMMANDS_URL__"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="__TASKPANE_URL__"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="文格 Excel 加载项"/>
@@ -81,7 +81,7 @@
         <bt:String id="TaskpaneButton.Label" DefaultValue="打开任务窗格"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Open the task pane to validate Excel AI chat, read-only queries, and approval-gated workbook tools."/>
+        <bt:String id="GetStarted.Description" DefaultValue="__GETSTARTED_DESCRIPTION__"/>
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="打开文格 Excel AI 任务窗格"/>
       </bt:LongStrings>
     </Resources>

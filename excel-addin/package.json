@@ -6,12 +6,19 @@
   "description": "Independent Excel Office.js / WPS JSA add-in validation project",
   "scripts": {
     "dev": "vite",
+    "dev:http": "VITE_DEV_HTTP=1 vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "sync:prompts": "node scripts/sync-prompts.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "certs:install": "office-addin-dev-certs install",
+    "certs:verify": "office-addin-dev-certs verify",
+    "certs:uninstall": "office-addin-dev-certs uninstall",
+    "manifest:dev": "node scripts/render-office-manifest.mjs --mode dev --out manifest/office-excel-manifest.xml",
+    "manifest:prod": "node scripts/render-office-manifest.mjs --mode prod",
+    "manifest:check": "node scripts/check-office-manifest.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",
@@ -23,6 +30,7 @@
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "jsdom": "^26.1.0",
+    "office-addin-dev-certs": "^2.0.10",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^3.1.3"

@@ -107,3 +107,15 @@ Evidence columns:
 In-repo verified JSA surface: Application / ActiveWorkbook name / JSIDE CodeModule via desktop bridge.
 Range value/formula/sheet ops use common ET assumptions with member checks.
 Format / ListObjects / ChartObjects / expand / sheet copy-move are **not** verified — typed `unsupported`.
+
+## 交付/侧载状态
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 代码 + Vitest | 通过门槛 | `npm test` / `typecheck` / `build` 在 CI/Linux 可跑 |
+| Office manifest 模板/校验 | 已提供 | `npm run manifest:dev|prod|check`；dev 默认 `https://localhost:3000` |
+| 开发 HTTPS 证书工具链 | 已接入 | `office-addin-dev-certs` + `npm run certs:*` / `npm run dev` |
+| 图标真实像素尺寸 | 已提供 | `public/assets/icon-{16,32,64,80}.png` IHDR 与文件名一致 |
+| Windows 信任开发 CA | **未在本仓库验收** | 需在开发机执行 `certs:install` |
+| Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
+| WPS 真实侧载 / jsaddons 包 | **未做** | 下一阶段 |
