@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChatController,
+  type ApprovalRequest,
   type ChatControllerDeps,
   type ChatTraceEvent,
   type ChatTurnStatus,
@@ -19,15 +20,17 @@ export interface ChatViewState {
   turns: DisplayTurn[];
   liveAssistant: string;
   bannerError?: string;
+  pendingApproval: ApprovalRequest | null;
   canSend: boolean;
   canStop: boolean;
   canClear: boolean;
+  canApprove: boolean;
+  canReject: boolean;
 }
 
 export interface UseChatControllerOptions {
   store: ProviderStore;
   adapter: HostAdapter | null;
-  /** Test seam; production default uses ChatController. */
   createController?: (deps: ChatControllerDeps) => ChatController;
   fetchImpl?: ChatControllerDeps["fetchImpl"];
 }
@@ -44,6 +47,17 @@ const PREFLIGHT_NO_TURN = new Set<ChatTurnStatus>([
   "empty",
 ]);
 
+function appendTrace(
+  turns: DisplayTurn[],
+  turnId: string | null,
+  item: DisplayTraceItem,
+): DisplayTurn[] {
+  if (!turnId) return turns;
+  return turns.map((t) =>
+    t.id === turnId ? { ...t, traces: [...t.traces, item] } : t,
+  );
+}
+
 /**
  * Bridge ChatController → React view projection.
  * Per-instance generation token prevents disposed controllers from updating UI.
@@ -53,6 +67,8 @@ export function useChatController(options: UseChatControllerOptions): {
   send: (text: string) => Promise<void>;
   stop: () => void;
   clear: () => void;
+  approve: (requestId?: string) => boolean;
+  reject: (requestId?: string) => boolean;
   controller: ChatController | null;
 } {
   const { store, adapter, createController, fetchImpl } = options;
@@ -60,6 +76,8 @@ export function useChatController(options: UseChatControllerOptions): {
   const [turns, setTurns] = useState<DisplayTurn[]>([]);
   const [liveAssistant, setLiveAssistant] = useState("");
   const [bannerError, setBannerError] = useState<string | undefined>();
+  const [pendingApproval, setPendingApproval] =
+    useState<ApprovalRequest | null>(null);
   const [controller, setController] = useState<ChatController | null>(null);
 
   const eventSeq = useRef(0);
@@ -79,16 +97,41 @@ export function useChatController(options: UseChatControllerOptions): {
   const handleEvent = useCallback(
     (gen: number, event: ChatTraceEvent) => {
       if (!isLive(gen)) return;
+
       if (event.type === "approval_needed") {
-        setStatus("awaiting_approval");
+        setPendingApproval({ ...event.request });
+        setStatus((prev) => (prev === "stopping" ? "stopping" : "awaiting_approval"));
+        eventSeq.current += 1;
+        const item = projectTraceEvent(event, eventSeq.current);
+        if (item) {
+          setTurns((prev) => appendTrace(prev, activeTurnId.current, item));
+        }
         return;
       }
+
       if (event.type === "approval_resolved") {
-        setStatus((prev) =>
-          prev === "stopping" ? "stopping" : "running",
+        setPendingApproval((prev) =>
+          prev && prev.requestId === event.requestId ? null : prev,
         );
+        setStatus((prev) => {
+          if (prev === "stopping") return "stopping";
+          if (
+            event.decision === "approved" ||
+            event.decision === "rejected" ||
+            event.decision === "cancelled"
+          ) {
+            return "running";
+          }
+          return prev;
+        });
+        eventSeq.current += 1;
+        const item = projectTraceEvent(event, eventSeq.current);
+        if (item) {
+          setTurns((prev) => appendTrace(prev, activeTurnId.current, item));
+        }
         return;
       }
+
       if (event.type === "text_delta") {
         setLiveAssistant((prev) => prev + event.delta);
         const id = activeTurnId.current;
@@ -111,13 +154,7 @@ export function useChatController(options: UseChatControllerOptions): {
       eventSeq.current += 1;
       const item = projectTraceEvent(event, eventSeq.current);
       if (!item) return;
-      const id = activeTurnId.current;
-      if (!id) return;
-      setTurns((prev) =>
-        prev.map((t) =>
-          t.id === id ? { ...t, traces: [...t.traces, item] } : t,
-        ),
-      );
+      setTurns((prev) => appendTrace(prev, activeTurnId.current, item));
     },
     [isLive],
   );
@@ -130,6 +167,7 @@ export function useChatController(options: UseChatControllerOptions): {
     if (!adapter) {
       controllerRef.current = null;
       setController(null);
+      setPendingApproval(null);
       return () => {
         disposedRef.current = true;
         generationRef.current += 1;
@@ -147,96 +185,97 @@ export function useChatController(options: UseChatControllerOptions): {
     });
     controllerRef.current = c;
     setController(c);
-    // Fresh controller instance always starts idle for UI projection.
     setStatus("idle");
     setLiveAssistant("");
+    setPendingApproval(null);
     activeTurnId.current = null;
 
     return () => {
-      // 1) Mark disposed so old onEvent becomes no-op immediately.
       disposedRef.current = true;
-      // 2) Invalidate generation so late events from this instance are dropped.
       if (generationRef.current === gen) {
         generationRef.current += 1;
       }
-      // 3) Stop this instance only.
       try {
         c.stop();
       } catch {
         /* ignore */
       }
-      // 4) Clear refs for this instance without clobbering a newer controller.
       if (controllerRef.current === c) {
         controllerRef.current = null;
       }
       setController((prev) => (prev === c ? null : prev));
+      setPendingApproval(null);
       activeTurnId.current = null;
     };
   }, [adapter, store, handleEvent]);
 
-  const send = useCallback(async (text: string) => {
-    const c = controllerRef.current;
-    if (!c) return;
-    if (c.getState().status !== "idle") return;
-    const gen = generationRef.current;
-    const trimmed = typeof text === "string" ? text.trim() : "";
-    if (!trimmed) {
+  const send = useCallback(
+    async (text: string) => {
+      const c = controllerRef.current;
+      if (!c) return;
+      if (c.getState().status !== "idle") return;
+      const gen = generationRef.current;
+      const trimmed = typeof text === "string" ? text.trim() : "";
+      if (!trimmed) {
+        if (!isLive(gen)) return;
+        setBannerError(mapChatError(undefined, "empty"));
+        return;
+      }
+
+      const id = nextTurnId();
+      activeTurnId.current = id;
+      if (isLive(gen)) {
+        setLiveAssistant("");
+        setBannerError(undefined);
+        setPendingApproval(null);
+        setTurns((prev) => [
+          ...prev,
+          {
+            id,
+            userText: trimmed,
+            assistantText: "",
+            pending: true,
+            traces: [],
+          },
+        ]);
+        setStatus("running");
+      }
+
+      const result = await c.send(trimmed);
       if (!isLive(gen)) return;
-      setBannerError(mapChatError(undefined, "empty"));
-      return;
-    }
 
-    const id = nextTurnId();
-    // Optimistic turn — removed if preflight fails before run.
-    activeTurnId.current = id;
-    if (isLive(gen)) {
-      setLiveAssistant("");
-      setBannerError(undefined);
-      setTurns((prev) => [
-        ...prev,
-        {
-          id,
-          userText: trimmed,
-          assistantText: "",
-          pending: true,
-          traces: [],
-        },
-      ]);
-      setStatus("running");
-    }
+      const errText = mapChatError(result.error, result.turnStatus);
+      setBannerError(errText);
+      setPendingApproval(null);
 
-    const result = await c.send(trimmed);
-    if (!isLive(gen)) return;
+      if (PREFLIGHT_NO_TURN.has(result.turnStatus) || result.run == null) {
+        setTurns((prev) => prev.filter((t) => t.id !== id));
+        setLiveAssistant("");
+        setStatus("idle");
+        if (activeTurnId.current === id) activeTurnId.current = null;
+        return;
+      }
 
-    const errText = mapChatError(result.error, result.turnStatus);
-    setBannerError(errText);
-
-    if (PREFLIGHT_NO_TURN.has(result.turnStatus) || result.run == null) {
-      // Preflight / busy / empty: drop optimistic bubble; banner only.
-      setTurns((prev) => prev.filter((t) => t.id !== id));
+      setTurns((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                pending: false,
+                turnStatus: result.turnStatus,
+                assistantText:
+                  result.run?.assistantText ?? t.assistantText ?? "",
+                errorText: errText,
+              }
+            : t,
+        ),
+      );
       setLiveAssistant("");
       setStatus("idle");
       if (activeTurnId.current === id) activeTurnId.current = null;
-      return;
-    }
-
-    setTurns((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              pending: false,
-              turnStatus: result.turnStatus,
-              assistantText: result.run?.assistantText ?? t.assistantText ?? "",
-              errorText: errText,
-            }
-          : t,
-      ),
-    );
-    setLiveAssistant("");
-    setStatus("idle");
-    if (activeTurnId.current === id) activeTurnId.current = null;
-  }, [isLive]);
+    },
+    [isLive],
+  );
 
   const stop = useCallback(() => {
     const c = controllerRef.current;
@@ -257,14 +296,32 @@ export function useChatController(options: UseChatControllerOptions): {
     setTurns([]);
     setLiveAssistant("");
     setBannerError(undefined);
+    setPendingApproval(null);
     setStatus("idle");
     activeTurnId.current = null;
+  }, []);
+
+  const approve = useCallback((requestId?: string) => {
+    const c = controllerRef.current;
+    if (!c) return false;
+    return c.approve(requestId);
+  }, []);
+
+  const reject = useCallback((requestId?: string) => {
+    const c = controllerRef.current;
+    if (!c) return false;
+    return c.reject(requestId);
   }, []);
 
   const busy =
     status === "running" ||
     status === "awaiting_approval" ||
     status === "stopping";
+  const canDecide =
+    !!controller &&
+    status === "awaiting_approval" &&
+    pendingApproval != null;
+
   return {
     controller,
     view: {
@@ -272,14 +329,19 @@ export function useChatController(options: UseChatControllerOptions): {
       turns,
       liveAssistant,
       bannerError,
+      pendingApproval,
       canSend: !!controller && !busy,
       canStop: status === "running" || status === "awaiting_approval",
       canClear: !!controller && status === "idle",
+      canApprove: canDecide,
+      canReject: canDecide,
     },
     send,
     stop,
     clear,
+    approve,
+    reject,
   };
 }
 
-export type { ChatTurnStatus, DisplayTraceItem };
+export type { ChatTurnStatus, DisplayTraceItem, ApprovalRequest };

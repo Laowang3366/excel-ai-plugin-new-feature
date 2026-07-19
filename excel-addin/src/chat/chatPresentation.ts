@@ -18,9 +18,9 @@ export interface DisplayMessage {
 
 export interface DisplayTraceItem {
   id: string;
-  kind: "round" | "tool_parsed" | "tool_outcome";
+  kind: "round" | "tool_parsed" | "tool_outcome" | "approval";
   text: string;
-  tone?: "ok" | "fail" | "info";
+  tone?: "ok" | "fail" | "info" | "warn";
 }
 
 export interface DisplayTurn {
@@ -54,7 +54,11 @@ export function summarizePayload(raw: string, max = MAX_TRACE_TEXT): string {
 
 export function formatToolArgs(argsJson: string | undefined): string {
   if (argsJson == null || argsJson === "") return "{}";
-  return summarizePayload(argsJson);
+  try {
+    return safeJson(JSON.parse(argsJson) as unknown);
+  } catch {
+    return summarizePayload(argsJson);
+  }
 }
 
 export function formatToolOutcome(outcome: AgentToolOutcome): {
@@ -96,7 +100,7 @@ export function mapChatError(
   if (turnStatus === "max_rounds") {
     return "已达到本轮最大工具调用轮数，请精简问题后重试。";
   }
-  if (turnStatus === "aborted") return "已停止生成。进行中的表格读取可能仍会完成。";
+  if (turnStatus === "aborted") return "已停止生成。进行中的表格操作可能仍会完成。";
   if (!error) {
     if (turnStatus === "failed") return "请求失败，请稍后重试。";
     return undefined;
@@ -126,7 +130,7 @@ export function mapChatError(
     return `模型服务错误：${truncateDisplay(msg, 120)}`;
   }
   if (kind === "aborted") {
-    return "已停止生成。进行中的表格读取可能仍会完成。";
+    return "已停止生成。进行中的表格操作可能仍会完成。";
   }
   return truncateDisplay(msg || "请求失败", 160);
 }
@@ -136,6 +140,41 @@ export function projectTraceEvent(
   seq: number,
 ): DisplayTraceItem | null {
   switch (event.type) {
+    case "approval_needed": {
+      const risk =
+        event.request.riskLevel === "dangerous" ? "高风险" : "需批准";
+      const dest = event.request.destructive ? " · 破坏性" : "";
+      return {
+        id: `tr-${seq}`,
+        kind: "approval",
+        text: `待审批 ${event.request.name} · ${risk}${dest} · ${truncateDisplay(event.request.impactHint, 80)}`,
+        tone: "warn",
+      };
+    }
+    case "approval_resolved": {
+      if (event.decision === "approved") {
+        return {
+          id: `tr-${seq}`,
+          kind: "approval",
+          text: `已批准 ${event.request.name}`,
+          tone: "ok",
+        };
+      }
+      if (event.decision === "rejected") {
+        return {
+          id: `tr-${seq}`,
+          kind: "approval",
+          text: `已拒绝 ${event.request.name}`,
+          tone: "fail",
+        };
+      }
+      return {
+        id: `tr-${seq}`,
+        kind: "approval",
+        text: `已取消审批 ${event.request.name}`,
+        tone: "info",
+      };
+    }
     case "round_start":
       return {
         id: `tr-${seq}`,
@@ -171,6 +210,8 @@ export function projectTraceEvent(
   }
 }
 
+const SECRET_KEY_RE =
+  /^(password|apiKey|api_key|token|secret|authorization|accessToken|refreshToken|bearer)$/i;
 const BINARY_KEY_RE =
   /^(imageBase64|base64|dataUrl|dataURL|thumbnailBase64|contentBase64|payloadBase64)$/i;
 const MAX_JSON_DEPTH = 4;
@@ -231,6 +272,10 @@ function sanitizeForTrace(
   const n = Math.min(keys.length, MAX_OBJECT_KEYS);
   for (let i = 0; i < n; i += 1) {
     const key = keys[i]!;
+    if (SECRET_KEY_RE.test(key)) {
+      out[key] = "[REDACTED]";
+      continue;
+    }
     if (BINARY_KEY_RE.test(key)) {
       const raw = obj[key];
       const len = typeof raw === "string" ? raw.length : undefined;

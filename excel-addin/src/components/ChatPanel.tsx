@@ -3,18 +3,18 @@ import type { ChatController, ChatControllerDeps } from "@shared/agentChat";
 import type { HostAdapter } from "@shared/host";
 import type { ProviderStore } from "@shared/provider";
 import { useChatController } from "../chat/useChatController";
+import { ChatApprovalCard } from "./ChatApprovalCard";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatToolTrace } from "./ChatToolTrace";
 
 interface Props {
   store: ProviderStore;
   adapter: HostAdapter | null;
-  /** Test seam only; production omits this and uses real ChatController. */
   createController?: (deps: ChatControllerDeps) => ChatController;
 }
 
 export function ChatPanel({ store, adapter, createController }: Props) {
-  const { view, send, stop, clear } = useChatController({
+  const { view, send, stop, clear, approve, reject } = useChatController({
     store,
     adapter,
     createController,
@@ -32,18 +32,22 @@ export function ChatPanel({ store, adapter, createController }: Props) {
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter" || e.shiftKey) return;
     if (composing || e.nativeEvent.isComposing) return;
+    // While approval dialog is open, Enter must not send chat.
+    if (view.pendingApproval) return;
     e.preventDefault();
     onSend();
   };
 
   if (!adapter) {
-    return <div className="card muted">正在检测宿主…聊天将在宿主就绪后可用。</div>;
+    return (
+      <div className="card muted">正在检测宿主…聊天将在宿主就绪后可用。</div>
+    );
   }
 
   return (
     <section className="card chat-panel">
       <div className="chat-banner" role="status">
-        只读模式：当前仅可查询，不会写入或删除工作簿
+        变更操作会在执行前等待你的批准；未批准不会写入/删除
       </div>
 
       {view.bannerError && (
@@ -54,6 +58,19 @@ export function ChatPanel({ store, adapter, createController }: Props) {
 
       <ChatMessageList turns={view.turns} />
 
+      {view.pendingApproval && (
+        <ChatApprovalCard
+          request={view.pendingApproval}
+          disabled={!view.canApprove || view.status === "stopping"}
+          onApprove={(id) => {
+            approve(id);
+          }}
+          onReject={(id) => {
+            reject(id);
+          }}
+        />
+      )}
+
       <details className="chat-trace-box">
         <summary>工具轨迹</summary>
         <ChatToolTrace turns={view.turns} />
@@ -63,7 +80,7 @@ export function ChatPanel({ store, adapter, createController }: Props) {
         <textarea
           rows={3}
           value={draft}
-          placeholder="输入只读问题… Enter 发送，Shift+Enter 换行"
+          placeholder="输入问题… 写删改会弹出批准；Enter 发送，Shift+Enter 换行"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           onCompositionStart={() => setComposing(true)}
@@ -84,14 +101,12 @@ export function ChatPanel({ store, adapter, createController }: Props) {
               停止
             </button>
           )}
-          {view.status === "awaiting_approval" && (
-            <span className="muted">
-              等待审批…（F4 将提供批准/拒绝按钮；当前可点停止取消）
-            </span>
+          {view.status === "awaiting_approval" && !view.pendingApproval && (
+            <span className="muted">等待审批…</span>
           )}
           {view.status === "stopping" && (
             <span className="muted">
-              正在停止…进行中的表格读取可能仍会完成
+              正在停止…进行中的表格操作可能仍会完成
             </span>
           )}
           <button type="button" onClick={clear} disabled={!view.canClear}>

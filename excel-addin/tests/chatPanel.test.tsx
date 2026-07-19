@@ -185,7 +185,7 @@ describe("ChatPanel UI", () => {
     root = m.root;
     container = m.container;
 
-    expect(container.textContent).toContain("只读模式：当前仅可查询，不会写入或删除工作簿");
+    expect(container.textContent).toContain("变更操作会在执行前等待你的批准");
     const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
     const sendBtn = Array.from(container.querySelectorAll("button")).find(
       (b) => b.textContent === "发送",
@@ -262,7 +262,7 @@ describe("ChatPanel UI", () => {
       stopBtn.click();
     });
     expect(fake!.stopCalls).toBe(1);
-    expect(container.textContent).toMatch(/停止|进行中的表格读取/);
+    expect(container.textContent).toMatch(/停止|进行中的表格操作/);
 
     const clearBtn = Array.from(container.querySelectorAll("button")).find(
       (b) => b.textContent === "清空",
@@ -318,7 +318,7 @@ describe("App chat tab", () => {
     );
     expect(labels).toEqual(["聊天", "宿主", "工具", "模型供应商"]);
     expect(
-      container.textContent?.includes("只读模式") ||
+      container.textContent?.includes("等待你的批准") ||
         container.textContent?.includes("检测宿主"),
     ).toBe(true);
     const toolsBtn = Array.from(container.querySelectorAll("nav.tabs button")).find(

@@ -18,6 +18,14 @@ describe("chatPresentation", () => {
     expect(formatToolArgs('{"x":"' + "y".repeat(300) + '"}').length).toBeLessThan(200);
   });
 
+  it("redacts secret keys in tool args and safeJson", () => {
+    const shown = formatToolArgs('{"password":"secret","sheetName":"S"}');
+    expect(shown).toContain("[REDACTED]");
+    expect(shown).not.toContain('"secret"');
+    expect(safeJson({ apiKey: "sk-test", values: [["a"]] })).toContain("[REDACTED]");
+    expect(safeJson({ apiKey: "sk-test", values: [["a"]] })).not.toContain("sk-test");
+  });
+
   it("maps preflight / cors / max_rounds / aborted errors in Chinese", () => {
     expect(mapChatError({ message: "API key 未设置", kind: "missing_key" })).toMatch(
       /模型供应商/,
@@ -121,5 +129,50 @@ describe("budgeted safeJson", () => {
     a.self = a;
     expect(() => safeJson(a)).not.toThrow();
     expect(safeJson(a)).toContain("circular");
+  });
+});
+
+describe("approval trace projection", () => {
+  it("projects needed/resolved without raw args", () => {
+    const needed = projectTraceEvent(
+      {
+        type: "approval_needed",
+        request: {
+          requestId: "r1",
+          name: "sheet.delete",
+          riskLevel: "moderate",
+          destructive: true,
+          argsPreview: { sheetName: "S" },
+          impactHint: "将删除工作表",
+          createdAt: 1,
+        },
+      },
+      9,
+    );
+    expect(needed?.kind).toBe("approval");
+    expect(needed?.tone).toBe("warn");
+    expect(needed?.text).toContain("待审批");
+    expect(needed?.text).toContain("sheet.delete");
+    expect(needed?.text).not.toContain("password");
+
+    const approved = projectTraceEvent(
+      {
+        type: "approval_resolved",
+        requestId: "r1",
+        decision: "approved",
+        request: {
+          requestId: "r1",
+          name: "sheet.delete",
+          riskLevel: "moderate",
+          destructive: true,
+          argsPreview: {},
+          impactHint: "x",
+          createdAt: 1,
+        },
+      },
+      10,
+    );
+    expect(approved?.text).toContain("已批准");
+    expect(approved?.tone).toBe("ok");
   });
 });

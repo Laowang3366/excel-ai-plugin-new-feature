@@ -254,3 +254,77 @@ button.danger {
   color: #991b1b;
   background: #fef2f2;
 }
+
+
+/* Approval card */
+.chat-approval-card {
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.chat-approval-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-approval-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.chat-approval-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.risk-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.risk-badge.risk-dangerous,
+.risk-badge.risk-destructive {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.chat-approval-impact {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #78350f;
+}
+
+.chat-approval-args {
+  margin: 0;
+  padding: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 120px;
+  font-size: 0.75rem;
+}
+
+.chat-approval-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.chat-trace-item.tone-warn {
+  color: #b45309;
+}

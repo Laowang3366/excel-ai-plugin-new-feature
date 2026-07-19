@@ -8,7 +8,7 @@ export function ChatMessageList({ turns }: Props) {
   if (turns.length === 0) {
     return (
       <div className="chat-empty muted">
-        输入问题开始只读查询。模型只能读取工作簿，不会写入或删除。
+        输入问题开始对话。变更类工具会在执行前请求你的批准。
       </div>
     );
   }
