@@ -4,6 +4,7 @@ import {
   formatToolOutcome,
   mapChatError,
   projectTraceEvent,
+  safeJson,
   summarizePayload,
   truncateDisplay,
 } from "../src/chat/chatPresentation";
@@ -40,7 +41,7 @@ describe("chatPresentation", () => {
     };
     const formatted = formatToolOutcome(ok);
     expect(formatted.tone).toBe("ok");
-    expect(formatted.text).toMatch(/binary\/base64|\[binary/);
+    expect(formatted.text).toMatch(/omitted binary|binary\/base64|\[binary/);
     expect(formatted.text).not.toContain("A".repeat(100));
     expect(formatted.text.length).toBeLessThan(220);
 
@@ -69,5 +70,56 @@ describe("chatPresentation", () => {
     );
     expect(parsed?.text).toContain("range.read");
     expect(parsed?.text).toContain("sheetName");
+  });
+});
+
+describe("budgeted safeJson", () => {
+  it("omits known binary keys without reading full payload into output", () => {
+    const text = safeJson({
+      imageBase64: "A".repeat(5000),
+      base64: "B".repeat(2000),
+      ok: true,
+    });
+    expect(text).toMatch(/omitted binary|binary\/base64/);
+    expect(text).not.toContain("A".repeat(40));
+    expect(text).not.toContain("B".repeat(40));
+  });
+
+  it("limits depth, keys, array items; skips budget-exceeded getters", () => {
+    let deep: Record<string, unknown> = { v: 1 };
+    for (let i = 0; i < 10; i += 1) deep = { nested: deep };
+    const deepText = safeJson(deep);
+    expect(deepText).toContain("max depth");
+
+    const manyKeys: Record<string, unknown> = {};
+    for (let i = 0; i < 40; i += 1) manyKeys[`k${i}`] = i;
+    const keysText = safeJson(manyKeys);
+    expect(keysText).toMatch(/\+/);
+
+    const arrText = safeJson(Array.from({ length: 30 }, (_, i) => i));
+    expect(arrText).toMatch(/more/);
+
+    let accessed = 0;
+    const obj: Record<string, unknown> = {};
+    for (let i = 0; i < 20; i += 1) {
+      Object.defineProperty(obj, `p${i}`, {
+        enumerable: true,
+        get() {
+          accessed += 1;
+          if (i >= 12) throw new Error("should not access beyond budget");
+          return i;
+        },
+      });
+    }
+    // Only first MAX_OBJECT_KEYS keys are accessed.
+    expect(() => safeJson(obj)).not.toThrow();
+    expect(accessed).toBeLessThanOrEqual(12);
+  });
+
+  it("handles circular refs without throwing", () => {
+    const a: Record<string, unknown> = { x: 1 };
+    a.self = a;
+    expect(() => safeJson(a)).not.toThrow();
+    expect(safeJson(a)).toContain("circular");
   });
 });

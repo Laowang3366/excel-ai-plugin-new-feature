@@ -171,28 +171,77 @@ export function projectTraceEvent(
   }
 }
 
-function redactLongStrings(value: unknown): unknown {
-  if (typeof value === "string") {
-    if (value.length > 64 && /^[A-Za-z0-9+/=\s]+$/.test(value)) {
-      return `[binary/base64 ${value.length} chars]`;
-    }
-    return value.length > MAX_TRACE_TEXT ? truncateDisplay(value) : value;
+const BINARY_KEY_RE =
+  /^(imageBase64|base64|dataUrl|dataURL|thumbnailBase64|contentBase64|payloadBase64)$/i;
+const MAX_JSON_DEPTH = 4;
+const MAX_OBJECT_KEYS = 12;
+const MAX_ARRAY_ITEMS = 8;
+const MAX_STRING_LEN = 80;
+
+/** Budgeted, key-aware sanitizer — never walks/stringifies unbounded trees. */
+export function safeJson(value: unknown): string {
+  try {
+    const sanitized = sanitizeForTrace(value, 0, new Set());
+    const text = JSON.stringify(sanitized) ?? "";
+    return truncateDisplay(text, MAX_TRACE_TEXT);
+  } catch {
+    return "[unserializable]";
   }
-  if (Array.isArray(value)) return value.map(redactLongStrings);
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = redactLongStrings(v);
+}
+
+function sanitizeForTrace(
+  value: unknown,
+  depth: number,
+  seen: Set<object>,
+): unknown {
+  if (value == null) return value;
+  if (typeof value === "string") {
+    if (value.length > MAX_STRING_LEN) {
+      if (/^[A-Za-z0-9+/=\s]+$/.test(value.slice(0, 120))) {
+        return `[binary/base64 ${value.length} chars]`;
+      }
+      return truncateDisplay(value, MAX_STRING_LEN);
+    }
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "bigint") return String(value);
+  if (typeof value === "function") return "[function]";
+  if (typeof value !== "object") return String(value);
+
+  if (depth >= MAX_JSON_DEPTH) return "[max depth]";
+  if (seen.has(value as object)) return "[circular]";
+  seen.add(value as object);
+
+  if (Array.isArray(value)) {
+    const out: unknown[] = [];
+    const n = Math.min(value.length, MAX_ARRAY_ITEMS);
+    for (let i = 0; i < n; i += 1) {
+      out.push(sanitizeForTrace(value[i], depth + 1, seen));
+    }
+    if (value.length > MAX_ARRAY_ITEMS) {
+      out.push(`[+${value.length - MAX_ARRAY_ITEMS} more]`);
     }
     return out;
   }
-  return value;
-}
 
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(redactLongStrings(value)) ?? "";
-  } catch {
-    return String(value);
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  const out: Record<string, unknown> = {};
+  const n = Math.min(keys.length, MAX_OBJECT_KEYS);
+  for (let i = 0; i < n; i += 1) {
+    const key = keys[i]!;
+    if (BINARY_KEY_RE.test(key)) {
+      const raw = obj[key];
+      const len = typeof raw === "string" ? raw.length : undefined;
+      out[key] = len != null ? `[omitted binary ${len} chars]` : "[omitted binary]";
+      continue;
+    }
+    // Only access selected key after budget checks above.
+    out[key] = sanitizeForTrace(obj[key], depth + 1, seen);
   }
+  if (keys.length > MAX_OBJECT_KEYS) {
+    out["…"] = `+${keys.length - MAX_OBJECT_KEYS} keys`;
+  }
+  return out;
 }
