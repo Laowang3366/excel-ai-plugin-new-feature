@@ -7,6 +7,9 @@ import type {
 
 export const MAX_TRACE_TEXT = 160;
 
+/** Skip JSON.parse for oversized tool args to avoid memory spikes / secret leaks. */
+export const MAX_PARSEABLE_TOOL_ARGS_CHARS = 4096;
+
 export type DisplayRole = "user" | "assistant" | "system";
 
 export interface DisplayMessage {
@@ -54,10 +57,14 @@ export function summarizePayload(raw: string, max = MAX_TRACE_TEXT): string {
 
 export function formatToolArgs(argsJson: string | undefined): string {
   if (argsJson == null || argsJson === "") return "{}";
+  if (argsJson.length > MAX_PARSEABLE_TOOL_ARGS_CHARS) {
+    return `[arguments JSON omitted: ${argsJson.length} chars]`;
+  }
   try {
     return safeJson(JSON.parse(argsJson) as unknown);
   } catch {
-    return summarizePayload(argsJson);
+    // Never echo raw invalid JSON prefixes (may contain password/token).
+    return `[invalid arguments JSON: ${argsJson.length} chars]`;
   }
 }
 

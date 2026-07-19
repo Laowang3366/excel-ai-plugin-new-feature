@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   formatToolArgs,
   formatToolOutcome,
   mapChatError,
+  MAX_PARSEABLE_TOOL_ARGS_CHARS,
   projectTraceEvent,
   safeJson,
   summarizePayload,
@@ -24,6 +25,68 @@ describe("chatPresentation", () => {
     expect(shown).not.toContain('"secret"');
     expect(safeJson({ apiKey: "sk-test", values: [["a"]] })).toContain("[REDACTED]");
     expect(safeJson({ apiKey: "sk-test", values: [["a"]] })).not.toContain("sk-test");
+  });
+
+  it("omits oversized tool args without parsing or leaking secrets", () => {
+    const secret = "super-secret-password-value";
+    const b64 = "A".repeat(500);
+    const values = JSON.stringify([["cell-secret-grid"]]);
+    // Build valid JSON larger than parse threshold with secrets embedded.
+    const pad = "x".repeat(
+      MAX_PARSEABLE_TOOL_ARGS_CHARS + 200 - (secret.length + b64.length + values.length),
+    );
+    const huge = JSON.stringify({
+      password: secret,
+      imageBase64: b64,
+      values: [["cell-secret-grid"]],
+      pad,
+    });
+    expect(huge.length).toBeGreaterThan(MAX_PARSEABLE_TOOL_ARGS_CHARS);
+
+    const parseSpy = vi.spyOn(JSON, "parse");
+    const shown = formatToolArgs(huge);
+    expect(shown).toBe(`[arguments JSON omitted: ${huge.length} chars]`);
+    expect(shown).not.toContain(secret);
+    expect(shown).not.toContain("password");
+    expect(shown).not.toContain(b64.slice(0, 40));
+    expect(shown).not.toContain("cell-secret-grid");
+    expect(parseSpy).not.toHaveBeenCalled();
+    parseSpy.mockRestore();
+
+    // Boundary: length == threshold still parses + redacts; over-by-one omits.
+    const base = '{"password":"secret-at-limit","pad":"';
+    const suffix = '"}';
+    const padLen = MAX_PARSEABLE_TOOL_ARGS_CHARS - base.length - suffix.length;
+    expect(padLen).toBeGreaterThan(0);
+    const atLimit = `${base}${"y".repeat(padLen)}${suffix}`;
+    expect(atLimit.length).toBe(MAX_PARSEABLE_TOOL_ARGS_CHARS);
+    const boundary = formatToolArgs(atLimit);
+    expect(boundary).toContain("[REDACTED]");
+    expect(boundary).not.toContain("secret-at-limit");
+    const overByOne = `${base}${"y".repeat(padLen + 1)}${suffix}`;
+    expect(overByOne.length).toBe(MAX_PARSEABLE_TOOL_ARGS_CHARS + 1);
+    expect(formatToolArgs(overByOne)).toBe(
+      `[arguments JSON omitted: ${overByOne.length} chars]`,
+    );
+
+    // Short ordinary args remain readable.
+    expect(formatToolArgs('{"sheetName":"Sheet1","range":"A1"}')).toContain("Sheet1");
+
+    // Invalid short JSON: length summary only, no raw prefix.
+    const badShort = '{"password":"leaked"';
+    const badShortOut = formatToolArgs(badShort);
+    expect(badShortOut).toBe(`[invalid arguments JSON: ${badShort.length} chars]`);
+    expect(badShortOut).not.toContain("leaked");
+    expect(badShortOut).not.toContain("password");
+
+    // Invalid long: omit-by-length without parse/leak.
+    const badLong = `{"password":"leaked-long","pad":"${"z".repeat(MAX_PARSEABLE_TOOL_ARGS_CHARS)}"`;
+    const parseSpy2 = vi.spyOn(JSON, "parse");
+    const badLongOut = formatToolArgs(badLong);
+    expect(badLongOut).toBe(`[arguments JSON omitted: ${badLong.length} chars]`);
+    expect(badLongOut).not.toContain("leaked-long");
+    expect(parseSpy2).not.toHaveBeenCalled();
+    parseSpy2.mockRestore();
   });
 
   it("maps preflight / cors / max_rounds / aborted errors in Chinese", () => {
