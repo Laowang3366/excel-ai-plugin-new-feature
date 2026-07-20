@@ -68,6 +68,35 @@ describe("no COM/.NET/Electron runtime deps", () => {
     expect(collectRuntimeDesktopDepOffenders(textFiles)).toEqual([]);
   });
 
+  it("WPS install CLI sources stay in the source scan and direct forbidden imports are flagged", () => {
+    const files = walk(root).filter((file) => {
+      if (file.includes(`${path.sep}tests${path.sep}`)) return false;
+      return (
+        file.includes(`${path.sep}scripts${path.sep}wps-jsa-`) ||
+        file.includes(`${path.sep}scripts${path.sep}wpsJsaInstall`)
+      );
+    });
+    expect(files.length).toBeGreaterThan(0);
+    const clean = files.map((file) => ({
+      relativePath: path.relative(root, file),
+      content: readFileSync(file, "utf8"),
+    }));
+    expect(collectRuntimeDesktopDepOffenders(clean)).toEqual([]);
+
+    const poisoned = collectRuntimeDesktopDepOffenders([
+      {
+        relativePath: "scripts/wpsJsaInstallCore.mjs",
+        content: 'import { spawn } from "node:child_process";\nexport const x = spawn;\n',
+      },
+      {
+        relativePath: "scripts/wps-jsa-install.mjs",
+        content: 'import electron from "electron";\n',
+      },
+    ]);
+    expect(poisoned.some((o) => o.includes("import-from-child_process"))).toBe(true);
+    expect(poisoned.some((o) => o.includes("import-from-electron"))).toBe(true);
+  });
+
   it("package.json has no electron/dotnet dependencies", () => {
     const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;

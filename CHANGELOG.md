@@ -6,6 +6,7 @@
 
 ### Excel 加载项
 
+- 独立 Excel 加载项 Phase56：提供 install-time 纯 Node CLI `npm run wps:install` / `wps:status` / `wps:uninstall`，在用户 `jsaddons` 中安全 upsert 本插件 `publish.xml` 条目并原子替换 `wengge-excel-ai-addin`（保留其他插件、自有备份前缀、包哈希校验、重启提示）；工具数仍 98；**尚未真实 WPS 侧载验收**。
 - 独立 Excel 加载项 Phase55.3：template print 严格拒绝 undefined/缺失成员（仅显式 null=unavailable）；defaultForAllPages.load 必填；freeze address 必须可解析 A1；工具数仍 98；**尚未真实 Excel/WPS 侧载验收**。
 - 独立 Excel 加载项 Phase55.2：`workbook.template.capture` 固定少量 batch sync（非 O(表数)）、capture 专用严格 print snapshot；`apply` 禁止多单元格 bulk text、写后完整 header/freeze 回读、写前 surface 预检；Fake sync-gated + everReadBeforeSync；工具数仍 98；**尚未真实 Excel/WPS 侧载验收**。
 - 独立 Excel 加载项 Phase55.1：`workbook.template.apply/capture` 合同收口（sheetNames minItems+空数组 fail-closed；plan/readback address+counts；严格 isNullObject；写前 surface 含 freeze getLocation；quote-aware A1；capture 单 Excel.run + 上下文内 pageLayout；坏 scalar fail-closed）；工具数仍 98；**尚未真实 Excel/WPS 侧载验收**。

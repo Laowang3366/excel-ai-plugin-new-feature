@@ -4,7 +4,7 @@
 
 > **交付状态**：代码与单测可验证；**尚未**在真实 Windows Microsoft Excel / WPS 完成侧载验收。
 >
-> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
+> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。Phase56：WPS JSA `wps:install`/`status`/`uninstall` 可重复安装 CLI（install-time only；**真实侧载未验收**）。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
 
 ## 命令
 
@@ -138,22 +138,37 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 **同源 AI Gateway（可选，不强制）**：若加载项使用 Gateway 模式，建议与静态资源同 origin 部署，浏览器请求固定路径 `/api/ai/v1/:upstreamId/...`；`gatewayBaseUrl` 留空即同源。Gateway 是独立服务（`ai-gateway/`），产品站无需变成 AI 代理。
 
 
-### WPS JSA 本地 jsaddons 包
+### WPS JSA 本地 jsaddons 包与可重复安装
 
-可生成**正式本地 file:// jsaddons 包**（构建脚本 + 静态布局），**真实 WPS 侧载尚未验收**，不得宣称宿主已通过。
+可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。**真实 WPS 侧载仍未验收**，不得宣称宿主已通过。安装器**不会**启动/结束/附加任何 WPS 进程。
 
 ```bash
 npm run manifest:wps:check
 npm run package:wps -- --git-sha 0123456789abcdef
+
+# 推荐：构建并安装（Windows 默认 %APPDATA%；非 Windows 必须显式 --app-data）
+npm run wps:install -- --git-sha 0123456789abcdef --app-data /path/to/AppData/Roaming
+
+# 仅安装已有包（不重建）
+npm run wps:install -- --package-dir ./dist --app-data /path/to/AppData/Roaming
+
+npm run wps:status -- --app-data /path/to/AppData/Roaming
+npm run wps:uninstall -- --app-data /path/to/AppData/Roaming
 ```
 
 `package:wps` 执行 `build:wps`（`vite build --base ./`），整理 `dist/` 为：
 
-- `publish.xml`（jsaddons 根级注册，指向 `%AppData%/kingsoft/wps/jsaddons/wengge-excel-ai-addin/index.html`）
+- `publish.xml`（包内单插件注册样例；安装时会 **upsert 本插件条目** 并保留其他 jsplugin）
 - `wengge-excel-ai-addin/`：相对路径任务窗格、`manifest.xml` / `ribbon.xml` / `wps-entry.js`（无 Office.js CDN）
 - `BUILD_INFO.json` / `SHA256SUMS.txt`
 
-安装骨架（Windows，需完整重启 WPS；**未在本仓库验收**）：将 `wengge-excel-ai-addin/` 拷入用户 `jsaddons` 目录，并按需合并根级 `publish.xml` 条目。源与说明见 `manifest/wps-jsa/`。
+安装行为摘要：
+
+- 目标：`<appData>/kingsoft/wps/jsaddons/wengge-excel-ai-addin` + 同目录 `publish.xml` 中 `name=WenggeExcelAiAddin` 条目
+- 写前完整校验包哈希、拒绝 symlink/路径穿越；addon 目录 staging → atomic swap；`publish.xml` 原子写 + 本工具前缀备份（`publish.xml.wengge-excel-ai.bak.*`，最多 10；**不清理** 第三方 `publish.xml.bak.*`）
+- 状态文件：`wengge-excel-ai-addin-install-state.json`（无密钥）；`status` 以 publish/目录/哈希为准，不靠状态文件伪装成功
+- 安装/卸载后均 `restartRequired: true`：**请完整退出并重启 WPS** 后再加载
+- 源布局见 `manifest/wps-jsa/`
 
 ## 非目标
 

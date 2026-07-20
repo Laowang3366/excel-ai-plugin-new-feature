@@ -22,7 +22,10 @@
     "manifest:check": "node scripts/check-office-manifest.mjs && node scripts/check-wps-jsa.mjs",
     "manifest:wps:check": "node scripts/check-wps-jsa.mjs",
     "package:prod": "node scripts/package-prod.mjs",
-    "package:wps": "node scripts/package-wps-jsa.mjs"
+    "package:wps": "node scripts/package-wps-jsa.mjs",
+    "wps:install": "node scripts/wps-jsa-install.mjs",
+    "wps:status": "node scripts/wps-jsa-status.mjs",
+    "wps:uninstall": "node scripts/wps-jsa-uninstall.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",
