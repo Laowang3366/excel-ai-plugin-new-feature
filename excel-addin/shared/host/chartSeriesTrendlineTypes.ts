@@ -24,11 +24,19 @@ export interface ChartTrendlineInfo {
   sheetName: string;
   chartName: string;
   seriesIndex: number;
-  /** 1-based index within the series trendline collection (insertion order). */
+  /**
+   * 1-based public index (insertion order).
+   * Host `ChartTrendlineCollection.getItem` is 0-based.
+   */
   trendlineIndex: number;
   type: ChartTrendlineType | string;
+  /** Host readback is always a string per Office.js. */
   name: string | null;
-  intercept: number | string | null;
+  /**
+   * Host readback is always a number per Office.js.
+   * Writes may use "" for automatic intercept.
+   */
+  intercept: number | null;
   polynomialOrder: number | null;
   movingAveragePeriod: number | null;
   /** ExcelApi 1.8; null when requirement set not available. */
@@ -51,7 +59,8 @@ export interface ChartTrendlineAddInput {
   seriesIndex: number;
   type: ChartTrendlineType;
   name?: string;
-  intercept?: number;
+  /** Finite number, or empty string for automatic (Office.js write contract). */
+  intercept?: number | "";
   polynomialOrder?: number;
   movingAveragePeriod?: number;
   forwardPeriod?: number;
@@ -67,7 +76,8 @@ export interface ChartTrendlineUpdateInput {
   trendlineIndex: number;
   type?: ChartTrendlineType;
   name?: string;
-  intercept?: number;
+  /** Finite number, or empty string for automatic (Office.js write contract). */
+  intercept?: number | "";
   polynomialOrder?: number;
   movingAveragePeriod?: number;
   forwardPeriod?: number;

@@ -4,6 +4,9 @@
 
 ## 未发布
 
+- 独立 Excel 加载项新增 `chart.series.markers.update`（Office.js ExcelApi 1.7 写后回读 series 标记样式/尺寸/颜色；WPS 仍 unsupported；真实 Excel/WPS 侧载尚未验收）。
+- 硬化图表趋势线合同：intercept 支持 `""` 自动截距且回读为数字；add 使用返回对象 + getCount 确定 1-based 索引；文档明确 host getItem 为 0-based。
+
 - 独立 Excel 加载项新增图表 series 趋势线工具 `chart.series.trendlines.list/add/update/delete`（Office.js ExcelApi 1.7/1.8 写后回读；WPS 仍 unsupported；series formula 仍无官方合同；真实 Excel/WPS 侧载尚未验收）。
 
 - 独立 Excel 加载项 `chart.axes.update` 扩展坐标轴 displayUnit/customDisplayUnit、scaleType/logBase、showDisplayUnitLabel（ExcelApi 1.7）与主/次网格线可见性（ExcelApi 1.1）；写后宿主回读；series formula/categoryFormula 仍无 Office.js 合同故不实现；WPS 仍 unsupported；真实 Excel/WPS 侧载尚未验收。

@@ -18,7 +18,9 @@ const commonProps = {
 const fieldProps = {
   type: { type: "string", enum: [...TRENDLINE_TYPE_ENUM] },
   name: { type: "string", minLength: 1 },
-  intercept: { type: "number" },
+  intercept: {
+    description: "Finite number, or empty string for automatic intercept (Office.js write)",
+  },
   polynomialOrder: { type: "integer", minimum: 2, maximum: 6 },
   movingAveragePeriod: { type: "integer", minimum: 2 },
   forwardPeriod: { type: "number", minimum: 0 },

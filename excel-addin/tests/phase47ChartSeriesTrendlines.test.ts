@@ -117,6 +117,68 @@ describe("phase47 chart series trendlines", () => {
       }
     });
 
+
+    it("assigns stable 1-based indexes for multi-trendline add via returned object/getCount", async () => {
+      const adapter = new OfficeJsAdapter();
+      const first = await adapter.addChartSeriesTrendline({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        type: "linear",
+        name: "First",
+      });
+      const second = await adapter.addChartSeriesTrendline({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        type: "exponential",
+        name: "Second",
+      });
+      expect(first.ok).toBe(true);
+      expect(second.ok).toBe(true);
+      if (first.ok && second.ok) {
+        expect(first.data.trendlineIndex).toBe(1);
+        expect(second.data.trendlineIndex).toBe(2);
+        expect(first.data.name).toBe("First");
+        expect(second.data.name).toBe("Second");
+        expect(first.data.type).toBe("linear");
+        expect(second.data.type).toBe("exponential");
+      }
+      const listed = await adapter.listChartSeriesTrendlines("Sheet1", "C1", 1);
+      expect(listed.ok).toBe(true);
+      if (listed.ok) {
+        expect(listed.data.trendlines.map((t) => t.trendlineIndex)).toEqual([1, 2]);
+        expect(listed.data.trendlines.map((t) => t.name)).toEqual(["First", "Second"]);
+      }
+    });
+
+    it("writes intercept empty string as automatic and readbacks a number", async () => {
+      const adapter = new OfficeJsAdapter();
+      const added = await adapter.addChartSeriesTrendline({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        type: "linear",
+        intercept: "",
+      });
+      expect(added.ok).toBe(true);
+      if (added.ok) {
+        expect(typeof added.data.intercept).toBe("number");
+        expect(Number.isFinite(added.data.intercept as number)).toBe(true);
+      }
+      const updated = await adapter.updateChartSeriesTrendline({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        trendlineIndex: 1,
+        intercept: "",
+      });
+      expect(updated.ok).toBe(true);
+      if (updated.ok) {
+        expect(typeof updated.data.intercept).toBe("number");
+      }
+    });
+
     it("fails closed when host tampers type after write", async () => {
       const adapter = new OfficeJsAdapter();
       const okAdd = await adapter.addChartSeriesTrendline({
@@ -156,6 +218,28 @@ describe("phase47 chart series trendlines", () => {
       if (list.ok) {
         const data = list.data as { trendlines: Array<{ type: string }> };
         expect(data.trendlines[0]?.type).toBe("movingAverage");
+      }
+    });
+
+
+    it("MockHost intercept empty string stores numeric automatic readback", async () => {
+      const host = new MockHostAdapter();
+      await host.createChart({ sheetName: "Sheet1", sourceRange: "A1:B2", name: "C1" });
+      const executor = new ToolExecutor(host);
+      const add = await executor.execute({
+        name: "chart.series.trendlines.add",
+        arguments: {
+          sheetName: "Sheet1",
+          chartName: "C1",
+          seriesIndex: 1,
+          type: "linear",
+          intercept: "",
+        },
+      });
+      expect(add.ok).toBe(true);
+      if (add.ok) {
+        const data = add.data as { intercept: number | null };
+        expect(typeof data.intercept).toBe("number");
       }
     });
 
@@ -211,7 +295,7 @@ describe("phase47 chart series trendlines", () => {
       expect(names).toContain("chart.series.trendlines.add");
       expect(names).toContain("chart.series.trendlines.update");
       expect(names).toContain("chart.series.trendlines.delete");
-      expect(TOOL_DEFINITIONS).toHaveLength(87);
+      expect(TOOL_DEFINITIONS).toHaveLength(88);
       expect(listChatReadOnlyTools().map((d) => d.name)).toContain(
         "chart.series.trendlines.list",
       );

@@ -53,15 +53,16 @@ function optionalNonNegFinite(args: Record<string, unknown>, key: string): numbe
   return value;
 }
 
-function optionalFinite(args: Record<string, unknown>, key: string): number | undefined {
-  if (!Object.prototype.hasOwnProperty.call(args, key)) return undefined;
-  if (args[key] === undefined) throw new Error(`${key} must not be undefined`);
-  if (args[key] === null) throw new Error(`${key} must not be null`);
-  const value = args[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${key} must be a finite number`);
+/** number or "" (automatic intercept per Office.js). */
+function optionalIntercept(args: Record<string, unknown>): number | "" | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "intercept")) return undefined;
+  if (args.intercept === undefined) throw new Error("intercept must not be undefined");
+  if (args.intercept === null) throw new Error("intercept must not be null");
+  if (args.intercept === "") return "";
+  if (typeof args.intercept !== "number" || !Number.isFinite(args.intercept)) {
+    throw new Error("intercept must be a finite number or empty string for automatic");
   }
-  return value;
+  return args.intercept;
 }
 
 function optionalBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
@@ -108,7 +109,7 @@ function parseFields(args: Record<string, unknown>, type?: ChartTrendlineType) {
   const fields = {
     type,
     name: optionalName(args),
-    intercept: optionalFinite(args, "intercept"),
+    intercept: optionalIntercept(args),
     polynomialOrder: optionalPositiveInt(args, "polynomialOrder"),
     movingAveragePeriod: optionalPositiveInt(args, "movingAveragePeriod"),
     forwardPeriod: optionalNonNegFinite(args, "forwardPeriod"),

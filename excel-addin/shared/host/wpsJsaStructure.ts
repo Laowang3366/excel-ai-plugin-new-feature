@@ -40,6 +40,7 @@ import {
   wpsAddChartSeriesTrendline,
   wpsUpdateChartSeriesTrendline,
   wpsDeleteChartSeriesTrendline,
+  wpsUpdateChartSeriesMarkers,
   wpsUpdateChartSeriesValues,
   wpsUpdateChartSource,
 } from "./wpsJsaChartSeriesUnsupported";
@@ -81,6 +82,7 @@ export const wpsStructureSurface = {
   addChartSeriesTrendline: wpsAddChartSeriesTrendline,
   updateChartSeriesTrendline: wpsUpdateChartSeriesTrendline,
   deleteChartSeriesTrendline: wpsDeleteChartSeriesTrendline,
+  updateChartSeriesMarkers: wpsUpdateChartSeriesMarkers,
   getChartImage: wpsGetChartImage,
   getRangeImage: wpsGetRangeImage,
   insertRange: wpsInsertRange,

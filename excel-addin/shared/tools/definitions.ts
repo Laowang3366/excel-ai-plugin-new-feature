@@ -10,6 +10,7 @@ import { CHART_SERIES_DELETE_TOOL_DEFINITIONS } from "./chartSeriesDeleteDefinit
 import { CHART_SERIES_VALUES_TOOL_DEFINITIONS } from "./chartSeriesValuesDefinitions";
 import { CHART_SERIES_BUBBLE_SIZES_TOOL_DEFINITIONS } from "./chartSeriesBubbleSizesDefinitions";
 import { CHART_SERIES_TRENDLINE_TOOL_DEFINITIONS } from "./chartSeriesTrendlineDefinitions";
+import { CHART_SERIES_MARKERS_TOOL_DEFINITIONS } from "./chartSeriesMarkersDefinitions";
 import { CHART_IMAGE_TOOL_DEFINITIONS } from "./chartImageDefinitions";
 import { RANGE_IMAGE_TOOL_DEFINITIONS } from "./rangeImageDefinitions";
 import { RANGE_STRUCTURE_TOOL_DEFINITIONS } from "./rangeStructureDefinitions";
@@ -324,6 +325,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...CHART_SERIES_VALUES_TOOL_DEFINITIONS,
   ...CHART_SERIES_BUBBLE_SIZES_TOOL_DEFINITIONS,
   ...CHART_SERIES_TRENDLINE_TOOL_DEFINITIONS,
+  ...CHART_SERIES_MARKERS_TOOL_DEFINITIONS,
   ...CHART_IMAGE_TOOL_DEFINITIONS,
   ...RANGE_IMAGE_TOOL_DEFINITIONS,
   ...RANGE_STRUCTURE_TOOL_DEFINITIONS,

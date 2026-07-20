@@ -174,3 +174,15 @@ export async function wpsDeleteChartSeriesTrendline(
     CHART_SERIES_TRENDLINES_EVIDENCE,
   ) as HostResult<never>;
 }
+
+const CHART_SERIES_MARKERS_EVIDENCE =
+  "No in-repo WPS JSA ChartSeries.markerStyle/markerSize/marker color contract";
+
+export async function wpsUpdateChartSeriesMarkers(_input: unknown) {
+  return unsupported(
+    "chart.series.markers.update",
+    "wps-jsa",
+    "chart.series.markers.update is not verified for WPS JSA",
+    CHART_SERIES_MARKERS_EVIDENCE,
+  ) as HostResult<never>;
+}

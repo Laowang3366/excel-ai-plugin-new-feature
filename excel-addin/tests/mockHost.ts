@@ -80,6 +80,10 @@ import type {
   ChartTrendlineListResult,
   ChartTrendlineUpdateInput,
 } from "../shared/host/chartSeriesTrendlineTypes";
+import type {
+  ChartSeriesMarkersInfo,
+  ChartSeriesMarkersUpdateInput,
+} from "../shared/host/chartSeriesMarkersTypes";
 import type { ChartImageGetInput, ChartImageInfo } from "../shared/host/chartImageTypes";
 import type { RangeImageGetInput, RangeImageInfo } from "../shared/host/rangeImageTypes";
 import type { ChartSourceUpdateInput } from "../shared/host/chartSourceTypes";
@@ -145,6 +149,7 @@ export class MockHostAdapter implements HostAdapter {
   chartDataLabels = new Map<string, ChartDataLabelsInfo>();
   chartSeriesAxisGroups = new Map<string, ChartSeriesAxisGroupInfo>();
   chartTrendlines = new Map<string, ChartTrendlineInfo[]>();
+  chartSeriesMarkers = new Map<string, ChartSeriesMarkersInfo>();
   shapes: import("../shared/host/shapeTypes").ShapeInfo[] = [];
   usedRangeAddress: string | null = "Sheet1!A1:B2";
   selection: SelectionInfo = {
@@ -1254,7 +1259,7 @@ export class MockHostAdapter implements HostAdapter {
       trendlineIndex: list.length + 1,
       type: input.type,
       name: input.name ?? null,
-      intercept: input.intercept ?? "",
+      intercept: input.intercept === "" ? 0 : (input.intercept ?? null),
       polynomialOrder: input.polynomialOrder ?? (input.type === "polynomial" ? 2 : null),
       movingAveragePeriod:
         input.movingAveragePeriod ?? (input.type === "movingAverage" ? 2 : null),
@@ -1281,7 +1286,9 @@ export class MockHostAdapter implements HostAdapter {
     const item = list[input.trendlineIndex - 1]!;
     if (input.type !== undefined) item.type = input.type;
     if (input.name !== undefined) item.name = input.name;
-    if (input.intercept !== undefined) item.intercept = input.intercept;
+    if (input.intercept !== undefined) {
+      item.intercept = input.intercept === "" ? 0 : input.intercept;
+    }
     if (input.polynomialOrder !== undefined) item.polynomialOrder = input.polynomialOrder;
     if (input.movingAveragePeriod !== undefined) {
       item.movingAveragePeriod = input.movingAveragePeriod;
@@ -1321,6 +1328,41 @@ export class MockHostAdapter implements HostAdapter {
       deletedTrendlineIndex: trendlineIndex,
       remainingTrendlines,
     });
+  }
+
+
+  async updateChartSeriesMarkers(
+    input: ChartSeriesMarkersUpdateInput,
+  ): Promise<HostResult<ChartSeriesMarkersInfo>> {
+    const chart = this.charts.find(
+      (c) => c.sheetName === input.sheetName && c.name === input.chartName,
+    );
+    if (!chart) throw new Error(`chart not found: ${input.chartName}`);
+    const series = this.chartSeries.get(chartKey(input.sheetName, input.chartName));
+    if (!series || input.seriesIndex < 1 || input.seriesIndex > series.length) {
+      throw new Error(`seriesIndex out of range: ${input.seriesIndex}`);
+    }
+    const key = `${input.sheetName}\0${input.chartName}\0${input.seriesIndex}`;
+    const prev = this.chartSeriesMarkers.get(key) ?? {
+      sheetName: input.sheetName,
+      chartName: chart.name,
+      seriesIndex: input.seriesIndex,
+      markerStyle: "automatic",
+      markerSize: 7,
+      markerBackgroundColor: "#FFFFFF",
+      markerForegroundColor: "#000000",
+    };
+    const info: ChartSeriesMarkersInfo = {
+      ...prev,
+      chartName: chart.name,
+      seriesIndex: input.seriesIndex,
+      markerStyle: input.markerStyle ?? prev.markerStyle,
+      markerSize: input.markerSize ?? prev.markerSize,
+      markerBackgroundColor: input.markerBackgroundColor ?? prev.markerBackgroundColor,
+      markerForegroundColor: input.markerForegroundColor ?? prev.markerForegroundColor,
+    };
+    this.chartSeriesMarkers.set(key, info);
+    return ok({ ...info });
   }
 
   async updateChartSeriesBubbleSizes(

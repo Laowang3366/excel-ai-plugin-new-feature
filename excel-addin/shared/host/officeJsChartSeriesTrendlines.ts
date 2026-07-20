@@ -45,6 +45,7 @@ type TrendlineCollection = {
   items: TrendlineSurface[];
   add(type?: string): TrendlineSurface;
   getItem(index: number): TrendlineSurface;
+  getCount(): { value: number };
   load(props: string): void;
 };
 
@@ -77,17 +78,6 @@ function requireLoadedString(value: unknown, field: string): string {
 function readString(value: unknown, field: string): string | null {
   if (value === null) return null;
   if (value === undefined) throw new Error(`${field} is not loaded`);
-  if (typeof value === "string") return value;
-  throw new Error(`${field} has invalid loaded type`);
-}
-
-function readScalar(value: unknown, field: string): number | string | null {
-  if (value === null) return null;
-  if (value === undefined) throw new Error(`${field} is not loaded`);
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error(`${field} is not a finite number`);
-    return value;
-  }
   if (typeof value === "string") return value;
   throw new Error(`${field} has invalid loaded type`);
 }
@@ -145,7 +135,8 @@ function toInfo(
     trendlineIndex,
     type: mapType(item.type),
     name: readString(item.name, "ChartTrendline.name"),
-    intercept: readScalar(item.intercept, "ChartTrendline.intercept"),
+    // Office.js: returned intercept is always a number after load.
+    intercept: readNumber(item.intercept, "ChartTrendline.intercept"),
     polynomialOrder: readNumber(item.polynomialOrder, "ChartTrendline.polynomialOrder"),
     movingAveragePeriod: readNumber(
       item.movingAveragePeriod,
@@ -185,7 +176,7 @@ function applyFields(
   fields: {
     type?: ChartTrendlineType;
     name?: string;
-    intercept?: number;
+    intercept?: number | "";
     polynomialOrder?: number;
     movingAveragePeriod?: number;
     forwardPeriod?: number;
@@ -299,21 +290,22 @@ export async function officeJsAddChartSeriesTrendline(
       input.chartName,
       input.seriesIndex,
     );
+    // Official: ChartTrendlineCollection.add returns the new ChartTrendline proxy.
     const tl = series.trendlines.add(TYPE_TO_HOST[input.type]);
     applyFields(tl, input, include18);
     await context.sync();
     chart.load("name");
-    const props = fullLoadProps(include18)
-      .split(",")
-      .map((p) => `items/${p}`)
-      .join(",");
-    series.trendlines.load(props);
+    // Load the returned object (not only collection last-item assumption).
+    tl.load(fullLoadProps(include18));
+    const countResult = series.trendlines.getCount();
     await context.sync();
     const chartNameLoaded = requireLoadedString(chart.name, "Chart.name");
-    const count = series.trendlines.items.length;
-    if (count < 1) throw new Error("trendline add produced empty collection");
-    const last = series.trendlines.items[count - 1]!;
-    return toInfo(last, input.sheetName, chartNameLoaded, input.seriesIndex, count, include18);
+    const count = countResult.value;
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 1) {
+      throw new Error("ChartTrendlineCollection.getCount did not return a positive integer");
+    }
+    // Public trendlineIndex is 1-based; host getItem is 0-based insertion order.
+    return toInfo(tl, input.sheetName, chartNameLoaded, input.seriesIndex, count, include18);
   });
 }
 

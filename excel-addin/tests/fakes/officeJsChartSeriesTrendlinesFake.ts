@@ -167,6 +167,13 @@ export function installChartSeriesTrendlinesExcel(options?: {
     load() {
       for (const p of proxies) p.load();
     },
+    getCount() {
+      return {
+        get value() {
+          return items.length;
+        },
+      };
+    },
   };
 
   const context = {
@@ -200,7 +207,9 @@ export function installChartSeriesTrendlinesExcel(options?: {
       // Apply property writes first.
       for (const entry of items) {
         if (entry.pending && entry.pending.type !== "__deleted__") {
-          entry.committed = { ...entry.committed, ...entry.pending };
+          const merged = { ...entry.committed, ...entry.pending };
+          if (merged.intercept === "") merged.intercept = 0;
+          entry.committed = merged;
           entry.pending = undefined;
         }
       }

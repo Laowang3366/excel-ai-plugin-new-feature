@@ -250,6 +250,12 @@ export type {
   ChartSeriesBubbleSizesInfo,
   ChartSeriesBubbleSizesUpdateInput,
 } from "./chartSeriesBubbleSizesTypes";
+export type {
+  ChartMarkerStyle,
+  ChartSeriesMarkersInfo,
+  ChartSeriesMarkersUpdateInput,
+} from "./chartSeriesMarkersTypes";
+export { CHART_MARKER_STYLES, isChartMarkerStyle } from "./chartSeriesMarkersTypes";
 export type { ChartImageGetInput, ChartImageInfo } from "./chartImageTypes";
 export type { RangeImageGetInput, RangeImageInfo } from "./rangeImageTypes";
 export type {
