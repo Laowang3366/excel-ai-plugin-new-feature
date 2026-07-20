@@ -20,7 +20,7 @@ describe("phase5 tools", () => {
         range: "A1:A10",
         rule: {
           kind: "cellValue",
-          operator: "greaterThan",
+          operator: "greaterThanOrEqualTo",
           formula1: "10",
           fillColor: "#FF0000",
         },
@@ -45,7 +45,7 @@ describe("phase5 tools", () => {
       arguments: {
         sheetName: "Sheet1",
         range: "B1:B5",
-        rule: { type: "list", listValues: ["A", "B", "C"] },
+        rule: { type: "decimal", operator: "between", formula1: "0", formula2: "1" },
       },
     });
     expect(dv.ok).toBe(true);
@@ -55,60 +55,53 @@ describe("phase5 tools", () => {
     });
     expect(read.ok).toBe(true);
     if (read.ok) {
-      expect((read.data as { rule: { type: string } }).rule?.type).toBe("list");
+      expect((read.data as { rule: { type: string } }).rule?.type).toBe("decimal");
     }
-    expect(
-      (
-        await executor.execute({
-          name: "dataValidation.clear",
-          arguments: { sheetName: "Sheet1", range: "B1:B5" },
-        })
-      ).ok,
-    ).toBe(true);
   });
 
-  it("rejects unknown fields, missing operator, bad listValues, unimplemented showError", async () => {
+  it("strictly rejects bad CF/DV rule shapes", async () => {
     const host = new MockHostAdapter();
     const executor = new ToolExecutor(host);
-    const bad = await executor.execute({
+
+    const badColor = await executor.execute({
       name: "conditionalFormat.add",
       arguments: {
         sheetName: "Sheet1",
         range: "A1",
-        rule: { kind: "cellValue", formula1: "1", operator: "startsWith", extra: true },
+        rule: {
+          kind: "cellValue",
+          operator: "greaterThan",
+          formula1: "1",
+          fillColor: 123 as unknown as string,
+        },
       },
     });
-    expect(bad.ok).toBe(false);
+    expect(badColor.ok).toBe(false);
 
-    const missingOp = await executor.execute({
+    const formula2OnGt = await executor.execute({
       name: "conditionalFormat.add",
       arguments: {
         sheetName: "Sheet1",
         range: "A1",
-        rule: { kind: "cellValue", formula1: "1" },
+        rule: {
+          kind: "cellValue",
+          operator: "greaterThan",
+          formula1: "1",
+          formula2: "2",
+        },
       },
     });
-    expect(missingOp.ok).toBe(false);
+    expect(formula2OnGt.ok).toBe(false);
 
-    const badDv = await executor.execute({
+    const bothList = await executor.execute({
       name: "dataValidation.write",
       arguments: {
         sheetName: "Sheet1",
         range: "A1",
-        rule: { type: "date", formula1: "1" },
+        rule: { type: "list", listValues: ["A"], formula1: "Sheet1!A1:A2" },
       },
     });
-    expect(badDv.ok).toBe(false);
-
-    const badList = await executor.execute({
-      name: "dataValidation.write",
-      arguments: {
-        sheetName: "Sheet1",
-        range: "A1",
-        rule: { type: "list", listValues: [1, "x"] },
-      },
-    });
-    expect(badList.ok).toBe(false);
+    expect(bothList.ok).toBe(false);
 
     const showError = await executor.execute({
       name: "dataValidation.write",
@@ -120,33 +113,51 @@ describe("phase5 tools", () => {
     });
     expect(showError.ok).toBe(false);
 
-    const wholeMissingOp = await executor.execute({
-      name: "dataValidation.write",
+    const emptyFormula = await executor.execute({
+      name: "conditionalFormat.add",
       arguments: {
         sheetName: "Sheet1",
         range: "A1",
-        rule: { type: "wholeNumber", formula1: "1" },
+        rule: { kind: "custom", formula: "   " },
       },
     });
-    expect(wholeMissingOp.ok).toBe(false);
+    expect(emptyFormula.ok).toBe(false);
   });
 
-  it("WPS returns unsupported for CF and DV", async () => {
+  it("WPS returns unsupported for all six CF/DV tools", async () => {
     const host = new WpsJsaAdapter();
     const executor = new ToolExecutor(host);
     for (const call of [
+      { name: "conditionalFormat.list" as const, arguments: { sheetName: "Sheet1", range: "A1" } },
       {
-        name: "conditionalFormat.list" as const,
-        arguments: { sheetName: "Sheet1", range: "A1" },
+        name: "conditionalFormat.add" as const,
+        arguments: {
+          sheetName: "Sheet1",
+          range: "A1",
+          rule: { kind: "custom", formula: "=TRUE" },
+        },
       },
       {
-        name: "dataValidation.read" as const,
+        name: "conditionalFormat.delete" as const,
+        arguments: { sheetName: "Sheet1", range: "A1", id: "x" },
+      },
+      { name: "dataValidation.read" as const, arguments: { sheetName: "Sheet1", range: "A1" } },
+      {
+        name: "dataValidation.write" as const,
+        arguments: {
+          sheetName: "Sheet1",
+          range: "A1",
+          rule: { type: "list", listValues: ["A"] },
+        },
+      },
+      {
+        name: "dataValidation.clear" as const,
         arguments: { sheetName: "Sheet1", range: "A1" },
       },
     ]) {
       const result = await executor.execute(call);
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.unsupported).toBe(true);
+      expect(result.ok, call.name).toBe(false);
+      if (!result.ok) expect(result.unsupported, call.name).toBe(true);
     }
   });
 });

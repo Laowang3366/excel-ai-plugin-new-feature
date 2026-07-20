@@ -1,7 +1,71 @@
-import type { ConditionalFormatRule, DataValidationRule } from "../host/types";
+import type {
+  CellValueOperator,
+  ConditionalFormatRule,
+  DataValidationOperator,
+  DataValidationRule,
+  DataValidationType,
+} from "../host/types";
+import {
+  isBetweenOp,
+  optionalHexColor,
+} from "../host/officeJsValidationMapping";
 
-const CF_OPS = ["greaterThan", "lessThan", "equalTo", "between", "notBetween"] as const;
-const DV_OPS = ["between", "notBetween", "equalTo", "greaterThan", "lessThan"] as const;
+const CF_OPS: readonly CellValueOperator[] = [
+  "greaterThan",
+  "greaterThanOrEqualTo",
+  "lessThan",
+  "lessThanOrEqualTo",
+  "equalTo",
+  "notEqualTo",
+  "between",
+  "notBetween",
+];
+
+const DV_OPS: readonly DataValidationOperator[] = [
+  "between",
+  "notBetween",
+  "equalTo",
+  "notEqualTo",
+  "greaterThan",
+  "greaterThanOrEqualTo",
+  "lessThan",
+  "lessThanOrEqualTo",
+];
+
+const DV_TYPES: readonly DataValidationType[] = [
+  "list",
+  "wholeNumber",
+  "decimal",
+  "date",
+  "time",
+  "textLength",
+  "custom",
+];
+
+const CF_ALLOWED = new Set([
+  "kind",
+  "operator",
+  "formula1",
+  "formula2",
+  "formula",
+  "fillColor",
+  "fontColor",
+]);
+
+const DV_ALLOWED = new Set([
+  "type",
+  "operator",
+  "formula1",
+  "formula2",
+  "listValues",
+  "allowBlank",
+]);
+
+function requireNonEmptyString(value: unknown, field: string): string {
+  if (typeof value !== "string") throw new Error(`${field} must be a string`);
+  if (value.trim() === "") throw new Error(`${field} must be non-empty`);
+  return value;
+}
 
 export function requireCfRule(args: Record<string, unknown>): ConditionalFormatRule {
   const rule = args.rule;
@@ -12,35 +76,42 @@ export function requireCfRule(args: Record<string, unknown>): ConditionalFormatR
   if (r.kind !== "cellValue" && r.kind !== "custom") {
     throw new Error('rule.kind must be "cellValue" or "custom"');
   }
-  const allowed = new Set([
-    "kind",
-    "operator",
-    "formula1",
-    "formula2",
-    "formula",
-    "fillColor",
-    "fontColor",
-  ]);
   for (const key of Object.keys(r)) {
-    if (!allowed.has(key)) throw new Error(`unknown rule field: ${key}`);
+    if (!CF_ALLOWED.has(key)) throw new Error(`unknown rule field: ${key}`);
   }
+  const fillColor = optionalHexColor(r.fillColor, "fillColor");
+  const fontColor = optionalHexColor(r.fontColor, "fontColor");
+
   if (r.kind === "cellValue") {
-    if (typeof r.operator !== "string" || !CF_OPS.includes(r.operator as (typeof CF_OPS)[number])) {
-      throw new Error("cellValue requires operator greaterThan|lessThan|equalTo|between|notBetween");
+    if (r.formula != null) throw new Error("cellValue must not include formula");
+    if (typeof r.operator !== "string" || !CF_OPS.includes(r.operator as CellValueOperator)) {
+      throw new Error(
+        "cellValue requires operator greaterThan|greaterThanOrEqualTo|lessThan|lessThanOrEqualTo|equalTo|notEqualTo|between|notBetween",
+      );
     }
-    if (typeof r.formula1 !== "string" || r.formula1.trim() === "") {
-      throw new Error("cellValue requires formula1");
+    const formula1 = requireNonEmptyString(r.formula1, "formula1");
+    let formula2: string | undefined;
+    if (isBetweenOp(r.operator)) {
+      formula2 = requireNonEmptyString(r.formula2, "formula2");
+    } else if (r.formula2 != null && r.formula2 !== "") {
+      throw new Error(`${r.operator} must not include formula2`);
     }
-    if (
-      (r.operator === "between" || r.operator === "notBetween") &&
-      (typeof r.formula2 !== "string" || r.formula2.trim() === "")
-    ) {
-      throw new Error("between/notBetween requires formula2");
-    }
-  } else if (typeof r.formula !== "string" || r.formula.trim() === "") {
-    throw new Error("custom requires formula");
+    return {
+      kind: "cellValue",
+      operator: r.operator as CellValueOperator,
+      formula1,
+      formula2,
+      fillColor,
+      fontColor,
+    };
   }
-  return r as unknown as ConditionalFormatRule;
+
+  // custom
+  if (r.operator != null) throw new Error("custom must not include operator");
+  if (r.formula1 != null) throw new Error("custom must not include formula1");
+  if (r.formula2 != null) throw new Error("custom must not include formula2");
+  const formula = requireNonEmptyString(r.formula, "formula");
+  return { kind: "custom", formula, fillColor, fontColor };
 }
 
 export function requireDvRule(args: Record<string, unknown>): DataValidationRule {
@@ -49,47 +120,88 @@ export function requireDvRule(args: Record<string, unknown>): DataValidationRule
     throw new Error("rule must be an object");
   }
   const r = rule as Record<string, unknown>;
-  if (r.type !== "list" && r.type !== "wholeNumber") {
-    throw new Error('rule.type must be "list" or "wholeNumber"');
+  if (typeof r.type !== "string" || !DV_TYPES.includes(r.type as DataValidationType)) {
+    throw new Error(
+      'rule.type must be list|wholeNumber|decimal|date|time|textLength|custom',
+    );
   }
-  // Implemented fields only — showError/errorMessage are not wired to Office.js errorAlert
-  const allowed = new Set([
-    "type",
-    "operator",
-    "formula1",
-    "formula2",
-    "listValues",
-    "allowBlank",
-  ]);
   for (const key of Object.keys(r)) {
-    if (!allowed.has(key)) throw new Error(`unknown rule field: ${key}`);
+    if (!DV_ALLOWED.has(key)) throw new Error(`unknown rule field: ${key}`);
   }
+  // errorAlert/prompt intentionally not in allowed set → rejected as unknown
+
   if (r.type === "list") {
-    if (Array.isArray(r.listValues)) {
-      if (r.listValues.length === 0) throw new Error("listValues must be non-empty");
-      for (const item of r.listValues) {
+    const hasList = Array.isArray(r.listValues);
+    const hasFormula = r.formula1 != null && r.formula1 !== "";
+    if (hasList && hasFormula) {
+      throw new Error("list must not combine listValues and formula1 (mutually exclusive)");
+    }
+    if (hasList) {
+      const listValues = r.listValues as unknown[];
+      if (listValues.length === 0) throw new Error("listValues must be non-empty");
+      const out: string[] = [];
+      for (const item of listValues) {
         if (typeof item !== "string" || item.trim() === "") {
           throw new Error("listValues items must be non-empty strings");
         }
+        if (item.includes(",")) {
+          throw new Error("listValues items must not contain commas; use a range source");
+        }
+        out.push(item);
       }
-    } else if (typeof r.formula1 !== "string" || r.formula1.trim() === "") {
-      throw new Error("list requires listValues or formula1");
+      if (r.operator != null) throw new Error("list must not include operator");
+      if (r.formula2 != null) throw new Error("list must not include formula2");
+      return {
+        type: "list",
+        listValues: out,
+        allowBlank: typeof r.allowBlank === "boolean" ? r.allowBlank : undefined,
+      };
     }
-  } else {
-    if (typeof r.operator !== "string" || !DV_OPS.includes(r.operator as (typeof DV_OPS)[number])) {
-      throw new Error(
-        "wholeNumber requires operator between|notBetween|equalTo|greaterThan|lessThan",
-      );
+    if (hasFormula) {
+      if (typeof r.formula1 !== "string") throw new Error("formula1 must be a string");
+      requireNonEmptyString(r.formula1, "formula1");
+      if (r.operator != null) throw new Error("list must not include operator");
+      if (r.formula2 != null) throw new Error("list must not include formula2");
+      return {
+        type: "list",
+        formula1: r.formula1,
+        allowBlank: typeof r.allowBlank === "boolean" ? r.allowBlank : undefined,
+      };
     }
-    if (typeof r.formula1 !== "string" || r.formula1.trim() === "") {
-      throw new Error("wholeNumber requires formula1");
-    }
-    if (
-      (r.operator === "between" || r.operator === "notBetween") &&
-      (typeof r.formula2 !== "string" || r.formula2.trim() === "")
-    ) {
-      throw new Error("between/notBetween requires formula2");
-    }
+    throw new Error("list requires listValues or formula1 range source");
   }
-  return r as unknown as DataValidationRule;
+
+  if (r.type === "custom") {
+    if (r.operator != null) throw new Error("custom must not include operator");
+    if (r.formula2 != null) throw new Error("custom must not include formula2");
+    if (r.listValues != null) throw new Error("custom must not include listValues");
+    const formula1 = requireNonEmptyString(r.formula1, "formula1");
+    return {
+      type: "custom",
+      formula1,
+      allowBlank: typeof r.allowBlank === "boolean" ? r.allowBlank : undefined,
+    };
+  }
+
+  // compare types
+  if (typeof r.operator !== "string" || !DV_OPS.includes(r.operator as DataValidationOperator)) {
+    throw new Error(
+      `${r.type} requires operator between|notBetween|equalTo|notEqualTo|greaterThan|greaterThanOrEqualTo|lessThan|lessThanOrEqualTo`,
+    );
+  }
+  if (r.listValues != null) throw new Error(`${r.type} must not include listValues`);
+  const formula1 = requireNonEmptyString(r.formula1, "formula1");
+  let formula2: string | undefined;
+  if (isBetweenOp(r.operator)) {
+    formula2 = requireNonEmptyString(r.formula2, "formula2");
+  } else if (r.formula2 != null && r.formula2 !== "") {
+    throw new Error(`${r.operator} must not include formula2`);
+  }
+  return {
+    type: r.type as DataValidationType,
+    operator: r.operator as DataValidationOperator,
+    formula1,
+    formula2,
+    allowBlank: typeof r.allowBlank === "boolean" ? r.allowBlank : undefined,
+  };
 }

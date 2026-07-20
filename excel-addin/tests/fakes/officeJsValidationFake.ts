@@ -1,173 +1,198 @@
 /**
- * Minimal Excel.run fake exercising Range.conditionalFormats + Range.dataValidation
- * with the official property shapes (rule nested; custom.rule.formula string).
+ * Sync-gated CF/DV fake (ExcelApi 1.6 / 1.8 shapes).
+ * - Mutations queue until context.sync(); loads see committed state only.
+ * - cellValue.rule: whole-object assign; custom.rule: ClientObject formula property.
+ * - list.source accepts string or Range-like { address }.
+ * - Office.context.requirements.isSetSupported injectable.
  */
-export function installValidationExcel() {
-  type CfState = {
-    id: string;
-    type: string;
-    cellValue?: {
-      rule: { formula1: string; formula2?: string; operator: string };
-      format: { fill: { color: string }; font: { color: string } };
-    };
-    custom?: {
-      rule: { formula: string };
-      format: { fill: { color: string }; font: { color: string } };
-    };
-  };
+import { makeConditionalFormatsApi } from "./officeJsValidationFakeCf";
+import { makeDvProxy } from "./officeJsValidationFakeDv";
+import {
+  keyOf,
+  seedContainsText,
+  seedInconsistentDv,
+  seedManyCf,
+  type CfState,
+  type CtxPending,
+  type DvState,
+} from "./officeJsValidationFakeState";
 
-  type DvState = {
-    type: string | null;
-    ignoreBlanks: boolean;
-    rule: {
-      list?: { inCellDropDown?: boolean; source?: string };
-      wholeNumber?: {
-        formula1?: string | number;
-        formula2?: string | number;
-        operator?: string;
+export function installValidationExcel(options?: {
+  excelApi16?: boolean;
+  excelApi18?: boolean;
+  missingIsSetSupported?: boolean;
+  isSetSupportedThrows?: boolean;
+  failAddSync?: boolean;
+  failDeleteReadback?: boolean;
+  failWriteSync?: boolean;
+  failClearReadback?: boolean;
+  seedContainsText?: boolean;
+  seedInconsistentDv?: boolean;
+  /** Seed many CF rules for O(1) list sync tests. */
+  seedManyCf?: number;
+}) {
+  const excelApi16 = options?.excelApi16 !== false;
+  const excelApi18 = options?.excelApi18 !== false;
+
+  const cfs = new Map<string, CfState[]>();
+  const dvs = new Map<string, DvState>();
+  let seq = 0;
+  let syncCount = 0;
+
+  if (options?.seedContainsText) seedContainsText(cfs);
+  if (options?.seedManyCf && options.seedManyCf > 0) seedManyCf(cfs, options.seedManyCf);
+  if (options?.seedInconsistentDv) seedInconsistentDv(dvs);
+
+  function makeContext() {
+    const pending: CtxPending = {
+      cfAdds: [],
+      cfDeletes: [],
+      cfPatches: [],
+      dvWrites: new Map(),
+      loads: [],
+    };
+
+    function makeRange(sheetName: string, address: string) {
+      const key = keyOf(sheetName, address);
+      let addressValue = `${sheetName}!${address}`;
+      let itemProxies: ReturnType<
+        ReturnType<typeof makeConditionalFormatsApi>["getItem"]
+      >[] = [];
+
+      const dvProxy = makeDvProxy(key, dvs, pending);
+      const conditionalFormats = makeConditionalFormatsApi({
+        key,
+        cfs,
+        pending,
+        nextSeq: () => {
+          seq += 1;
+          return seq;
+        },
+        getItemProxies: () => itemProxies,
+        setItemProxies: (items) => {
+          itemProxies = items;
+        },
+      });
+
+      return {
+        get address() {
+          return addressValue;
+        },
+        load(props: string) {
+          if (props.includes("address")) {
+            pending.loads.push(() => {
+              addressValue = `${sheetName}!${address}`;
+            });
+          }
+        },
+        conditionalFormats,
+        dataValidation: dvProxy,
+        getRange(inner: string) {
+          return { address: `${sheetName}!${inner}` };
+        },
+      };
+    }
+
+    return {
+      workbook: {
+        worksheets: {
+          getItem(name: string) {
+            return {
+              getRange(address: string) {
+                return makeRange(name, address);
+              },
+            };
+          },
+        },
+      },
+      async sync() {
+        syncCount += 1;
+        if (options?.failAddSync && pending.cfAdds.length > 0) {
+          throw new Error("sync failed on add");
+        }
+        if (options?.failWriteSync && pending.dvWrites.size > 0) {
+          const onlyClear = [...pending.dvWrites.values()].every((v) => v === "clear");
+          if (!onlyClear) throw new Error("sync failed on write");
+        }
+        for (const load of pending.loads) load();
+        pending.loads.length = 0;
+
+        for (const add of pending.cfAdds) {
+          const list = cfs.get(add.key) ?? [];
+          list.push({ ...add.state });
+          cfs.set(add.key, list);
+        }
+        for (const patch of pending.cfPatches) {
+          const list = cfs.get(patch.key) ?? [];
+          const hit = list.find((s) => s.id === patch.id);
+          if (hit) Object.assign(hit, patch.patch);
+        }
+        for (const del of pending.cfDeletes) {
+          if (options?.failDeleteReadback) continue;
+          cfs.set(
+            del.key,
+            (cfs.get(del.key) ?? []).filter((s) => s.id !== del.id),
+          );
+        }
+        for (const [k, v] of pending.dvWrites) {
+          if (v === "clear") {
+            if (!options?.failClearReadback) dvs.delete(k);
+          } else {
+            dvs.set(k, v);
+          }
+        }
+        pending.cfAdds.length = 0;
+        pending.cfDeletes.length = 0;
+        pending.cfPatches.length = 0;
+        pending.dvWrites.clear();
+      },
+    };
+  }
+
+  const g = globalThis as unknown as {
+    window: unknown;
+    Excel: { run: Function };
+    Office?: {
+      context?: {
+        requirements?: { isSetSupported?: (name: string, minVersion?: string) => boolean };
       };
     };
   };
-
-  const cfsByRange = new Map<string, CfState[]>();
-  const dvByRange = new Map<string, DvState>();
-  let cfSeq = 0;
-
-  function rangeKey(sheet: string, address: string) {
-    return `${sheet}!${address.toUpperCase()}`;
-  }
-
-  function makeCf(state: CfState) {
-    return {
-      get id() {
-        return state.id;
+  g.window = globalThis;
+  if (options?.missingIsSetSupported) {
+    g.Office = { context: { requirements: {} } };
+  } else if (options?.isSetSupportedThrows) {
+    g.Office = {
+      context: {
+        requirements: {
+          isSetSupported: () => {
+            throw new Error("isSetSupported boom");
+          },
+        },
       },
-      get type() {
-        return state.type;
-      },
-      get cellValue() {
-        return state.cellValue;
-      },
-      get custom() {
-        return state.custom;
-      },
-      load() {},
-      delete() {
-        for (const [key, list] of cfsByRange) {
-          cfsByRange.set(
-            key,
-            list.filter((item) => item.id !== state.id),
-          );
-        }
+    };
+  } else {
+    g.Office = {
+      context: {
+        requirements: {
+          isSetSupported: (_name: string, minVersion?: string) => {
+            if (minVersion === "1.6") return excelApi16;
+            if (minVersion === "1.8") return excelApi18;
+            return false;
+          },
+        },
       },
     };
   }
-
-  function makeDv(key: string) {
-    if (!dvByRange.has(key)) {
-      dvByRange.set(key, { type: null, ignoreBlanks: true, rule: {} });
-    }
-    const state = () => dvByRange.get(key)!;
-    return {
-      get type() {
-        return state().type;
-      },
-      get ignoreBlanks() {
-        return state().ignoreBlanks;
-      },
-      set ignoreBlanks(v: boolean) {
-        state().ignoreBlanks = v;
-      },
-      get rule() {
-        return state().rule;
-      },
-      set rule(next: DvState["rule"]) {
-        state().rule = next;
-        if (next.list) state().type = "List";
-        else if (next.wholeNumber) state().type = "WholeNumber";
-        else state().type = null;
-      },
-      load() {},
-      clear() {
-        dvByRange.set(key, { type: null, ignoreBlanks: true, rule: {} });
-      },
-    };
-  }
-
-  function makeRange(sheetName: string, address: string) {
-    const key = rangeKey(sheetName, address);
-    if (!cfsByRange.has(key)) cfsByRange.set(key, []);
-    return {
-      address: `${sheetName}!${address}`,
-      load() {},
-      conditionalFormats: {
-        get items() {
-          return (cfsByRange.get(key) ?? []).map(makeCf);
-        },
-        load() {},
-        add(type: string) {
-          const id = `cf-${++cfSeq}`;
-          const isCustom = String(type).toLowerCase().includes("custom");
-          const state: CfState = {
-            id,
-            type: isCustom ? "Custom" : "CellValue",
-            cellValue: isCustom
-              ? undefined
-              : {
-                  rule: { formula1: "", operator: "GreaterThan" },
-                  format: { fill: { color: "" }, font: { color: "" } },
-                },
-            custom: isCustom
-              ? {
-                  rule: { formula: "" },
-                  format: { fill: { color: "" }, font: { color: "" } },
-                }
-              : undefined,
-          };
-          cfsByRange.get(key)!.push(state);
-          return makeCf(state);
-        },
-        getItem(id: string) {
-          const found = (cfsByRange.get(key) ?? []).find((item) => item.id === id);
-          if (!found) throw new Error(`missing cf ${id}`);
-          return makeCf(found);
-        },
-      },
-      dataValidation: makeDv(key),
-    };
-  }
-
-  const context = {
-    workbook: {
-      worksheets: {
-        getItem(name: string) {
-          return {
-            getRange(address: string) {
-              return makeRange(name, address);
-            },
-          };
-        },
-      },
-    },
-    async sync() {},
-  };
-
-  (globalThis as unknown as { window: unknown }).window = globalThis;
-  (globalThis as unknown as { Excel: { run: Function } }).Excel = {
-    run: async <T>(fn: (ctx: typeof context) => Promise<T>) => fn(context),
+  g.Excel = {
+    run: async <T>(fn: (ctx: ReturnType<typeof makeContext>) => Promise<T>) =>
+      fn(makeContext()),
   };
 
   return {
-    getCfCount(sheet: string, address: string) {
-      return cfsByRange.get(rangeKey(sheet, address))?.length ?? 0;
-    },
-    getCustomFormula(sheet: string, address: string, id?: string): string | undefined {
-      const list = cfsByRange.get(rangeKey(sheet, address)) ?? [];
-      const item = id ? list.find((cf) => cf.id === id) : list.find((cf) => cf.custom);
-      return item?.custom?.rule.formula;
-    },
-    getDv(sheet: string, address: string) {
-      return dvByRange.get(rangeKey(sheet, address));
+    getSyncCount: () => syncCount,
+    resetSyncCount: () => {
+      syncCount = 0;
     },
   };
 }

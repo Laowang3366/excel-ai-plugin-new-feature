@@ -69,6 +69,27 @@ export interface ExcelDataValidationRule {
     formula2?: string | number;
     operator?: string;
   };
+  decimal?: {
+    formula1?: string | number;
+    formula2?: string | number;
+    operator?: string;
+  };
+  date?: {
+    formula1?: string | number;
+    formula2?: string | number;
+    operator?: string;
+  };
+  time?: {
+    formula1?: string | number;
+    formula2?: string | number;
+    operator?: string;
+  };
+  textLength?: {
+    formula1?: string | number;
+    formula2?: string | number;
+    operator?: string;
+  };
+  custom?: { formula?: string };
 }
 
 export interface ExcelDataValidation {

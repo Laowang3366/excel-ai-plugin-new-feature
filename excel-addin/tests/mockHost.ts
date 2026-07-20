@@ -1518,6 +1518,8 @@ export class MockHostAdapter implements HostAdapter {
       sheetName: input.sheetName,
       range: input.range,
       kind: input.rule.kind,
+      hostType: input.rule.kind === "custom" ? "Custom" : "CellValue",
+      supported: true,
       summary: `${input.rule.kind}:${id}`,
     };
     const k = key(input.sheetName, input.range);
@@ -1535,10 +1537,22 @@ export class MockHostAdapter implements HostAdapter {
   }
 
   async readDataValidation(sheetName: string, range: string) {
+    const rule = this.dvRules.get(key(sheetName, range)) ?? null;
+    const listSourceKind: import("../shared/host/types").DataValidationListSourceKind | null =
+      rule?.type === "list"
+        ? rule.listValues
+          ? "inline"
+          : rule.formula1
+            ? "range"
+            : null
+        : null;
     return ok({
       sheetName,
       range,
-      rule: this.dvRules.get(key(sheetName, range)) ?? null,
+      rule,
+      hostType: rule?.type ?? "None",
+      supported: rule != null,
+      listSourceKind,
     });
   }
 
@@ -1548,10 +1562,21 @@ export class MockHostAdapter implements HostAdapter {
     rule: import("../shared/host/types").DataValidationRule;
   }) {
     this.dvRules.set(key(input.sheetName, input.range), input.rule);
+    const listSourceKind: import("../shared/host/types").DataValidationListSourceKind | null =
+      input.rule.type === "list"
+        ? input.rule.listValues
+          ? "inline"
+          : input.rule.formula1
+            ? "range"
+            : null
+        : null;
     return ok({
       sheetName: input.sheetName,
       range: input.range,
       rule: input.rule,
+      hostType: input.rule.type,
+      supported: true,
+      listSourceKind,
     });
   }
 

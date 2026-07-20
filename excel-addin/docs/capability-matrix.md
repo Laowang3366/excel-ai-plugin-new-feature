@@ -59,8 +59,8 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 | pivot | create/refresh/slicer | unsupported | unsupported | pivot tools | not claimed available |
 | chart advanced | formula/categoryFormula/trendlines/export/complex layout | unsupported | unsupported | formatChart | Phase27 chart types include doughnut/bubble/radar/linemarkers; stacked/3D/stock/funnel not claimed; Phase26 dataLabels has enabled+four show/format fields; showPercentage/showBubbleSize/delete/position/format/leaderLines not claimed |
 | file-level xlsx | Open XML | unsupported | unsupported | C# Open XML | out of scope |
-| conditional format | list/add/delete (cellValue/custom) | implemented | **unsupported** | format actions | Office.js Range.conditionalFormats |
-| data validation | read/write/clear (list/wholeNumber) | implemented | **unsupported** | validation | Office.js Range.dataValidation |
+| conditional format | list/add/delete (cellValue/custom; list honest hostType) | implemented | **unsupported** | format actions | Office.js **ExcelApi 1.6** `Range.conditionalFormats`; list keeps real hostType (ContainsText/DataBar/…); add only cellValue/custom; **not** real sideload verified |
+| data validation | read/write/clear (list/wholeNumber/decimal/date/time/textLength/custom) | implemented | **unsupported** | validation | Office.js **ExcelApi 1.8** `Range.dataValidation`; list source = inline string or Range proxy; Inconsistent/MixedCriteria → rule=null + limitations; errorAlert/prompt **not** implemented; **not** real sideload verified |
 | COM / .NET / Electron | any | unsupported | unsupported | desktop runtime | **forbidden** |
 | UI | task-pane controls beyond demo | unsupported | unsupported | N/A | task pane is host chrome only |
 | UI | UserForm / ActiveX / VBA forms | unsupported | unsupported | partial desktop | **out of scope** |
@@ -78,7 +78,7 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 - Phase1: `host.status`, `selection.get`, `range.read/write/clear`, `formula.read/write`, `sheet.list/add/rename/delete`
 - Phase3: `range.format.read/write`, `table.list/create/delete`, `chart.list/create/delete`, `workbook.inspect` (Office.js full; **WPS format = implemented* member-probe**; table/chart still unsupported)
 - Phase4: `range.read` expand, `formula.context`, `sheet.operation` (add/rename/delete/copy/move). WPS: currentRegion + copy/move = implemented* (member-probe); spill/currentArray still unsupported
-- Phase5: `conditionalFormat.list/add/delete`, `dataValidation.read/write/clear` (Office.js via `rule`; WPS unsupported)
+- Phase5: `conditionalFormat.list/add/delete` (ExcelApi 1.6; list honest hostType; add cellValue/custom only), `dataValidation.read/write/clear` (ExcelApi 1.8; list/wholeNumber/decimal/date/time/textLength/custom; Inconsistent/MixedCriteria honest; errorAlert/prompt out); WPS all six **unsupported**; **not** real Excel sideload verified
 - Phase6: `sheet.visibility.get/set`, `sheet.protection.get/protect/unprotect`, `namedRange.list/create/update/delete` (Office.js + **WPS implemented*** member-probe; not device-verified)
 - Phase7: `table.update`, `chart.update` (initial shallow fields; Office.js; WPS unsupported)
 - Phase9: `sheet.display.get/set` (tabColor empty=auto or #RRGGBB, showGridlines, showHeadings; Office.js; WPS unsupported)

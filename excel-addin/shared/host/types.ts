@@ -126,24 +126,35 @@ export interface WorkbookInspectInfo {
   sheets: SheetInfo[];
 }
 
-/** Office.js ConditionalFormatType subset we commit to. */
+/**
+ * Writable CF kinds (add). List may also return kind "unsupported" for host types
+ * that are recognized but not add-capable (DataBar, ColorScale, …).
+ */
 export type ConditionalFormatKind = "cellValue" | "custom";
 
+/** List result kind includes unsupported host types (never silent cellValue). */
+export type ConditionalFormatListKind = ConditionalFormatKind | "unsupported";
+
+/** Public cellValue operators (complete Office.js ConditionalCellValueRule set). */
 export type CellValueOperator =
   | "greaterThan"
+  | "greaterThanOrEqualTo"
   | "lessThan"
+  | "lessThanOrEqualTo"
   | "equalTo"
+  | "notEqualTo"
   | "between"
   | "notBetween";
 
 export interface ConditionalFormatRule {
   kind: ConditionalFormatKind;
-  /** cellValue: formula1 required; between also formula2 */
+  /** cellValue: operator + formula1; between/notBetween also formula2 */
   operator?: CellValueOperator;
   formula1?: string;
   formula2?: string;
   /** custom expression formula */
   formula?: string;
+  /** #RRGGBB only */
   fillColor?: string;
   fontColor?: string;
 }
@@ -152,34 +163,62 @@ export interface ConditionalFormatInfo {
   id: string;
   sheetName: string;
   range: string;
-  kind: ConditionalFormatKind;
+  /** Normalized: cellValue | custom | unsupported */
+  kind: ConditionalFormatListKind;
+  /** Host ConditionalFormatType string (CellValue, ContainsText, …). */
+  hostType: string;
+  /** true only for cellValue/custom that this add-in can add/verify. */
+  supported: boolean;
   summary: string;
+  limitations?: string[];
 }
 
-export type DataValidationType = "list" | "wholeNumber";
+/**
+ * Writable DV types aligned with Office.js DataValidationType (except None /
+ * Inconsistent / MixedCriteria which are read-only host states).
+ */
+export type DataValidationType =
+  | "list"
+  | "wholeNumber"
+  | "decimal"
+  | "date"
+  | "time"
+  | "textLength"
+  | "custom";
+
+/** Complete Office.js DataValidationOperator set. */
 export type DataValidationOperator =
   | "between"
   | "notBetween"
   | "equalTo"
+  | "notEqualTo"
   | "greaterThan"
-  | "lessThan";
+  | "greaterThanOrEqualTo"
+  | "lessThan"
+  | "lessThanOrEqualTo";
 
 export interface DataValidationRule {
   type: DataValidationType;
-  /** wholeNumber: required */
   operator?: DataValidationOperator;
-  /** list source string or wholeNumber formula1 */
   formula1?: string;
   formula2?: string;
-  /** preferred for list; each item must be a non-empty string */
+  /** Inline list items only; mutually exclusive with formula1 range source. */
   listValues?: string[];
   allowBlank?: boolean;
 }
+
+export type DataValidationListSourceKind = "inline" | "range";
 
 export interface DataValidationInfo {
   sheetName: string;
   range: string;
   rule: DataValidationRule | null;
+  /** Host DataValidationType (List, WholeNumber, Inconsistent, …). */
+  hostType?: string | null;
+  /** false when host type is not a single writable rule (Inconsistent/MixedCriteria/unknown). */
+  supported?: boolean;
+  listSourceKind?: DataValidationListSourceKind | null;
+  limitations?: string[];
 }
 
 /** Office.js Excel.SheetVisibility subset. */
