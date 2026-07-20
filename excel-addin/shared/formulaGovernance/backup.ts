@@ -242,3 +242,64 @@ export function planRestore(
   if (items.length === 0) return { error: "formula_backup_not_found" };
   return { backupId: id, items };
 }
+
+/** Stable fingerprint of a protocol data row (all fields). */
+export function fingerprintBackupRow(row: FormulaBackupRow): string {
+  return [
+    row.backupId,
+    row.createdAt,
+    row.sheet,
+    row.address,
+    row.formula,
+    row.formulaR1C1,
+    row.numberFormat,
+    row.locked ? "true" : "false",
+    row.spillAddress,
+    row.sourceRange,
+  ].join("");
+}
+
+/** Multiset of normalized protocol rows (counts duplicates). */
+export function backupRowMultiset(rows: readonly FormulaBackupRow[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const key = fingerprintBackupRow(row);
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return map;
+}
+
+/**
+ * Verify remaining rows after removeAfterRestore: target id gone and remaining
+ * multiset fully preserved (all fields + duplicate counts).
+ * @returns null when ok, else error message.
+ */
+export function verifyRemainingBackupRows(
+  expectedRemaining: readonly FormulaBackupRow[],
+  actualRows: readonly FormulaBackupRow[],
+  removedBackupId: string,
+): string | null {
+  if (actualRows.some((r) => r.backupId === removedBackupId)) {
+    return "removeAfterRestore verify failed: backupId still present";
+  }
+  if (actualRows.length !== expectedRemaining.length) {
+    return `removeAfterRestore verify failed: remaining row count ${actualRows.length} !== ${expectedRemaining.length}`;
+  }
+  const expected = backupRowMultiset(expectedRemaining);
+  const actual = backupRowMultiset(actualRows);
+  if (expected.size !== actual.size) {
+    return `removeAfterRestore verify failed: remaining multiset unique keys ${actual.size} !== ${expected.size}`;
+  }
+  for (const [key, count] of expected) {
+    if ((actual.get(key) ?? 0) !== count) {
+      const backupId = key.split("")[0] ?? "?";
+      return `removeAfterRestore verify failed: remaining multiset mismatch for backupId ${backupId}`;
+    }
+  }
+  for (const [key, count] of actual) {
+    if ((expected.get(key) ?? 0) !== count) {
+      return "removeAfterRestore verify failed: unexpected remaining row after rewrite";
+    }
+  }
+  return null;
+}

@@ -20,6 +20,8 @@ import {
   parseFormulaReferences,
   planFormulaRepairs,
   planRestore,
+  verifyRemainingBackupRows,
+  fingerprintBackupRow,
   removeStringLiterals,
   summarizeBackups,
   tryClassifyFormula,
@@ -332,5 +334,52 @@ describe("strictDecodeBackup restore fail-closed", () => {
     const decoded = decodeBackupSheet(matrix);
     expect(decoded.grid?.rows.some((r) => r.backupId === "id1")).toBe(true);
     expect(decoded.skipped.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("verifyRemainingBackupRows multiset", () => {
+  const row = (
+    backupId: string,
+    address: string,
+    formula: string,
+    extra: Partial<{ numberFormat: string; locked: boolean; spillAddress: string }> = {},
+  ) => ({
+    backupId,
+    createdAt: "t0",
+    sheet: "Sheet1",
+    address,
+    formula,
+    formulaR1C1: "",
+    numberFormat: extra.numberFormat ?? "General",
+    locked: extra.locked ?? false,
+    spillAddress: extra.spillAddress ?? "",
+    sourceRange: "sheet",
+  });
+
+  it("accepts identical remaining multiset including duplicate backupIds", () => {
+    const remaining = [
+      row("keep", "A1", "=1"),
+      row("keep", "B1", "=2"),
+      row("other", "C1", "=3"),
+    ];
+    expect(verifyRemainingBackupRows(remaining, remaining, "drop")).toBeNull();
+  });
+
+  it("detects missing duplicate row and field mutation", () => {
+    const remaining = [
+      row("keep", "A1", "=1"),
+      row("keep", "B1", "=2"),
+      row("other", "C1", "=3"),
+    ];
+    const missingDup = [row("keep", "A1", "=1"), row("other", "C1", "=3")];
+    expect(verifyRemainingBackupRows(remaining, missingDup, "drop")).toMatch(/multiset|count/i);
+
+    const mutated = [
+      row("keep", "A1", "=1"),
+      row("keep", "B1", "=2", { numberFormat: "0.00" }),
+      row("other", "C1", "=3"),
+    ];
+    expect(verifyRemainingBackupRows(remaining, mutated, "drop")).toMatch(/mismatch|unexpected/i);
+    expect(fingerprintBackupRow(remaining[0]!).includes("keep")).toBe(true);
   });
 });

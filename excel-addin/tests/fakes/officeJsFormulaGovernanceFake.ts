@@ -25,6 +25,9 @@ export function installFormulaGovernanceExcel(options?: {
   const spillMap = options?.spillMap ?? {};
   const supportVeryHidden = options?.supportVeryHidden !== false;
   let syncCount = 0;
+  let spillNullObjectProbeCount = 0;
+  let spillLegacyProbeCount = 0;
+  const pendingSpillSyncErrors: string[] = [];
   const sheetList: SheetState[] = (options?.sheets ?? [
     {
       name: "Sheet1",
@@ -266,6 +269,7 @@ export function installFormulaGovernanceExcel(options?: {
         return makeRange(sheet, toA1(box.r0 + row, box.c0 + col));
       },
       getSpillingToRange() {
+        spillLegacyProbeCount += 1;
         const key = toA1(box.r0, box.c0);
         const target = resolveSpill(sheet.name, key);
         if (target) {
@@ -273,10 +277,18 @@ export function installFormulaGovernanceExcel(options?: {
           (r as { isNullObject: boolean }).isNullObject = false;
           return r;
         }
-        // Legacy path: non-spill throws (real hosts may reject) — prefer OrNullObject.
-        throw new Error("Cell is not a spill parent");
+        // Real Office often fails only at sync for non-spill parents.
+        const empty = makeRange(sheet, key);
+        (empty as { isNullObject: boolean }).isNullObject = false;
+        const origLoad = empty.load.bind(empty);
+        empty.load = (props: string) => {
+          origLoad(props);
+          pendingSpillSyncErrors.push(`getSpillingToRange failed for ${sheet.name}!${key}`);
+        };
+        return empty;
       },
       getSpillingToRangeOrNullObject() {
+        spillNullObjectProbeCount += 1;
         const key = toA1(box.r0, box.c0);
         const target = resolveSpill(sheet.name, key);
         if (target) {
@@ -379,6 +391,11 @@ export function installFormulaGovernanceExcel(options?: {
       workbook: { worksheets, load() {} },
       async sync() {
         syncCount += 1;
+        if (pendingSpillSyncErrors.length) {
+          const msg = pendingSpillSyncErrors.join("; ");
+          pendingSpillSyncErrors.length = 0;
+          throw new Error(msg);
+        }
         for (const r of allRanges) r.commit();
       },
     };
@@ -409,6 +426,12 @@ export function installFormulaGovernanceExcel(options?: {
     syncCount: () => syncCount,
     resetSyncCount: () => {
       syncCount = 0;
+    },
+    spillNullObjectProbeCount: () => spillNullObjectProbeCount,
+    spillLegacyProbeCount: () => spillLegacyProbeCount,
+    resetSpillProbes: () => {
+      spillNullObjectProbeCount = 0;
+      spillLegacyProbeCount = 0;
     },
   };
 }

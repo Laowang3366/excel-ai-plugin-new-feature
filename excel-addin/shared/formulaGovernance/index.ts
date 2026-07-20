@@ -55,6 +55,9 @@ export {
   encodeBackupLiteral,
   decodeBackupLiteral,
   summarizeBackups,
+  fingerprintBackupRow,
+  backupRowMultiset,
+  verifyRemainingBackupRows,
   planRestore,
   type BackupSheetGrid,
 } from "./backup";

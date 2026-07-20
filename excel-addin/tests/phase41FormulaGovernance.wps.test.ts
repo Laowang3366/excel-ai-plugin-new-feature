@@ -9,11 +9,17 @@ function installWpsApp(opts?: {
   withVisible?: boolean;
   withClear?: boolean;
   evaluateBareEquals?: boolean;
+  /** Delete is present but no-op (sheet remains enumerable). */
+  withDeleteNoop?: boolean;
+  /** When false, sheets have no Delete/Remove at all. */
+  withDelete?: boolean;
 }) {
   const withAdd = opts?.withAdd !== false;
   const withVisible = opts?.withVisible !== false;
   const withClear = opts?.withClear !== false;
   const evaluateBareEquals = opts?.evaluateBareEquals !== false;
+  const withDeleteNoop = opts?.withDeleteNoop === true;
+  const withDelete = opts?.withDelete !== false;
   const cells = new Map<string, Cell>();
   cells.set("A1", { formula: "=B1", value: 1, numberFormat: "General" });
   cells.set("B1", { formula: "=1+#REF!", value: "#REF!", numberFormat: "General" });
@@ -186,12 +192,20 @@ function installWpsApp(opts?: {
 
   const dataCells = cells;
   const sheets: any[] = [makeSheet("Sheet1", dataCells)];
-  for (const s of sheets) {
+  function attachDelete(s: any) {
+    if (!withDelete) return;
+    if (withDeleteNoop) {
+      s.Delete = () => {
+        /* intentional no-op — sheet stays enumerable */
+      };
+      return;
+    }
     s.Delete = () => {
       const idx = sheets.indexOf(s);
       if (idx >= 0) sheets.splice(idx, 1);
     };
   }
+  for (const s of sheets) attachDelete(s);
   const workbook: any = {
     Name: "Book1",
     ActiveSheet: sheets[0],
@@ -208,18 +222,22 @@ function installWpsApp(opts?: {
       Add: withAdd
         ? () => {
             const s = makeSheet(`_tmp${sheets.length}`);
-            s.Delete = () => {
-              const idx = sheets.indexOf(s);
-              if (idx >= 0) sheets.splice(idx, 1);
-            };
+            attachDelete(s);
             sheets.push(s);
             return s;
           }
         : undefined,
-      Remove(s: any) {
-        const idx = sheets.indexOf(s);
-        if (idx >= 0) sheets.splice(idx, 1);
-      },
+      Remove:
+        withDelete && !withDeleteNoop
+          ? (s: any) => {
+              const idx = sheets.indexOf(s);
+              if (idx >= 0) sheets.splice(idx, 1);
+            }
+          : withDeleteNoop
+            ? (_s: any) => {
+                /* no-op */
+              }
+            : undefined,
     },
   };
   const app = { ActiveWorkbook: workbook, Name: "WPS" };
@@ -405,6 +423,75 @@ describe("phase41 formula governance WPS", () => {
     if (inspect.ok) {
       expect(inspect.data.backups.some((b) => b.backupId === "drop-me")).toBe(false);
       expect(inspect.data.backups.some((b) => b.backupId === "keep-me")).toBe(true);
+    }
+  });
+
+
+  it("Delete no-op after create failure reports cleanup_failed and leaves formulas untouched", async () => {
+    // Visible missing causes ensureVeryHidden to fail after Add when precheck somehow passes...
+    // Force: withVisible true so precheck passes, but make ensureVeryHidden fail by clearing Visible after Add.
+    // Simpler path: withVisible false fails precheck before Add — use custom env with Visible on existing sheet
+    // but Add returns sheet without Visible, and Delete no-op.
+    const env = installWpsApp({ withVisible: true, withDeleteNoop: true });
+    // Monkey-patch: new sheets lack Visible so hide fails after Add; Delete is no-op.
+    const origAdd = env.workbook.Worksheets.Add;
+    env.workbook.Worksheets.Add = () => {
+      const s = origAdd();
+      delete s.Visible;
+      // keep Delete no-op from attachDelete
+      return s;
+    };
+    const before = env.cells.get("B1")!.formula;
+    const sheetCountBefore = env.sheets.length;
+    const result = await new WpsJsaAdapter().convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toMatch(/cleanup_failed|visibility/i);
+      // if orphan remains, reason must mention cleanup_failed
+      if (env.sheets.length > sheetCountBefore) {
+        expect(result.reason).toMatch(/cleanup_failed/i);
+      }
+    }
+    expect(env.cells.get("B1")!.formula).toBe(before);
+  });
+
+  it("removeAfterRestore preserves multi-row retained backup multiset on WPS", async () => {
+    const env = installWpsApp({ withClear: true });
+    // seed three formulas
+    env.cells.set("A1", { formula: "=1", value: 1, numberFormat: "General" });
+    env.cells.set("B1", { formula: "=2", value: 2, numberFormat: "General" });
+    env.cells.set("C1", { formula: "=3", value: 3, numberFormat: "General" });
+    const adapter = new WpsJsaAdapter();
+    const keep = await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "keep-multi",
+    });
+    expect(keep.ok).toBe(true);
+    env.cells.set("A1", { formula: "=9", value: 9, numberFormat: "General" });
+    const drop = await adapter.convertFormulasToValues({
+      scope: "target",
+      sheetName: "Sheet1",
+      range: "A1",
+      backupId: "drop-one",
+    });
+    expect(drop.ok).toBe(true);
+
+    const removed = await adapter.restoreFormulas({
+      backupId: "drop-one",
+      removeAfterRestore: true,
+    });
+    expect(removed.ok).toBe(true);
+    const inspect = await adapter.inspectFormulaBackups();
+    expect(inspect.ok).toBe(true);
+    if (inspect.ok) {
+      expect(inspect.data.backups.some((b) => b.backupId === "drop-one")).toBe(false);
+      const keepSummary = inspect.data.backups.find((b) => b.backupId === "keep-multi");
+      expect(keepSummary).toBeTruthy();
+      expect(keepSummary!.formulaCount).toBeGreaterThanOrEqual(2);
     }
   });
 

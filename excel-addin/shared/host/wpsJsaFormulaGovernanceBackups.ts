@@ -6,6 +6,7 @@ import {
   decodeBackupSheet,
   planRestore,
   summarizeBackups,
+  verifyRemainingBackupRows,
 } from "../formulaGovernance";
 import type {
   FormulaBackupsInspectInfo,
@@ -141,9 +142,6 @@ export async function wpsRestoreFormulas(input: {
 
     if (input.removeAfterRestore === true) {
       const remaining = strict.rows.filter((r) => r.backupId !== backupId);
-      const retainedIds = [
-        ...new Set(remaining.map((r) => r.backupId).filter((id) => id.length > 0)),
-      ];
       rewriteBackupSheet(found.sheet, remaining);
       const after = strictDecodeBackup(readBackupMatrix(found.sheet));
       if (!after.ok) {
@@ -153,21 +151,9 @@ export async function wpsRestoreFormulas(input: {
           `removeAfterRestore verify failed: ${after.error}`,
         );
       }
-      if (after.rows.some((r) => r.backupId === backupId)) {
-        return fail(
-          "formula.backups.restore",
-          "wps-jsa",
-          "removeAfterRestore verify failed: backupId still present",
-        );
-      }
-      for (const id of retainedIds) {
-        if (!after.rows.some((r) => r.backupId === id)) {
-          return fail(
-            "formula.backups.restore",
-            "wps-jsa",
-            `removeAfterRestore verify failed: lost backupId ${id}`,
-          );
-        }
+      const multisetError = verifyRemainingBackupRows(remaining, after.rows, backupId);
+      if (multisetError) {
+        return fail("formula.backups.restore", "wps-jsa", multisetError);
       }
       limitations.push("removed restored backup rows (removeAfterRestore=true)");
     } else {

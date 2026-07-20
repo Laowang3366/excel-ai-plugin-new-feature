@@ -168,24 +168,19 @@ export async function collectFormulaCellsFromSheet(
     spill: SpillProxy | null;
   };
   const pending: MetaPending[] = [];
-  const spillApi =
+  // Only ExcelApi 1.12+ null-object spill API is safe to batch. Never fall back to
+  // getSpillingToRange for ordinary formulas — its errors often surface only at sync
+  // and would fail the entire repair/convert batch.
+  const canProbeSpill =
     isExcelApiSupported("1.12") &&
     typeof (range as ExcelRange & { getSpillingToRangeOrNullObject?: () => ExcelRange })
-      .getSpillingToRangeOrNullObject === "function"
-      ? "nullObject"
-      : typeof range.getSpillingToRange === "function"
-        ? "legacy"
-        : "none";
+      .getSpillingToRangeOrNullObject === "function";
 
-  if (spillApi === "none" && !limitations.some((l) => l.includes("spillAddress"))) {
+  if (!canProbeSpill && !limitations.some((l) => l.includes("spillAddress"))) {
     limitations.push(
-      "spillAddress unavailable (getSpillingToRangeOrNullObject/getSpillingToRange missing); stored empty",
+      "spillAddress unavailable (requires ExcelApi 1.12 getSpillingToRangeOrNullObject); stored empty",
     );
-  } else if (spillApi === "legacy" && !limitations.some((l) => l.includes("spillAddress"))) {
-    limitations.push(
-      "spillAddress using getSpillingToRange (prefer getSpillingToRangeOrNullObject on ExcelApi 1.12+)",
-    );
-  } else if (spillApi === "nullObject" && !limitations.some((l) => l.includes("spillAddress"))) {
+  } else if (canProbeSpill && !limitations.some((l) => l.includes("spillAddress"))) {
     limitations.push("spillAddress probed via getSpillingToRangeOrNullObject (ExcelApi 1.12+)");
   }
 
@@ -198,17 +193,10 @@ export async function collectFormulaCellsFromSheet(
       // optional locked
     }
     let spill: SpillProxy | null = null;
-    if (spillApi === "nullObject") {
+    if (canProbeSpill) {
       const ext = cell as ExcelRange & { getSpillingToRangeOrNullObject?: () => ExcelRange };
       spill = ext.getSpillingToRangeOrNullObject!() as SpillProxy;
       spill.load("address,isNullObject");
-    } else if (spillApi === "legacy") {
-      try {
-        spill = cell.getSpillingToRange() as SpillProxy;
-        spill.load("address,isNullObject");
-      } catch {
-        spill = null;
-      }
     }
     pending.push({ coord, cell, spill });
   }

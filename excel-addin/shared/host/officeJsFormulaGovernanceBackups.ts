@@ -3,7 +3,7 @@
  * restore is fail-closed on corrupt magic/header.
  * removeAfterRestore rewrites remaining rows only (desktop parity).
  */
-import { planRestore } from "../formulaGovernance";
+import { planRestore, verifyRemainingBackupRows } from "../formulaGovernance";
 import type {
   FormulaBackupsInspectInfo,
   FormulaBackupsRestoreInfo,
@@ -117,18 +117,8 @@ export async function officeJsRestoreFormulas(input: {
       if (!check.ok) {
         throw new Error(`removeAfterRestore verify failed: ${check.error}`);
       }
-      if (check.rows.some((r) => r.backupId === backupId)) {
-        throw new Error("removeAfterRestore verify failed: backupId still present");
-      }
-      // other ids retained
-      const beforeOther = new Set(
-        loaded.rows.filter((r) => r.backupId !== backupId).map((r) => r.backupId),
-      );
-      for (const id of beforeOther) {
-        if (!check.rows.some((r) => r.backupId === id)) {
-          throw new Error(`removeAfterRestore verify failed: lost backupId ${id}`);
-        }
-      }
+      const multisetError = verifyRemainingBackupRows(remaining, check.rows, backupId);
+      if (multisetError) throw new Error(multisetError);
       limitations.push("removed restored backup rows (removeAfterRestore=true)");
     } else {
       limitations.push("backup rows retained (removeAfterRestore default false)");

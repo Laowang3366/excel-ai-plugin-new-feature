@@ -216,28 +216,37 @@ export function probeSheetVisibilitySupport(workbook: WpsWorkbook): void {
 }
 
 export function tryDeleteSheet(workbook: WpsWorkbook, sheet: WpsSheetExt): boolean {
+  const nameBefore = String(sheet.Name ?? "");
   const del = (sheet as WpsSheetExt & { Delete?: () => void }).Delete;
   if (typeof del === "function") {
     try {
       del.call(sheet);
-      return true;
     } catch {
-      // fall through
+      // fall through to Remove / verify
     }
   }
   // Best-effort: drop from collection if host exposes custom remove (tests).
-  const sheets = workbook.Worksheets as WpsWorkbook["Worksheets"] & {
+  const sheetsApi = workbook.Worksheets as WpsWorkbook["Worksheets"] & {
     Remove?: (s: WpsSheetExt) => void;
   };
-  if (typeof sheets.Remove === "function") {
+  if (typeof sheetsApi.Remove === "function") {
     try {
-      sheets.Remove(sheet);
-      return true;
+      sheetsApi.Remove(sheet);
     } catch {
-      return false;
+      // verify below
     }
   }
-  return false;
+
+  // Must re-enumerate — Delete/Remove no-op must not count as cleaned up.
+  try {
+    const remaining = listSheets(workbook);
+    const stillPresent = remaining.some(
+      (s) => s === sheet || (nameBefore.length > 0 && s.Name === nameBefore),
+    );
+    return !stillPresent;
+  } catch {
+    return false;
+  }
 }
 
 export function findBackupSheet(

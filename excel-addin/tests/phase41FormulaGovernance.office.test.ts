@@ -322,4 +322,128 @@ describe("phase41 formula governance Office.js", () => {
     expect(fake.formulas()[29]![0]).toBe("=1+Z99");
   });
 
+
+  it("excelApi112=false does not probe legacy spill; repair/convert still succeed", async () => {
+    fake = installFormulaGovernanceExcel({
+      sheets: [
+        {
+          name: "Sheet1",
+          formulas: [
+            ["=1+1", "=SEQUENCE(2)"],
+            ["", ""],
+          ],
+          values: [
+            [2, 1],
+            [null, 2],
+          ],
+        },
+      ],
+      spillMap: { "Sheet1!B1": "B1:B2" },
+      excelApi112: false,
+    });
+    const adapter = new OfficeJsAdapter();
+    fake.resetSpillProbes();
+    const deps = await adapter.inspectFormulaDependencies({
+      scope: "sheet",
+      sheetName: "Sheet1",
+    });
+    expect(deps.ok).toBe(true);
+    expect(fake.spillLegacyProbeCount()).toBe(0);
+    expect(fake.spillNullObjectProbeCount()).toBe(0);
+
+    const conv = await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "nosill",
+    });
+    expect(conv.ok).toBe(true);
+    if (conv.ok) {
+      expect(conv.data.limitations.some((l) => /spillAddress unavailable/i.test(l))).toBe(true);
+    }
+    expect(fake.spillLegacyProbeCount()).toBe(0);
+    // backup spill column empty
+    const b = fake.backupSheet()!;
+    const spillCol = b.values.slice(2).map((row) => String(row[8] ?? ""));
+    expect(spillCol.every((s) => s === "" || s === "undefined")).toBe(true);
+
+    // restore formulas then repair path without legacy spill
+    fake.formulas()[0]![0] = "=1+#REF!";
+    fake.values()[0]![0] = "#REF!";
+    fake.resetSpillProbes();
+    const repair = await adapter.repairFormulaReferences({
+      scope: "target",
+      sheetName: "Sheet1",
+      range: "A1",
+      replacements: [{ find: "#REF!", replace: "B2" }],
+    });
+    expect(repair.ok).toBe(true);
+    expect(fake.spillLegacyProbeCount()).toBe(0);
+    expect(fake.formulas()[0]![0]).toBe("=1+B2");
+  });
+
+  it("removeAfterRestore preserves multi-row retained backup multiset", async () => {
+    // 3 formula cells -> multi-row backup for keep-me; then one cell for drop-me
+    fake = installFormulaGovernanceExcel({
+      sheets: [
+        {
+          name: "Sheet1",
+          formulas: [["=1", "=2", "=3"]],
+          values: [[1, 2, 3]],
+        },
+      ],
+    });
+    const adapter = new OfficeJsAdapter();
+    const keep = await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "keep-multi",
+    });
+    expect(keep.ok).toBe(true);
+    // reseed one formula for second backup id
+    fake.formulas()[0]![0] = "=9";
+    fake.values()[0]![0] = 9;
+    const drop = await adapter.convertFormulasToValues({
+      scope: "target",
+      sheetName: "Sheet1",
+      range: "A1",
+      backupId: "drop-one",
+    });
+    expect(drop.ok).toBe(true);
+
+    const before = fake.backupSheet()!;
+    const keepRowsBefore = before.values
+      .slice(2)
+      .filter((row) => String(row[0] ?? "").includes("keep-multi") || String(row[0] ?? "") === "keep-multi")
+      .map((row) => row.map((c) => String(c ?? "")));
+    expect(keepRowsBefore.length).toBeGreaterThanOrEqual(3);
+
+    const restored = await adapter.restoreFormulas({
+      backupId: "drop-one",
+      removeAfterRestore: true,
+    });
+    expect(restored.ok).toBe(true);
+
+    const after = fake.backupSheet()!;
+    const keepRowsAfter = after.values
+      .slice(2)
+      .filter((row) => {
+        const id = String(row[0] ?? "");
+        const decoded = id.startsWith("'") ? id.slice(1) : id;
+        return decoded === "keep-multi";
+      })
+      .map((row) => row.map((c) => String(c ?? "")));
+    expect(keepRowsAfter.length).toBe(keepRowsBefore.length);
+    // field-level: formulas for keep rows still present (encoded or raw)
+    for (const row of keepRowsAfter) {
+      expect(row[4] || row[4] === "").toBeTruthy();
+      const formula = String(row[4] ?? "");
+      expect(formula.includes("=") || formula.startsWith("'=")).toBe(true);
+    }
+    const dropLeft = after.values.slice(2).some((row) => {
+      const id = String(row[0] ?? "");
+      return id === "drop-one" || id.endsWith("drop-one");
+    });
+    expect(dropLeft).toBe(false);
+  });
+
 });
