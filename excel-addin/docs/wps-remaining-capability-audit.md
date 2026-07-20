@@ -1,7 +1,7 @@
 # WPS remaining capability audit (codex/excel-addin)
 
-**Baseline:** `a70ad2e` era review.  
-**Scope:** remaining `wps-jsa` **unsupported** rows after CF/DV, structure, format, formula governance.  
+**Baseline:** `a70ad2e` era review.
+**Scope:** remaining `wps-jsa` **unsupported** rows after CF/DV, structure, format, formula governance.
 **Evidence order:** `desktop/public/wps-jsa-bridge` + in-repo WPS member-probe modules > desktop COM Worker (not a JSA contract) > guesswork (forbidden).
 
 ## In-repo WPS JSA surface (verified)
