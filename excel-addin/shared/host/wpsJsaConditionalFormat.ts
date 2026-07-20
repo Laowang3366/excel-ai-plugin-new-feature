@@ -381,4 +381,3 @@ export async function wpsDeleteConditionalFormat(
     return fail(capability, "wps-jsa", messageOf(error), EVIDENCE);
   }
 }
-

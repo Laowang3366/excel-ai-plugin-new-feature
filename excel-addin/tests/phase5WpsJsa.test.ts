@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
 import { oleColorFromHex } from "../shared/host/wpsJsaFormat";
 import {
+  XL_BETWEEN,
   XL_CELL_VALUE,
   XL_EQUAL,
   XL_GREATER,
@@ -320,6 +321,69 @@ describe("phase5 WPS JSA CF/DV", () => {
       });
       const badClear = await new WpsJsaAdapter().clearDataValidation("Sheet1", "Y3");
       expect(badClear.ok).toBe(false);
+    });
+
+    it("between without Formula2 is unsupported read; between round-trip works", async () => {
+      const fake = installWpsValidationFake();
+      fake.seedValidation("Sheet1", "B1", {
+        Type: XL_VALIDATE_WHOLE,
+        Operator: XL_BETWEEN,
+        Formula1: "1",
+        // Formula2 intentionally missing
+        IgnoreBlank: true,
+        InCellDropdown: false,
+      });
+      const adapter = new WpsJsaAdapter();
+      const read = await adapter.readDataValidation("Sheet1", "B1");
+      expect(read.ok).toBe(true);
+      if (!read.ok) return;
+      expect(read.data.rule).toBeNull();
+      expect(read.data.supported).toBe(false);
+      expect(read.data.limitations?.join(" ") ?? "").toMatch(/missing formula2/i);
+
+      installWpsValidationFake();
+      const adapter2 = new WpsJsaAdapter();
+      const written = await adapter2.writeDataValidation({
+        sheetName: "Sheet1",
+        range: "B2",
+        rule: {
+          type: "wholeNumber",
+          operator: "between",
+          formula1: "1",
+          formula2: "10",
+        },
+      });
+      expect(written.ok).toBe(true);
+      if (written.ok) {
+        expect(written.data.supported).toBe(true);
+        expect(written.data.rule?.operator).toBe("between");
+        expect(written.data.rule?.formula1).toBe("1");
+        expect(written.data.rule?.formula2).toBe("10");
+      }
+    });
+
+    it("Delete failure with existing rule aborts before Add and preserves original", async () => {
+      const fake = installWpsValidationFake({ validationDeleteThrows: "delete boom" });
+      fake.seedValidation("Sheet1", "D1", {
+        Type: XL_VALIDATE_LIST,
+        Formula1: "KeepMe",
+        IgnoreBlank: true,
+        InCellDropdown: true,
+      });
+      const adapter = new WpsJsaAdapter();
+      const failed = await adapter.writeDataValidation({
+        sheetName: "Sheet1",
+        range: "D1",
+        rule: { type: "list", listValues: ["New"] },
+      });
+      expect(failed.ok).toBe(false);
+      if (!failed.ok) {
+        expect(failed.unsupported).toBeFalsy();
+        expect(failed.reason).toMatch(/Delete failed|left original/i);
+      }
+      const kept = fake.getValidation("Sheet1", "D1");
+      expect(kept?.Type).toBe(XL_VALIDATE_LIST);
+      expect(kept?.Formula1).toBe("KeepMe");
     });
 
     it("rejects non-between formula2; rejects =MyList as range kind", async () => {

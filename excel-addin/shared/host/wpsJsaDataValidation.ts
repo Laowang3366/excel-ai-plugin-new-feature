@@ -196,19 +196,63 @@ export async function wpsWriteDataValidation(input: {
       `${rule.type} requires operator and formula1`,
       EVIDENCE,
     );
+  } else if (
+    isBetweenOp(rule.operator) &&
+    (rule.formula2 == null || String(rule.formula2).trim() === "")
+  ) {
+    return fail(
+      capability,
+      "wps-jsa",
+      `${rule.type} ${rule.operator} requires formula2`,
+      EVIDENCE,
+    );
   }
 
   const snap = trySnapshot(v);
+  const hadExisting = snap != null;
   let deleted = false;
+
+  function tryRestore(reason: string): HostResult<DataValidationInfo> {
+    if (!(deleted && snap)) {
+      return fail(capability, "wps-jsa", reason, EVIDENCE);
+    }
+    try {
+      restoreSnapshot(v, snap);
+      return fail(capability, "wps-jsa", `${reason}; original validation restored`, EVIDENCE);
+    } catch (restoreError) {
+      return fail(
+        capability,
+        "wps-jsa",
+        `${reason}; restore failed: ${messageOf(restoreError)}`,
+        EVIDENCE,
+      );
+    }
+  }
+
   try {
     if (typeof v.Delete === "function") {
-      try {
-        v.Delete();
-        deleted = true;
-      } catch {
-        // no existing validation is fine
+      if (hadExisting) {
+        try {
+          v.Delete();
+          deleted = true;
+        } catch (error) {
+          // Do not call Add after a failed Delete when a prior rule existed.
+          return fail(
+            capability,
+            "wps-jsa",
+            `Validation.Delete failed; left original rule in place: ${messageOf(error)}`,
+            EVIDENCE,
+          );
+        }
+      } else {
+        try {
+          v.Delete();
+          deleted = true;
+        } catch {
+          // empty validation Delete may throw; safe to continue Add
+        }
       }
-    } else if (snap) {
+    } else if (hadExisting) {
       return unsupported(
         capability,
         "wps-jsa",
@@ -226,7 +270,7 @@ export async function wpsWriteDataValidation(input: {
       const typeCom = mapDvTypeToCom(rule.type);
       const opCom = mapDvOperatorToCom(rule.operator!);
       if (isBetweenOp(rule.operator)) {
-        v.Add(typeCom, XL_VALID_ALERT_STOP, opCom, rule.formula1!, rule.formula2 ?? "");
+        v.Add(typeCom, XL_VALID_ALERT_STOP, opCom, rule.formula1!, rule.formula2!);
       } else {
         v.Add(typeCom, XL_VALID_ALERT_STOP, opCom, rule.formula1!);
       }
@@ -235,42 +279,22 @@ export async function wpsWriteDataValidation(input: {
       v.IgnoreBlank = rule.allowBlank !== false;
     }
   } catch (error) {
-    if (deleted && snap) {
-      try {
-        restoreSnapshot(v, snap);
-      } catch (restoreError) {
-        return fail(
-          capability,
-          "wps-jsa",
-          `Validation write failed and restore failed: ${messageOf(error)}; restore: ${messageOf(restoreError)}`,
-          EVIDENCE,
-        );
-      }
-    }
-    return fail(capability, "wps-jsa", messageOf(error), EVIDENCE);
+    return tryRestore(`Validation write failed: ${messageOf(error)}`);
   }
 
   try {
     const parsed = parseHostValidation(v, input.sheetName);
     if (!parsed.supported || !parsed.rule) {
-      return fail(
-        capability,
-        "wps-jsa",
+      return tryRestore(
         `data validation readback not supported after write: ${parsed.hostType}`,
-        EVIDENCE,
       );
     }
     if (!dvRulesMatch(rule, parsed.rule, parsed.listSourceKind, input.sheetName)) {
-      return fail(
-        capability,
-        "wps-jsa",
-        "data validation rule mismatch after write",
-        EVIDENCE,
-      );
+      return tryRestore("data validation rule mismatch after write");
     }
     return ok(toInfo(input.sheetName, resolved.data.address, parsed));
   } catch (error) {
-    return fail(capability, "wps-jsa", messageOf(error), EVIDENCE);
+    return tryRestore(`Validation readback failed: ${messageOf(error)}`);
   }
 }
 

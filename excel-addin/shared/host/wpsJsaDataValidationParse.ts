@@ -182,7 +182,24 @@ export function parseHostValidation(
       limitations: ["compare Validation missing operator/formula1"],
     };
   }
-  if (hostHasExtraFormula2(operator, formula2) && !isBetweenOp(operator)) {
+  if (isBetweenOp(operator)) {
+    const f2 = formula2.trim();
+    if (!f2) {
+      return {
+        rule: null,
+        hostType,
+        supported: false,
+        limitations: [`${hostType} ${operator} missing formula2`],
+      };
+    }
+    void ownerSheetName;
+    return {
+      rule: { type, operator, formula1, formula2: f2, allowBlank },
+      hostType,
+      supported: true,
+    };
+  }
+  if (hostHasExtraFormula2(operator, formula2)) {
     return {
       rule: null,
       hostType,
@@ -197,7 +214,6 @@ export function parseHostValidation(
       operator,
       formula1,
       allowBlank,
-      ...(isBetweenOp(operator) ? { formula2: formula2 || undefined } : {}),
     },
     hostType,
     supported: true,

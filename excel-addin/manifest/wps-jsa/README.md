@@ -12,7 +12,7 @@
 
 ## 安装（开发）
 
-1. 在 `excel-addin/` 执行 `npm run dev`，确认 `http://localhost:3000` 可访问。
+1. 在 `excel-addin/` 执行 `npm run dev`，确认 `https://localhost:3000` 可访问（默认 HTTPS；仅调试用 `npm run dev:http` 时才是 HTTP）。
 2. 将本目录 `manifest.xml` 与指向任务窗格 URL 的入口页按 WPS JS 加载项规范放入用户 `jsaddons` 目录，或使用 WPS 开发者工具侧载。
 3. **完整重启 WPS** 后再打开表格。
 4. 打开任务窗格后查看「宿主状态」：应显示 `wps-jsa`。

@@ -4,6 +4,10 @@
 
 ## 未发布
 
+- 文档纠偏：Office.js `chart.source.update` 同表/跨表 A1 已实现（非 cross-sheet unsupported）；WPS JSA 开发指引默认 `https://localhost:3000`。
+
+- 独立 Excel 加载项 WPS 数据验证：between/notBetween 缺 Formula2 时 read 诚实返回 unsupported（rule=null）；已有规则时 Delete 失败不再继续 Add；真实侧载尚未验收。
+
 - 独立 Excel 加载项 WPS JSA 条件格式/数据验证：**implemented***（FormatConditions 1-based index id、Validation 写前快照与 Add 失败恢复；复用 classifyListSource/dvRulesMatch；成员缺失 typed unsupported）；真实 WPS 侧载尚未验收。
 
 - 独立 Excel 加载项修复数据验证单值内联列表：host source `Yes`/`1`/`x` 分类为 inline 而非 unsupported；clear 测试强制验证 setup 写入成功；恢复 8 个 CF 运算符与 date/time DV 及 custom 成功 round-trip；真实 Excel 侧载尚未验收。
@@ -11,7 +15,7 @@
 - 独立 Excel 加载项条件格式/数据验证：list 源仅无损同簿 A1 才标记 range；命名范围/函数/外部引用为 unsupported；custom 拒绝宿主额外 formula2；真实侧载尚未验收。
 - 独立 Excel 加载项进一步收紧条件格式/数据验证：list Range 必须 load 地址、公式比较最小归一化（owner 表上下文）、list 源仅同簿 A1、非 between 拒绝宿主 formula2；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项加固条件格式/数据验证宿主回读：CF NotEqualTo 官方 token、add 校验规则与颜色、DV 全规则与 allowBlank 回读、list Range 代理真实地址、clear 要求 hostType=None；真实 Excel 侧载尚未验收。
-- 独立 Excel 加载项收紧条件格式与数据验证：CF 列表诚实返回 hostType（不把 ContainsText/DataBar 等伪装为 cellValue），add 仅 cellValue/custom 且完整比较运算符；DV 补齐 list/wholeNumber/decimal/date/time/textLength/custom，list 区域源传 Range 代理，Inconsistent/MixedCriteria 标记 limitations；ExcelApi 1.6/1.8 预检；写后宿主回读；WPS 六工具仍 unsupported；真实 Excel 侧载尚未验收。
+- 独立 Excel 加载项收紧条件格式与数据验证：CF 列表诚实返回 hostType（不把 ContainsText/DataBar 等伪装为 cellValue），add 仅 cellValue/custom 且完整比较运算符；DV 补齐 list/wholeNumber/decimal/date/time/textLength/custom，list 区域源传 Range 代理，Inconsistent/MixedCriteria 标记 limitations；ExcelApi 1.6/1.8 预检；写后宿主回读；WPS CF/DV 后续已按 FormatConditions/Validation 落地为 implemented*（见上条）；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项新增只读工具 `workbook.objects.inspect`：一次聚合 sheets/tables/charts/namedRanges/shapes 分类清单（可截断并保留 totalCount）；单分类失败/不支持不拖垮整项；WPS 上 table/chart/shape 仍明确 unsupported；真实 Excel/WPS 侧载尚未验收。
 - 独立 Excel 加载项接入公式治理工具：依赖检查、引用修复、公式转值、备份检查/恢复（WENGGE_FORMULA_BACKUP_V1 隐藏表；文本方式保存公式原文；真实 Excel/WPS 侧载尚未验收）。
 - 独立 Excel 加载项新增公式保护检查与锁定/解锁（仅公式单元格 + 可选表保护）；密码仅请求内存使用且不进入工具结果；WPS 明确不支持；真实 Excel 侧载尚未验收。
