@@ -1,0 +1,15 @@
+{
+  "name": "wengge-ai-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Same-origin AI API gateway with fixed upstream allowlist",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "dev": "node --watch src/index.mjs",
+    "test": "node --test test/**/*.test.mjs"
+  }
+}
