@@ -16,6 +16,7 @@ export const TEMPLATE_TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         sheetNames: {
           type: "array",
+          minItems: 1,
           maxItems: 500,
           items: { type: "string", minLength: 1, maxLength: 255 },
         },

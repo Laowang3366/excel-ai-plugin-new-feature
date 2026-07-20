@@ -161,6 +161,13 @@ async function runPageLayout<T>(
   }
 }
 
+export async function readSheetPageLayoutInContext(
+  sheet: ExcelWorksheet,
+  context: ExcelRequestContext,
+): Promise<SheetPageLayoutInfo> {
+  return readLayout(sheet, sheet.pageLayout, context);
+}
+
 async function readLayout(
   sheet: ExcelWorksheet,
   layout: ExcelPageLayout,

@@ -6,6 +6,7 @@
 
 ### Excel 加载项
 
+- 独立 Excel 加载项 Phase55.1：`workbook.template.apply/capture` 合同收口（sheetNames minItems+空数组 fail-closed；plan/readback address+counts；严格 isNullObject；写前 surface 含 freeze getLocation；quote-aware A1；capture 单 Excel.run + 上下文内 pageLayout；坏 scalar fail-closed）；工具数仍 98；**尚未真实 Excel/WPS 侧载验收**。
 - 独立 Excel 加载项 Phase55：`workbook.template.apply`（desktop `applyWorkbookTemplate` 对等；Office.js ExcelApi 1.8；写后严格回读；`autoFitVerified:false`）与 `workbook.template.capture`（desktop capture/inspect 浅层快照；ExcelApi 1.9；单工具无同义 inspect）；工具数 96→98；WPS typed unsupported；**尚未真实 Excel/WPS 侧载验收**。
 - Phase54.2：selectedKeys/item key 唯一性与 isFilterCleared↔全选一致性；ClientResult 显式 lastClientResultReadBeforeSync 断言。
 - Phase54.1：切片器宿主回读严格化（禁止 String/Number/Boolean 强制转换假绿）；filter apply/clear 验证全选与 isFilterCleared；list 不存在 sheet 失败；ClientResult 需 sync 后读 value。

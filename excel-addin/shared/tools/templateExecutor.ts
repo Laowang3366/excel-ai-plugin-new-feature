@@ -89,6 +89,7 @@ function parseSheetNames(args: Record<string, unknown>): string[] | undefined {
   }
   const value = args.sheetNames;
   if (!Array.isArray(value)) throw new Error("sheetNames must be an array");
+  if (value.length === 0) throw new Error("sheetNames must not be an empty array");
   if (value.length > 500) throw new Error("sheetNames exceeds max 500");
   const out: string[] = [];
   const seen = new Set<string>();
