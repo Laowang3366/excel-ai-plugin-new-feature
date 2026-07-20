@@ -8,10 +8,16 @@ import { ToolExecutor } from "../tools/executor";
 import { ApprovalGate, type ApprovalRequest } from "./approvalGate";
 import { ApprovingToolExecutor } from "./approvingToolExecutor";
 import {
+  DEFAULT_PERMISSION_MODE,
+  type PermissionMode,
+} from "./approvalPolicy";
+import { getBrowserPermissionModeStore } from "./permissionModeStore";
+import {
   CHAT_APPROVAL_PROMPT_MARKER,
   composeChatApprovalSystemPrompt,
 } from "./chatApprovalPrompt";
 import { listChatTools } from "./chatToolPolicy";
+import { resolveChatPromptRuntimeContext } from "./promptRuntimeContext";
 import type {
   ChatControllerDeps,
   ChatControllerState,
@@ -26,8 +32,11 @@ export class ChatController {
   private readonly host: HostAdapter;
   private readonly fetchImpl?: ProviderFetch;
   private readonly maxRounds: number;
-  private readonly composeSystemPrompt: (userMessage: string) => string;
+  private readonly composeSystemPrompt: NonNullable<
+    ChatControllerDeps["composeSystemPrompt"]
+  >;
   private readonly createProvider: ChatControllerDeps["createProvider"];
+  private readonly getPermissionMode: () => PermissionMode;
   private readonly onEvent?: (event: ChatTraceEvent) => void;
 
   private status: ChatControllerState["status"] = "idle";
@@ -49,11 +58,24 @@ export class ChatController {
     this.host = deps.host;
     this.fetchImpl = deps.fetchImpl;
     this.maxRounds = deps.maxRounds ?? 8;
+    // Assign before compose default so prompt + ApprovingToolExecutor share one getter.
+    this.getPermissionMode =
+      deps.getPermissionMode ??
+      (() => {
+        try {
+          return getBrowserPermissionModeStore().get();
+        } catch {
+          return DEFAULT_PERMISSION_MODE;
+        }
+      });
     this.composeSystemPrompt =
       deps.composeSystemPrompt ??
-      ((userMessage: string) =>
+      ((userMessage, runtimeContext) =>
         composeChatApprovalSystemPrompt({
           routing: { content: userMessage },
+          ...runtimeContext,
+          // Re-read each turn so mode switches apply on the next send (same source as executor).
+          permissionMode: this.getPermissionMode(),
         }));
     this.createProvider =
       deps.createProvider ??
@@ -136,10 +158,33 @@ export class ChatController {
       });
     }
 
-    const systemPrompt = this.composeSystemPrompt(trimmed);
-    const tools = listChatTools();
+    // Create AbortController before any await so stop() works during host probe.
+    this.status = "running";
     const ac = new AbortController();
     this.abortController = ac;
+
+    let systemPrompt: string;
+    try {
+      const runtimeContext = await resolveChatPromptRuntimeContext(this.host);
+      if (ac.signal.aborted) {
+        return this.finishAbortedBeforeLoop();
+      }
+      systemPrompt = this.composeSystemPrompt(trimmed, runtimeContext);
+    } catch (error) {
+      if (ac.signal.aborted) {
+        return this.finishAbortedBeforeLoop();
+      }
+      this.abortController = null;
+      this.status = "idle";
+      return this.preflightEnd("preflight_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (ac.signal.aborted) {
+      return this.finishAbortedBeforeLoop();
+    }
+
+    const tools = listChatTools();
     const gate = new ApprovalGate();
     this.gate = gate;
     this.pendingApproval = null;
@@ -185,12 +230,13 @@ export class ChatController {
         toolCallId: this.currentToolCallId,
         round: this.currentRound,
       }),
+      () => this.getPermissionMode(),
     );
 
-    this.status = "running";
     this.lastError = undefined;
 
     const history = this.committed.slice();
+    const activeProvider = this.store.getActive();
     const loop = new AgentLoop({
       provider: providerResult.provider,
       executor,
@@ -199,6 +245,7 @@ export class ChatController {
       maxRounds: this.maxRounds,
       signal: ac.signal,
       onEvent: (event) => this.projectEvent(event),
+      contextWindowSize: activeProvider?.contextWindowSize,
     });
 
     try {
@@ -254,6 +301,13 @@ export class ChatController {
   }
 
   static readonly approvalMarker = CHAT_APPROVAL_PROMPT_MARKER;
+
+  /** Stop during host probe / prompt compose: no provider call, idle again. */
+  private finishAbortedBeforeLoop(): ChatSendResult {
+    this.abortController = null;
+    this.status = "idle";
+    return this.preflightEnd("aborted", { message: "aborted", kind: "aborted" });
+  }
 
   private preflightEnd(
     turnStatus: ChatTurnStatus,

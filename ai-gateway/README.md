@@ -48,7 +48,7 @@ Node 内置测试使用本地假上游（loopback），不访问公网。
 ## 生产部署要点
 
 - 进程只监听 **`127.0.0.1`**，由本机 Nginx 反代同域路径 `/api/ai/`。
-- 流式响应需要：`proxy_buffering off`、足够大的 `proxy_read_timeout`。
+- 流式响应需要：`proxy_buffering off`；网关对 `text/event-stream` 额外设置 `X-Accel-Buffering: no` 与 `Cache-Control: no-store`、足够大的 `proxy_read_timeout`。
 - 示例：`deploy/ai-gateway.service`、`deploy/nginx-ai-gateway.conf`。
 
 ## Scripts

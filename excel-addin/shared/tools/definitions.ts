@@ -19,6 +19,9 @@ import { PAGE_LAYOUT_TOOL_DEFINITIONS } from "./pageLayoutDefinitions";
 import { SHAPE_TOOL_DEFINITIONS } from "./shapeDefinitions";
 import { STRUCTURE_TOOL_DEFINITIONS } from "./structureDefinitions";
 import { TABLE_UNLIST_TOOL_DEFINITIONS } from "./tableUnlistDefinitions";
+import { TABLE_FILTER_TOOL_DEFINITIONS } from "./tableFilterDefinitions";
+import { TABLE_SORT_TOOL_DEFINITIONS } from "./tableSortDefinitions";
+import { FORMULA_PROTECTION_TOOL_DEFINITIONS } from "./formulaProtectionDefinitions";
 import {
   CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
   DATA_VALIDATION_TOOL_DEFINITIONS,
@@ -305,4 +308,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...PAGE_LAYOUT_TOOL_DEFINITIONS,
   ...SHAPE_TOOL_DEFINITIONS,
   ...TABLE_UNLIST_TOOL_DEFINITIONS,
+  ...TABLE_FILTER_TOOL_DEFINITIONS,
+  ...TABLE_SORT_TOOL_DEFINITIONS,
+  ...FORMULA_PROTECTION_TOOL_DEFINITIONS,
 ];

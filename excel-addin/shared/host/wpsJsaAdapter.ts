@@ -25,6 +25,8 @@ import {
   wpsWriteFormat,
 } from "./wpsJsaUnsupported";
 import { wpsInspectWorkbook } from "./wpsJsaInspect";
+import { wpsCopySheet, wpsMoveSheet } from "./wpsJsaSheetOps";
+import { wpsReadRange } from "./wpsJsaRangeRead";
 import { wpsStructureSurface } from "./wpsJsaStructure";
 import type {
   CellValue,
@@ -34,7 +36,6 @@ import type {
   HostResult,
   HostStatus,
   RangeData,
-  RangeExpandMode,
   SelectionInfo,
   SheetInfo,
 } from "./types";
@@ -42,6 +43,11 @@ import { ok, unsupported } from "./types";
 /** Core WPS JSA adapter: status/selection/range/formula/sheet + unsupported phase3 caps. */
 export class WpsJsaAdapter implements HostAdapter {
   readonly kind = "wps-jsa" as const;
+
+  getRuntimeCapabilities() {
+    return { dynamicArrayFunctionsEnabled: false };
+  }
+
   async getStatus(): Promise<HostResult<HostStatus>> {
     const app = getApplication();
     if (!app) {
@@ -77,46 +83,7 @@ export class WpsJsaAdapter implements HostAdapter {
     });
   }
 
-  async readRange(
-    sheetName: string,
-    address: string,
-    expand?: RangeExpandMode,
-  ): Promise<HostResult<RangeData>> {
-    const bare = address.includes("!") ? address.split("!")[1]! : address;
-    const isSingle = !bare.includes(":") && !bare.includes(",");
-    // Desktop/public contract: omitted expand on single cell means spill.
-    // WPS has no verified spill → typed unsupported (same as explicit non-none expand).
-    const effectiveExpand =
-      expand === undefined && isSingle ? ("spill" as const) : expand;
-    if (effectiveExpand && effectiveExpand !== "none") {
-      return unsupported(
-        "range.read",
-        "wps-jsa",
-        `expand "${effectiveExpand}" is not verified for WPS JSA`,
-        "No in-repo spill/currentArray/currentRegion contract",
-      );
-    }
-    const workbookResult = requireWorkbook("range.read");
-    if (!workbookResult.ok) return workbookResult;
-    const sheet = getSheet(workbookResult.data, sheetName);
-    if (!sheet?.Range) {
-      return unsupported(
-        "range.read",
-        "wps-jsa",
-        `Sheet "${sheetName}" or Range API missing`,
-        "Assumed Worksheets.Item(name).Range(address).Value2 (not in bridge contract)",
-      );
-    }
-    const range = sheet.Range(address);
-    return ok({
-      sheetName,
-      address: String(range.Address ?? address),
-      values: matrixFrom(range.Value2),
-      formulas: formulaMatrixFrom(range.Formula),
-      expanded: false,
-      expandMode: "none",
-    });
-  }
+  readRange = wpsReadRange;
 
   async getFormulaContext(
     sheetName: string,
@@ -326,12 +293,8 @@ export class WpsJsaAdapter implements HostAdapter {
     sheet.Delete();
     return ok({ deleted: sheetName });
   }
-  async copySheet(_sheetName: string, _newName?: string): Promise<HostResult<SheetInfo>> {
-    return unsupported("sheet.copy", "wps-jsa", "Worksheet copy not verified for WPS JSA");
-  }
-  async moveSheet(_sheetName: string, _position: number): Promise<HostResult<SheetInfo>> {
-    return unsupported("sheet.move", "wps-jsa", "Worksheet move not verified for WPS JSA");
-  }
+  copySheet = wpsCopySheet;
+  moveSheet = wpsMoveSheet;
   insertRange = wpsStructureSurface.insertRange;
   deleteRange = wpsStructureSurface.deleteRange;
   autofitRange = wpsStructureSurface.autofitRange;
@@ -342,6 +305,14 @@ export class WpsJsaAdapter implements HostAdapter {
   deleteTable = wpsDeleteTable;
   unlistTable = wpsUnlistTable;
   updateTable = wpsStructureSurface.updateTable;
+  inspectFormulaProtection = wpsStructureSurface.inspectFormulaProtection;
+  manageFormulaProtection = wpsStructureSurface.manageFormulaProtection;
+  getTableFilter = wpsStructureSurface.getTableFilter;
+  applyTableFilter = wpsStructureSurface.applyTableFilter;
+  clearTableFilter = wpsStructureSurface.clearTableFilter;
+  getTableSort = wpsStructureSurface.getTableSort;
+  applyTableSort = wpsStructureSurface.applyTableSort;
+  clearTableSort = wpsStructureSurface.clearTableSort;
   listCharts = wpsListCharts;
   createChart = wpsCreateChart;
   deleteChart = wpsDeleteChart;

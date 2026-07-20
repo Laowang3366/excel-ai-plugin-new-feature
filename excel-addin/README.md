@@ -76,13 +76,13 @@ VITE_BASE=excel-addin npm run build
 | `shared/agent` / `shared/agentChat` | 离线 AgentLoop、聊天控制器、审批 gate（非 alwaysAllow） |
 | `shared/prompts` | 同步生成的提示词与 manifest |
 | `scripts/` | HTTPS 证书 helpers、Vite base、Office manifest 渲染/校验 |
-| `manifest/` | Office manifest 模板 + 可侧载 dev 产物；WPS JSA 说明（WPS 包下一阶段） |
+| `manifest/` | Office manifest 模板 + 可侧载 dev 产物；`manifest/wps-jsa/` 含正式本地 jsaddons 源（publish/ribbon/entry） |
 | `docs/capability-matrix.md` | 能力矩阵与交付/侧载状态 |
 | `src/` | Task pane UI（聊天默认 Tab、工具演示、供应商配置） |
 
 ## 安全存储说明
 
-API key 默认只存在 `MemorySecretStore`（进程内存）。**禁止**写入 `localStorage`。跨会话持久化需后续本地安全存储方案。
+供应商名称、模型、协议、Base URL、Gateway 配置和活动供应商会以版本化文档保存到浏览器 `localStorage`，损坏或未知版本的数据会安全忽略。API key 只存在 `MemorySecretStore`（当前任务窗格内存），**不会**写入持久化文档；刷新或重开任务窗格后，直连模式需要重新输入 API key。
 
 ## 失败分类
 
@@ -130,9 +130,31 @@ npm run package:prod -- --base-url https://example.com/excel-addin
 
 GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅为 `excel-addin/dist/**`（Actions 自带压缩，本批不另造 zip）。**Artifact ≠ 真实 Excel/WPS 宿主验收**；下载后仍需在 Windows 上信任/部署 HTTPS 来源并侧载验证。
 
+生产 `base_url` 必须为 HTTPS、非 localhost；尾斜杠会被规范化。`SourceLocation` / `AppDomains` / 图标 URL 与 `VITE_BASE` 均由同一 base 推导，支持根域或子路径部署。打包门禁会扫描 `dist` 的 HTML/JS/manifest，拒绝 localhost/dev-server/`http://` 残留（Office.js 官方 CDN 除外）。
+
+**同源 AI Gateway（可选，不强制）**：若加载项使用 Gateway 模式，建议与静态资源同 origin 部署，浏览器请求固定路径 `/api/ai/v1/:upstreamId/...`；`gatewayBaseUrl` 留空即同源。Gateway 是独立服务（`ai-gateway/`），产品站无需变成 AI 代理。
+
+
+### WPS JSA 本地 jsaddons 包
+
+可生成**正式本地 file:// jsaddons 包**（构建脚本 + 静态布局），**真实 WPS 侧载尚未验收**，不得宣称宿主已通过。
+
+```bash
+npm run manifest:wps:check
+npm run package:wps -- --git-sha 0123456789abcdef
+```
+
+`package:wps` 执行 `build:wps`（`vite build --base ./`），整理 `dist/` 为：
+
+- `publish.xml`（jsaddons 根级注册，指向 `%AppData%/kingsoft/wps/jsaddons/wengge-excel-ai-addin/index.html`）
+- `wengge-excel-ai-addin/`：相对路径任务窗格、`manifest.xml` / `ribbon.xml` / `wps-entry.js`（无 Office.js CDN）
+- `BUILD_INFO.json` / `SHA256SUMS.txt`
+
+安装骨架（Windows，需完整重启 WPS；**未在本仓库验收**）：将 `wengge-excel-ai-addin/` 拷入用户 `jsaddons` 目录，并按需合并根级 `publish.xml` 条目。源与说明见 `manifest/wps-jsa/`。
+
 ## 非目标
 
 - 不替换 `desktop/` Electron 产品
 - 不引入 COM / .NET / Electron 运行时
 - 不伪造宿主不支持的能力（返回 typed `unsupported`）
-- 本提交不实现 WPS jsaddons 打包；真实 Excel/WPS 侧载验收仍属后续
+- 不宣称真实 Microsoft Excel / WPS 侧载已通过（Linux CI 与本地打包 ≠ 宿主验收）

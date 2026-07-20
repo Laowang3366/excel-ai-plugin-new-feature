@@ -4,7 +4,10 @@ import {
   createStreamProviderFromStore,
   ProviderStore,
 } from "../shared/provider";
-import type { AgentStreamEvent, StreamChatRequest } from "../shared/agent/types";
+import type {
+  AgentStreamEvent,
+  StreamChatRequest,
+} from "../shared/agent/types";
 import type { ToolDefinition } from "../shared/tools/types";
 
 const tools: ToolDefinition[] = [
@@ -45,16 +48,19 @@ function data(obj: unknown): string {
   return `data: ${JSON.stringify(obj)}\n\n`;
 }
 
-async function drain(
-  provider: { streamChat: (r: StreamChatRequest) => AsyncIterable<AgentStreamEvent> },
-): Promise<AgentStreamEvent[]> {
+async function drain(provider: {
+  streamChat: (r: StreamChatRequest) => AsyncIterable<AgentStreamEvent>;
+}): Promise<AgentStreamEvent[]> {
   const out: AgentStreamEvent[] = [];
   for await (const e of provider.streamChat(req())) out.push(e);
   return out;
 }
 
 const openaiDone = [
-  data({ id: "c", choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }] }),
+  data({
+    id: "c",
+    choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }],
+  }),
   data({ id: "c", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }),
   "data: [DONE]\n\n",
 ];
@@ -66,8 +72,15 @@ const responsesDone = [
 ];
 
 const anthropicDone = [
-  data({ type: "message_start", message: { usage: { input_tokens: 1, output_tokens: 0 } } }),
-  data({ type: "content_block_start", index: 0, content_block: { type: "text", text: "ok" } }),
+  data({
+    type: "message_start",
+    message: { usage: { input_tokens: 1, output_tokens: 0 } },
+  }),
+  data({
+    type: "content_block_start",
+    index: 0,
+    content_block: { type: "text", text: "ok" },
+  }),
   data({ type: "content_block_stop", index: 0 }),
   data({
     type: "message_delta",
@@ -83,19 +96,28 @@ describe("createStreamProvider routing", () => {
     const fetchImpl = vi.fn(async () => sseResponse(openaiDone));
     const created = createStreamProvider({
       apiFormat: "openai",
+      provider: "openai",
       baseUrl: "https://api.openai.com/v1",
       apiKey: "sk-openai-secret",
       model: "gpt-4o",
+      reasoningMode: "max",
       fetchImpl,
     });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const events = await drain(created.provider);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://api.openai.com/v1/chat/completions");
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer sk-openai-secret");
+    const body = JSON.parse(String(init.body));
+    expect(body.reasoning).toEqual({ effort: "xhigh" });
+    expect(body).not.toHaveProperty("reasoning_effort");
+    expect(JSON.stringify(body)).not.toContain("sk-openai-secret");
     expect(events.some((e) => e.type === "finish")).toBe(true);
   });
 
@@ -106,16 +128,23 @@ describe("createStreamProvider routing", () => {
       baseUrl: "https://api.openai.com/v1",
       apiKey: "sk-resp-secret",
       model: "gpt-4o",
+      reasoningMode: "max",
       fetchImpl,
     });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     await drain(created.provider);
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://api.openai.com/v1/responses");
     expect((init.headers as Record<string, string>).Authorization).toBe(
       "Bearer sk-resp-secret",
     );
+    const body = JSON.parse(String(init.body));
+    expect(body.reasoning).toEqual({ effort: "xhigh", summary: "auto" });
+    expect(JSON.stringify(body)).not.toContain("sk-resp-secret");
   });
 
   it("anthropic apiFormat hits /messages with x-api-key (no Bearer)", async () => {
@@ -125,17 +154,92 @@ describe("createStreamProvider routing", () => {
       baseUrl: "https://api.anthropic.com/v1",
       apiKey: "sk-ant-secret",
       model: "claude-3-5-sonnet-latest",
+      reasoningMode: "max",
       fetchImpl,
     });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     await drain(created.provider);
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://api.anthropic.com/v1/messages");
     const headers = init.headers as Record<string, string>;
     expect(headers["x-api-key"]).toBe("sk-ant-secret");
     expect(headers.Authorization).toBeUndefined();
     expect(headers["anthropic-version"]).toBe("2023-06-01");
+    const body = JSON.parse(String(init.body));
+    expect(body.thinking).toEqual({ type: "adaptive" });
+    expect(body.output_config).toEqual({ effort: "xhigh" });
+    expect(JSON.stringify(body)).not.toContain("sk-ant-secret");
+  });
+
+  for (const testCase of [
+    { apiFormat: "openai", response: openaiDone },
+    { apiFormat: "anthropic", response: anthropicDone },
+  ] as const) {
+    it(`${testCase.apiFormat} off/invalid reasoning leaves the direct request unchanged`, async () => {
+      for (const reasoningMode of ["off", "invalid"] as const) {
+        let body: Record<string, unknown> | undefined;
+        const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+          body = JSON.parse(String(init?.body));
+          return sseResponse([...testCase.response]);
+        });
+        const created = createStreamProvider({
+          apiFormat: testCase.apiFormat,
+          provider: testCase.apiFormat === "openai" ? "openai" : "anthropic",
+          baseUrl:
+            testCase.apiFormat === "anthropic"
+              ? "https://api.anthropic.com/v1"
+              : "https://api.openai.com/v1",
+          apiKey: "sk-off-secret",
+          model: "test-model",
+          reasoningMode: reasoningMode as never,
+          fetchImpl,
+        });
+        expect(created.ok).toBe(true);
+        if (!created.ok) continue;
+        await drain(created.provider);
+        expect(body).not.toHaveProperty("reasoning_effort");
+        expect(body).not.toHaveProperty("reasoning");
+        expect(body).not.toHaveProperty("thinking");
+        expect(body).not.toHaveProperty("output_config");
+        expect(JSON.stringify(body)).not.toContain("sk-off-secret");
+      }
+    });
+  }
+
+  it("responses off sends explicit effort=none; invalid omits reasoning", async () => {
+    for (const [reasoningMode, expected] of [
+      ["off", { effort: "none" }],
+      ["invalid", undefined],
+    ] as const) {
+      let body: Record<string, unknown> | undefined;
+      const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+        body = JSON.parse(String(init?.body));
+        return sseResponse([...responsesDone]);
+      });
+      const created = createStreamProvider({
+        apiFormat: "responses",
+        provider: "openai",
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-off-secret",
+        model: "test-model",
+        reasoningMode: reasoningMode as never,
+        fetchImpl,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) continue;
+      await drain(created.provider);
+      if (expected) {
+        expect(body?.reasoning).toEqual(expected);
+      } else {
+        expect(body).not.toHaveProperty("reasoning");
+      }
+      expect(body).not.toHaveProperty("reasoning_effort");
+      expect(JSON.stringify(body)).not.toContain("sk-off-secret");
+    }
   });
 
   it("unknown/empty format and empty fields fail without fetch; errors omit key", () => {
@@ -259,9 +363,14 @@ describe("createStreamProviderFromStore", () => {
     expect(ok.ok).toBe(true);
     if (!ok.ok) return;
     await drain(ok.provider);
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toBe("https://api.anthropic.com/v1/messages");
-    expect((init.headers as Record<string, string>)["x-api-key"]).toBe("sk-ant-live");
+    expect((init.headers as Record<string, string>)["x-api-key"]).toBe(
+      "sk-ant-live",
+    );
 
     store.update(ant.id, { apiKey: "   " });
     const empty = createStreamProviderFromStore(store, { fetchImpl: vi.fn() });
@@ -274,10 +383,12 @@ describe("createStreamProvider gateway mode stream", () => {
   for (const testCase of [
     {
       apiFormat: "openai",
+      provider: "openai",
       upstreamId: "openai",
       suffix: "chat/completions",
       model: "gpt-4o",
       response: openaiDone,
+      expectedReasoning: { reasoning: { effort: "xhigh" } },
     },
     {
       apiFormat: "responses",
@@ -285,6 +396,7 @@ describe("createStreamProvider gateway mode stream", () => {
       suffix: "responses",
       model: "gpt-4o",
       response: responsesDone,
+      expectedReasoning: { reasoning: { effort: "xhigh", summary: "auto" } },
     },
     {
       apiFormat: "anthropic",
@@ -292,6 +404,10 @@ describe("createStreamProvider gateway mode stream", () => {
       suffix: "messages",
       model: "claude-test",
       response: anthropicDone,
+      expectedReasoning: {
+        thinking: { type: "adaptive" },
+        output_config: { effort: "xhigh" },
+      },
     },
   ] as const) {
     it(`${testCase.apiFormat} gateway streams without browser auth`, async () => {
@@ -304,8 +420,11 @@ describe("createStreamProvider gateway mode stream", () => {
         expect(headers.Authorization).toBeUndefined();
         expect(headers["x-api-key"]).toBeUndefined();
         expect(headers.Accept).toBe("text/event-stream");
-        expect(JSON.stringify({ headers, body: init?.body, url })).not.toContain(
-          browserSecret,
+        expect(
+          JSON.stringify({ headers, body: init?.body, url }),
+        ).not.toContain(browserSecret);
+        expect(JSON.parse(String(init?.body))).toMatchObject(
+          testCase.expectedReasoning,
         );
         if (testCase.apiFormat === "anthropic") {
           expect(headers["anthropic-version"]).toBe("2023-06-01");
@@ -314,12 +433,19 @@ describe("createStreamProvider gateway mode stream", () => {
       });
       const created = createStreamProvider({
         apiFormat: testCase.apiFormat,
+        provider:
+          "provider" in testCase
+            ? testCase.provider
+            : testCase.apiFormat === "anthropic"
+              ? "anthropic"
+              : "openai",
         baseUrl: "https://vendor.example/v1",
         gatewayBaseUrl: "https://app.example",
         apiKey: browserSecret,
         model: testCase.model,
         connectionMode: "gateway",
         gatewayUpstreamId: testCase.upstreamId,
+        reasoningMode: "max",
         fetchImpl,
       });
       expect(created.ok).toBe(true);
@@ -347,7 +473,10 @@ describe("createStreamProvider gateway mode stream", () => {
     const fetchImpl = vi.fn();
     const inputs = [
       { gatewayBaseUrl: "//evil.example", gatewayUpstreamId: "openai" },
-      { gatewayBaseUrl: "https://app.example/path", gatewayUpstreamId: "openai" },
+      {
+        gatewayBaseUrl: "https://app.example/path",
+        gatewayUpstreamId: "openai",
+      },
       { gatewayBaseUrl: "", gatewayUpstreamId: "OpenAI" },
     ];
     for (const input of inputs) {
@@ -378,14 +507,18 @@ describe("createStreamProvider gateway mode stream", () => {
 
   it("createStreamProviderFromStore passes gateway fields", async () => {
     const store = new ProviderStore();
-    store.addFromTemplate("openai", "", {
+    const active = store.addFromTemplate("openai", "", {
       connectionMode: "gateway",
       gatewayUpstreamId: "openai",
       gatewayBaseUrl: "https://app.example",
     });
+    store.update(active.id, { reasoningMode: "max" });
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       expect(url).toContain("/api/ai/v1/openai/chat/completions");
-      expect((init?.headers as Record<string, string>).Authorization).toBeUndefined();
+      expect(
+        (init?.headers as Record<string, string>).Authorization,
+      ).toBeUndefined();
+      expect(JSON.parse(String(init?.body)).reasoning).toEqual({ effort: "xhigh" });
       return sseResponse(openaiDone);
     });
     const created = createStreamProviderFromStore(store, { fetchImpl });

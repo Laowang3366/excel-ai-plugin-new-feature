@@ -1,8 +1,10 @@
 import { TOOL_DEFINITIONS, TOOL_DEFINITION_MAP } from "../tools";
 import type { ToolDefinition, ToolName } from "../tools/types";
 import {
+  DEFAULT_PERMISSION_MODE,
   dispositionForRisk,
   type ApprovalDisposition,
+  type PermissionMode,
 } from "./approvalPolicy";
 
 /**
@@ -16,7 +18,10 @@ export function listChatTools(): ToolDefinition[] {
   }));
 }
 
-export function classifyChatTool(name: string): {
+export function classifyChatTool(
+  name: string,
+  mode: PermissionMode = DEFAULT_PERMISSION_MODE,
+): {
   disposition: ApprovalDisposition;
   definition?: ToolDefinition;
 } {
@@ -25,7 +30,7 @@ export function classifyChatTool(name: string): {
   }
   const definition = TOOL_DEFINITION_MAP[name as ToolName];
   return {
-    disposition: dispositionForRisk(definition?.riskLevel),
+    disposition: dispositionForRisk(definition?.riskLevel, mode),
     definition,
   };
 }

@@ -1,8 +1,10 @@
-import { useCallback, useState, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useState, type KeyboardEvent } from "react";
 import type { ChatController, ChatControllerDeps } from "@shared/agentChat";
 import type { HostAdapter } from "@shared/host";
 import type { ProviderStore } from "@shared/provider";
 import { useChatController } from "../chat/useChatController";
+import { useStickToBottom } from "../chat/useStickToBottom";
+import { ActiveProviderBar, summarizeActiveProvider } from "./ActiveProviderBar";
 import { ChatApprovalCard } from "./ChatApprovalCard";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatToolTrace } from "./ChatToolTrace";
@@ -14,28 +16,58 @@ interface Props {
 }
 
 export function ChatPanel({ store, adapter, createController }: Props) {
-  const { view, send, stop, clear, approve, reject } = useChatController({
+  const { view, send, retry, stop, clear, approve, reject } = useChatController({
     store,
     adapter,
     createController,
   });
   const [draft, setDraft] = useState("");
   const [composing, setComposing] = useState(false);
+  // Re-read store each render (tab remount / parent re-render after settings).
+  const activeSummary = useMemo(() => summarizeActiveProvider(store), [
+    store,
+    // Force refresh when chat status settles or turns change after provider-related errors.
+    view.status,
+    view.bannerError,
+    view.turns.length,
+  ]);
 
-  const onSend = useCallback(() => {
+  const lastAssistantLen =
+    view.turns.length > 0
+      ? view.turns[view.turns.length - 1]?.assistantText.length ?? 0
+      : 0;
+  const { containerRef, onScroll } = useStickToBottom([
+    view.turns.length,
+    lastAssistantLen,
+    view.pendingApproval?.requestId ?? null,
+    view.liveAssistant.length,
+  ]);
+
+  const onSend = useCallback(async () => {
     if (!view.canSend) return;
     const text = draft;
-    setDraft("");
-    void send(text);
+    const outcome = await send(text);
+    if (outcome.accepted) {
+      setDraft("");
+    } else if (outcome.restoreText != null) {
+      setDraft(outcome.restoreText);
+    }
   }, [draft, send, view.canSend]);
+
+  const onRetry = useCallback(
+    async (turnId: string) => {
+      if (!view.canSend) return;
+      await retry(turnId);
+    },
+    [retry, view.canSend],
+  );
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter" || e.shiftKey) return;
     if (composing || e.nativeEvent.isComposing) return;
-    // While approval dialog is open, Enter must not send chat.
     if (view.pendingApproval) return;
     e.preventDefault();
-    onSend();
+    void onSend();
   };
 
   if (!adapter) {
@@ -50,13 +82,29 @@ export function ChatPanel({ store, adapter, createController }: Props) {
         变更操作会在执行前等待你的批准；未批准不会写入/删除
       </div>
 
+      <ActiveProviderBar summary={activeSummary} />
+
       {view.bannerError && (
         <div className="chat-banner error" role="alert">
           {view.bannerError}
         </div>
       )}
 
-      <ChatMessageList turns={view.turns} />
+      <div
+        className="chat-messages"
+        role="log"
+        aria-live="polite"
+        ref={containerRef}
+        onScroll={onScroll}
+      >
+        <ChatMessageList
+          turns={view.turns}
+          canRetry={view.canSend}
+          onRetry={(id) => {
+            void onRetry(id);
+          }}
+        />
+      </div>
 
       {view.pendingApproval && (
         <ChatApprovalCard
@@ -91,7 +139,9 @@ export function ChatPanel({ store, adapter, createController }: Props) {
         <div className="row chat-actions">
           <button
             type="button"
-            onClick={onSend}
+            onClick={() => {
+              void onSend();
+            }}
             disabled={!view.canSend || draft.trim() === ""}
           >
             发送

@@ -1,5 +1,6 @@
 import {
   getExcelRun,
+  getOfficeJsRuntimeCapabilities,
   normalizeFormulas,
   normalizeMatrix,
   withExcel,
@@ -16,6 +17,20 @@ import {
   officeJsWriteFormat,
 } from "./officeJsCapabilities";
 import { officeJsUnlistTable } from "./officeJsTableUnlist";
+import {
+  officeJsApplyTableFilter,
+  officeJsClearTableFilter,
+  officeJsGetTableFilter,
+} from "./officeJsTableFilter";
+import {
+  officeJsApplyTableSort,
+  officeJsClearTableSort,
+  officeJsGetTableSort,
+} from "./officeJsTableSort";
+import {
+  officeJsInspectFormulaProtection,
+  officeJsManageFormulaProtection,
+} from "./officeJsFormulaProtection";
 import {
   officeJsGetFormulaContext,
   officeJsReadRange,
@@ -95,6 +110,10 @@ import { ok } from "./types";
 /** Core Office.js adapter: status/selection/range/formula/sheet + phase3 capabilities. */
 export class OfficeJsAdapter implements HostAdapter {
   readonly kind = "office-js" as const;
+
+  getRuntimeCapabilities() {
+    return getOfficeJsRuntimeCapabilities();
+  }
 
   async getStatus(): Promise<HostResult<HostStatus>> {
     const run = getExcelRun();
@@ -243,6 +262,14 @@ export class OfficeJsAdapter implements HostAdapter {
   deleteTable = officeJsDeleteTable;
   unlistTable = officeJsUnlistTable;
   updateTable = officeJsUpdateTable;
+  getTableFilter = officeJsGetTableFilter;
+  applyTableFilter = officeJsApplyTableFilter;
+  clearTableFilter = officeJsClearTableFilter;
+  getTableSort = officeJsGetTableSort;
+  applyTableSort = officeJsApplyTableSort;
+  clearTableSort = officeJsClearTableSort;
+  inspectFormulaProtection = officeJsInspectFormulaProtection;
+  manageFormulaProtection = officeJsManageFormulaProtection;
   listCharts = officeJsListCharts;
   createChart = officeJsCreateChart;
   deleteChart = officeJsDeleteChart;

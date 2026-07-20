@@ -56,3 +56,11 @@ export function parseCliArgs(argv: string[]): {
   gitSha: string | null;
   help?: boolean;
 };
+
+export const OFFICE_JS_CDN_URL: string;
+export function assertProductionDistClean(opts: {
+  distDir: string;
+  baseUrl: string;
+  viteBase: string;
+  relativePaths?: string[];
+}): void;

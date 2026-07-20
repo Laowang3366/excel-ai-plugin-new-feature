@@ -14,13 +14,16 @@ Evidence columns:
 | range | range.read expand spill/currentArray/currentRegion | implemented | **unsupported** | expand modes | Office.js APIs; omit expand on single cell → spill (desktop parity) |
 | formula | formula.read / formula.write | implemented | implemented* | formula tools | writeFormulas primitive |
 | formula | formula.context | implemented | implemented* | `formula.context` | Desktop shape `{sheetName,address,formulas[]}`; range optional → UsedRange |
+| formula | protection inspect/manage | implemented | **unsupported** | `inspectFormulaProtection` / `manageFormulaProtection` | Office.js `Range.formulas` + `Range.format.protection.locked` **ExcelApi 1.2**; lock/unlock **formula cells only** (not whole-sheet fake); scope workbook\|sheet\|target; lock defaults unlockInputs=true (target range only) + protectSheet=true; password request-memory only, never in result; write-back verify; WPS typed unsupported; **not** real Excel sideload verified |
 | sheet | list/add/rename/delete | implemented | implemented* | `sheet.operation` | |
 | sheet | sheet.operation copy | implemented | **unsupported** | `sheet.operation` copy | Office.js `Worksheet.copy` |
 | sheet | sheet.operation move | implemented | **unsupported** | `sheet.operation` move | Public position **1-based**; Office.js converts to 0-based |
 | range format | range.format.read/write | implemented | **unsupported** | COM format | WPS: no in-repo format contract |
 | table | list/create/delete | implemented | **unsupported** | table actions | WPS: no in-repo ListObjects contract; delete = hard delete |
 | table | unlist (convertToRange) | implemented | **unsupported** | table unlist boolean | Office.js `Table.convertToRange` **ExcelApi 1.2**; keeps cell data; absence check after sync; **no** getItemOrNullObject(1.4); WPS: no ListObjects/Unlist/convertToRange contract |
-| table | update (name/style/headers/totals/filter button/banded rows+columns/resize) | implemented | **unsupported** | manageWorkbookObject | Office.js Table fields; banded rows/columns **ExcelApi 1.3**; same-sheet single-area A1 resize **ExcelApi 1.13** with host overlap/header-row rules; **unsupported**: table filter rules/sort/highlight first-or-last column |
+| table | update (name/style/headers/totals/filter button/banded rows+columns/first+last column/resize) | implemented | **unsupported** | manageWorkbookObject | Office.js Table fields; banded + showFirstColumn/showLastColumn **ExcelApi 1.3**; same-sheet single-area A1 resize **ExcelApi 1.13** with host overlap/header-row rules |
+| table | filter get/apply/clear | implemented | **unsupported** | (desktop object schema has no filter rules) | Office.js `Table.autoFilter` apply/clearCriteria **ExcelApi 1.2**; enabled readback **ExcelApi 1.9**; public columnIndex **1-based**; filterOn values\|custom\|top/bottom items/percent; **unsupported**: cellColor/fontColor/icon/dynamic criteria detail dump; WPS unsupported; **not** real Excel sideload verified |
+| table | sort get/apply/clear | implemented | **unsupported** | (desktop object schema has no table sort) | Office.js `Table.sort` apply/clear/fields **ExcelApi 1.2**; fields ≤3; public columnIndex **1-based**; value sort only; color/icon sort **unsupported**; WPS unsupported; **not** real Excel sideload verified |
 | chart | list/create/delete (column/line/bar/area/pie/scatter/doughnut/bubble/radar/linemarkers) | implemented | **unsupported** | chart actions | Office.js ChartType map via `ChartCollection.add` (**ExcelApi 1.1**); WPS: no ChartObjects contract |
 | chart | update (name/type/title/style/legend/pos/size) | implemented | **unsupported** | formatChart/manage | shallow style+legend.visible; type ∈ 10 labels; `Chart.chartType` **ExcelApi 1.7**; **unsupported**: axes/data labels/source replacement/export/complex layout/stacked/3D/stock/funnel |
 | chart | series list/update (name/chartType/smooth) | implemented | **unsupported** | formatChart series | Office.js `Chart.series` only name/chartType/smooth; public index 1-based; chartType 10 labels (`ChartSeries.chartType` **ExcelApi 1.7**); does **not** handle dataLabels (use chart.series.dataLabels.update); delete/add via dedicated tools; **unsupported**: formula/values/xValues/categoryFormula |
@@ -96,7 +99,9 @@ Evidence columns:
 - Phase33: `sheet.pageLayout` adds manual `horizontalPageBreaks`/`verticalPageBreaks` + `clearPageBreaks` (**ExcelApi 1.9** Worksheet page break collections; bare A1; append not replace; [] no-op; WPS unsupported). **unsupported**: automatic page breaks, single-break delete tool, printArea/titles clear, fitToOnePage
 - Phase34: `range.image.get` (ExcelApi 1.7 Range.getImage Base64 PNG; memory only; no width/height/path/PDF/MIME; Office.js; WPS unsupported)
 - Phase38: `range.insert` / `range.delete` (ExcelApi 1.1, shift down|right/up|left) and `range.autofit` (ExcelApi 1.2, rows|columns|both with dimension readback); Office.js only, WPS typed unsupported
-- Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with requirement-set precheck and write→sync→load→sync host readback; overlap/header-row geometry remains host-validated; table filter rules/sort/highlight first-or-last column remain unsupported; WPS unsupported
+- Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with requirement-set precheck and write→sync→load→sync host readback; overlap/header-row geometry remains host-validated; WPS unsupported
+- Phase40: `formula.protection.inspect` (safe) + `formula.protection.manage` (dangerous): ExcelApi 1.2 locked on formula cells only; scope workbook|sheet|target; unlockInputs range-limited; protectSheet optional; password request-memory only; post-write verify; WPS unsupported; **not** real Excel sideload verified
+- Phase39: `table.update` adds `showFirstColumn`/`showLastColumn` (**ExcelApi 1.3**); new tools `table.filter.get|apply|clear` (AutoFilter apply/clear **1.2**, enabled **1.9**) and `table.sort.get|apply|clear` (**ExcelApi 1.2**); 1-based columnIndex; filterOn values|custom|top/bottom items/percent; sort fields≤3 value-only; color/icon/dynamic filter & color sort remain typed unsupported; WPS typed unsupported; **not** real Excel sideload verified
 
 ## Phase5 Office.js contract notes
 
@@ -104,6 +109,10 @@ Evidence columns:
 - Data validation: load/set `type` + `rule` + `ignoreBlanks` only; no top-level `operator`/`formula1`/`formula2`.
 - list → `rule.list.{source,inCellDropDown}`; wholeNumber → `rule.wholeNumber.{operator,formula1,formula2}`.
 - Tool schema rejects unimplemented `showError`/`errorMessage` (errorAlert not wired).
+
+## Formula pure core (not full tool governance)
+
+`shared/formulaGovernance/` is a pure address/dependency/repair library used for tests and future wiring. **Callable host tools today** for formula safety are only `formula.protection.inspect` / `formula.protection.manage`. Stage-A pure core is **not** the complete formula governance product surface.
 
 ## Assumptions (WPS)
 
@@ -121,4 +130,6 @@ Format / ListObjects / ChartObjects / expand / sheet copy-move are **not** verif
 | 图标真实像素尺寸 | 已提供 | `public/assets/icon-{16,32,64,80}.png` IHDR 与文件名一致 |
 | Windows 信任开发 CA | **未在本仓库验收** | 需在开发机执行 `certs:install` |
 | Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
-| WPS 真实侧载 / jsaddons 包 | **未做** | 下一阶段 |
+| WPS 正式本地 jsaddons 包生成 | **可生成** | `npm run package:wps`；布局对齐桌面 bridge 的 publish/url 合同；**真实 WPS 侧载尚未验收** |
+| Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
+| WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |

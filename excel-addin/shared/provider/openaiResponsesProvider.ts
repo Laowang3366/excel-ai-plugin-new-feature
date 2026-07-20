@@ -7,7 +7,7 @@ import {
   normalizeConnectionMode,
   resolveProviderEndpoint,
 } from "./endpointResolve";
-import type { ConnectionMode } from "./types";
+import type { ConnectionMode, ReasoningMode } from "./types";
 import { isAbortError, throwIfAborted } from "../agent/streamProvider";
 import type {
   AgentStreamEvent,
@@ -18,6 +18,7 @@ import { encodeResponsesBody } from "./openaiResponsesEncode";
 import { OpenAiResponsesStreamAssembler } from "./openaiResponsesStreamParse";
 import { SseByteParser, type SseParseResult } from "./openaiSse";
 import { buildToolNameMaps, isToolNameMaps } from "./openaiToolNameMap";
+import { applyResponsesReasoningConfig } from "./reasoningConfig";
 
 function redactSecrets(message: string, apiKey: string): string {
   if (!apiKey) return message;
@@ -31,6 +32,7 @@ export interface OpenAIResponsesStreamProviderOptions {
   connectionMode?: ConnectionMode;
   gatewayBaseUrl?: string;
   gatewayUpstreamId?: string;
+  reasoningMode?: ReasoningMode;
   fetchImpl?: ProviderFetch;
 }
 
@@ -41,6 +43,7 @@ export class OpenAIResponsesStreamProvider implements AgentStreamProvider {
   private readonly connectionMode: ConnectionMode;
   private readonly gatewayBaseUrl: string;
   private readonly gatewayUpstreamId: string;
+  private readonly reasoningMode?: ReasoningMode;
   private readonly fetchImpl: ProviderFetch;
 
   constructor(options: OpenAIResponsesStreamProviderOptions) {
@@ -50,16 +53,23 @@ export class OpenAIResponsesStreamProvider implements AgentStreamProvider {
     this.connectionMode = normalizeConnectionMode(options.connectionMode);
     this.gatewayBaseUrl = options.gatewayBaseUrl ?? "";
     this.gatewayUpstreamId = options.gatewayUpstreamId ?? "";
+    this.reasoningMode = options.reasoningMode;
     this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
   }
 
-  async *streamChat(request: StreamChatRequest): AsyncIterable<AgentStreamEvent> {
+  async *streamChat(
+    request: StreamChatRequest,
+  ): AsyncIterable<AgentStreamEvent> {
     if (request.signal?.aborted) {
       yield { type: "error", message: "aborted", kind: "aborted" };
       return;
     }
     if (this.connectionMode === "direct" && !this.apiKey.trim()) {
-      yield { type: "error", message: "API key 未设置，无法发起请求", kind: "missing_key" };
+      yield {
+        type: "error",
+        message: "API key 未设置，无法发起请求",
+        kind: "missing_key",
+      };
       return;
     }
     if (this.connectionMode === "direct" && !this.baseUrl.trim()) {
@@ -114,6 +124,7 @@ export class OpenAIResponsesStreamProvider implements AgentStreamProvider {
     };
     if (encoded.instructions != null) body.instructions = encoded.instructions;
     if (encoded.tools.length > 0) body.tools = encoded.tools;
+    applyResponsesReasoningConfig(body, this.reasoningMode);
 
     let response: Response;
     try {
@@ -150,7 +161,12 @@ export class OpenAIResponsesStreamProvider implements AgentStreamProvider {
       return;
     }
     if (!response.body) {
-      yield { type: "error", message: "response body is empty", kind: "parse", url };
+      yield {
+        type: "error",
+        message: "response body is empty",
+        kind: "parse",
+        url,
+      };
       return;
     }
 
@@ -179,12 +195,18 @@ export class OpenAIResponsesStreamProvider implements AgentStreamProvider {
         try {
           json = JSON.parse(part.data);
         } catch {
-          yield { type: "error", message: "malformed SSE JSON", kind: "parse", url };
+          yield {
+            type: "error",
+            message: "malformed SSE JSON",
+            kind: "parse",
+            url,
+          };
           return true;
         }
         const ingested = assembler.ingest(json);
         if ("error" in ingested) {
-          const provider = (ingested as { provider?: boolean }).provider === true;
+          const provider =
+            (ingested as { provider?: boolean }).provider === true;
           yield {
             type: "error",
             message: redactSecrets(ingested.error, apiKey),

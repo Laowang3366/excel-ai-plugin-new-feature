@@ -151,6 +151,8 @@ export interface AgentLoopOptions {
   maxRounds?: number;
   signal?: AbortSignal;
   onEvent?: (event: LoopEvent) => void;
+  /** Active provider context window; enables request-copy history budget when set. */
+  contextWindowSize?: number;
 }
 
 export interface AgentRunInput {

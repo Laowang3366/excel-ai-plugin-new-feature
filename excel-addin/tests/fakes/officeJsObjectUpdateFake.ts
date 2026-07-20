@@ -8,6 +8,8 @@ type TableState = {
   showTotals: boolean;
   showBandedRows: boolean;
   showBandedColumns: boolean;
+  showFirstColumn: boolean;
+  showLastColumn: boolean;
   style: string;
   address: string;
 };
@@ -40,6 +42,8 @@ export function installObjectUpdateExcel() {
       showTotals: false,
       showBandedRows: true,
       showBandedColumns: false,
+      showFirstColumn: false,
+      showLastColumn: false,
       style: "TableStyleMedium2",
       address: "Sheet1!A1:C3",
     },
@@ -110,6 +114,20 @@ export function installObjectUpdateExcel() {
       },
       set showBandedColumns(v: boolean) {
         entry.pending = { ...entry.pending, showBandedColumns: v };
+      },
+      get showFirstColumn() {
+        if (!snapshot) throw new Error("Table.showFirstColumn not loaded");
+        return snapshot.showFirstColumn;
+      },
+      set showFirstColumn(v: boolean) {
+        entry.pending = { ...entry.pending, showFirstColumn: v };
+      },
+      get showLastColumn() {
+        if (!snapshot) throw new Error("Table.showLastColumn not loaded");
+        return snapshot.showLastColumn;
+      },
+      set showLastColumn(v: boolean) {
+        entry.pending = { ...entry.pending, showLastColumn: v };
       },
       get style() {
         if (!snapshot) throw new Error("Table.style not loaded");

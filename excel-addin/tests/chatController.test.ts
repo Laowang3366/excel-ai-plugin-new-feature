@@ -327,17 +327,71 @@ describe("AgentLoop + guard write rejection", () => {
 });
 
 describe("ChatController prompt assembly", () => {
-  it("uses injected composeSystemPrompt; marker present by default path", async () => {
-    const compose = vi.fn(() => `base\n\n## ${CHAT_READONLY_PROMPT_MARKER}\nreadonly`);
+  it("passes live host status and capabilities to injected prompt composition", async () => {
+    const compose = vi.fn(
+      () => `base\n\n## ${CHAT_READONLY_PROMPT_MARKER}\nreadonly`,
+    );
     const fetchImpl = vi.fn(async () => sse(openaiTextStop("ok")));
+    const host = new MockHostAdapter();
+    host.dynamicArrayFunctionsEnabled = true;
     const controller = new ChatController({
       store: storeWith("openai"),
-      host: new MockHostAdapter(),
+      host,
       fetchImpl,
       composeSystemPrompt: compose,
     });
     await controller.send("hello excel");
     expect(compose).toHaveBeenCalledTimes(1);
-    expect(compose).toHaveBeenCalledWith("hello excel");
+    expect(compose).toHaveBeenCalledWith("hello excel", {
+      officeConnectionStatus: "connected (office-js)",
+      dynamicArrayEnabled: true,
+    });
+  });
+
+  it("uses unavailable/disabled prompt context when host probes fail", async () => {
+    const compose = vi.fn(() => "system");
+    const host = new MockHostAdapter();
+    host.failCapability = "host.status";
+    vi.spyOn(host, "getRuntimeCapabilities").mockImplementation(() => {
+      throw new Error("capability probe failed");
+    });
+    const controller = new ChatController({
+      store: storeWith("openai"),
+      host,
+      fetchImpl: vi.fn(async () => sse(openaiTextStop("ok"))),
+      composeSystemPrompt: compose,
+    });
+
+    const result = await controller.send("hello");
+
+    expect(result.turnStatus).toBe("completed");
+    expect(compose).toHaveBeenCalledWith("hello", {
+      officeConnectionStatus: "unavailable (office-js)",
+      dynamicArrayEnabled: false,
+    });
+  });
+
+  it("puts live runtime facts into the default system prompt", async () => {
+    const prompts: string[] = [];
+    const host = new MockHostAdapter();
+    host.dynamicArrayFunctionsEnabled = true;
+    const provider = {
+      async *streamChat(request: { systemPrompt: string }) {
+        prompts.push(request.systemPrompt);
+        yield { type: "text_delta" as const, delta: "ok" };
+        yield { type: "finish" as const, reason: "stop" as const };
+      },
+    };
+    const controller = new ChatController({
+      store: storeWith("openai"),
+      host,
+      createProvider: () => ({ ok: true, provider }),
+    });
+
+    await controller.send("formula help");
+
+    expect(prompts[0]).toContain("Office 应用连接状态：connected (office-js)");
+    expect(prompts[0]).toContain("动态数组函数环境支持：已开启");
+    expect(prompts[0]).not.toContain(host.workbookName);
   });
 });

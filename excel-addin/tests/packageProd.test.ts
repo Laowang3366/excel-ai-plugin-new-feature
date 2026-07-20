@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   assertIndexAssetsUnderBase,
   assertNoSensitiveDistPaths,
+  assertProductionDistClean,
   assertViteBaseMatchesBaseUrl,
   buildBuildInfo,
   buildSha256Sums,
@@ -12,6 +13,13 @@ import {
   requireFourPartVersion,
   resolvePackageInputs,
 } from "../scripts/packageProdCore.mjs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import {
   renderOfficeManifest,
   validateOfficeManifest,
@@ -167,5 +175,191 @@ describe("packageProdCore dist checks", () => {
     expect(xml).toContain("https://example.com/excel-addin/index.html");
     expect(xml).toContain("https://example.com/excel-addin/assets/icon-32.png");
     expect(xml).not.toMatch(/localhost/);
+  });
+});
+
+
+describe("production baseUrl root/subpath/trailing slash", () => {
+  it("normalizes root domain and subpath the same for vite base and package inputs", () => {
+    expect(deriveViteBaseFromBaseUrl("https://cdn.example.com")).toBe("/");
+    expect(deriveViteBaseFromBaseUrl("https://cdn.example.com/")).toBe("/");
+    expect(deriveViteBaseFromBaseUrl("https://cdn.example.com/excel-addin")).toBe(
+      "/excel-addin/",
+    );
+    expect(deriveViteBaseFromBaseUrl("https://cdn.example.com/excel-addin/")).toBe(
+      "/excel-addin/",
+    );
+    expect(
+      resolvePackageInputs({
+        baseUrl: "https://cdn.example.com/",
+        packageJsonVersion: "0.1.0",
+      }),
+    ).toEqual({
+      baseUrl: "https://cdn.example.com",
+      viteBase: "/",
+      version: "0.1.0.0",
+      packageJsonVersion: "0.1.0",
+    });
+    expect(
+      resolvePackageInputs({
+        baseUrl: "https://cdn.example.com/a/b/",
+        packageJsonVersion: "1.2.3",
+        viteBase: "/a/b/",
+      }).viteBase,
+    ).toBe("/a/b/");
+  });
+
+  it("rejects http, localhost, traversal, and mismatched vite base", () => {
+    expect(() =>
+      resolvePackageInputs({
+        baseUrl: "http://cdn.example.com/app",
+        packageJsonVersion: "0.1.0",
+      }),
+    ).toThrow(/HTTPS/i);
+    expect(() =>
+      resolvePackageInputs({
+        baseUrl: "https://127.0.0.1/app",
+        packageJsonVersion: "0.1.0",
+      }),
+    ).toThrow(/localhost/i);
+    expect(() =>
+      resolvePackageInputs({
+        baseUrl: "https://cdn.example.com/app/../evil",
+        packageJsonVersion: "0.1.0",
+      }),
+    ).toThrow(/\.\.|path/i);
+    expect(() =>
+      resolvePackageInputs({
+        baseUrl: "https://cdn.example.com/%2e%2e/evil",
+        packageJsonVersion: "0.1.0",
+      }),
+    ).toThrow(/encoded|path/i);
+    expect(() =>
+      resolvePackageInputs({
+        baseUrl: "https://cdn.example.com/app",
+        viteBase: "/other/",
+        packageJsonVersion: "0.1.0",
+      }),
+    ).toThrow(/does not match/);
+  });
+});
+
+describe("production package residual scan", () => {
+  const temps: string[] = [];
+  function tempDir() {
+    const d = mkdtempSync(path.join(tmpdir(), "wengge-prod-clean-"));
+    temps.push(d);
+    return d;
+  }
+  afterEach(() => {
+    for (const d of temps.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+
+  function seedCleanDist(dist: string, baseUrl: string, viteBase: string) {
+    mkdirSync(path.join(dist, "assets"), { recursive: true });
+    const assetPrefix = viteBase === "/" ? "/" : viteBase;
+    writeFileSync(
+      path.join(dist, "index.html"),
+      `<!doctype html><html><head>
+        <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+        <script type="module" src="${assetPrefix}assets/app.js"></script>
+      </head><body></body></html>`,
+    );
+    writeFileSync(path.join(dist, "assets/app.js"), "console.log('ok');\n");
+    const template = readFileSync(
+      path.join(root, "manifest/templates/office-excel-manifest.template.xml"),
+      "utf8",
+    );
+    const xml = renderOfficeManifest({
+      mode: "prod",
+      baseUrl,
+      version: "0.1.0.0",
+      template,
+    });
+    writeFileSync(path.join(dist, "office-excel-manifest.xml"), xml);
+  }
+
+  it("accepts clean root and subpath packages with Office.js CDN", () => {
+    for (const [baseUrl, viteBase] of [
+      ["https://cdn.example.com", "/"],
+      ["https://cdn.example.com/excel-addin", "/excel-addin/"],
+    ] as const) {
+      const dist = tempDir();
+      seedCleanDist(dist, baseUrl, viteBase);
+      expect(() =>
+        assertProductionDistClean({ distDir: dist, baseUrl, viteBase }),
+      ).not.toThrow();
+    }
+  });
+
+  it("rejects localhost residual and wrong absolute asset paths", () => {
+    const dist = tempDir();
+    seedCleanDist(dist, "https://cdn.example.com/app", "/app/");
+    writeFileSync(
+      path.join(dist, "assets/app.js"),
+      "fetch('https://localhost:3000/api');\n",
+    );
+    expect(() =>
+      assertProductionDistClean({
+        distDir: dist,
+        baseUrl: "https://cdn.example.com/app",
+        viteBase: "/app/",
+      }),
+    ).toThrow(/localhost|residual/i);
+
+    writeFileSync(path.join(dist, "assets/app.js"), "console.log('ok');\n");
+    writeFileSync(
+      path.join(dist, "index.html"),
+      `<!doctype html><script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+       <script src="/wrong/assets/app.js"></script>`,
+    );
+    expect(() =>
+      assertProductionDistClean({
+        distDir: dist,
+        baseUrl: "https://cdn.example.com/app",
+        viteBase: "/app/",
+      }),
+    ).toThrow(/VITE_BASE|not under/i);
+  });
+
+  it("rejects http residual and dev-server markers without leaking env", () => {
+    const dist = tempDir();
+    seedCleanDist(dist, "https://cdn.example.com/app", "/app/");
+    writeFileSync(
+      path.join(dist, "assets/app.js"),
+      "const u='http://evil.example/x';\n",
+    );
+    process.env.PACKAGE_PROD_SECRET_TEST = "should-not-appear";
+    try {
+      expect(() =>
+        assertProductionDistClean({
+          distDir: dist,
+          baseUrl: "https://cdn.example.com/app",
+          viteBase: "/app/",
+        }),
+      ).toThrow(/http:\/\//i);
+      try {
+        assertProductionDistClean({
+          distDir: dist,
+          baseUrl: "https://cdn.example.com/app",
+          viteBase: "/app/",
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        expect(message).not.toContain("should-not-appear");
+        expect(message).not.toMatch(/OPENAI|API_KEY|SECRET/i);
+      }
+    } finally {
+      delete process.env.PACKAGE_PROD_SECRET_TEST;
+    }
+
+    writeFileSync(path.join(dist, "assets/app.js"), "import '/@vite/client';\n");
+    expect(() =>
+      assertProductionDistClean({
+        distDir: dist,
+        baseUrl: "https://cdn.example.com/app",
+        viteBase: "/app/",
+      }),
+    ).toThrow(/dev-server/i);
   });
 });

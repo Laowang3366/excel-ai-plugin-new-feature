@@ -22,7 +22,7 @@ describe("phase7 object update", () => {
     const properties = (tableUpdate?.parameters as { properties?: Record<string, unknown> })
       .properties;
     expect(Object.keys(properties ?? {})).toEqual(
-      expect.arrayContaining(["resizeAddress", "showBandedRows", "showBandedColumns"]),
+      expect.arrayContaining(["resizeAddress", "showBandedRows", "showBandedColumns", "showFirstColumn", "showLastColumn"]),
     );
   });
 
@@ -81,6 +81,8 @@ describe("phase7 object update", () => {
       for (const [input, version] of [
         [{ resizeAddress: "A1:D5" }, "1.13"],
         [{ showBandedRows: false }, "1.3"],
+        [{ showFirstColumn: true }, "1.3"],
+        [{ showLastColumn: true }, "1.3"],
       ] as const) {
         installOfficeRequirements((_name, minVersion) => minVersion !== version);
         const result = await new OfficeJsAdapter().updateTable({

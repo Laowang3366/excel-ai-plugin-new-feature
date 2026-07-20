@@ -15,7 +15,9 @@ function requiredTableUpdateApi(input: TableUpdateInput): "1.3" | "1.13" | null 
   if (
     input.showFilterButton != null ||
     input.showBandedRows != null ||
-    input.showBandedColumns != null
+    input.showBandedColumns != null ||
+    input.showFirstColumn != null ||
+    input.showLastColumn != null
   ) {
     return "1.3";
   }
@@ -50,7 +52,7 @@ export async function officeJsUpdateTable(
       `ExcelApi ${requiredApi} is not supported in this host (Office.context.requirements.isSetSupported)`,
       requiredApi === "1.13"
         ? "Table.resize requires ExcelApi 1.13"
-        : "Table.showFilterButton/showBandedRows/showBandedColumns require ExcelApi 1.3",
+        : "Table.showFilterButton/showBandedRows/showBandedColumns/showFirstColumn/showLastColumn require ExcelApi 1.3",
     );
   }
   return withExcel("table.update", async (context) => {
@@ -73,9 +75,11 @@ export async function officeJsUpdateTable(
     if (input.showFilterButton != null) table.showFilterButton = input.showFilterButton;
     if (input.showBandedRows != null) table.showBandedRows = input.showBandedRows;
     if (input.showBandedColumns != null) table.showBandedColumns = input.showBandedColumns;
+    if (input.showFirstColumn != null) table.showFirstColumn = input.showFirstColumn;
+    if (input.showLastColumn != null) table.showLastColumn = input.showLastColumn;
     await context.sync();
     table.load(
-      "name,showHeaders,showFilterButton,showTotals,showBandedRows,showBandedColumns,style",
+      "name,showHeaders,showFilterButton,showTotals,showBandedRows,showBandedColumns,showFirstColumn,showLastColumn,style",
     );
     const range = table.getRange();
     range.load("address");
@@ -89,6 +93,8 @@ export async function officeJsUpdateTable(
       showTotals: table.showTotals,
       showBandedRows: table.showBandedRows,
       showBandedColumns: table.showBandedColumns,
+      showFirstColumn: table.showFirstColumn,
+      showLastColumn: table.showLastColumn,
       style: table.style,
     };
   });

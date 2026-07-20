@@ -1,66 +1,70 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAddInHardBoundary,
   buildAdvancedExcelBoundary,
   composeExcelSystemPrompt,
-  formatOfficeConnectionContext,
-  formatRuntimeDateTime,
+  getPromptText,
   resolveOfficeAdvancedIntents,
 } from "../shared/prompts";
 
-describe("prompt runtime parity", () => {
-  it("formats Asia/Shanghai date/time like desktop", () => {
-    const parts = formatRuntimeDateTime(new Date("2026-07-19T04:00:00.000Z"));
-    expect(parts.CURRENT_DATE).toMatch(/2026/);
-    expect(parts.CURRENT_DATE).toMatch(/星期/);
-    expect(parts.CURRENT_TIME).toMatch(/^\d{2}:\d{2}$/);
+/**
+ * Patterns that imply a desktop-only capability is still available to the model.
+ * Mentioning the same names only inside an explicit unsupported/forbid list is OK.
+ */
+const AVAILABLE_CAPABILITY_LEAKS: RegExp[] = [
+  /preferEngine\s*:\s*["']com["']/i,
+  /请使用\s*C#\s*Open\s*XML/i,
+  /直接使用 Open XML 文件级/i,
+  /用 `office\.action\.(?:inspect|apply|validate)`/i,
+  /用 `office\.workflow\.run`/i,
+  /office\.documents\.(?:list|activate)/i,
+  /Excel 用 `createWorkbook`/i,
+  /Word 用 `createDocument`/i,
+  /PPT 用 `createPresentation`/i,
+  /调用 `knowledge\.search`/i,
+  /写入 `memory\.write`/i,
+  /用 `web\.search`/i,
+  /用 `ocr\.parseDocument`/i,
+  /Word\/PPT 用对应 `word\.\*`/i,
+];
+
+function expectNoDesktopLeaks(prompt: string): void {
+  for (const pattern of AVAILABLE_CAPABILITY_LEAKS) {
+    expect(prompt, `available-capability leak ${pattern}`).not.toMatch(pattern);
+  }
+  // Stack isolation markers must appear only as forbidden/unsupported, not as how-to.
+  expect(prompt).not.toMatch(/需要 COM 兜底/i);
+  expect(prompt).toMatch(/COM \/ \.NET Worker \/ Electron IPC[\s\S]{0,40}unsupported|禁止且 unsupported/i);
+}
+
+describe("add-in prompt runtime parity", () => {
+  it("reuses desktop Excel formula methodology with host.status (not office.connection)", () => {
+    const formula = getPromptText("scenarios/formula.zh-CN.md");
+    expect(formula).toContain("动态数组锚点");
+    expect(formula).toContain("range.write");
+    expect(formula).toContain("range.read");
+    expect(formula).toMatch(/FILTER|UNIQUE|SORT|SEQUENCE|LET|XLOOKUP/);
+    expect(formula).toContain("host.status");
+    expect(formula).not.toContain("office.connection.status");
+    expect(formula).not.toContain("knowledge.search");
   });
 
-  it("uses desktop office connection context prefix", () => {
-    expect(formatOfficeConnectionContext("connected (office-js)")).toBe(
-      "- Office 应用连接状态：connected (office-js)",
-    );
+  it("reuses desktop dynamic-array runtime capability prompts", () => {
+    const enabled = getPromptText("runtime/dynamic-array-enabled.zh-CN.md");
+    const disabled = getPromptText("runtime/dynamic-array-disabled.zh-CN.md");
+    expect(enabled).toMatch(/已开启|spill|动态数组/);
+    expect(disabled).toMatch(/已关闭|尚未确认|动态数组/);
   });
 
-  it("states value/formula/format/table/chart tool boundaries and WPS unsupported", () => {
-    const boundary = buildAdvancedExcelBoundary({});
+  it("advanced boundary lists in-workbook tools and marks PQ/Pivot unsupported", () => {
+    const boundary = buildAdvancedExcelBoundary({ content: "清洗表格并做图表" });
     expect(boundary).toContain("`range.write`");
-    expect(boundary).toContain("`formula.write`");
-    expect(boundary).toContain("`formula.context`");
-    expect(boundary).toContain("`range.read`");
-    expect(boundary).toContain("spill");
-    expect(boundary).toContain("`sheet.operation`");
-    expect(boundary).toContain("1-based");
     expect(boundary).toContain("`range.format.write`");
-    expect(boundary).toContain("`table.list/create/delete/update/unlist`");
-    expect(boundary).toContain("convertToRange");
-    expect(boundary).toContain("table.unlist");
-    expect(boundary).toContain("`chart.list/create/delete/update`");
-    expect(boundary).toContain("`chart.series.list/update`");
-    expect(boundary).toContain("name/chartType/smooth");
-    expect(boundary).toContain("`chart.source.update`");
-    expect(boundary).toContain("`chart.axes.update`");
-    expect(boundary).toContain("`chart.series.dataLabels.update`");
-    expect(boundary).toContain("showValue/showCategoryName/showSeriesName/numberFormat");
-    expect(boundary).toContain("hasDataLabels");
-    expect(boundary).toMatch(/ExcelApi 1\.7/);
-    expect(boundary).toMatch(/ExcelApi 1\.8|show fields ExcelApi 1\.8/);
-    expect(boundary).toContain(
-      "showPercentage/showBubbleSize/delete/position/format/leaderLines",
-    );
-    expect(boundary).toContain("`chart.series.axisGroup.update`");
-    expect(boundary).toContain("`chart.series.delete`");
-    expect(boundary).toContain("`chart.series.add`");
-    expect(boundary).toContain("`chart.series.values.update`");
-    expect(boundary).toContain("`chart.series.bubbleSizes.update`");
-    expect(boundary).toContain("BubbleSizes");
-    expect(boundary).toContain("dataBound");
-    expect(boundary).toContain("ExcelApi 1.15");
-    expect(boundary).toContain("`chart.image.get`");
-    expect(boundary).toContain("`range.image.get`");
-    expect(boundary).toContain("Base64");
-    expect(boundary).toMatch(/WPS JSA[\s\S]*chart\.image\.get|chart\.image\.get[\s\S]*WPS JSA/);
-    expect(boundary).toContain("WPS JSA");
+    expect(boundary).toContain("`table.list");
+    expect(boundary).toContain("`chart.");
     expect(boundary).toContain("unsupported");
+    expect(boundary).toMatch(/Power Query|透视/);
+    expect(boundary).toContain("WPS JSA");
     expect(boundary).not.toMatch(/值、公式、格式、固定汇总用 `range\.write`/);
   });
 
@@ -74,20 +78,44 @@ describe("prompt runtime parity", () => {
     expect(boundary).toMatch(/透视|Power Query|交互/);
   });
 
-  it("injects boundary and connection context into composed prompt", () => {
-    const prompt = composeExcelSystemPrompt({
+  it("injects boundary, connection context, and dynamic-array by host capability", () => {
+    const officeJs = composeExcelSystemPrompt({
       routing: { content: "清洗 excel 工作表并创建 power query" },
       officeConnectionStatus: "connected (office-js)",
       now: new Date("2026-07-19T04:00:00.000Z"),
       dynamicArrayEnabled: true,
     });
-    expect(prompt).toContain("Office 应用连接状态：connected (office-js)");
-    expect(prompt).toContain("unsupported");
-    expect(prompt).toContain("`range.format.write`");
-    expect(prompt).toMatch(/2026/);
+    expect(officeJs).toContain("Office 应用连接状态：connected (office-js)");
+    expect(officeJs).toContain("unsupported");
+    expect(officeJs).toContain("`range.format.write`");
+    expect(officeJs).toMatch(/2026/);
+    expect(officeJs).toMatch(/已开启|spill/);
+    expectNoDesktopLeaks(officeJs);
+
+    const wps = composeExcelSystemPrompt({
+      routing: { content: "写一个动态数组公式" },
+      officeConnectionStatus: "connected (wps-jsa)",
+      now: new Date("2026-07-19T04:00:00.000Z"),
+      dynamicArrayEnabled: false,
+    });
+    expect(wps).toContain("connected (wps-jsa)");
+    expect(wps).toMatch(/已关闭|尚未确认/);
+    expect(wps).toContain("host.status");
+    expectNoDesktopLeaks(wps);
   });
 
-  it("hard boundary covers macro/office-tools/general-office routes", () => {
+  it("E-class hard boundary covers macro/OpenXML/COM/path/workflow/export", () => {
+    const hard = buildAddInHardBoundary();
+    expect(hard).toMatch(/macro\.(write|run|detect)/i);
+    expect(hard).toMatch(/Open XML/i);
+    expect(hard).toMatch(/COM|Electron|\.NET/i);
+    expect(hard).toMatch(/Power Query|透视表|切片器/);
+    expect(hard).toMatch(/打开\/创建\/保存\/切换|任意磁盘路径/);
+    expect(hard).toMatch(/office\.workflow|事务备份/);
+    expect(hard).toMatch(/Word|PPT|PDF/);
+  });
+
+  it("hard boundary covers macro/office-tools/general-office routes without desktop leaks", () => {
     const routes = [
       { content: "编写 vba 宏并 macro.write 运行" },
       { content: "清洗 excel 工作表并汇总报告" },
@@ -101,30 +129,32 @@ describe("prompt runtime parity", () => {
       });
       expect(prompt).toContain("本加载项运行时能力边界");
       expect(prompt).toMatch(/macro\.(write|run|detect)/i);
-      expect(prompt).toMatch(/宏[\s\S]{0,80}unsupported/i);
-      expect(prompt).toMatch(/Open XML[\s\S]{0,40}unsupported/i);
-      expect(prompt).toMatch(/COM[\s\S]{0,40}unsupported|COM \/ \.NET/i);
-      expect(prompt).toMatch(/UserForm|菜单/);
-      expect(prompt).toMatch(/Power Query[\s\S]{0,40}unsupported|透视表[\s\S]{0,40}unsupported/i);
-      // Hard boundary must appear after synced scenario so it overrides desktop macro narrative
+      expect(prompt).toMatch(/unsupported/i);
+      expectNoDesktopLeaks(prompt);
       const hardIdx = prompt.indexOf("本加载项运行时能力边界");
-      const macroScenarioIdx = prompt.indexOf("macro.write");
-      if (macroScenarioIdx >= 0 && prompt.includes("Excel/WPS 内部宏执行规则")) {
-        expect(hardIdx).toBeGreaterThan(prompt.indexOf("Excel/WPS 内部宏执行规则"));
-      }
+      expect(hardIdx).toBeGreaterThan(0);
     }
   });
 
-  it("does not present macro or Open XML as available add-in tools in runtime prompt", () => {
+  it("does not present macro or Open XML as available add-in tools", () => {
     const prompt = composeExcelSystemPrompt({
       routing: { content: "创建 vba 宏并写入 open xml 工作簿" },
       officeConnectionStatus: "connected (wps-jsa)",
       now: new Date("2026-07-19T04:00:00.000Z"),
     });
-    expect(prompt).toContain("macro.write");
-    expect(prompt).toMatch(/macro\.write[\s\S]{0,200}unsupported|均为 \*\*unsupported\*\*/i);
-    expect(prompt).toMatch(/Open XML[\s\S]{0,80}\*\*unsupported\*\*|Open XML[\s\S]{0,80}unsupported/i);
+    expect(prompt).toMatch(/macro/i);
+    expect(prompt).toMatch(/unsupported/i);
     expect(prompt).not.toMatch(/本加载项.*已实现.*macro\.write/);
     expect(prompt).not.toMatch(/请使用 C# Open XML/);
+    expectNoDesktopLeaks(prompt);
+  });
+
+  it("base prompt describes task-pane Excel scope only", () => {
+    const base = getPromptText("system/base.zh-CN.md");
+    expect(base).toMatch(/任务窗格|当前活动工作簿/);
+    expect(base).toContain("host.status");
+    expect(base).toContain("range.read");
+    expect(base).not.toMatch(/Word 文档和 PowerPoint/);
+    expect(base).not.toContain("createWorkbook");
   });
 });

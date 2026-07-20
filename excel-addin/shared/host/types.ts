@@ -10,6 +10,10 @@ export interface HostStatus {
   detail?: string;
 }
 
+export interface HostRuntimeCapabilities {
+  dynamicArrayFunctionsEnabled: boolean;
+}
+
 export interface SelectionInfo {
   sheetName: string;
   address: string;
@@ -83,6 +87,8 @@ export interface TableInfo {
   showTotals?: boolean;
   showBandedRows?: boolean;
   showBandedColumns?: boolean;
+  showFirstColumn?: boolean;
+  showLastColumn?: boolean;
   style?: string;
 }
 
@@ -96,6 +102,10 @@ export interface TableUpdateInput {
   showFilterButton?: boolean;
   showBandedRows?: boolean;
   showBandedColumns?: boolean;
+  /** Highlight first column (Excel.Table.showFirstColumn, ExcelApi 1.3). */
+  showFirstColumn?: boolean;
+  /** Highlight last column (Excel.Table.showLastColumn, ExcelApi 1.3). */
+  showLastColumn?: boolean;
   /** Same-sheet single-area A1 range used by Excel.Table.resize. */
   resizeAddress?: string;
 }

@@ -50,11 +50,15 @@ class FakeController {
   stopCalls = 0;
   sendCalls = 0;
   clearCalls = 0;
+  lastUserMessage = "";
   messages: Array<{ role: string; content: string }> = [];
   private pendingResolve?: (r: ChatSendResult) => void;
-  private mode: "auto" | "hang";
+  mode: "auto" | "hang" | "preflight" | "fail";
 
-  constructor(deps: ChatControllerDeps, mode: "auto" | "hang" = "auto") {
+  constructor(
+    deps: ChatControllerDeps,
+    mode: "auto" | "hang" | "preflight" | "fail" = "auto",
+  ) {
     this.onEvent = deps.onEvent;
     this.mode = mode;
   }
@@ -90,6 +94,31 @@ class FakeController {
 
   async send(userMessage: string): Promise<ChatSendResult> {
     this.sendCalls += 1;
+    this.lastUserMessage = userMessage;
+    if (this.mode === "preflight") {
+      this.status = "idle";
+      return {
+        turnStatus: "preflight_failed",
+        error: { message: "no active provider configured", kind: "parse" },
+      };
+    }
+    if (this.mode === "fail") {
+      this.status = "idle";
+      const result: ChatSendResult = {
+        turnStatus: "failed",
+        error: { message: "model boom", kind: "provider" },
+        run: {
+          status: "failed",
+          assistantText: "",
+          messages: [{ role: "user", content: userMessage }],
+          rounds: 0,
+          usage: { inputTokens: 0, outputTokens: 0 },
+        },
+      };
+      this.messages = result.run!.messages as never;
+      this.onEvent?.({ type: "turn_end", turnStatus: "failed" });
+      return result;
+    }
     this.status = "running";
     this.onEvent?.({ type: "round_start", round: 1 });
     this.onEvent?.({ type: "text_delta", delta: "Hel", round: 1 });
@@ -306,6 +335,105 @@ describe("ChatPanel UI", () => {
       await Promise.resolve();
     });
     expect(container.textContent).toMatch(/模型供应商/);
+  });
+
+  it("keeps draft on preflight failure and does not leave a turn", async () => {
+    const store = new ProviderStore();
+    store.add({
+      name: "o",
+      provider: "openai",
+      apiKey: "sk-x",
+      baseUrl: "https://api.openai.com/v1",
+      model: "m",
+      apiFormat: "openai",
+    });
+    const host = new MockHostAdapter();
+    let fake: FakeController | undefined;
+    const m = mount(
+      <ChatPanel
+        store={store}
+        adapter={host}
+        createController={(deps) => {
+          fake = new FakeController(deps, "preflight");
+          return fake as unknown as ChatController;
+        }}
+      />,
+    );
+    root = m.root;
+    container = m.container;
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    const sendBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "发送",
+    ) as HTMLButtonElement;
+    await act(async () => {
+      setTextArea(textarea, "保留草稿内容");
+    });
+    await act(async () => {
+      sendBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fake!.sendCalls).toBe(1);
+    expect(textarea.value).toBe("保留草稿内容");
+    // Preflight must not leave a user/assistant turn bubble.
+    expect(container.querySelectorAll(".chat-bubble.user").length).toBe(0);
+    expect(container.textContent).toMatch(/活动供应商|模型供应商/);
+  });
+
+  it("shows active provider summary and retry failed turn", async () => {
+    const store = new ProviderStore();
+    store.add({
+      name: "DemoProv",
+      provider: "openai",
+      apiKey: "sk-x",
+      baseUrl: "https://api.openai.com/v1",
+      model: "m",
+      apiFormat: "openai",
+    });
+    const host = new MockHostAdapter();
+    let fake: FakeController | undefined;
+    const m = mount(
+      <ChatPanel
+        store={store}
+        adapter={host}
+        createController={(deps) => {
+          fake = new FakeController(deps, "fail");
+          return fake as unknown as ChatController;
+        }}
+      />,
+    );
+    root = m.root;
+    container = m.container;
+    expect(container.textContent).toContain("DemoProv");
+    expect(container.textContent).toMatch(/直连|Key 已设/);
+
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    const sendBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "发送",
+    ) as HTMLButtonElement;
+    await act(async () => {
+      setTextArea(textarea, "失败后再试");
+    });
+    await act(async () => {
+      sendBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain("失败后再试");
+    const retryBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "重试",
+    ) as HTMLButtonElement;
+    expect(retryBtn).toBeTruthy();
+
+    // Switch fake to succeed on retry
+    fake!.mode = "auto";
+    await act(async () => {
+      retryBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fake!.sendCalls).toBe(2);
+    expect(fake!.lastUserMessage).toBe("失败后再试");
   });
 });
 

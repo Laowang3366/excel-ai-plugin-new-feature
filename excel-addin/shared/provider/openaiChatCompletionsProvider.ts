@@ -7,7 +7,7 @@ import {
   normalizeConnectionMode,
   resolveProviderEndpoint,
 } from "./endpointResolve";
-import type { ConnectionMode } from "./types";
+import type { ConnectionMode, ReasoningMode } from "./types";
 import { isAbortError, throwIfAborted } from "../agent/streamProvider";
 import type {
   AgentStreamEvent,
@@ -18,6 +18,7 @@ import { encodeChatCompletionsBody } from "./openaiChatEncode";
 import { OpenAiChatStreamAssembler } from "./openaiChatStreamParse";
 import { SseByteParser, type SseParseResult } from "./openaiSse";
 import { buildToolNameMaps, isToolNameMaps } from "./openaiToolNameMap";
+import { applyChatCompletionsReasoningConfig } from "./reasoningConfig";
 
 function redactSecrets(message: string, apiKey: string): string {
   if (!apiKey) return message;
@@ -28,9 +29,12 @@ export interface OpenAIChatCompletionsStreamProviderOptions {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** Vendor id for chat-completions reasoning field mapping (desktop providerClients). */
+  provider?: string;
   connectionMode?: ConnectionMode;
   gatewayBaseUrl?: string;
   gatewayUpstreamId?: string;
+  reasoningMode?: ReasoningMode;
   fetchImpl?: ProviderFetch;
 }
 
@@ -38,28 +42,38 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly model: string;
+  private readonly provider: string;
   private readonly connectionMode: ConnectionMode;
   private readonly gatewayBaseUrl: string;
   private readonly gatewayUpstreamId: string;
+  private readonly reasoningMode?: ReasoningMode;
   private readonly fetchImpl: ProviderFetch;
 
   constructor(options: OpenAIChatCompletionsStreamProviderOptions) {
     this.baseUrl = options.baseUrl;
     this.apiKey = options.apiKey;
     this.model = options.model;
+    this.provider = typeof options.provider === "string" ? options.provider : "";
     this.connectionMode = normalizeConnectionMode(options.connectionMode);
     this.gatewayBaseUrl = options.gatewayBaseUrl ?? "";
     this.gatewayUpstreamId = options.gatewayUpstreamId ?? "";
+    this.reasoningMode = options.reasoningMode;
     this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
   }
 
-  async *streamChat(request: StreamChatRequest): AsyncIterable<AgentStreamEvent> {
+  async *streamChat(
+    request: StreamChatRequest,
+  ): AsyncIterable<AgentStreamEvent> {
     if (request.signal?.aborted) {
       yield { type: "error", message: "aborted", kind: "aborted" };
       return;
     }
     if (this.connectionMode === "direct" && !this.apiKey.trim()) {
-      yield { type: "error", message: "API key 未设置，无法发起请求", kind: "missing_key" };
+      yield {
+        type: "error",
+        message: "API key 未设置，无法发起请求",
+        kind: "missing_key",
+      };
       return;
     }
     if (this.connectionMode === "direct" && !this.baseUrl.trim()) {
@@ -107,13 +121,14 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
     }
     const url = resolved.data.url;
     const apiKey = resolved.data.redactionSecret;
-    const body = {
+    const body: Record<string, unknown> = {
       model: this.model,
       stream: true,
       messages: encoded.messages,
-      ...(encoded.tools.length > 0 ? { tools: encoded.tools } : {}),
       stream_options: { include_usage: true },
     };
+    if (encoded.tools.length > 0) body.tools = encoded.tools;
+    applyChatCompletionsReasoningConfig(body, this.provider, this.reasoningMode);
 
     let response: Response;
     try {
@@ -150,7 +165,12 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
       return;
     }
     if (!response.body) {
-      yield { type: "error", message: "response body is empty", kind: "parse", url };
+      yield {
+        type: "error",
+        message: "response body is empty",
+        kind: "parse",
+        url,
+      };
       return;
     }
 
@@ -179,7 +199,12 @@ export class OpenAIChatCompletionsStreamProvider implements AgentStreamProvider 
         try {
           json = JSON.parse(part.data);
         } catch {
-          yield { type: "error", message: "malformed SSE JSON", kind: "parse", url };
+          yield {
+            type: "error",
+            message: "malformed SSE JSON",
+            kind: "parse",
+            url,
+          };
           return true;
         }
         const ingested = assembler.ingest(json);

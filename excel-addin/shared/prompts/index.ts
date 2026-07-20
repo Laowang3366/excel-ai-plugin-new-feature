@@ -6,6 +6,7 @@ export { composeExcelSystemPrompt } from "./composeExcelPrompt";
 export {
   getPromptEntry,
   getPromptText,
+  hasAdaptedPrompt,
   listPromptIds,
   PROMPT_IDS,
   PROMPT_MANIFEST,

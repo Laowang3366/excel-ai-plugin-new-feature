@@ -118,6 +118,8 @@ export async function executeObjectUpdateTool(
       "showFilterButton",
       "showBandedRows",
       "showBandedColumns",
+      "showFirstColumn",
+      "showLastColumn",
       "resizeAddress",
     ]);
     const input = {
@@ -130,6 +132,8 @@ export async function executeObjectUpdateTool(
       showFilterButton: optionalBoolean(call.arguments, "showFilterButton"),
       showBandedRows: optionalBoolean(call.arguments, "showBandedRows"),
       showBandedColumns: optionalBoolean(call.arguments, "showBandedColumns"),
+      showFirstColumn: optionalBoolean(call.arguments, "showFirstColumn"),
+      showLastColumn: optionalBoolean(call.arguments, "showLastColumn"),
       resizeAddress: optionalResizeAddress(call.arguments),
     };
     if (
@@ -140,6 +144,8 @@ export async function executeObjectUpdateTool(
       input.showFilterButton == null &&
       input.showBandedRows == null &&
       input.showBandedColumns == null &&
+      input.showFirstColumn == null &&
+      input.showLastColumn == null &&
       input.resizeAddress == null
     ) {
       throw new Error("table.update requires at least one update field");

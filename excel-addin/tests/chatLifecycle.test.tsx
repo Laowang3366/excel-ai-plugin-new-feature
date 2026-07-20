@@ -266,6 +266,8 @@ describe("useChatController lifecycle isolation", () => {
       await Promise.resolve();
     });
     expect(container.textContent).toMatch(/模型供应商/);
-    expect(container.textContent).not.toContain("hello-preflight");
+    expect(container.querySelectorAll(".chat-bubble.user").length).toBe(0);
+    const ta = container.querySelector("textarea") as HTMLTextAreaElement;
+    expect(ta.value).toBe("hello-preflight");
   });
 });

@@ -268,7 +268,7 @@ describe("phase4 Office.js expand/formula.context/sheet ops", () => {
   });
 });
 
-describe("phase4 WPS expand/copy unsupported", () => {
+describe("phase4 WPS expand/copy without members", () => {
   beforeEach(() => {
     (globalThis as unknown as { window: unknown }).window = globalThis;
     (globalThis as unknown as { Application: unknown }).Application = {
@@ -316,7 +316,7 @@ describe("phase4 WPS expand/copy unsupported", () => {
     delete (globalThis as { Application?: unknown }).Application;
   });
 
-  it("rejects default single-cell spill and expand; formula.context uses absolute A1", async () => {
+  it("rejects spill and missing-member expand/copy/move; formula.context uses absolute A1", async () => {
     const adapter = new WpsJsaAdapter();
     const defaultSpill = await adapter.readRange("Sheet1", "A1");
     expect(defaultSpill.ok).toBe(false);
@@ -327,6 +327,13 @@ describe("phase4 WPS expand/copy unsupported", () => {
 
     const expand = await adapter.readRange("Sheet1", "A1", "spill");
     expect(expand.ok).toBe(false);
+
+    const region = await adapter.readRange("Sheet1", "A1", "currentRegion");
+    expect(region.ok).toBe(false);
+    if (!region.ok) {
+      expect(region.unsupported).toBe(true);
+      expect(region.reason).toMatch(/CurrentRegion/i);
+    }
 
     const none = await adapter.readRange("Sheet1", "B2:C3", "none");
     expect(none.ok).toBe(true);

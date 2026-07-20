@@ -2,42 +2,16 @@ import type {
   ChartInfo,
   ChartType,
   HostResult,
-  RangeFormat,
-  RangeFormatData,
   TableInfo,
   TableUnlistInfo,
 } from "./types";
 import { unsupported } from "./types";
+export { wpsReadFormat, wpsWriteFormat } from "./wpsJsaFormat";
 
 const EVIDENCE =
   "In-repo bridge only covers Application/ActiveWorkbook/JSIDE CodeModule; no verified format/table/chart contract";
 
 /** Phase3 WPS capabilities without in-repo evidence → typed unsupported. */
-export async function wpsReadFormat(
-  _sheetName: string,
-  _address: string,
-): Promise<HostResult<RangeFormatData>> {
-  return unsupported(
-    "range.format.read",
-    "wps-jsa",
-    "Range format APIs are not verified in this repository for WPS JSA",
-    EVIDENCE,
-  );
-}
-
-export async function wpsWriteFormat(
-  _sheetName: string,
-  _address: string,
-  _format: RangeFormat,
-): Promise<HostResult<RangeFormatData>> {
-  return unsupported(
-    "range.format.write",
-    "wps-jsa",
-    "Range format APIs are not verified in this repository for WPS JSA",
-    EVIDENCE,
-  );
-}
-
 export async function wpsListTables(_sheetName?: string): Promise<HostResult<TableInfo[]>> {
   return unsupported(
     "table.list",
@@ -210,6 +184,60 @@ export async function wpsUpdateTable(_input: unknown) {
   ) as HostResult<never>;
 }
 
+export async function wpsGetTableFilter(_input: unknown) {
+  return unsupported(
+    "table.filter.get",
+    "wps-jsa",
+    "Table filter is not verified for WPS JSA",
+    "No in-repo WPS ListObject.AutoFilter contract",
+  ) as HostResult<never>;
+}
+
+export async function wpsApplyTableFilter(_input: unknown) {
+  return unsupported(
+    "table.filter.apply",
+    "wps-jsa",
+    "Table filter is not verified for WPS JSA",
+    "No in-repo WPS ListObject.AutoFilter contract",
+  ) as HostResult<never>;
+}
+
+export async function wpsClearTableFilter(_input: unknown) {
+  return unsupported(
+    "table.filter.clear",
+    "wps-jsa",
+    "Table filter is not verified for WPS JSA",
+    "No in-repo WPS ListObject.AutoFilter contract",
+  ) as HostResult<never>;
+}
+
+export async function wpsGetTableSort(_input: unknown) {
+  return unsupported(
+    "table.sort.get",
+    "wps-jsa",
+    "Table sort is not verified for WPS JSA",
+    "No in-repo WPS ListObject.Sort contract",
+  ) as HostResult<never>;
+}
+
+export async function wpsApplyTableSort(_input: unknown) {
+  return unsupported(
+    "table.sort.apply",
+    "wps-jsa",
+    "Table sort is not verified for WPS JSA",
+    "No in-repo WPS ListObject.Sort contract",
+  ) as HostResult<never>;
+}
+
+export async function wpsClearTableSort(_input: unknown) {
+  return unsupported(
+    "table.sort.clear",
+    "wps-jsa",
+    "Table sort is not verified for WPS JSA",
+    "No in-repo WPS ListObject.Sort contract",
+  ) as HostResult<never>;
+}
+
 export async function wpsUpdateChart(_input: unknown) {
   return unsupported(
     "chart.update",
@@ -342,3 +370,21 @@ export const wpsShapeSurface = {
   deleteShape: wpsDeleteShape,
   updateShape: wpsUpdateShape,
 };
+
+export async function wpsInspectFormulaProtection(_input: unknown) {
+  return unsupported(
+    "formula.protection.inspect",
+    "wps-jsa",
+    "Formula protection inspect is not verified for WPS JSA",
+    "No in-repo WPS Range.Locked / ProtectContents contract — do not guess API",
+  ) as HostResult<never>;
+}
+
+export async function wpsManageFormulaProtection(_input: unknown) {
+  return unsupported(
+    "formula.protection.manage",
+    "wps-jsa",
+    "Formula protection manage is not verified for WPS JSA",
+    "No in-repo WPS Range.Locked / ProtectContents contract — do not guess API",
+  ) as HostResult<never>;
+}

@@ -12,6 +12,7 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "range.format.read",
   "formula.read",
   "formula.context",
+  "formula.protection.inspect",
   "sheet.list",
   "table.list",
   "chart.list",

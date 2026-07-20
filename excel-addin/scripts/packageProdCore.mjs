@@ -16,7 +16,7 @@ const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
 const ENCODED_SEPARATOR_RE = /%(?:2f|5c)/i;
 const NESTED_PERCENT_RE = /%25/i;
 const PACKAGE_ORIGIN = "https://package.invalid";
-const OFFICE_JS_CDN_URL =
+export const OFFICE_JS_CDN_URL =
   "https://appsforoffice.microsoft.com/lib/1/hosted/office.js";
 
 const SENSITIVE_NAME_RE =
@@ -356,6 +356,146 @@ export function makeArtifactName(version, gitSha) {
   }
   return name;
 }
+
+
+const TEXT_ARTIFACT_RE = /\.(html?|js|css|xml|json|txt|map)$/i;
+const RESIDUAL_URL_RE =
+  /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|::1)(?::\d+)?\b/i;
+const RESIDUAL_DEV_RE =
+  /(?:@vite\/client|\/@react-refresh|vite\/dist\/client|localhost:\d{2,5}|127\.0\.0\.1:\d{2,5})/i;
+
+/**
+ * Scan production package text artifacts for localhost/dev-server residuals.
+ * Allows the official Office.js HTTPS CDN only for cross-origin http(s) URLs in HTML.
+ *
+ * @param {{
+ *   distDir: string,
+ *   baseUrl: string,
+ *   viteBase: string,
+ *   relativePaths?: string[],
+ * }} opts
+ */
+export function assertProductionDistClean(opts) {
+  const distDir = path.resolve(opts.distDir);
+  const baseUrl = normalizeBaseUrl(opts.baseUrl);
+  const viteBase = normalizeBasePath(opts.viteBase);
+  if (isLocalhostHost(new URL(baseUrl).hostname)) {
+    throw new Error(`production package baseUrl must not use localhost: ${opts.baseUrl}`);
+  }
+  const expectedVite = deriveViteBaseFromBaseUrl(baseUrl);
+  if (viteBase !== expectedVite) {
+    throw new Error(
+      `production viteBase ${viteBase} does not match baseUrl path ${expectedVite}`,
+    );
+  }
+
+  const rels =
+    opts.relativePaths ??
+    listFilesRecursiveStrict(distDir);
+  const offenders = [];
+
+  const indexPath = path.join(distDir, "index.html");
+  if (!fs.existsSync(indexPath)) {
+    throw new Error("production package missing index.html");
+  }
+  const indexHtml = fs.readFileSync(indexPath, "utf8");
+  assertIndexAssetsUnderBase(indexHtml, viteBase);
+
+  const manifestPath = path.join(distDir, "office-excel-manifest.xml");
+  if (fs.existsSync(manifestPath)) {
+    const xml = fs.readFileSync(manifestPath, "utf8");
+    // Late import avoided: validation is caller's responsibility for full XML rules,
+    // but residual markers still fail closed here.
+    scanTextForResiduals("office-excel-manifest.xml", xml, offenders, {
+      allowOfficeJsCdn: false,
+    });
+    if (!xml.includes(baseUrl)) {
+      offenders.push(
+        "office-excel-manifest.xml :: missing package baseUrl in manifest",
+      );
+    }
+    if (!xml.includes(`${baseUrl}/index.html`)) {
+      offenders.push(
+        "office-excel-manifest.xml :: SourceLocation/base assets not under package baseUrl",
+      );
+    }
+    try {
+      const origin = new URL(baseUrl).origin;
+      if (!xml.includes(`<AppDomain>${origin}</AppDomain>`)) {
+        offenders.push(
+          `office-excel-manifest.xml :: AppDomain missing package origin ${origin}`,
+        );
+      }
+    } catch {
+      offenders.push("office-excel-manifest.xml :: invalid package baseUrl origin");
+    }
+  }
+
+  for (const rel of rels) {
+    if (!TEXT_ARTIFACT_RE.test(rel)) continue;
+    if (rel === "SHA256SUMS.txt") continue;
+    const abs = path.join(distDir, rel);
+    const stat = fs.lstatSync(abs);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      offenders.push(`${rel} :: not a regular file`);
+      continue;
+    }
+    // Skip very large maps if any; still scan js/html.
+    const text = fs.readFileSync(abs, "utf8");
+    scanTextForResiduals(rel, text, offenders, {
+      allowOfficeJsCdn: rel.endsWith(".html") || rel.endsWith(".htm"),
+    });
+  }
+
+  if (offenders.length) {
+    throw new Error(
+      `production package residual or path gate failed:\n- ${offenders.join("\n- ")}`,
+    );
+  }
+}
+
+/**
+ * @param {string} rel
+ * @param {string} text
+ * @param {string[]} offenders
+ * @param {{ allowOfficeJsCdn: boolean }} opts
+ */
+function scanTextForResiduals(rel, text, offenders, opts) {
+  if (RESIDUAL_URL_RE.test(text)) {
+    offenders.push(`${rel} :: localhost/loopback URL residual`);
+  }
+  if (RESIDUAL_DEV_RE.test(text)) {
+    offenders.push(`${rel} :: dev-server residual marker`);
+  }
+  // Forbid non-allowlisted http:// URLs. Allow only well-known XML/DOM namespaces
+  // (Office manifest schemas + W3C SVG/MathML/XML namespaces bundled by React).
+  for (const match of text.matchAll(/\bhttp:\/\/[^\s"'<>\\)]+/gi)) {
+    const url = match[0].replace(/[),.;]+$/, "");
+    if (/^http:\/\/schemas\.microsoft\.com\//i.test(url)) continue;
+    if (/^http:\/\/www\.w3\.org\//i.test(url)) continue;
+    offenders.push(`${rel} :: insecure http:// residual ${url}`);
+  }
+  if (opts.allowOfficeJsCdn) {
+    // Non-allowlisted absolute https URLs in HTML script/link tags are already
+    // enforced by assertIndexAssetsUnderBase; re-check Office CDN is the only external.
+    for (const match of text.matchAll(
+      /\bhttps:\/\/[^\s"'<>]+/gi,
+    )) {
+      const url = match[0].replace(/[),.;]+$/, "");
+      if (url === OFFICE_JS_CDN_URL) continue;
+      // Same-origin package assets may be absolute under base; only flag known-bad hosts.
+      try {
+        const host = new URL(url).hostname.toLowerCase();
+        if (isLocalhostHost(host) || host === "0.0.0.0") {
+          offenders.push(`${rel} :: forbidden host ${host}`);
+        }
+      } catch {
+        offenders.push(`${rel} :: malformed absolute URL ${url}`);
+      }
+    }
+  }
+}
+
 
 export function formatSpawnFailure(result) {
   if (result?.error) {

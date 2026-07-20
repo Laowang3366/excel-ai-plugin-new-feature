@@ -22,6 +22,24 @@ import type {
   WorkbookInspectInfo,
 } from "../shared/host/types";
 import type {
+  TableFilterApplyInput,
+  TableFilterClearInput,
+  TableFilterGetInput,
+  TableFilterInfo,
+} from "../shared/host/tableFilterTypes";
+import type {
+  TableSortApplyInput,
+  TableSortClearInput,
+  TableSortGetInput,
+  TableSortInfo,
+} from "../shared/host/tableSortTypes";
+import type {
+  FormulaProtectionInspectInfo,
+  FormulaProtectionInspectInput,
+  FormulaProtectionManageInfo,
+  FormulaProtectionManageInput,
+} from "../shared/host/formulaProtectionTypes";
+import type {
   ChartSeriesAddInput,
   ChartSeriesAddResult,
   ChartSeriesDeleteResult,
@@ -74,6 +92,7 @@ type MockSeries = {
 /** In-memory host for unit tests (no Office/WPS process). */
 export class MockHostAdapter implements HostAdapter {
   readonly kind = "office-js" as const;
+  dynamicArrayFunctionsEnabled = false;
   workbookName = "Book1.xlsx";
   sheets: SheetInfo[] = [{ name: "Sheet1", index: 0, isActive: true }];
   cells = new Map<string, { values: CellValue[][]; formulas: string[][] }>();
@@ -94,6 +113,12 @@ export class MockHostAdapter implements HostAdapter {
     formulas: [[""]],
   };
   failCapability: string | null = null;
+
+  getRuntimeCapabilities() {
+    return {
+      dynamicArrayFunctionsEnabled: this.dynamicArrayFunctionsEnabled,
+    };
+  }
 
   async getStatus(): Promise<HostResult<HostStatus>> {
     if (this.failCapability === "host.status") {
@@ -356,6 +381,250 @@ export class MockHostAdapter implements HostAdapter {
     });
   }
 
+
+  private tableFilters = new Map<string, { enabled: boolean; columnIndex?: number; filterOn?: string }>();
+  private tableSorts = new Map<string, { fields: Array<{ columnIndex: number; ascending: boolean }> }>();
+
+  private tableKey(sheetName: string, tableName: string): string {
+    return `${sheetName}::${tableName}`;
+  }
+
+  async getTableFilter(input: TableFilterGetInput): Promise<HostResult<TableFilterInfo>> {
+    const table = this.tables.find(
+      (item) => item.sheetName === input.sheetName && item.name === input.tableName,
+    );
+    if (!table) throw new Error(`table not found: ${input.tableName}`);
+    const state = this.tableFilters.get(this.tableKey(input.sheetName, input.tableName));
+    return ok({
+      sheetName: table.sheetName,
+      tableName: table.name,
+      enabled: state?.enabled === true,
+      columnIndex: state?.columnIndex,
+      filterOn: state?.filterOn as TableFilterInfo["filterOn"],
+    });
+  }
+
+  async applyTableFilter(input: TableFilterApplyInput): Promise<HostResult<TableFilterInfo>> {
+    const table = this.tables.find(
+      (item) => item.sheetName === input.sheetName && item.name === input.tableName,
+    );
+    if (!table) throw new Error(`table not found: ${input.tableName}`);
+    if (input.filterOn === "values" && (!input.values || input.values.length === 0)) {
+      throw new Error("filterOn=values requires non-empty values[]");
+    }
+    if (input.filterOn === "custom" && (input.criterion1 == null || input.criterion1 === "")) {
+      throw new Error("filterOn=custom requires criterion1");
+    }
+    if (
+      (input.filterOn === "topItems" ||
+        input.filterOn === "bottomItems" ||
+        input.filterOn === "topPercent" ||
+        input.filterOn === "bottomPercent") &&
+      (input.threshold == null || input.threshold <= 0)
+    ) {
+      throw new Error(`${input.filterOn} requires positive threshold`);
+    }
+    this.tableFilters.set(this.tableKey(input.sheetName, input.tableName), {
+      enabled: true,
+      columnIndex: input.columnIndex,
+      filterOn: input.filterOn,
+    });
+    return ok({
+      sheetName: table.sheetName,
+      tableName: table.name,
+      enabled: true,
+      columnIndex: input.columnIndex,
+      filterOn: input.filterOn,
+    });
+  }
+
+  async clearTableFilter(input: TableFilterClearInput): Promise<HostResult<TableFilterInfo>> {
+    const table = this.tables.find(
+      (item) => item.sheetName === input.sheetName && item.name === input.tableName,
+    );
+    if (!table) throw new Error(`table not found: ${input.tableName}`);
+    this.tableFilters.set(this.tableKey(input.sheetName, input.tableName), { enabled: false });
+    return ok({
+      sheetName: table.sheetName,
+      tableName: table.name,
+      enabled: false,
+    });
+  }
+
+  async getTableSort(input: TableSortGetInput): Promise<HostResult<TableSortInfo>> {
+    const table = this.tables.find(
+      (item) => item.sheetName === input.sheetName && item.name === input.tableName,
+    );
+    if (!table) throw new Error(`table not found: ${input.tableName}`);
+    const state = this.tableSorts.get(this.tableKey(input.sheetName, input.tableName));
+    return ok({
+      sheetName: table.sheetName,
+      tableName: table.name,
+      fields: state?.fields ?? [],
+    });
+  }
+
+  async applyTableSort(input: TableSortApplyInput): Promise<HostResult<TableSortInfo>> {
+    const table = this.tables.find(
+      (item) => item.sheetName === input.sheetName && item.name === input.tableName,
+    );
+    if (!table) throw new Error(`table not found: ${input.tableName}`);
+    const fields = input.fields.map((field) => ({
+      columnIndex: field.columnIndex,
+      ascending: field.ascending !== false,
+    }));
+    this.tableSorts.set(this.tableKey(input.sheetName, input.tableName), { fields });
+    return ok({
+      sheetName: table.sheetName,
+      tableName: table.name,
+      fields,
+    });
+  }
+
+  async clearTableSort(input: TableSortClearInput): Promise<HostResult<TableSortInfo>> {
+    const table = this.tables.find(
+      (item) => item.sheetName === input.sheetName && item.name === input.tableName,
+    );
+    if (!table) throw new Error(`table not found: ${input.tableName}`);
+    this.tableSorts.set(this.tableKey(input.sheetName, input.tableName), { fields: [] });
+    return ok({
+      sheetName: table.sheetName,
+      tableName: table.name,
+      fields: [],
+    });
+  }
+
+
+  /** sheetName -> { formulas[r][c], locked[r][c], protected } for formula protection tests */
+  formulaProtectionSheets = new Map<
+    string,
+    {
+      protected: boolean;
+      formulas: string[][];
+      locked: boolean[][];
+      address: string;
+    }
+  >();
+
+  private ensureFormulaSheet(sheetName: string) {
+    let state = this.formulaProtectionSheets.get(sheetName);
+    if (!state) {
+      state = {
+        protected: false,
+        formulas: [[""]],
+        locked: [[true]],
+        address: `${sheetName}!A1`,
+      };
+      this.formulaProtectionSheets.set(sheetName, state);
+    }
+    return state;
+  }
+
+  async inspectFormulaProtection(
+    input: FormulaProtectionInspectInput,
+  ): Promise<HostResult<FormulaProtectionInspectInfo>> {
+    const names =
+      input.scope === "workbook"
+        ? [...this.formulaProtectionSheets.keys()]
+        : [input.sheetName ?? "Sheet1"];
+    if (input.scope !== "workbook" && !input.sheetName) {
+      throw new Error("sheetName is required for scope sheet|target");
+    }
+    if (input.scope === "target" && !input.range) {
+      throw new Error("range is required for scope=target");
+    }
+    const sheets = [];
+    let formulaCount = 0;
+    let lockedFormulaCount = 0;
+    for (const name of names.length ? names : ["Sheet1"]) {
+      const state = this.ensureFormulaSheet(name);
+      let fCount = 0;
+      let lCount = 0;
+      for (let r = 0; r < state.formulas.length; r++) {
+        for (let c = 0; c < (state.formulas[r]?.length ?? 0); c++) {
+          const f = state.formulas[r]![c] ?? "";
+          if (typeof f === "string" && f.trim().startsWith("=")) {
+            fCount += 1;
+            if (state.locked[r]?.[c] === true) lCount += 1;
+          }
+        }
+      }
+      formulaCount += fCount;
+      lockedFormulaCount += lCount;
+      sheets.push({
+        sheetName: name,
+        address: input.range ? `${name}!${input.range}` : state.address,
+        formulaCount: fCount,
+        lockedFormulaCount: lCount,
+        sheetProtected: state.protected,
+        limitations: [],
+      });
+    }
+    return ok({
+      scope: input.scope,
+      sheets,
+      formulaCount,
+      lockedFormulaCount,
+      limitations: [],
+    });
+  }
+
+  async manageFormulaProtection(
+    input: FormulaProtectionManageInput,
+  ): Promise<HostResult<FormulaProtectionManageInfo>> {
+    // Intentionally never put password into return value.
+    const unlockInputs = input.unlockInputs !== false;
+    const protectSheet = input.command === "lock" ? input.protectSheet !== false : false;
+    const names =
+      input.scope === "workbook"
+        ? [...this.formulaProtectionSheets.keys()]
+        : [input.sheetName ?? "Sheet1"];
+    if (input.scope !== "workbook" && !input.sheetName) {
+      throw new Error("sheetName is required for scope sheet|target");
+    }
+    for (const name of names.length ? names : ["Sheet1"]) {
+      const state = this.ensureFormulaSheet(name);
+      if (state.protected) {
+        // unprotect with optional password — do not store password
+        state.protected = false;
+      }
+      if (input.command === "lock" && unlockInputs) {
+        for (let r = 0; r < state.locked.length; r++) {
+          for (let c = 0; c < (state.locked[r]?.length ?? 0); c++) {
+            state.locked[r]![c] = false;
+          }
+        }
+      }
+      for (let r = 0; r < state.formulas.length; r++) {
+        for (let c = 0; c < (state.formulas[r]?.length ?? 0); c++) {
+          const f = state.formulas[r]![c] ?? "";
+          if (typeof f === "string" && f.trim().startsWith("=")) {
+            state.locked[r]![c] = input.command === "lock";
+          }
+        }
+      }
+      if (protectSheet) state.protected = true;
+    }
+    const protection = await this.inspectFormulaProtection({
+      scope: input.scope,
+      sheetName: input.sheetName,
+      range: input.range,
+    });
+    if (!protection.ok) throw new Error("inspect failed after manage");
+    return ok({
+      command: input.command,
+      scope: input.scope,
+      unlockInputs: input.command === "lock" ? unlockInputs : false,
+      protectSheet,
+      protection: protection.data,
+      verified: true,
+      limitations:
+        input.command === "lock" && unlockInputs
+          ? ["unlockInputs: unlocked all cells in target range before locking formula cells (inputs outside range unchanged)"]
+          : [],
+    });
+  }
+
   async updateTable(input: TableUpdateInput): Promise<HostResult<TableInfo>> {
     const table = this.tables.find(
       (item) => item.sheetName === input.sheetName && item.name === input.tableName,
@@ -368,6 +637,8 @@ export class MockHostAdapter implements HostAdapter {
     if (input.showFilterButton != null) table.showFilter = input.showFilterButton;
     if (input.showBandedRows != null) table.showBandedRows = input.showBandedRows;
     if (input.showBandedColumns != null) table.showBandedColumns = input.showBandedColumns;
+    if (input.showFirstColumn != null) table.showFirstColumn = input.showFirstColumn;
+    if (input.showLastColumn != null) table.showLastColumn = input.showLastColumn;
     if (input.resizeAddress != null) {
       const bare = normalizeSameSheetA1Range(
         input.sheetName,

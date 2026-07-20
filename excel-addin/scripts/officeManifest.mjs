@@ -76,6 +76,23 @@ export function normalizeBaseUrl(input) {
       `baseUrl contains characters unsafe for XML attributes (& < > " '): ${input}`,
     );
   }
+  // Fail closed on traversal / encoded separators before URL() normalizes them away.
+  const afterScheme = original.replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\//, "");
+  const pathStart = afterScheme.indexOf("/");
+  const pathAndRest = pathStart >= 0 ? afterScheme.slice(pathStart) : "";
+  const pathOnly = pathAndRest.split(/[?#]/, 1)[0];
+  if (pathOnly.includes("\\")) {
+    throw new Error(`baseUrl path must not contain backslash: ${input}`);
+  }
+  if (/%2e|%2f|%5c/i.test(pathOnly)) {
+    throw new Error(
+      `baseUrl path must not contain encoded dots or separators: ${input}`,
+    );
+  }
+  if (/(^|\/)\.\.(\/|$)/.test(pathOnly) || /(^|\/)\.(\/|$)/.test(pathOnly)) {
+    throw new Error(`baseUrl path must not contain . or .. segments: ${input}`);
+  }
+
   let raw = original.replace(/\/+$/, "");
   let url;
   try {
@@ -102,6 +119,10 @@ export function normalizeBaseUrl(input) {
     throw new Error(
       `baseUrl path contains characters unsafe for XML attributes: ${input}`,
     );
+  }
+  const segments = pathDecoded.split("/").filter((s) => s.length > 0);
+  if (segments.some((s) => s === "." || s === "..")) {
+    throw new Error(`baseUrl path must not contain . or .. segments: ${input}`);
   }
   const pathPart = url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, "");
   return `${url.origin}${pathPart}`;
@@ -304,12 +325,26 @@ export function validateOfficeManifest(xml, opts = {}) {
   if (opts.mode === "prod") {
     for (const u of addinUrls) {
       try {
-        if (isLocalhostHost(new URL(u).hostname)) {
+        const parsed = new URL(u);
+        if (parsed.protocol !== "https:") {
+          errors.push(`prod add-in URL must be HTTPS: ${u}`);
+        }
+        if (isLocalhostHost(parsed.hostname)) {
           errors.push(`prod forbids localhost host: ${u}`);
         }
+        if (parsed.search || parsed.hash) {
+          errors.push(`prod add-in URL must not include query or hash: ${u}`);
+        }
       } catch {
-        /* ignore */
+        errors.push(`prod add-in URL is not a valid absolute URL: ${u}`);
       }
+    }
+    // Residual dev markers must not appear in production manifests.
+    if (/https?:\/\/localhost\b/i.test(xml) || /https?:\/\/127\.0\.0\.1\b/i.test(xml)) {
+      errors.push("prod manifest contains localhost/dev residual URL");
+    }
+    if (/@vite\/client|react-refresh|localhost:\d{2,5}/i.test(xml)) {
+      errors.push("prod manifest contains dev-server residual markers");
     }
   }
   return { ok: errors.length === 0, errors };

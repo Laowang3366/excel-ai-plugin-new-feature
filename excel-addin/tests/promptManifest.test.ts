@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { PROMPT_MANIFEST, listPromptIds } from "../shared/prompts/loadPrompts";
+import {
+  PROMPT_MANIFEST,
+  hasAdaptedPrompt,
+  listPromptIds,
+} from "../shared/prompts/loadPrompts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(root, "..");
@@ -17,9 +21,12 @@ describe("prompt sync manifest", () => {
     expect(ids.some((id) => id.includes("ocr"))).toBe(false);
   });
 
-  it("matches source SHA-256 to prevent drift", () => {
-    expect(PROMPT_MANIFEST.files.length).toBeGreaterThan(0);
-    for (const entry of PROMPT_MANIFEST.files) {
+  it("desktop-identical generated files match desktop SHA-256", () => {
+    const identical = PROMPT_MANIFEST.files.filter(
+      (f) => (f.mode ?? "desktop-identical") === "desktop-identical",
+    );
+    expect(identical.length).toBeGreaterThan(0);
+    for (const entry of identical) {
       const sourceAbs = path.join(repoRoot, entry.sourcePath);
       const generatedAbs = path.join(root, entry.generatedPath);
       const source = readFileSync(sourceAbs);
@@ -29,5 +36,24 @@ describe("prompt sync manifest", () => {
       expect(sourceHash).toBe(entry.sha256);
       expect(generatedHash).toBe(entry.sha256);
     }
+  });
+
+  it("addin-adapted overlays exist for contaminated desktop scenarios", () => {
+    const adaptedIds = [
+      "system/base.zh-CN.md",
+      "system/security.zh-CN.md",
+      "scenarios/formula.zh-CN.md",
+      "scenarios/office-tools.zh-CN.md",
+      "scenarios/macro.zh-CN.md",
+      "scenarios/general-office.zh-CN.md",
+    ];
+    for (const id of adaptedIds) {
+      expect(hasAdaptedPrompt(id)).toBe(true);
+      const entry = PROMPT_MANIFEST.files.find((f) => f.id === id);
+      expect(entry?.mode).toBe("addin-adapted");
+    }
+    // Pure runtime reuse stays desktop-identical (no adapted override).
+    expect(hasAdaptedPrompt("runtime/dynamic-array-enabled.zh-CN.md")).toBe(false);
+    expect(hasAdaptedPrompt("runtime/environment.zh-CN.md")).toBe(false);
   });
 });

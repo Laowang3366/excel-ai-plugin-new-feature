@@ -1,70 +1,79 @@
 {
-  "generatedAt": "2026-07-19T18:29:11.700Z",
+  "generatedAt": "2026-07-20T04:43:59.802Z",
   "sourceRoot": "desktop/electron/agent/prompts/templates",
-  "note": "Synced Excel-related prompts only; OCR/Word/PPT scenarios excluded by design.",
+  "note": "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. OCR/Word/PPT scenarios excluded by design.",
   "files": [
     {
       "id": "system/base.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/system/base.zh-CN.md",
       "generatedPath": "shared/prompts/generated/system/base.zh-CN.md",
       "sha256": "2af376321554d2ceb28944c9f81fe15944083bef2bc9696a42eadcb165cf553c",
-      "bytes": 3348
+      "bytes": 3348,
+      "mode": "addin-adapted"
     },
     {
       "id": "system/security.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/system/security.zh-CN.md",
       "generatedPath": "shared/prompts/generated/system/security.zh-CN.md",
       "sha256": "e2a081dbba372a9c362a77448c114abf89d22ca5dc8829ea8d7cfc1f9555afd9",
-      "bytes": 1274
+      "bytes": 1274,
+      "mode": "addin-adapted"
     },
     {
       "id": "scenarios/formula.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/scenarios/formula.zh-CN.md",
       "generatedPath": "shared/prompts/generated/scenarios/formula.zh-CN.md",
       "sha256": "b89123b0f0e99c43b65d565903fb7656d88cc35c8cc6247f323ee1e39f87862f",
-      "bytes": 8001
+      "bytes": 8001,
+      "mode": "addin-adapted"
     },
     {
       "id": "scenarios/general-office.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/scenarios/general-office.zh-CN.md",
       "generatedPath": "shared/prompts/generated/scenarios/general-office.zh-CN.md",
       "sha256": "b7a052744aa1daab6a431a898fd40038ac7fe265972e8fb731695323f044bfc7",
-      "bytes": 1343
+      "bytes": 1343,
+      "mode": "addin-adapted"
     },
     {
       "id": "scenarios/office-tools.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/scenarios/office-tools.zh-CN.md",
       "generatedPath": "shared/prompts/generated/scenarios/office-tools.zh-CN.md",
       "sha256": "b8603f99a4b603555d5f4f1568a6f79b6c1d83fcc4c5abe0215ed53021629a5a",
-      "bytes": 2697
+      "bytes": 2697,
+      "mode": "addin-adapted"
     },
     {
       "id": "scenarios/macro.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/scenarios/macro.zh-CN.md",
       "generatedPath": "shared/prompts/generated/scenarios/macro.zh-CN.md",
       "sha256": "d9d633d6a35ef4abb7b04c194f8e8d9d930a1c6077c0130f3b40981276f159cb",
-      "bytes": 1273
+      "bytes": 1273,
+      "mode": "addin-adapted"
     },
     {
       "id": "runtime/environment.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/runtime/environment.zh-CN.md",
       "generatedPath": "shared/prompts/generated/runtime/environment.zh-CN.md",
       "sha256": "fd284343742472fb4ae1c94f07e315e6ff911dc708af479ef7610e3543e7d6b3",
-      "bytes": 407
+      "bytes": 407,
+      "mode": "desktop-identical"
     },
     {
       "id": "runtime/dynamic-array-enabled.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/runtime/dynamic-array-enabled.zh-CN.md",
       "generatedPath": "shared/prompts/generated/runtime/dynamic-array-enabled.zh-CN.md",
       "sha256": "f706d4f78171a280b390385238f058a33a899559db226f0b8077034740e70bed",
-      "bytes": 1063
+      "bytes": 1063,
+      "mode": "desktop-identical"
     },
     {
       "id": "runtime/dynamic-array-disabled.zh-CN.md",
       "sourcePath": "desktop/electron/agent/prompts/templates/runtime/dynamic-array-disabled.zh-CN.md",
       "generatedPath": "shared/prompts/generated/runtime/dynamic-array-disabled.zh-CN.md",
       "sha256": "89a7548cadd70669077dd34d9c41af88cb508b028b5b8159ff177884198a2096",
-      "bytes": 485
+      "bytes": 485,
+      "mode": "desktop-identical"
     }
   ]
 }

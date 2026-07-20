@@ -449,4 +449,203 @@ describe("ai-gateway http", () => {
       await up.close();
     }
   });
+
+  it("forwards upstream non-2xx status and body without remapping", async () => {
+    const up = await startFakeUpstream({
+      status: 401,
+      body: JSON.stringify({ error: { message: "invalid_api_key", type: "auth" } }),
+    });
+    const gw = await startGateway({ upstreamPort: up.port });
+    try {
+      const res = await request(`${gw.base}/api/ai/v1/fake/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "x", stream: false }),
+      });
+      assert.equal(res.status, 401);
+      assert.equal(res.json().error.message, "invalid_api_key");
+      assert.equal(up.requests[0].headers.authorization, "Bearer test-secret-key");
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
+  it("maps upstream network failure to 502 fixed error", async () => {
+    const up = await startFakeUpstream();
+    const gw = await startGateway({
+      upstreamPort: up.port,
+      fetchImpl: async () => {
+        throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+      },
+    });
+    try {
+      const res = await request(`${gw.base}/api/ai/v1/fake/models`);
+      assert.equal(res.status, 502);
+      assert.deepEqual(res.json(), { error: "upstream_error" });
+      assert.equal(res.text.includes("ECONNREFUSED"), false);
+      assert.equal(res.text.includes("test-secret-key"), false);
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
+  it("streams SSE across odd chunk boundaries transparently", async () => {
+    const full = "data: {\"delta\":\"hello-world\"}\n\ndata: [DONE]\n\n";
+    const chunks = [];
+    for (let i = 0; i < full.length; i += 3) {
+      chunks.push(full.slice(i, i + 3));
+    }
+    const up = await startFakeUpstream({
+      headers: { "content-type": "text/event-stream; charset=utf-8" },
+      streamChunks: chunks,
+    });
+    const gw = await startGateway({ upstreamPort: up.port });
+    try {
+      const res = await fetch(`${gw.base}/api/ai/v1/fake/responses`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          accept: "text/event-stream",
+        },
+        body: JSON.stringify({ model: "x", stream: true }),
+      });
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get("content-type") || "", /text\/event-stream/);
+      assert.equal(res.headers.get("x-accel-buffering"), "no");
+      assert.match(res.headers.get("cache-control") || "", /no-store/);
+      const text = await res.text();
+      assert.equal(text, full);
+      assert.equal(up.requests[0].url, "/v1/responses");
+      assert.equal(up.requests[0].headers.accept, "text/event-stream");
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
+  it("accepts application/json charset and anthropic messages path", async () => {
+    const up = await startFakeUpstream({
+      body: JSON.stringify({ type: "message", id: "msg_1" }),
+    });
+    const gw = await startGateway({
+      upstreamPort: up.port,
+      env: {
+        ANTHROPIC_API_KEY: "ant-secret-value",
+        AI_GATEWAY_UPSTREAMS_JSON: JSON.stringify({
+          fake: {
+            baseUrl: `http://127.0.0.1:${up.port}/v1`,
+            auth: { type: "x-api-key", env: "ANTHROPIC_API_KEY" },
+          },
+        }),
+      },
+    });
+    try {
+      const res = await request(`${gw.base}/api/ai/v1/fake/messages`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "anthropic-version": "2023-06-01",
+          "anthropic-beta": "tools-2024-04-04",
+          "x-api-key": "client-must-not-win",
+          authorization: "Bearer client-must-not-win",
+        },
+        body: JSON.stringify({
+          model: "claude",
+          max_tokens: 16,
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        }),
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.json().id, "msg_1");
+      const hit = up.requests[0];
+      assert.equal(hit.url, "/v1/messages");
+      assert.equal(hit.headers["x-api-key"], "ant-secret-value");
+      assert.equal(hit.headers.authorization, undefined);
+      assert.equal(hit.headers["anthropic-version"], "2023-06-01");
+      assert.equal(hit.headers["anthropic-beta"], "tools-2024-04-04");
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
+  it("rejects open-proxy style paths and disallowed methods", async () => {
+    const up = await startFakeUpstream();
+    const gw = await startGateway({ upstreamPort: up.port });
+    try {
+      for (const path of [
+        "/api/ai/v1/fake/chat/completions/../../models",
+        "/api/ai/v1/fake//models",
+        "/api/ai/v1/fake/http://evil.example/",
+        "/api/ai/v1/fake/models/extra",
+      ]) {
+        const res = await request(`${gw.base}${path}`, {
+          method: path.includes("chat") ? "POST" : "GET",
+          headers: { "content-type": "application/json" },
+          body: path.includes("chat") ? "{}" : undefined,
+        });
+        assert.equal(res.status, 404, path);
+      }
+      const put = await request(`${gw.base}/api/ai/v1/fake/models`, { method: "PUT" });
+      assert.equal(put.status, 404);
+      assert.equal(up.requests.length, 0);
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
+  it("gateway error responses and logs never leak API keys", async () => {
+    const secret = "super-secret-key-do-not-leak";
+    const logs = [];
+    const originalError = console.error;
+    const originalLog = console.log;
+    console.error = (...args) => {
+      logs.push(args.map(String).join(" "));
+    };
+    console.log = (...args) => {
+      logs.push(args.map(String).join(" "));
+    };
+
+    const up = await startFakeUpstream({ hang: true });
+    const gw = await startGateway({
+      upstreamPort: up.port,
+      env: {
+        FAKE_API_KEY: secret,
+        AI_GATEWAY_CONNECT_TIMEOUT_MS: "50",
+        AI_GATEWAY_TOTAL_TIMEOUT_MS: "80",
+      },
+    });
+    try {
+      const timedOut = await request(`${gw.base}/api/ai/v1/fake/models`);
+      assert.equal(timedOut.status, 504);
+      assert.deepEqual(timedOut.json(), { error: "upstream_timeout" });
+      assert.equal(timedOut.text.includes(secret), false);
+
+      const unknown = await request(`${gw.base}/api/ai/v1/missing/models`);
+      assert.equal(unknown.status, 404);
+      assert.equal(unknown.text.includes(secret), false);
+
+      const tooBig = await fetch(`${gw.base}/api/ai/v1/fake/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: Buffer.alloc(4 * 1024 * 1024 + 8, 0x7b),
+      });
+      assert.equal(tooBig.status, 413);
+      const tooBigText = await tooBig.text();
+      assert.equal(tooBigText.includes(secret), false);
+
+      const joined = logs.join("\n");
+      assert.equal(joined.includes(secret), false);
+      assert.equal(joined.includes("Bearer "), false);
+    } finally {
+      console.error = originalError;
+      console.log = originalLog;
+      await gw.close();
+      await up.close();
+    }
+  });
 });

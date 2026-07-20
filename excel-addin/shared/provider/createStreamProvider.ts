@@ -1,6 +1,6 @@
 import type { AgentStreamProvider } from "../agent/types";
 import type { ProviderFetch } from "./client";
-import type { ApiFormat, ConnectionMode } from "./types";
+import type { ApiFormat, ConnectionMode, ReasoningMode } from "./types";
 import type { ProviderStore } from "./store";
 import {
   normalizeConnectionMode,
@@ -16,9 +16,12 @@ export type CreateStreamProviderInput = {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** Vendor id (openai/deepseek/...); used for chat-completions reasoning mapping. */
+  provider?: string;
   connectionMode?: ConnectionMode | string;
   gatewayBaseUrl?: string;
   gatewayUpstreamId?: string;
+  reasoningMode?: ReasoningMode;
   /** Anthropic only; defaults to provider 4096 when omitted. */
   maxTokens?: number;
   fetchImpl?: ProviderFetch;
@@ -36,17 +39,21 @@ export type CreateStreamProviderErr = {
 };
 
 export type CreateStreamProviderResult =
-  | CreateStreamProviderOk
-  | CreateStreamProviderErr;
+  CreateStreamProviderOk | CreateStreamProviderErr;
 
-const SUPPORTED_FORMATS = new Set<ApiFormat>(["openai", "responses", "anthropic"]);
+const SUPPORTED_FORMATS = new Set<ApiFormat>([
+  "openai",
+  "responses",
+  "anthropic",
+]);
 
 function isApiFormat(value: string): value is ApiFormat {
   return SUPPORTED_FORMATS.has(value as ApiFormat);
 }
 
 /**
- * Route by apiFormat only — never by vendor/provider display name.
+ * Route transport by apiFormat; chat-completions reasoning fields also
+ * use the vendor `provider` id (desktop providerClients semantics).
  * Does not throw; returns a discriminant result for fetch-prep validation.
  */
 export function createStreamProvider(
@@ -68,7 +75,9 @@ export function createStreamProvider(
     typeof input.gatewayBaseUrl === "string" ? input.gatewayBaseUrl.trim() : "";
   const model = typeof input.model === "string" ? input.model.trim() : "";
   const gatewayUpstreamId =
-    typeof input.gatewayUpstreamId === "string" ? input.gatewayUpstreamId.trim() : "";
+    typeof input.gatewayUpstreamId === "string"
+      ? input.gatewayUpstreamId.trim()
+      : "";
   const apiFormatRaw =
     typeof input.apiFormat === "string" ? input.apiFormat.trim() : "";
 
@@ -107,13 +116,18 @@ export function createStreamProvider(
     return { ok: false, kind: endpoint.kind, error: endpoint.error };
   }
 
+  const provider =
+    typeof input.provider === "string" ? input.provider.trim() : "";
+
   const common = {
     baseUrl,
     apiKey: connectionMode === "gateway" ? "" : apiKey,
     model,
+    provider,
     connectionMode,
     gatewayBaseUrl,
     gatewayUpstreamId,
+    reasoningMode: input.reasoningMode,
     fetchImpl: input.fetchImpl,
   };
 
@@ -166,9 +180,11 @@ export function createStreamProviderFromStore(
     baseUrl: active.baseUrl,
     apiKey: active.apiKey,
     model: active.model,
+    provider: active.provider,
     connectionMode: active.connectionMode,
     gatewayBaseUrl: active.gatewayBaseUrl,
     gatewayUpstreamId: active.gatewayUpstreamId,
+    reasoningMode: active.reasoningMode,
     fetchImpl: options?.fetchImpl,
     maxTokens: options?.maxTokens,
   });

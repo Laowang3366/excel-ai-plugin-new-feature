@@ -24,10 +24,26 @@ export {
   dispositionForRisk,
   rejectedToolError,
   deniedToolError,
+  normalizePermissionMode,
+  isPermissionMode,
+  DEFAULT_PERMISSION_MODE,
+  PERMISSION_MODES,
+  PERMISSION_MODE_LABELS,
   CHAT_APPROVAL_REJECT_PREFIX,
   CHAT_APPROVAL_DENY_PREFIX,
 } from "./approvalPolicy";
-export type { ApprovalDisposition } from "./approvalPolicy";
+export type { ApprovalDisposition, PermissionMode } from "./approvalPolicy";
+export {
+  PermissionModeStore,
+  getBrowserPermissionModeStore,
+  getBrowserPermissionModePersistenceStorage,
+  loadPermissionMode,
+  persistPermissionMode,
+  resetBrowserPermissionModeStoreForTests,
+  PERMISSION_MODE_PERSISTENCE_KEY,
+  PERMISSION_MODE_PERSISTENCE_VERSION,
+} from "./permissionModeStore";
+export type { PermissionModePersistenceStorage } from "./permissionModeStore";
 export {
   buildArgsPreview,
   buildImpactHint,
@@ -55,3 +71,7 @@ export type {
   ChatTurnStatus,
   ChatControllerStatus,
 } from "./types";
+export {
+  resolveChatPromptRuntimeContext,
+  type ChatPromptRuntimeContext,
+} from "./promptRuntimeContext";

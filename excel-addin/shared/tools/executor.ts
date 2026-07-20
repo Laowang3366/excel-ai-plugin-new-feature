@@ -30,6 +30,9 @@ import { executePageLayoutTool } from "./pageLayoutExecutor";
 import { executeShapeTool } from "./shapeExecutor";
 import { executeStructureTool } from "./structureExecutor";
 import { executeTableUnlistTool } from "./tableUnlistExecutor";
+import { executeTableFilterTool } from "./tableFilterExecutor";
+import { executeTableSortTool } from "./tableSortExecutor";
+import { executeFormulaProtectionTool } from "./formulaProtectionExecutor";
 import { writeFormulaWithVerify, writeRangeWithVerify } from "./writeWithVerify";
 
 function fail(tool: ToolName, error: string, detail?: unknown): ToolFailure {
@@ -342,6 +345,12 @@ export class ToolExecutor {
           if (shape) return shape;
           const tableUnlist = await executeTableUnlistTool(this.host, call);
           if (tableUnlist) return tableUnlist;
+          const tableFilter = await executeTableFilterTool(this.host, call);
+          if (tableFilter) return tableFilter;
+          const tableSort = await executeTableSortTool(this.host, call);
+          if (tableSort) return tableSort;
+          const formulaProtection = await executeFormulaProtectionTool(this.host, call);
+          if (formulaProtection) return formulaProtection;
           return fail(call.name, `Unknown tool: ${String((call as ToolCall).name)}`);
         }
       }

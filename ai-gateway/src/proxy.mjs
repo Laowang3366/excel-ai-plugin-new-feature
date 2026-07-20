@@ -97,6 +97,9 @@ export async function proxyToUpstream(opts) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const url = joinUpstreamUrl(opts.upstream.baseUrl, opts.suffix);
   const headers = filterRequestHeaders(opts.headers);
+  // Fail-closed: never forward client credentials (allowlist should already drop them).
+  delete headers.authorization;
+  delete headers["x-api-key"];
   headers[opts.upstream.authHeaderName] = opts.upstream.authHeaderValue;
   headers.accept = headers.accept || "application/json";
 

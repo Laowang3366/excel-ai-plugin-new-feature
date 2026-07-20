@@ -35,6 +35,15 @@ export interface UseChatControllerOptions {
   fetchImpl?: ChatControllerDeps["fetchImpl"];
 }
 
+/** Result of send/retry so the composer can keep or clear the draft. */
+export interface ChatSendOutcome {
+  /** True when a turn was accepted into history (not preflight/busy/empty). */
+  accepted: boolean;
+  turnStatus?: ChatTurnStatus;
+  /** User text that should stay in the composer when not accepted. */
+  restoreText?: string;
+}
+
 let turnSeq = 0;
 function nextTurnId(): string {
   turnSeq += 1;
@@ -64,7 +73,8 @@ function appendTrace(
  */
 export function useChatController(options: UseChatControllerOptions): {
   view: ChatViewState;
-  send: (text: string) => Promise<void>;
+  send: (text: string) => Promise<ChatSendOutcome>;
+  retry: (turnId: string) => Promise<ChatSendOutcome>;
   stop: () => void;
   clear: () => void;
   approve: (requestId?: string) => boolean;
@@ -79,9 +89,13 @@ export function useChatController(options: UseChatControllerOptions): {
   const [pendingApproval, setPendingApproval] =
     useState<ApprovalRequest | null>(null);
   const [controller, setController] = useState<ChatController | null>(null);
+  // Sync for retry without stale closure.
+  // (assigned each render intentionally)
 
   const eventSeq = useRef(0);
   const activeTurnId = useRef<string | null>(null);
+  const turnsRef = useRef<DisplayTurn[]>([]);
+  turnsRef.current = turns;
   const generationRef = useRef(0);
   const disposedRef = useRef(false);
   const controllerRef = useRef<ChatController | null>(null);
@@ -100,7 +114,9 @@ export function useChatController(options: UseChatControllerOptions): {
 
       if (event.type === "approval_needed") {
         setPendingApproval({ ...event.request });
-        setStatus((prev) => (prev === "stopping" ? "stopping" : "awaiting_approval"));
+        setStatus((prev) =>
+          prev === "stopping" ? "stopping" : "awaiting_approval",
+        );
         eventSeq.current += 1;
         const item = projectTraceEvent(event, eventSeq.current);
         if (item) {
@@ -210,16 +226,21 @@ export function useChatController(options: UseChatControllerOptions): {
   }, [adapter, store, handleEvent]);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string): Promise<ChatSendOutcome> => {
       const c = controllerRef.current;
-      if (!c) return;
-      if (c.getState().status !== "idle") return;
+      if (!c) {
+        return { accepted: false, restoreText: text };
+      }
+      if (c.getState().status !== "idle") {
+        return { accepted: false, turnStatus: "busy", restoreText: text };
+      }
       const gen = generationRef.current;
       const trimmed = typeof text === "string" ? text.trim() : "";
       if (!trimmed) {
-        if (!isLive(gen)) return;
-        setBannerError(mapChatError(undefined, "empty"));
-        return;
+        if (isLive(gen)) {
+          setBannerError(mapChatError(undefined, "empty"));
+        }
+        return { accepted: false, turnStatus: "empty", restoreText: text };
       }
 
       const id = nextTurnId();
@@ -242,7 +263,9 @@ export function useChatController(options: UseChatControllerOptions): {
       }
 
       const result = await c.send(trimmed);
-      if (!isLive(gen)) return;
+      if (!isLive(gen)) {
+        return { accepted: false, turnStatus: result.turnStatus };
+      }
 
       const errText = mapChatError(result.error, result.turnStatus);
       setBannerError(errText);
@@ -253,7 +276,11 @@ export function useChatController(options: UseChatControllerOptions): {
         setLiveAssistant("");
         setStatus("idle");
         if (activeTurnId.current === id) activeTurnId.current = null;
-        return;
+        return {
+          accepted: false,
+          turnStatus: result.turnStatus,
+          restoreText: trimmed,
+        };
       }
 
       setTurns((prev) =>
@@ -273,8 +300,26 @@ export function useChatController(options: UseChatControllerOptions): {
       setLiveAssistant("");
       setStatus("idle");
       if (activeTurnId.current === id) activeTurnId.current = null;
+      return { accepted: true, turnStatus: result.turnStatus };
     },
     [isLive],
+  );
+
+  const retry = useCallback(
+    async (turnId: string): Promise<ChatSendOutcome> => {
+      const c = controllerRef.current;
+      if (!c || c.getState().status !== "idle") {
+        return { accepted: false, turnStatus: "busy" };
+      }
+      const snapshot = turnsRef.current.find((t) => t.id === turnId);
+      const text = (snapshot?.userText ?? "").trim();
+      if (!text) {
+        return { accepted: false, turnStatus: "empty" };
+      }
+      // New send appends a new turn; does not mutate controller history until accepted.
+      return send(text);
+    },
+    [send],
   );
 
   const stop = useCallback(() => {
@@ -337,6 +382,7 @@ export function useChatController(options: UseChatControllerOptions): {
       canReject: canDecide,
     },
     send,
+    retry,
     stop,
     clear,
     approve,

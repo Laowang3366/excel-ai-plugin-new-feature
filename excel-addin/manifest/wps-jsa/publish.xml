@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jsplugins>
+  <jsplugin
+    name="WenggeExcelAiAddin"
+    type="et"
+    url="file://%AppData%/kingsoft/wps/jsaddons/wengge-excel-ai-addin/index.html"
+    debug=""
+    enable="enable_dev" />
+</jsplugins>

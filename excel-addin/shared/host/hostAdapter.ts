@@ -52,6 +52,7 @@ import type {
   FormulaContextData,
   HostKind,
   HostResult,
+  HostRuntimeCapabilities,
   HostStatus,
   NamedRangeInfo,
   NamedRangeScope,
@@ -69,11 +70,30 @@ import type {
   TableUpdateInput,
   WorkbookInspectInfo,
 } from "./types";
+import type {
+  TableFilterApplyInput,
+  TableFilterClearInput,
+  TableFilterGetInput,
+  TableFilterInfo,
+} from "./tableFilterTypes";
+import type {
+  TableSortApplyInput,
+  TableSortClearInput,
+  TableSortGetInput,
+  TableSortInfo,
+} from "./tableSortTypes";
+import type {
+  FormulaProtectionInspectInfo,
+  FormulaProtectionInspectInput,
+  FormulaProtectionManageInfo,
+  FormulaProtectionManageInput,
+} from "./formulaProtectionTypes";
 
 /** Host capability surface implemented by Office.js / WPS / Mock adapters. */
 export interface HostAdapter {
   readonly kind: HostKind;
   getStatus(): Promise<HostResult<HostStatus>>;
+  getRuntimeCapabilities(): HostRuntimeCapabilities;
   getSelection(): Promise<HostResult<SelectionInfo>>;
   readRange(
     sheetName: string,
@@ -122,6 +142,18 @@ export interface HostAdapter {
   deleteTable(sheetName: string, tableName: string): Promise<HostResult<{ deleted: string }>>;
   unlistTable(sheetName: string, tableName: string): Promise<HostResult<TableUnlistInfo>>;
   updateTable(input: TableUpdateInput): Promise<HostResult<TableInfo>>;
+  getTableFilter(input: TableFilterGetInput): Promise<HostResult<TableFilterInfo>>;
+  applyTableFilter(input: TableFilterApplyInput): Promise<HostResult<TableFilterInfo>>;
+  clearTableFilter(input: TableFilterClearInput): Promise<HostResult<TableFilterInfo>>;
+  getTableSort(input: TableSortGetInput): Promise<HostResult<TableSortInfo>>;
+  applyTableSort(input: TableSortApplyInput): Promise<HostResult<TableSortInfo>>;
+  clearTableSort(input: TableSortClearInput): Promise<HostResult<TableSortInfo>>;
+  inspectFormulaProtection(
+    input: FormulaProtectionInspectInput,
+  ): Promise<HostResult<FormulaProtectionInspectInfo>>;
+  manageFormulaProtection(
+    input: FormulaProtectionManageInput,
+  ): Promise<HostResult<FormulaProtectionManageInfo>>;
 
   listCharts(sheetName?: string): Promise<HostResult<ChartInfo[]>>;
   createChart(input: {

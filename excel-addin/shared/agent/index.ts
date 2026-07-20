@@ -18,6 +18,19 @@ export type {
   StreamChatRequest,
 } from "./types";
 export { AgentLoop } from "./agentLoop";
+export {
+  DEFAULT_CONTEXT_WINDOW,
+  estimateRequestTokens,
+  estimateTokens,
+  groupMessageAtoms,
+  resolveMessageTokenBudget,
+  resolveOutputReserve,
+  trimMessagesForRequest,
+} from "./historyBudget";
+export type {
+  RequestTokenEstimateInput,
+  TrimMessagesForRequestInput,
+} from "./historyBudget";
 export { collectAgentStream, sumUsage, emptyUsage } from "./collectStream";
 export type { CollectAgentStreamOptions } from "./collectStream";
 export {

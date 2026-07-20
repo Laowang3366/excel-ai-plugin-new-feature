@@ -92,3 +92,89 @@ describe("ApprovingToolExecutor", () => {
     if (!denied.ok) expect(denied.error).toBe(deniedToolError("not.a.tool"));
   });
 });
+
+describe("ApprovingToolExecutor permission modes", () => {
+  it("normal mode requires approval even for safe tools", async () => {
+    const gate = new ApprovalGate();
+    const request = vi.spyOn(gate, "request");
+    const inner = vi.fn(async (call: ToolCall) => okResult(call.name));
+    const ex = new ApprovingToolExecutor(
+      { execute: inner },
+      gate,
+      undefined,
+      () => "normal",
+    );
+    const p = ex.execute({
+      name: "range.read",
+      arguments: { sheetName: "S", range: "A1" },
+    });
+    await Promise.resolve();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(inner).not.toHaveBeenCalled();
+    gate.approve(gate.getPending()!.requestId);
+    await expect(p).resolves.toMatchObject({ ok: true });
+    expect(inner).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirm_all auto-runs moderate without gate", async () => {
+    const gate = new ApprovalGate();
+    const request = vi.spyOn(gate, "request");
+    const inner = vi.fn(async (call: ToolCall) => okResult(call.name));
+    const ex = new ApprovingToolExecutor(
+      { execute: inner },
+      gate,
+      undefined,
+      () => "confirm_all",
+    );
+    const r = await ex.execute({
+      name: "range.write",
+      arguments: { sheetName: "S", range: "A1", values: [["x"]] },
+    });
+    expect(r.ok).toBe(true);
+    expect(request).not.toHaveBeenCalled();
+    expect(inner).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirm_all still denies unknown tools (no silent invent)", async () => {
+    const gate = new ApprovalGate();
+    const inner = vi.fn(async (call: ToolCall) => okResult(call.name));
+    const ex = new ApprovingToolExecutor(
+      { execute: inner },
+      gate,
+      undefined,
+      () => "confirm_all",
+    );
+    const denied = await ex.execute({
+      name: "not.a.tool" as never,
+      arguments: {},
+    });
+    expect(denied.ok).toBe(false);
+    expect(inner).not.toHaveBeenCalled();
+  });
+
+  it("auto_approve_safe keeps default: safe direct, moderate gate", async () => {
+    const gate = new ApprovalGate();
+    const request = vi.spyOn(gate, "request");
+    const inner = vi.fn(async (call: ToolCall) => okResult(call.name));
+    const ex = new ApprovingToolExecutor(
+      { execute: inner },
+      gate,
+      undefined,
+      () => "auto_approve_safe",
+    );
+    await ex.execute({
+      name: "range.read",
+      arguments: { sheetName: "S", range: "A1" },
+    });
+    expect(request).not.toHaveBeenCalled();
+    const p = ex.execute({
+      name: "range.write",
+      arguments: { sheetName: "S", range: "A1", values: [["x"]] },
+    });
+    await Promise.resolve();
+    expect(request).toHaveBeenCalledTimes(1);
+    gate.reject(gate.getPending()!.requestId);
+    await p;
+    expect(inner).toHaveBeenCalledTimes(1); // only safe
+  });
+});

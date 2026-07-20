@@ -220,6 +220,48 @@ describe("Office manifest template render/validate", () => {
     ).toThrow(/four-part/);
   });
 
+
+  it("rejects path traversal and encoded separators in baseUrl", () => {
+    expect(() =>
+      renderOfficeManifest({
+        mode: "prod",
+        baseUrl: "https://example.com/app/../evil",
+        template,
+      }),
+    ).toThrow(/\.\.|path/i);
+    expect(() =>
+      renderOfficeManifest({
+        mode: "prod",
+        baseUrl: "https://example.com/%2e%2e/evil",
+        template,
+      }),
+    ).toThrow(/encoded|path/i);
+  });
+
+  it("prod root-domain and subpath manifests share one HTTPS base for assets and AppDomain", () => {
+    for (const base of [
+      "https://addin.example.com",
+      "https://addin.example.com/",
+      "https://addin.example.com/excel-addin",
+      "https://addin.example.com/excel-addin/",
+    ]) {
+      const xml = renderOfficeManifest({
+        mode: "prod",
+        baseUrl: base,
+        version: "0.1.0.0",
+        template,
+      });
+      const v = validateOfficeManifest(xml, { mode: "prod" });
+      expect(v.ok, v.errors.join("; ")).toBe(true);
+      const normalized = base.replace(/\/+$/, "");
+      expect(xml).toContain(`${normalized}/index.html`);
+      expect(xml).toContain(`${normalized}/assets/icon-32.png`);
+      expect(xml).toContain(`<AppDomain>https://addin.example.com</AppDomain>`);
+      expect(xml).not.toMatch(/https?:\/\/localhost|https?:\/\/127\.0\.0\.1/i);
+      expect(xml).not.toMatch(/http:\/\/(?!schemas\.microsoft\.com|www\.w3\.org)/i);
+    }
+  });
+
   it("checked-in dev manifest matches template render and validates", () => {
     const checked = readFileSync(
       path.join(root, "manifest/office-excel-manifest.xml"),

@@ -5,6 +5,10 @@ import {
   type ProviderPublicView,
   type ReasoningMode,
 } from "@shared/provider";
+import {
+  CONTEXT_WINDOW_MAX,
+  CONTEXT_WINDOW_MIN,
+} from "../providerFormValidation";
 
 export interface ProviderCardEditState {
   name: string;
@@ -24,10 +28,12 @@ export interface ProviderCardEditState {
 export interface ProviderCardActions {
   onSetActive: () => void;
   onStartEdit: () => void;
+  onCancelEdit: () => void;
   onTest: () => void;
   onListModels: () => void;
   onRemove: () => void;
   onSaveEdit: () => void;
+  onClearApiKey: () => void;
 }
 
 interface Props {
@@ -58,18 +64,21 @@ export function ProviderCard({
         </span>
       </strong>
       <span className="muted">
-        {provider.provider} · {provider.model || "(无默认模型)"} · ctx {provider.contextWindowSize}{" "}
-        · reason {provider.reasoningMode}
+        {provider.provider} · {provider.model || "(无默认模型)"} · ctx{" "}
+        {provider.contextWindowSize} · reason {provider.reasoningMode}
         {provider.connectionMode === "gateway"
           ? ` · upstream ${provider.gatewayUpstreamId || "未设"}`
           : ` · key ${provider.hasApiKey ? "已设" : "未设"}`}
       </span>
       {provider.connectionMode === "direct" && !provider.hasApiKey && (
-        <span className="muted">提示：未设置 API key，连接测试/拉模型将失败。</span>
+        <span className="muted">
+          提示：未设置 API Key（刷新/重开任务窗格后需重新输入），连接测试/拉模型将失败。
+        </span>
       )}
       {provider.connectionMode === "gateway" && (
         <span className="muted">
-          Gateway：{provider.gatewayBaseUrl || "当前站点同源"}，浏览器不保存供应商 API Key。
+          Gateway：{provider.gatewayBaseUrl || "当前站点同源"}
+          ，浏览器不保存供应商 API Key。
         </span>
       )}
       <div className="row">
@@ -85,6 +94,11 @@ export function ProviderCard({
         <button type="button" onClick={actions.onListModels}>
           拉取模型
         </button>
+        {provider.connectionMode === "direct" && provider.hasApiKey && (
+          <button type="button" onClick={actions.onClearApiKey}>
+            清除 API Key
+          </button>
+        )}
         <button type="button" onClick={actions.onRemove}>
           删除
         </button>
@@ -93,14 +107,19 @@ export function ProviderCard({
         <div className="row">
           <label>
             名称
-            <input value={edit.name} onChange={(e) => onEditChange({ name: e.target.value })} />
+            <input
+              value={edit.name}
+              onChange={(e) => onEditChange({ name: e.target.value })}
+            />
           </label>
           <label>
             连接方式
             <select
               value={edit.connectionMode}
               onChange={(e) =>
-                onEditChange({ connectionMode: e.target.value as ConnectionMode })
+                onEditChange({
+                  connectionMode: e.target.value as ConnectionMode,
+                })
               }
             >
               <option value="direct">浏览器直连</option>
@@ -123,8 +142,14 @@ export function ProviderCard({
                   value={edit.key}
                   onChange={(e) => onEditChange({ key: e.target.value })}
                   autoComplete="off"
+                  placeholder="留空则保留现有内存 Key"
                 />
               </label>
+              {provider.hasApiKey && (
+                <button type="button" onClick={actions.onClearApiKey}>
+                  清除 API Key
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -132,7 +157,9 @@ export function ProviderCard({
                 Gateway 地址
                 <input
                   value={edit.gatewayBaseUrl}
-                  onChange={(e) => onEditChange({ gatewayBaseUrl: e.target.value })}
+                  onChange={(e) =>
+                    onEditChange({ gatewayBaseUrl: e.target.value })
+                  }
                   placeholder="留空表示同源"
                 />
               </label>
@@ -140,15 +167,22 @@ export function ProviderCard({
                 Upstream ID
                 <input
                   value={edit.gatewayUpstreamId}
-                  onChange={(e) => onEditChange({ gatewayUpstreamId: e.target.value })}
+                  onChange={(e) =>
+                    onEditChange({ gatewayUpstreamId: e.target.value })
+                  }
                 />
               </label>
-              <span className="muted">Gateway 模式不会保存或发送供应商 API Key。</span>
+              <span className="muted">
+                Gateway 模式不保存或发送供应商 API Key，无浏览器密钥操作。
+              </span>
             </>
           )}
           <label>
             Model
-            <input value={edit.model} onChange={(e) => onEditChange({ model: e.target.value })} />
+            <input
+              value={edit.model}
+              onChange={(e) => onEditChange({ model: e.target.value })}
+            />
           </label>
           {edit.presetModels.length > 0 && (
             <label>
@@ -172,7 +206,9 @@ export function ProviderCard({
             API Format
             <select
               value={edit.format}
-              onChange={(e) => onEditChange({ format: e.target.value as ApiFormat })}
+              onChange={(e) =>
+                onEditChange({ format: e.target.value as ApiFormat })
+              }
             >
               {API_FORMATS.map((format) => (
                 <option key={format.value} value={format.value}>
@@ -185,16 +221,23 @@ export function ProviderCard({
             Context Window
             <input
               type="number"
-              min={1024}
+              min={CONTEXT_WINDOW_MIN}
+              max={CONTEXT_WINDOW_MAX}
+              step={1}
               value={edit.contextWindow}
-              onChange={(e) => onEditChange({ contextWindow: Number(e.target.value) })}
+              onChange={(e) =>
+                onEditChange({ contextWindow: Number(e.target.value) })
+              }
+              aria-label="Context Window"
             />
           </label>
           <label>
             Reasoning
             <select
               value={edit.reasoning}
-              onChange={(e) => onEditChange({ reasoning: e.target.value as ReasoningMode })}
+              onChange={(e) =>
+                onEditChange({ reasoning: e.target.value as ReasoningMode })
+              }
             >
               {edit.reasoningOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -206,9 +249,14 @@ export function ProviderCard({
           <button type="button" onClick={actions.onSaveEdit}>
             保存
           </button>
+          <button type="button" onClick={actions.onCancelEdit}>
+            取消
+          </button>
         </div>
       )}
-      {listedModels.length > 0 && isEditing && <pre>{listedModels.slice(0, 30).join("\n")}</pre>}
+      {listedModels.length > 0 && isEditing && (
+        <pre>{listedModels.slice(0, 30).join("\n")}</pre>
+      )}
     </div>
   );
 }

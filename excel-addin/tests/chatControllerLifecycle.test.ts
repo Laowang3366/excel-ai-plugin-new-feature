@@ -49,30 +49,120 @@ function storeWith(apiKey = "sk-test-key") {
   return store;
 }
 
+function abortError(): Error {
+  return Object.assign(new Error("aborted"), { name: "AbortError" });
+}
+
+/** Wait until predicate is true (microtask/macrotask polling for deterministic races). */
+async function waitFor(
+  predicate: () => boolean,
+  label: string,
+  attempts = 50,
+): Promise<void> {
+  for (let i = 0; i < attempts; i += 1) {
+    if (predicate()) return;
+    await new Promise<void>((r) => setTimeout(r, 0));
+  }
+  throw new Error(`waitFor timed out: ${label}`);
+}
+
 describe("ChatController stop and max_rounds", () => {
-  it("stop() aborts an in-flight turn", async () => {
-    let release!: () => void;
-    const gate = new Promise<void>((r) => {
-      release = r;
+  it("A) stop during host probe: stopping → aborted, provider fetch never starts", async () => {
+    let releaseStatus!: () => void;
+    const statusGate = new Promise<void>((r) => {
+      releaseStatus = r;
     });
-    const fetchImpl = vi.fn(async () => {
-      await gate;
+    const host = new MockHostAdapter();
+    const original = host.getStatus.bind(host);
+    host.getStatus = async () => {
+      await statusGate;
+      return original();
+    };
+
+    const fetchImpl = vi.fn(async () => sse(openaiTextStop("should not run")));
+    const controller = new ChatController({
+      store: storeWith(),
+      host,
+      fetchImpl,
+    });
+
+    const turn = controller.send("probe-stop");
+    await waitFor(
+      () => controller.getState().status === "running",
+      "running during host probe",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    // Concurrent send must be rejected while probe is in progress.
+    const busy = await controller.send("second");
+    expect(busy.turnStatus).toBe("busy");
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    controller.stop();
+    expect(controller.getState().status).toBe("stopping");
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    releaseStatus();
+    const result = await turn;
+    expect(result.turnStatus).toBe("aborted");
+    expect(result.error?.kind).toBe("aborted");
+    expect(result.error?.message).toBe("aborted");
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(controller.getState().status).toBe("idle");
+    expect(controller.getState().lastTurnStatus).toBe("aborted");
+
+    // Controller must accept a subsequent send (not stuck busy).
+    fetchImpl.mockImplementation(async () => sse(openaiTextStop("ok")));
+    const next = await controller.send("after");
+    expect(next.turnStatus).toBe("completed");
+    expect(controller.getState().status).toBe("idle");
+  });
+
+  it("B) stop after provider fetch started: signal aborts and turn ends idle", async () => {
+    let seenSignal: AbortSignal | undefined;
+    let fetchEntered!: () => void;
+    const fetchStarted = new Promise<void>((r) => {
+      fetchEntered = r;
+    });
+
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      const signal = init?.signal ?? undefined;
+      seenSignal = signal;
+      fetchEntered();
+      if (signal?.aborted) throw abortError();
+      await new Promise<void>((_resolve, reject) => {
+        const onAbort = () => reject(abortError());
+        // Must honor AbortSignal — do not resolve after stop.
+        signal?.addEventListener("abort", onAbort, { once: true });
+      });
+      // Unreachable if abort is honored.
       return sse(openaiTextStop("too late"));
     });
+
     const controller = new ChatController({
       store: storeWith(),
       host: new MockHostAdapter(),
       fetchImpl,
     });
-    const p = controller.send("run");
-    await Promise.resolve();
+
+    const turn = controller.send("run");
+    await fetchStarted;
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(seenSignal).toBeDefined();
+    expect(seenSignal!.aborted).toBe(false);
     expect(controller.getState().status).toBe("running");
+
     controller.stop();
     expect(controller.getState().status).toBe("stopping");
-    release();
-    const result = await p;
-    expect(["aborted", "completed", "failed"]).toContain(result.turnStatus);
+    expect(seenSignal!.aborted).toBe(true);
+
+    const result = await turn;
+    expect(result.turnStatus).toBe("aborted");
+    expect(result.error?.kind).toBe("aborted");
     expect(controller.getState().status).toBe("idle");
+    expect(controller.getState().lastTurnStatus).toBe("aborted");
+    // Fetch started once; abort prevented a successful completion body.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it("max_rounds commits messages and reports max_rounds", async () => {

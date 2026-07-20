@@ -328,3 +328,48 @@ button.danger {
 .chat-trace-item.tone-warn {
   color: #b45309;
 }
+
+.permission-mode-bar {
+  margin-bottom: 0.75rem;
+}
+.permission-mode-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+.permission-mode-bar select {
+  max-width: 22rem;
+  padding: 0.35rem 0.5rem;
+}
+.permission-mode-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}
+
+
+/* Active provider + retry / stick scroll */
+.chat-active-provider {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.9rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.chat-active-provider .badge {
+  margin-left: 4px;
+}
+.chat-messages-inner {
+  display: grid;
+  gap: 10px;
+}
+.chat-retry-row {
+  margin-top: 6px;
+}
+.chat-retry-btn {
+  font-size: 0.85rem;
+}

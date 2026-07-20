@@ -11,6 +11,7 @@ import {
   assertIndexAssetsUnderBase,
   assertLocalAssetFiles,
   assertNoSensitiveDistPaths,
+  assertProductionDistClean,
   buildBuildInfo,
   buildSha256Sums,
   formatSpawnFailure,
@@ -198,6 +199,12 @@ export function createPackage(args, env = process.env) {
     // Final scan including sums file name (ok) but still no secrets/symlinks.
     rels = listFilesRecursiveStrict(distDir);
     assertNoSensitiveDistPaths(rels);
+    assertProductionDistClean({
+      distDir,
+      baseUrl: resolved.baseUrl,
+      viteBase: resolved.viteBase,
+      relativePaths: rels,
+    });
 
     return {
       ok: true,

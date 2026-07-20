@@ -42,9 +42,10 @@ function walk(dir: string, acc: string[] = []): string[] {
 describe("no COM/.NET/Electron runtime deps", () => {
   it("source tree does not import desktop runtime or native office bridges", () => {
     const files = walk(root).filter((file) => {
-      // Self + build-time package CLI (spawns npm run build only; not runtime host bridge).
+      // Self + build-time package CLIs (spawn npm run build* only; not runtime host bridges).
       if (file.includes(`${path.sep}tests${path.sep}noDesktopDeps.test.ts`)) return false;
       if (file.endsWith(`${path.sep}scripts${path.sep}package-prod.mjs`)) return false;
+      if (file.endsWith(`${path.sep}scripts${path.sep}package-wps-jsa.mjs`)) return false;
       return true;
     });
     const offenders: string[] = [];

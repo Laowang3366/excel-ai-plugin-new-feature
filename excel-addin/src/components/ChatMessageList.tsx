@@ -2,9 +2,18 @@ import type { DisplayTurn } from "../chat/chatPresentation";
 
 interface Props {
   turns: DisplayTurn[];
+  canRetry: boolean;
+  onRetry?: (turnId: string) => void;
 }
 
-export function ChatMessageList({ turns }: Props) {
+export function isRetryableTurn(turn: DisplayTurn): boolean {
+  if (turn.pending) return false;
+  if (turn.turnStatus === "failed" || turn.turnStatus === "aborted") return true;
+  if (turn.errorText && turn.turnStatus !== "completed") return true;
+  return false;
+}
+
+export function ChatMessageList({ turns, canRetry, onRetry }: Props) {
   if (turns.length === 0) {
     return (
       <div className="chat-empty muted">
@@ -13,7 +22,7 @@ export function ChatMessageList({ turns }: Props) {
     );
   }
   return (
-    <div className="chat-messages" role="log" aria-live="polite">
+    <div className="chat-messages-inner">
       {turns.map((turn) => (
         <div key={turn.id} className="chat-turn">
           <div className="chat-bubble user">
@@ -21,7 +30,9 @@ export function ChatMessageList({ turns }: Props) {
             <div className="chat-content">{turn.userText}</div>
           </div>
           {(turn.assistantText || turn.pending || turn.errorText) && (
-            <div className={`chat-bubble assistant${turn.pending ? " pending" : ""}`}>
+            <div
+              className={`chat-bubble assistant${turn.pending ? " pending" : ""}`}
+            >
               <div className="chat-role">助手</div>
               <div className="chat-content">
                 {turn.assistantText || (turn.pending ? "…" : "")}
@@ -31,8 +42,24 @@ export function ChatMessageList({ turns }: Props) {
                   {turn.errorText}
                 </div>
               )}
-              {turn.turnStatus && !turn.pending && turn.turnStatus !== "completed" && (
-                <div className="chat-status muted">状态：{statusLabel(turn.turnStatus)}</div>
+              {turn.turnStatus &&
+                !turn.pending &&
+                turn.turnStatus !== "completed" && (
+                  <div className="chat-status muted">
+                    状态：{statusLabel(turn.turnStatus)}
+                  </div>
+                )}
+              {canRetry && isRetryableTurn(turn) && onRetry && (
+                <div className="chat-retry-row">
+                  <button
+                    type="button"
+                    className="chat-retry-btn"
+                    onClick={() => onRetry(turn.id)}
+                    aria-label={`重试：${turn.userText.slice(0, 40)}`}
+                  >
+                    重试
+                  </button>
+                </div>
               )}
             </div>
           )}

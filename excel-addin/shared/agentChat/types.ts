@@ -10,6 +10,8 @@ import type { ProviderStore } from "../provider/store";
 import type { HostAdapter } from "../host/hostAdapter";
 import type { CreateStreamProviderResult } from "../provider/createStreamProvider";
 import type { ApprovalDecision, ApprovalRequest } from "./approvalGate";
+import type { PermissionMode } from "./approvalPolicy";
+import type { ChatPromptRuntimeContext } from "./promptRuntimeContext";
 
 export type ChatControllerStatus =
   | "idle"
@@ -81,9 +83,17 @@ export interface ChatControllerDeps {
   fetchImpl?: ProviderFetch;
   maxRounds?: number;
   /** Test seam: override system prompt composition. */
-  composeSystemPrompt?: (userMessage: string) => string;
+  composeSystemPrompt?: (
+    userMessage: string,
+    runtimeContext: ChatPromptRuntimeContext,
+  ) => string;
   /** Test seam: override provider factory (defaults to createStreamProviderFromStore). */
   createProvider?: () => CreateStreamProviderResult;
+  /**
+   * Permission mode for tool approval (desktop-aligned).
+   * Defaults to browser-persisted store / auto_approve_safe.
+   */
+  getPermissionMode?: () => PermissionMode;
   onEvent?: (event: ChatTraceEvent) => void;
 }
 

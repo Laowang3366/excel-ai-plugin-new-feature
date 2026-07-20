@@ -45,7 +45,7 @@ describe("excel-only prompt routing", () => {
     expect(EXCLUDED_SCENARIOS).toContain("ocr-invoice");
   });
 
-  it("builds excel system prompt from synced templates", () => {
+  it("builds excel system prompt from adapted + synced templates", () => {
     const prompt = composeExcelSystemPrompt({
       routing: { content: "【功能模块：公式】写一个 SUM" },
       officeConnectionStatus: "connected (office-js)",
@@ -55,6 +55,9 @@ describe("excel-only prompt routing", () => {
     expect(prompt.length).toBeGreaterThan(100);
     expect(prompt).toContain("Office 应用连接状态：connected (office-js)");
     expect(prompt).toMatch(/2026/);
+    expect(prompt).toContain("host.status");
+    expect(prompt).toContain("动态数组");
     expect(prompt.toLowerCase()).not.toMatch(/ocr-invoice/);
+    expect(prompt).not.toMatch(/office\.connection\.status|createWorkbook|preferEngine/);
   });
 });

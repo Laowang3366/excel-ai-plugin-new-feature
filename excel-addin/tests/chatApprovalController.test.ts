@@ -160,8 +160,9 @@ describe("ChatController approval path", () => {
       composeSystemPrompt: (msg) =>
         `sys ${msg}\n## ${CHAT_APPROVAL_PROMPT_MARKER}\napproval`,
     });
-    // If scripted doesn't pass tools on ctx, assert listChatTools length separately
-    expect(listChatTools()).toHaveLength(65);
+    // Count-agnostic: live registry size, not a hardcoded total
+    const registrySize = listChatTools().length;
+    expect(registrySize).toBeGreaterThan(0);
 
     // Use a provider that records tools from AgentLoop
     const bodies: number[] = [];
@@ -181,10 +182,10 @@ describe("ChatController approval path", () => {
     });
     const r1 = await c2.send("t1");
     expect(r1.turnStatus).toBe("completed");
-    expect(bodies[0]).toBe(65);
+    expect(bodies[0]).toBe(registrySize);
     const r2 = await c2.send("t2");
     expect(r2.turnStatus).toBe("completed");
-    expect(bodies[1]).toBe(65);
+    expect(bodies[1]).toBe(registrySize);
     // prompt marker used
     expect(ChatController.approvalMarker).toBe(CHAT_APPROVAL_PROMPT_MARKER);
     void controller;

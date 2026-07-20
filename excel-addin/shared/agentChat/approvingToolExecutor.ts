@@ -3,9 +3,11 @@ import { TOOL_DEFINITION_MAP } from "../tools";
 import type { AgentToolExecutor } from "./chatReadOnlyTools";
 import { ApprovalGate } from "./approvalGate";
 import {
+  DEFAULT_PERMISSION_MODE,
   deniedToolError,
   dispositionForRisk,
   rejectedToolError,
+  type PermissionMode,
 } from "./approvalPolicy";
 import { previewFromToolCall } from "./approvalPreview";
 import type { RiskLevel } from "../tools/types";
@@ -16,14 +18,16 @@ export type ToolCallContext = {
 };
 
 /**
- * Per-call approval wrapper. Safe tools execute immediately; moderate/dangerous
- * await ApprovalGate. Raw args stay local and are only passed to inner after approve.
+ * Per-call approval wrapper. Disposition depends on permission mode × risk.
+ * Raw args stay local and are only passed to inner after approve.
  */
 export class ApprovingToolExecutor implements AgentToolExecutor {
   constructor(
     private readonly inner: AgentToolExecutor,
     private readonly gate: ApprovalGate,
     private readonly getToolCallContext?: () => ToolCallContext | undefined,
+    private readonly getPermissionMode: () => PermissionMode = () =>
+      DEFAULT_PERMISSION_MODE,
   ) {}
 
   async execute(call: ToolCall): Promise<ToolResult> {
@@ -33,7 +37,7 @@ export class ApprovingToolExecutor implements AgentToolExecutor {
     }
     const def = TOOL_DEFINITION_MAP[name as ToolName];
     const risk = def?.riskLevel as RiskLevel | undefined;
-    const disposition = dispositionForRisk(risk);
+    const disposition = dispositionForRisk(risk, this.getPermissionMode());
     if (disposition === "deny" || !def || !risk) {
       return deny(name);
     }

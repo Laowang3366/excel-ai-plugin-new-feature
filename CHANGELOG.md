@@ -4,6 +4,10 @@
 
 ## 未发布
 
+- 独立 Excel 加载项新增公式保护检查与锁定/解锁（仅公式单元格 + 可选表保护）；密码仅请求内存使用且不进入工具结果；WPS 明确不支持；真实 Excel 侧载尚未验收。
+- 独立 Excel 加载项表格现支持首末列高亮（showFirstColumn/showLastColumn），以及表格 AutoFilter 筛选与多级排序工具；WPS 仍明确返回不支持，真实 Excel 侧载尚未验收。
+- 独立 Excel 加载项可生成正式本地 WPS JSA jsaddons 包（相对路径任务窗格 + publish/ribbon/entry）；真实 WPS 侧载尚未验收。
+- 独立 Excel 加载项现在会恢复模型供应商、Gateway 和活动供应商配置；API Key 仍仅保存在当前任务窗格内存中，不会写入浏览器持久化存储。
 - 独立 Excel 加载项支持同源 AI Gateway 连接模式：可配置 gatewayBaseUrl 与 gatewayUpstreamId，浏览器不保存或不发送 API Key，请求经同域 `/api/ai/v1/:upstreamId/...` 转发。
 - 独立 Excel 加载项的表格更新现可调整同一工作表内的表格范围，并切换行/列交替底纹；操作完成后会回读宿主中的实际表格范围与显示状态。
 - 独立 Excel 加载项新增区域行列结构操作：可插入、删除并自动调整选区行高/列宽；自动调整完成后会回读宿主中的实际尺寸，WPS 对这些高级操作明确返回不支持。

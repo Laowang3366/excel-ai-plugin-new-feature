@@ -1,5 +1,10 @@
 import { normalizeConnectionMode } from "./endpointResolve";
 import { MemorySecretStore } from "./memorySecretStore";
+import {
+  loadPersistedProviderState,
+  persistProviderState,
+  type ProviderPersistenceStorage,
+} from "./persistence";
 import { getProviderTemplate } from "./templates";
 import type {
   ConnectionMode,
@@ -52,7 +57,17 @@ export class ProviderStore {
   private providers = new Map<string, ProviderConfig>();
   private activeId: string | null = null;
 
-  constructor(private readonly secrets: ProviderSecretStore = new MemorySecretStore()) {}
+  constructor(
+    private readonly secrets: ProviderSecretStore = new MemorySecretStore(),
+    private readonly persistence?: ProviderPersistenceStorage,
+  ) {
+    const restored = loadPersistedProviderState(persistence);
+    for (const provider of restored.providers) {
+      this.providers.set(provider.id, provider);
+    }
+    this.activeId = restored.activeId;
+    if (restored.shouldRewrite) this.persist();
+  }
 
   list(): ProviderPublicView[] {
     return [...this.providers.values()].map((config) =>
@@ -111,6 +126,7 @@ export class ProviderStore {
       this.secrets.delete(id);
     }
     if (!this.activeId) this.activeId = id;
+    this.persist();
     return this.viewOf(id);
   }
 
@@ -170,6 +186,7 @@ export class ProviderStore {
       if (apiKey) this.secrets.set(id, apiKey);
       else this.secrets.delete(id);
     }
+    this.persist();
     return this.viewOf(id);
   }
 
@@ -180,10 +197,19 @@ export class ProviderStore {
     if (this.activeId === id) {
       this.activeId = this.providers.keys().next().value ?? null;
     }
+    this.persist();
   }
 
   setActive(id: string): void {
     if (!this.providers.has(id)) throw new Error(`Provider not found: ${id}`);
     this.activeId = id;
+    this.persist();
+  }
+
+  private persist(): void {
+    persistProviderState(this.persistence, {
+      providers: [...this.providers.values()],
+      activeId: this.activeId,
+    });
   }
 }

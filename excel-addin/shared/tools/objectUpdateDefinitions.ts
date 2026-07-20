@@ -5,7 +5,7 @@ export const OBJECT_UPDATE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "table.update",
     description:
-      "更新表格属性或范围：newName/style/showHeaders/showTotals/showFilterButton/showBandedRows/showBandedColumns/resizeAddress（至少一项；resizeAddress 为同表单区域 A1；Office.js；WPS unsupported）",
+      "更新表格属性或范围：newName/style/showHeaders/showTotals/showFilterButton/showBandedRows/showBandedColumns/showFirstColumn/showLastColumn/resizeAddress（至少一项；首末列高亮 ExcelApi 1.3；resizeAddress 为同表单区域 A1；Office.js；WPS unsupported）",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -19,6 +19,8 @@ export const OBJECT_UPDATE_TOOL_DEFINITIONS: ToolDefinition[] = [
         showFilterButton: { type: "boolean" },
         showBandedRows: { type: "boolean" },
         showBandedColumns: { type: "boolean" },
+        showFirstColumn: { type: "boolean" },
+        showLastColumn: { type: "boolean" },
         resizeAddress: { type: "string", minLength: 1 },
       },
       required: ["sheetName", "tableName"],

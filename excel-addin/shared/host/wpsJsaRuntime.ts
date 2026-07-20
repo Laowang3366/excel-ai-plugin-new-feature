@@ -8,13 +8,43 @@ import {
 /**
  * WPS JSA surface helpers.
  * Verified in-repo: Application / ActiveWorkbook / Name / JSIDE CodeModule (desktop bridge).
- * Range Value2/Formula/Clear and Worksheets are assumed ET members with runtime checks.
+ * Range Value2/Formula/Clear, UsedRange, Worksheets, and optional ET COM members below are
+ * assumed with runtime member probes (not device-verified).
  */
+export interface WpsFont {
+  Name?: string | null;
+  Size?: number | null;
+  Bold?: boolean | null;
+  Color?: number | null;
+}
+
+export interface WpsInterior {
+  Color?: number | null;
+}
+
+export interface WpsRangeCollection {
+  AutoFit?: () => void;
+}
+
 export interface WpsRange {
   Address?: string;
   Value2?: unknown;
   Formula?: unknown;
   Clear?: () => void;
+  /** Excel/WPS COM CurrentRegion (surrounding contiguous region). */
+  CurrentRegion?: WpsRange;
+  Font?: WpsFont;
+  Interior?: WpsInterior;
+  NumberFormat?: string | unknown;
+  HorizontalAlignment?: number | string | null;
+  VerticalAlignment?: number | string | null;
+  WrapText?: boolean | null;
+  ColumnWidth?: number | null;
+  RowHeight?: number | null;
+  Columns?: WpsRangeCollection;
+  Rows?: WpsRangeCollection;
+  EntireColumn?: WpsRangeCollection;
+  EntireRow?: WpsRangeCollection;
 }
 
 export interface WpsSheet {
@@ -23,6 +53,10 @@ export interface WpsSheet {
   Range: (address: string) => WpsRange;
   Delete?: () => void;
   UsedRange?: WpsRange;
+  /** Excel/WPS COM: Copy(Before?, After?). */
+  Copy?: (before?: WpsSheet | undefined, after?: WpsSheet | undefined) => void;
+  /** Excel/WPS COM: Move(Before?, After?). */
+  Move?: (before?: WpsSheet | undefined, after?: WpsSheet | undefined) => void;
 }
 
 export interface WpsSheets {

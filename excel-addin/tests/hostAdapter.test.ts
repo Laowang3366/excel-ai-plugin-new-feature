@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { OfficeJsAdapter } from "../shared/host/officeJsAdapter";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
 import { unsupported } from "../shared/host/types";
 
 describe("host adapters without host runtime", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("Office.js adapter reports disconnected status when Excel.run is missing", async () => {
     const adapter = new OfficeJsAdapter();
     const status = await adapter.getStatus();
@@ -24,6 +28,21 @@ describe("host adapters without host runtime", () => {
     }
   });
 
+  it("Office.js detects dynamic arrays from the ExcelApi 1.12 requirement set", () => {
+    const isSetSupported = vi.fn(
+      (name: string, version: string) =>
+        name === "ExcelApi" && version === "1.12",
+    );
+    vi.stubGlobal("window", {
+      Office: { context: { requirements: { isSetSupported } } },
+    });
+
+    expect(new OfficeJsAdapter().getRuntimeCapabilities()).toEqual({
+      dynamicArrayFunctionsEnabled: true,
+    });
+    expect(isSetSupported).toHaveBeenCalledWith("ExcelApi", "1.12");
+  });
+
   it("WPS adapter returns typed unsupported without Application", async () => {
     const adapter = new WpsJsaAdapter();
     const result = await adapter.getSelection();
@@ -32,6 +51,12 @@ describe("host adapters without host runtime", () => {
       expect(result.unsupported).toBe(true);
       expect(result.host).toBe("wps-jsa");
     }
+  });
+
+  it("WPS keeps dynamic arrays disabled until a real JSA contract is verified", () => {
+    expect(new WpsJsaAdapter().getRuntimeCapabilities()).toEqual({
+      dynamicArrayFunctionsEnabled: false,
+    });
   });
 
   it("unsupported helper keeps contract shape", () => {

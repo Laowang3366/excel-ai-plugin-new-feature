@@ -1,6 +1,7 @@
 import { TOOL_DEFINITIONS, TOOL_DEFINITION_MAP } from "../tools";
 import type { ToolName, ToolResult } from "../tools/types";
 import { collectAgentStream, emptyUsage, sumUsage } from "./collectStream";
+import { trimMessagesForRequest } from "./historyBudget";
 import { isAbortError, throwIfAborted } from "./streamProvider";
 import type {
   AgentLoopOptions,
@@ -77,10 +78,13 @@ export class AgentLoop {
     const activeNames = new Set<string>(tools.map((t) => t.name));
     const maxRounds = this.options.maxRounds ?? 8;
     const signal = this.options.signal;
+    const historyLen = input.history?.length ?? 0;
     const messages: AgentMessage[] = [
       ...(input.history ? input.history.slice() : []),
       { role: "user", content: input.userMessage },
     ];
+    // Current-turn user message index; history + current-turn tool chains after it are protected.
+    const protectFromIndex = historyLen;
     let rounds = 0;
     let assistantText = "";
     let usage: AgentTokenUsage = emptyUsage();
@@ -114,9 +118,14 @@ export class AgentLoop {
 
         let collected;
         try {
+          const requestMessages = this.buildRequestMessages(
+            messages,
+            tools,
+            protectFromIndex,
+          );
           const stream = this.options.provider.streamChat({
             systemPrompt: this.options.systemPrompt,
-            messages: messages.slice(),
+            messages: requestMessages,
             tools: tools.slice(),
             signal,
           });
@@ -303,5 +312,27 @@ export class AgentLoop {
         error: { message, kind: "provider" },
       });
     }
+  }
+
+  private buildRequestMessages(
+    messages: AgentMessage[],
+    tools: import("../tools/types").ToolDefinition[],
+    protectFromIndex: number,
+  ): AgentMessage[] {
+    const contextWindowSize = this.options.contextWindowSize;
+    if (
+      contextWindowSize == null ||
+      !Number.isFinite(contextWindowSize) ||
+      contextWindowSize <= 0
+    ) {
+      return messages.slice();
+    }
+    return trimMessagesForRequest({
+      messages,
+      systemPrompt: this.options.systemPrompt,
+      tools,
+      contextWindowSize,
+      protectFromIndex,
+    });
   }
 }

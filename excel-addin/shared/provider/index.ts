@@ -26,6 +26,12 @@ export {
 } from "./endpointResolve";
 export { API_FORMATS, PROVIDER_TEMPLATES, getProviderTemplate } from "./templates";
 export { MemorySecretStore } from "./memorySecretStore";
+export {
+  getBrowserProviderPersistenceStorage,
+  PROVIDER_PERSISTENCE_KEY,
+  PROVIDER_PERSISTENCE_VERSION,
+  type ProviderPersistenceStorage,
+} from "./persistence";
 export { ProviderStore } from "./store";
 export type {
   ApiFormat,
@@ -62,3 +68,11 @@ export type {
   CreateStreamProviderOk,
   CreateStreamProviderErr,
 } from "./createStreamProvider";
+
+export {
+  applyAnthropicReasoningConfig,
+  applyChatCompletionsReasoningConfig,
+  applyResponsesReasoningConfig,
+  isReasoningMode,
+  resolveThinkingBudget,
+} from "./reasoningConfig";

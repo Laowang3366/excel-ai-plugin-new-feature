@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui">
+  <ribbon startFromScratch="false">
+    <tabs>
+      <tab id="wenggeExcelAiTab" label="文格 AI" getVisible="WenggeExcelAiTabVisible">
+        <group id="wenggeExcelAiGroup" label="文格 AI">
+          <button
+            id="wenggeExcelAiOpenButton"
+            label="打开任务窗格"
+            size="large"
+            onAction="WenggeExcelAiOpenTaskPane" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

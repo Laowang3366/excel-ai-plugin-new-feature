@@ -2,9 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   API_FORMATS,
   MemorySecretStore,
+  PROVIDER_PERSISTENCE_KEY,
+  PROVIDER_PERSISTENCE_VERSION,
   PROVIDER_TEMPLATES,
   ProviderStore,
+  type ProviderPersistenceStorage,
 } from "../shared/provider";
+
+class TestProviderStorage implements ProviderPersistenceStorage {
+  private readonly values = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+
+  raw(): string {
+    return this.getItem(PROVIDER_PERSISTENCE_KEY) ?? "";
+  }
+}
 
 describe("ProviderStore", () => {
   it("includes required vendor templates and api formats", () => {
@@ -131,5 +150,135 @@ describe("ProviderStore gateway mode", () => {
     expect(direct?.baseUrl).toBe("https://api.openai.com/v1");
     expect(direct?.gatewayBaseUrl).toBe("https://plugin.example");
     expect(direct?.apiKey).toBe("sk-new");
+  });
+});
+
+describe("ProviderStore persistence", () => {
+  it("restores non-sensitive provider state and activeId without restoring keys", () => {
+    const storage = new TestProviderStorage();
+    const directKey = "sk-direct-never-persist";
+    const ignoredGatewayKey = "sk-gateway-never-persist";
+    const first = new ProviderStore(new MemorySecretStore(), storage);
+    const direct = first.addFromTemplate("openai", directKey);
+    const gateway = first.addFromTemplate("anthropic", ignoredGatewayKey, {
+      connectionMode: "gateway",
+      gatewayBaseUrl: "https://addin.example.com",
+      gatewayUpstreamId: "anthropic",
+    });
+    first.setActive(gateway.id);
+
+    const raw = storage.raw();
+    expect(raw).not.toContain(directKey);
+    expect(raw).not.toContain(ignoredGatewayKey);
+    expect(raw).not.toMatch(/apiKey|authorization|secret/i);
+    expect(JSON.parse(raw)).toMatchObject({
+      version: PROVIDER_PERSISTENCE_VERSION,
+      activeId: gateway.id,
+    });
+
+    const injected = JSON.parse(raw) as {
+      providers: Array<Record<string, unknown>>;
+      Authorization?: string;
+      secret?: string;
+    };
+    injected.providers[0].apiKey = directKey;
+    injected.Authorization = `Bearer ${directKey}`;
+    injected.secret = ignoredGatewayKey;
+    storage.setItem(PROVIDER_PERSISTENCE_KEY, JSON.stringify(injected));
+
+    const restored = new ProviderStore(new MemorySecretStore(), storage);
+    expect(storage.raw()).not.toContain(directKey);
+    expect(storage.raw()).not.toContain(ignoredGatewayKey);
+    expect(storage.raw()).not.toMatch(/apiKey|authorization|secret/i);
+    expect(restored.list()).toHaveLength(2);
+    expect(restored.getActiveId()).toBe(gateway.id);
+    expect(restored.getWithSecret(direct.id)?.apiKey).toBe("");
+    expect(restored.list().find((item) => item.id === direct.id)?.hasApiKey).toBe(
+      false,
+    );
+    expect(restored.getWithSecret(gateway.id)).toMatchObject({
+      connectionMode: "gateway",
+      gatewayBaseUrl: "https://addin.example.com",
+      gatewayUpstreamId: "anthropic",
+      apiKey: "",
+    });
+  });
+
+  it("persists provider deletion and active-provider fallback", () => {
+    const storage = new TestProviderStorage();
+    const store = new ProviderStore(new MemorySecretStore(), storage);
+    const first = store.addFromTemplate("openai", "sk-one");
+    const second = store.addFromTemplate("deepseek", "sk-two");
+    store.setActive(second.id);
+    store.remove(first.id);
+
+    const afterFirstDelete = new ProviderStore(new MemorySecretStore(), storage);
+    expect(afterFirstDelete.list().map((item) => item.id)).toEqual([second.id]);
+    expect(afterFirstDelete.getActiveId()).toBe(second.id);
+
+    afterFirstDelete.remove(second.id);
+    const afterLastDelete = new ProviderStore(new MemorySecretStore(), storage);
+    expect(afterLastDelete.list()).toEqual([]);
+    expect(afterLastDelete.getActiveId()).toBeNull();
+    expect(JSON.parse(storage.raw())).toMatchObject({
+      version: PROVIDER_PERSISTENCE_VERSION,
+      activeId: null,
+      providers: [],
+    });
+  });
+
+  it("ignores damaged, unknown-version, and invalid persisted data", () => {
+    const storage = new TestProviderStorage();
+
+    storage.setItem(PROVIDER_PERSISTENCE_KEY, "{broken-json");
+    expect(new ProviderStore(new MemorySecretStore(), storage).list()).toEqual([]);
+
+    storage.setItem(
+      PROVIDER_PERSISTENCE_KEY,
+      JSON.stringify({ version: 999, activeId: null, providers: [] }),
+    );
+    expect(new ProviderStore(new MemorySecretStore(), storage).list()).toEqual([]);
+
+    storage.setItem(
+      PROVIDER_PERSISTENCE_KEY,
+      JSON.stringify({
+        version: PROVIDER_PERSISTENCE_VERSION,
+        activeId: "bad",
+        providers: [
+          {
+            id: "bad",
+            name: "Bad",
+            provider: "bad",
+            baseUrl: "https://api.example.com/v1",
+            model: "bad-model",
+            apiFormat: "unknown",
+            connectionMode: "direct",
+            gatewayBaseUrl: "",
+            gatewayUpstreamId: "",
+            contextWindowSize: 128_000,
+            reasoningMode: "off",
+            apiKey: "must-not-be-loaded",
+          },
+        ],
+      }),
+    );
+    const invalid = new ProviderStore(new MemorySecretStore(), storage);
+    expect(invalid.list()).toEqual([]);
+    expect(invalid.getActiveId()).toBeNull();
+  });
+
+  it("keeps the in-memory store usable when browser storage throws", () => {
+    const unavailable: ProviderPersistenceStorage = {
+      getItem() {
+        throw new Error("storage disabled");
+      },
+      setItem() {
+        throw new Error("storage full");
+      },
+    };
+    const store = new ProviderStore(new MemorySecretStore(), unavailable);
+    const created = store.addFromTemplate("openai", "sk-memory-only");
+    expect(store.getActiveId()).toBe(created.id);
+    expect(store.getWithSecret(created.id)?.apiKey).toBe("sk-memory-only");
   });
 });

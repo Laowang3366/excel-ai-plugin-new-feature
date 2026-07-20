@@ -27,7 +27,10 @@ export function createServer(config, deps = {}) {
       } else {
         res.destroy();
       }
-      logEvent("error", { event: "request_failed", code: err?.code || "INTERNAL" });
+      logEvent("error", {
+        event: "request_failed",
+        code: typeof err?.code === "string" ? err.code : "INTERNAL",
+      });
     }
   });
 
@@ -103,7 +106,6 @@ async function handleRequest(req, res, config, runtime) {
   req.socket?.on("close", onSocketClose);
   res.on("close", onResClose);
 
-  // Total timeout covers headers + full response body transfer.
   const totalTimer = setTimeout(() => abortUpstream(), config.totalTimeoutMs);
   let proxied = null;
 
@@ -157,10 +159,17 @@ async function handleRequest(req, res, config, runtime) {
       return;
     }
 
-    res.writeHead(proxied.status, {
+    const outHeaders = {
       ...proxied.headers,
       connection: "close",
-    });
+      "cache-control": proxied.headers["cache-control"] || "no-store",
+    };
+    const contentType = String(proxied.headers["content-type"] || "").toLowerCase();
+    if (contentType.includes("text/event-stream")) {
+      outHeaders["x-accel-buffering"] = "no";
+      outHeaders["cache-control"] = "no-store";
+    }
+    res.writeHead(proxied.status, outHeaders);
 
     if (!proxied.body) {
       res.end();
@@ -354,10 +363,32 @@ function sendJson(res, status, obj) {
  * @param {Record<string, unknown>} fields
  */
 function logEvent(level, fields) {
+  const safe = {};
+  for (const [key, value] of Object.entries(fields || {})) {
+    const lower = String(key).toLowerCase();
+    if (
+      lower.includes("authorization") ||
+      lower.includes("api-key") ||
+      lower.includes("apikey") ||
+      lower.includes("secret") ||
+      lower === "headers" ||
+      lower === "body" ||
+      lower === "authheadervalue"
+    ) {
+      continue;
+    }
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      safe[key] = value;
+    } else if (value == null) {
+      safe[key] = value;
+    } else {
+      safe[key] = String(value);
+    }
+  }
   const line = JSON.stringify({
     ts: new Date().toISOString(),
     level,
-    ...fields,
+    ...safe,
   });
   if (level === "error") {
     console.error(line);
