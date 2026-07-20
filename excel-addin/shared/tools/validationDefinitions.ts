@@ -131,6 +131,7 @@ export const DATA_VALIDATION_TOOL_DEFINITIONS: ToolDefinition[] = [
               type: "array",
               items: { type: "string", minLength: 1 },
               minItems: 1,
+              maxItems: 1000,
             },
             allowBlank: { type: "boolean" },
           },

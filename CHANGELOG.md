@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- 独立 Excel 加载项加固条件格式/数据验证宿主回读：CF NotEqualTo 官方 token、add 校验规则与颜色、DV 全规则与 allowBlank 回读、list Range 代理真实地址、clear 要求 hostType=None；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项收紧条件格式与数据验证：CF 列表诚实返回 hostType（不把 ContainsText/DataBar 等伪装为 cellValue），add 仅 cellValue/custom 且完整比较运算符；DV 补齐 list/wholeNumber/decimal/date/time/textLength/custom，list 区域源传 Range 代理，Inconsistent/MixedCriteria 标记 limitations；ExcelApi 1.6/1.8 预检；写后宿主回读；WPS 六工具仍 unsupported；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项新增只读工具 `workbook.objects.inspect`：一次聚合 sheets/tables/charts/namedRanges/shapes 分类清单（可截断并保留 totalCount）；单分类失败/不支持不拖垮整项；WPS 上 table/chart/shape 仍明确 unsupported；真实 Excel/WPS 侧载尚未验收。
 - 独立 Excel 加载项接入公式治理工具：依赖检查、引用修复、公式转值、备份检查/恢复（WENGGE_FORMULA_BACKUP_V1 隐藏表；文本方式保存公式原文；真实 Excel/WPS 侧载尚未验收）。

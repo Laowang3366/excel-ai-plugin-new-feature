@@ -122,6 +122,72 @@ describe("phase5 tools", () => {
       },
     });
     expect(emptyFormula.ok).toBe(false);
+
+    const emptyColor = await executor.execute({
+      name: "conditionalFormat.add",
+      arguments: {
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: {
+          kind: "cellValue",
+          operator: "greaterThan",
+          formula1: "1",
+          fillColor: "",
+        },
+      },
+    });
+    expect(emptyColor.ok).toBe(false);
+
+    const emptyFormula2 = await executor.execute({
+      name: "conditionalFormat.add",
+      arguments: {
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: {
+          kind: "cellValue",
+          operator: "greaterThan",
+          formula1: "1",
+          formula2: "",
+        },
+      },
+    });
+    expect(emptyFormula2.ok).toBe(false);
+
+    const badAllowBlank = await executor.execute({
+      name: "dataValidation.write",
+      arguments: {
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: { type: "list", listValues: ["A"], allowBlank: "yes" },
+      },
+    });
+    expect(badAllowBlank.ok).toBe(false);
+
+    const tooMany = await executor.execute({
+      name: "dataValidation.write",
+      arguments: {
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: {
+          type: "list",
+          listValues: Array.from({ length: 1001 }, (_, i) => `v${i}`),
+        },
+      },
+    });
+    expect(tooMany.ok).toBe(false);
+
+    const tooLongInline = await executor.execute({
+      name: "dataValidation.write",
+      arguments: {
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: {
+          type: "list",
+          listValues: [ "x".repeat(200), "y".repeat(200) ],
+        },
+      },
+    });
+    expect(tooLongInline.ok).toBe(false);
   });
 
   it("WPS returns unsupported for all six CF/DV tools", async () => {

@@ -44,16 +44,17 @@ export interface ExcelConditionalFormat {
   cellValue?: {
     rule: { formula1: string; formula2?: string; operator: string };
     format: {
-      fill: { color: string };
-      font: { color: string };
+      fill: { color: string; load?: (props: string) => void };
+      font: { color: string; load?: (props: string) => void };
     };
+    load?: (props: string) => void;
   };
-  /** Office.js: ConditionalFormatRule.formula is a string (not nested .formula.formula). */
+  /** Office.js: custom.rule is ClientObject; formula property is queueable. */
   custom?: {
-    rule: { formula: string };
+    rule: { formula: string; load?: (props: string) => void };
     format: {
-      fill: { color: string };
-      font: { color: string };
+      fill: { color: string; load?: (props: string) => void };
+      font: { color: string; load?: (props: string) => void };
     };
   };
   getRange(): ExcelRange;
@@ -63,7 +64,8 @@ export interface ExcelConditionalFormat {
 
 /** Official DataValidation surface: type/rule/ignoreBlanks/errorAlert/prompt — no top-level formula1. */
 export interface ExcelDataValidationRule {
-  list?: { inCellDropDown?: boolean; source?: string | unknown };
+  /** Official ListDataValidation.source: inline string OR Excel.Range. */
+  list?: { inCellDropDown?: boolean; source?: string | ExcelRange | { address: string; load?: (props: string) => void } };
   wholeNumber?: {
     formula1?: string | number;
     formula2?: string | number;

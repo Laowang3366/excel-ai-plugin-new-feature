@@ -3,153 +3,41 @@
  * - Requirement-set precheck → typed unsupported
  * - Post-precheck member/sync/business errors → ordinary failed
  * - CF list: one batch load/sync (O(1) in rule count)
- * - Write paths: queue → sync → load/readback → success only after host confirms
+ * - CF add: load id/type before first sync; verify rule/colors after second sync
+ * - DV write: full rule match (operator/formulas/list/allowBlank) after readback
+ * - List source: string inline or Excel.Range proxy (never String(object))
  */
-import { normalizeSameSheetA1Range, parseChartSourceRange } from "./officeJsChartSource";
-import type { ExcelDataValidation, ExcelRequestContext } from "./officeJsRuntime";
+import type { ExcelRequestContext } from "./officeJsRuntime";
 import { withExcel } from "./officeJsRuntime";
 import {
   classifyCfHostType,
-  classifyDvHostType,
-  classifyListSource,
-  COMPARE_DV_TYPES,
-  isBetweenOp,
+  cfRuleFieldsMatch,
   mapCfOperatorToHost,
-  mapDvOperatorToHost,
-  unmapDvOperator,
+  MAX_INLINE_LIST_SOURCE_CHARS,
+  unmapCfOperator,
 } from "./officeJsValidationMapping";
 import {
   requireExcelApiForCf,
   requireExcelApiForDv,
 } from "./officeJsValidationRequirements";
+import {
+  applyCompareDv,
+  assertDvCleared,
+  assertDvWriteMatches,
+  parseDvRule,
+  resolveListSourceRange,
+  toDvInfo,
+} from "./officeJsValidationReadback";
 import type {
   ConditionalFormatInfo,
   ConditionalFormatRule,
   DataValidationInfo,
   DataValidationRule,
-  DataValidationType,
   HostResult,
 } from "./types";
 
 const CELL_VALUE = "CellValue";
 const CUSTOM = "Custom";
-
-type CompareBag = {
-  formula1?: string | number;
-  formula2?: string | number;
-  operator?: string;
-};
-
-function parseCompareRule(
-  type: Exclude<DataValidationType, "list" | "custom">,
-  bag: CompareBag | undefined,
-  allowBlank: boolean | undefined,
-): DataValidationRule {
-  return {
-    type,
-    operator: unmapDvOperator(bag?.operator),
-    formula1: bag?.formula1 != null ? String(bag.formula1) : undefined,
-    formula2: bag?.formula2 != null ? String(bag.formula2) : undefined,
-    allowBlank,
-  };
-}
-
-export function parseDvRule(dv: ExcelDataValidation): {
-  rule: DataValidationRule | null;
-  hostType: string;
-  supported: boolean;
-  listSourceKind?: "inline" | "range" | null;
-  limitations?: string[];
-} {
-  const classified = classifyDvHostType(dv.type);
-  if (classified.mixedState || (!classified.writable && classified.type === null)) {
-    return {
-      rule: null,
-      hostType: classified.hostType,
-      supported: false,
-      limitations: classified.limitations,
-    };
-  }
-  if (classified.type === null) {
-    return {
-      rule: null,
-      hostType: classified.hostType,
-      supported: false,
-      limitations: classified.limitations,
-    };
-  }
-  const raw = (dv.rule ?? {}) as Record<string, CompareBag | { source?: unknown; formula?: string }>;
-  const allowBlank = dv.ignoreBlanks;
-  if (classified.type === "list") {
-    const list = raw.list as { source?: unknown } | undefined;
-    const sourceText =
-      typeof list?.source === "string"
-        ? list.source
-        : list?.source != null
-          ? String(list.source)
-          : "";
-    const classifiedSource = classifyListSource(sourceText);
-    if (classifiedSource.kind === "range") {
-      return {
-        rule: {
-          type: "list",
-          formula1: classifiedSource.formula1,
-          allowBlank,
-        },
-        hostType: "List",
-        supported: true,
-        listSourceKind: "range",
-      };
-    }
-    return {
-      rule: {
-        type: "list",
-        listValues: classifiedSource.listValues,
-        // Keep raw source only as non-formula echo when useful; do not invent formula1 for inline.
-        allowBlank,
-      },
-      hostType: "List",
-      supported: true,
-      listSourceKind: "inline",
-    };
-  }
-  if (classified.type === "custom") {
-    const custom = raw.custom as { formula?: string } | undefined;
-    return {
-      rule: {
-        type: "custom",
-        formula1: custom?.formula != null ? String(custom.formula) : undefined,
-        allowBlank,
-      },
-      hostType: "Custom",
-      supported: true,
-    };
-  }
-  const bagKey = classified.type as "wholeNumber" | "decimal" | "date" | "time" | "textLength";
-  const bag = raw[bagKey] as CompareBag | undefined;
-  return {
-    rule: parseCompareRule(classified.type, bag, allowBlank),
-    hostType: classified.hostType,
-    supported: true,
-  };
-}
-
-function resolveListSourceRange(
-  context: ExcelRequestContext,
-  ownerSheetName: string,
-  formula1: string,
-): { range: ReturnType<ExcelRequestContext["workbook"]["worksheets"]["getItem"]> extends never ? never : object; display: string } {
-  const raw = formula1.trim().replace(/^=/, "");
-  // Same-sheet bare A1 or qualified Sheet!A1 / 'Sheet'!A1
-  if (!raw.includes("!")) {
-    const bare = normalizeSameSheetA1Range(ownerSheetName, raw, "formula1", "dataValidation");
-    const sheet = context.workbook.worksheets.getItem(ownerSheetName);
-    return { range: sheet.getRange(bare), display: bare };
-  }
-  const parsed = parseChartSourceRange(ownerSheetName, raw);
-  const sheet = context.workbook.worksheets.getItem(parsed.sourceSheetName);
-  return { range: sheet.getRange(parsed.bareA1), display: parsed.displaySourceRange };
-}
 
 export async function officeJsListConditionalFormats(
   sheetName: string,
@@ -160,7 +48,6 @@ export async function officeJsListConditionalFormats(
   return withExcel("conditionalFormat.list", async (context: ExcelRequestContext) => {
     const range = context.workbook.worksheets.getItem(sheetName).getRange(rangeAddress);
     range.load("address");
-    // Single batch: items/id,type — no per-rule sync.
     range.conditionalFormats.load("items/id,items/type");
     await context.sync();
     const result: ConditionalFormatInfo[] = [];
@@ -181,6 +68,99 @@ export async function officeJsListConditionalFormats(
   });
 }
 
+function queueCfRule(
+  cf: {
+    cellValue?: {
+      rule: { formula1: string; formula2?: string; operator: string };
+      format: { fill: { color: string }; font: { color: string } };
+      load?: (props: string) => void;
+    };
+    custom?: {
+      rule: { formula: string; load?: (props: string) => void };
+      format: { fill: { color: string }; font: { color: string } };
+    };
+  },
+  rule: ConditionalFormatRule,
+): void {
+  if (rule.kind === "custom") {
+    if (!cf.custom) throw new Error("Custom conditional format not available");
+    cf.custom.rule.formula = rule.formula!;
+    if (rule.fillColor) cf.custom.format.fill.color = rule.fillColor;
+    if (rule.fontColor) cf.custom.format.font.color = rule.fontColor;
+    return;
+  }
+  if (!cf.cellValue) throw new Error("CellValue conditional format not available");
+  cf.cellValue.rule = {
+    operator: mapCfOperatorToHost(rule.operator!),
+    formula1: rule.formula1!,
+    ...(rule.formula2 != null ? { formula2: rule.formula2 } : {}),
+  };
+  if (rule.fillColor) cf.cellValue.format.fill.color = rule.fillColor;
+  if (rule.fontColor) cf.cellValue.format.font.color = rule.fontColor;
+}
+
+function queueCfDetailLoad(cf: {
+  cellValue?: {
+    rule: { formula1: string; formula2?: string; operator: string };
+    format: { fill: { color: string; load?: (p: string) => void }; font: { color: string; load?: (p: string) => void } };
+    load?: (props: string) => void;
+  };
+  custom?: {
+    rule: { formula: string; load?: (props: string) => void };
+    format: { fill: { color: string; load?: (p: string) => void }; font: { color: string; load?: (p: string) => void } };
+  };
+  type: string;
+}): void {
+  if (cf.type === CELL_VALUE && cf.cellValue) {
+    cf.cellValue.load?.("rule");
+    cf.cellValue.format.fill.load?.("color");
+    cf.cellValue.format.font.load?.("color");
+    return;
+  }
+  if (cf.type === CUSTOM && cf.custom) {
+    cf.custom.rule.load?.("formula");
+    cf.custom.format.fill.load?.("color");
+    cf.custom.format.font.load?.("color");
+  }
+}
+
+function readCfHostFields(cf: {
+  type: string;
+  cellValue?: {
+    rule: { formula1: string; formula2?: string; operator: string };
+    format: { fill: { color: string }; font: { color: string } };
+  };
+  custom?: {
+    rule: { formula: string };
+    format: { fill: { color: string }; font: { color: string } };
+  };
+}): {
+  operator?: string;
+  formula1?: string;
+  formula2?: string;
+  formula?: string;
+  fillColor?: string;
+  fontColor?: string;
+} {
+  if (cf.type === CELL_VALUE && cf.cellValue) {
+    return {
+      operator: cf.cellValue.rule.operator,
+      formula1: cf.cellValue.rule.formula1,
+      formula2: cf.cellValue.rule.formula2,
+      fillColor: cf.cellValue.format.fill.color,
+      fontColor: cf.cellValue.format.font.color,
+    };
+  }
+  if (cf.type === CUSTOM && cf.custom) {
+    return {
+      formula: cf.custom.rule.formula,
+      fillColor: cf.custom.format.fill.color,
+      fontColor: cf.custom.format.font.color,
+    };
+  }
+  return {};
+}
+
 export async function officeJsAddConditionalFormat(input: {
   sheetName: string;
   range: string;
@@ -193,43 +173,32 @@ export async function officeJsAddConditionalFormat(input: {
     range.load("address");
     const type = input.rule.kind === "custom" ? CUSTOM : CELL_VALUE;
     const cf = range.conditionalFormats.add(type);
-    if (input.rule.kind === "custom") {
-      if (!cf.custom) throw new Error("Custom conditional format not available");
-      // ClientObject: queue formula property (not whole rule object replace).
-      cf.custom.rule.formula = input.rule.formula!;
-      if (input.rule.fillColor) cf.custom.format.fill.color = input.rule.fillColor;
-      if (input.rule.fontColor) cf.custom.format.font.color = input.rule.fontColor;
-    } else {
-      if (!cf.cellValue) throw new Error("CellValue conditional format not available");
-      // Plain rule data: whole-object assign queues correctly.
-      cf.cellValue.rule = {
-        operator: mapCfOperatorToHost(input.rule.operator!),
-        formula1: input.rule.formula1!,
-        ...(input.rule.formula2 != null ? { formula2: input.rule.formula2 } : {}),
-      };
-      if (input.rule.fillColor) cf.cellValue.format.fill.color = input.rule.fillColor;
-      if (input.rule.fontColor) cf.cellValue.format.font.color = input.rule.fontColor;
-    }
+    // Must load add() proxy before first sync — collection load does not cover this proxy.
+    cf.load("id,type");
+    queueCfRule(cf, input.rule);
     await context.sync();
-    // Readback from host collection
-    range.conditionalFormats.load("items/id,items/type");
+    queueCfDetailLoad(cf);
     await context.sync();
-    const found = range.conditionalFormats.items.find((item) => item.id === cf.id);
-    if (!found) throw new Error("conditional format missing after add readback");
-    const classified = classifyCfHostType(found.type);
+    const classified = classifyCfHostType(cf.type);
     if (classified.kind !== input.rule.kind) {
       throw new Error(
         `conditional format kind mismatch after add: expected ${input.rule.kind}, got ${classified.hostType}`,
       );
     }
+    const hostFields = readCfHostFields(cf);
+    if (!cfRuleFieldsMatch(input.rule, hostFields)) {
+      throw new Error(
+        `conditional format rule/color mismatch after add: host=${JSON.stringify(hostFields)}`,
+      );
+    }
     return {
-      id: found.id,
+      id: cf.id,
       sheetName: input.sheetName,
       range: range.address,
       kind: classified.kind,
       hostType: classified.hostType,
       supported: classified.supported,
-      summary: `${classified.hostType}:${found.id}`,
+      summary: `${classified.hostType}:${cf.id}`,
     };
   });
 }
@@ -248,7 +217,7 @@ export async function officeJsDeleteConditionalFormat(
     await context.sync();
     range.conditionalFormats.load("items/id");
     await context.sync();
-    if (range.conditionalFormats.items.some((cf) => cf.id === id)) {
+    if (range.conditionalFormats.items.some((c) => c.id === id)) {
       throw new Error(`conditional format still present after delete: ${id}`);
     }
     return { deleted: id };
@@ -266,34 +235,9 @@ export async function officeJsReadDataValidation(
     range.load("address");
     range.dataValidation.load("type,rule,ignoreBlanks");
     await context.sync();
-    const parsed = parseDvRule(range.dataValidation);
-    return {
-      sheetName,
-      range: range.address,
-      rule: parsed.rule,
-      hostType: parsed.hostType,
-      supported: parsed.supported,
-      listSourceKind: parsed.listSourceKind ?? null,
-      limitations: parsed.limitations,
-    };
+    const parsed = await parseDvRule(range.dataValidation, context);
+    return toDvInfo(sheetName, range.address, parsed);
   });
-}
-
-function applyCompareDv(
-  dv: ExcelDataValidation,
-  rule: DataValidationRule,
-): void {
-  const type = rule.type as Exclude<DataValidationType, "list" | "custom">;
-  if (!COMPARE_DV_TYPES.includes(type)) throw new Error(`not a compare DV type: ${type}`);
-  if (!rule.operator || !rule.formula1) throw new Error(`${type} requires operator and formula1`);
-  const bag = {
-    formula1: rule.formula1,
-    operator: mapDvOperatorToHost(rule.operator),
-    ...(isBetweenOp(rule.operator) && rule.formula2 != null
-      ? { formula2: rule.formula2 }
-      : {}),
-  };
-  dv.rule = { [type]: bag } as ExcelDataValidation["rule"];
 }
 
 export async function officeJsWriteDataValidation(input: {
@@ -313,17 +257,25 @@ export async function officeJsWriteDataValidation(input: {
           throw new Error("listValues items must not contain commas; use a range source instead");
         }
         const source = input.rule.listValues.join(",");
+        if (source.length > MAX_INLINE_LIST_SOURCE_CHARS) {
+          throw new Error(
+            `inline list source exceeds Excel ${MAX_INLINE_LIST_SOURCE_CHARS} character limit; use a range source`,
+          );
+        }
         dv.rule = { list: { inCellDropDown: true, source } };
       } else if (input.rule.formula1) {
-        const resolved = resolveListSourceRange(context, input.sheetName, input.rule.formula1);
-        // Official contract: source is string inline list OR Excel.Range proxy.
-        dv.rule = { list: { inCellDropDown: true, source: resolved.range as unknown as string } };
+        const rangeSource = resolveListSourceRange(
+          context,
+          input.sheetName,
+          input.rule.formula1,
+        );
+        dv.rule = { list: { inCellDropDown: true, source: rangeSource } };
       } else {
         throw new Error("list validation requires listValues or formula1 range source");
       }
     } else if (input.rule.type === "custom") {
       if (!input.rule.formula1) throw new Error("custom requires formula1");
-      dv.rule = { custom: { formula: input.rule.formula1 } } as ExcelDataValidation["rule"];
+      dv.rule = { custom: { formula: input.rule.formula1 } };
     } else {
       applyCompareDv(dv, input.rule);
     }
@@ -331,26 +283,9 @@ export async function officeJsWriteDataValidation(input: {
     await context.sync();
     dv.load("type,rule,ignoreBlanks");
     await context.sync();
-    const parsed = parseDvRule(dv);
-    if (!parsed.supported || !parsed.rule) {
-      throw new Error(
-        `data validation readback not supported after write: ${parsed.hostType}`,
-      );
-    }
-    if (parsed.rule.type !== input.rule.type) {
-      throw new Error(
-        `data validation type mismatch after write: expected ${input.rule.type}, got ${parsed.rule.type}`,
-      );
-    }
-    return {
-      sheetName: input.sheetName,
-      range: range.address,
-      rule: parsed.rule,
-      hostType: parsed.hostType,
-      supported: true,
-      listSourceKind: parsed.listSourceKind ?? null,
-      limitations: parsed.limitations,
-    };
+    const parsed = await parseDvRule(dv, context);
+    assertDvWriteMatches(input.rule, parsed);
+    return toDvInfo(input.sheetName, range.address, parsed);
   });
 }
 
@@ -367,10 +302,12 @@ export async function officeJsClearDataValidation(
     await context.sync();
     range.dataValidation.load("type,rule,ignoreBlanks");
     await context.sync();
-    const parsed = parseDvRule(range.dataValidation);
-    if (parsed.rule != null && parsed.supported) {
-      throw new Error("data validation still present after clear readback");
-    }
-    return { cleared: `${sheetName}!${range.address}` };
+    const parsed = await parseDvRule(range.dataValidation, context);
+    assertDvCleared(parsed);
+    // Range.address already includes Sheet!A1 — do not re-prefix sheetName.
+    return { cleared: range.address };
   });
 }
+
+// re-export unmap for tests that import from this module historically
+export { unmapCfOperator };

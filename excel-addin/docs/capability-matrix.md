@@ -116,10 +116,12 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 
 ## Phase5 Office.js contract notes
 
-- Conditional format custom: set `cf.custom.rule.formula` (string), not nested `formula.formula`.
+- CF ExcelApi **1.6**; DV ExcelApi **1.8**; precheck via `isSetSupported` (missing/throw → unsupported).
+- Conditional format custom: set `cf.custom.rule.formula` (ClientObject property), not nested `formula.formula`; cellValue.rule is whole-object assign. CF host operators: GTE/LTE **without** `To`; notEqualTo → **NotEqualTo**. add: `cf.load("id,type")` before first sync; verify rule + colors after second sync.
 - Data validation: load/set `type` + `rule` + `ignoreBlanks` only; no top-level `operator`/`formula1`/`formula2`.
-- list → `rule.list.{source,inCellDropDown}`; wholeNumber → `rule.wholeNumber.{operator,formula1,formula2}`.
-- Tool schema rejects unimplemented `showError`/`errorMessage` (errorAlert not wired).
+- DV writable types: **list / wholeNumber / decimal / date / time / textLength / custom**. list source = inline string **or Excel.Range proxy** (not `String(range)`); formula/range reads keep `listSourceKind=range` (never split to listValues). Inconsistent/MixedCriteria/unknown/lossy inline → `rule:null` + limitations. clear requires hostType **None**.
+- errorAlert/prompt/showError **not** implemented; schema rejects unknown fields. Inline listValues maxItems 1000 and serialized source ≤255 chars.
+- WPS: all six CF/DV tools typed **unsupported**. **Not** real Excel/WPS sideload verified.
 
 ## Formula governance (wired tools + pure core)
 

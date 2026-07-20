@@ -1,9 +1,8 @@
 /**
- * Sync-gated CF/DV fake (ExcelApi 1.6 / 1.8 shapes).
- * - Mutations queue until context.sync(); loads see committed state only.
- * - cellValue.rule: whole-object assign; custom.rule: ClientObject formula property.
- * - list.source accepts string or Range-like { address }.
- * - Office.context.requirements.isSetSupported injectable.
+ * Sync-gated CF/DV fake (ExcelApi 1.6 / 1.8).
+ * - add() proxy: id/type PropertyNotLoaded until load+sync
+ * - list.source keeps Range-like object by default
+ * - ignoreBlanks is sync-gated with rule
  */
 import { makeConditionalFormatsApi } from "./officeJsValidationFakeCf";
 import { makeDvProxy } from "./officeJsValidationFakeDv";
@@ -15,24 +14,15 @@ import {
   type CfState,
   type CtxPending,
   type DvState,
+  type ValidationFakeOptions,
 } from "./officeJsValidationFakeState";
 
-export function installValidationExcel(options?: {
-  excelApi16?: boolean;
-  excelApi18?: boolean;
-  missingIsSetSupported?: boolean;
-  isSetSupportedThrows?: boolean;
-  failAddSync?: boolean;
-  failDeleteReadback?: boolean;
-  failWriteSync?: boolean;
-  failClearReadback?: boolean;
-  seedContainsText?: boolean;
-  seedInconsistentDv?: boolean;
-  /** Seed many CF rules for O(1) list sync tests. */
-  seedManyCf?: number;
-}) {
+export type { ValidationFakeOptions };
+
+export function installValidationExcel(options?: ValidationFakeOptions) {
   const excelApi16 = options?.excelApi16 !== false;
   const excelApi18 = options?.excelApi18 !== false;
+  const keepListSourceAsRangeObject = options?.keepListSourceAsRangeObject !== false;
 
   const cfs = new Map<string, CfState[]>();
   const dvs = new Map<string, DvState>();
@@ -59,7 +49,11 @@ export function installValidationExcel(options?: {
         ReturnType<typeof makeConditionalFormatsApi>["getItem"]
       >[] = [];
 
-      const dvProxy = makeDvProxy(key, dvs, pending);
+      const dvProxy = makeDvProxy(key, dvs, pending, {
+        keepListSourceAsRangeObject,
+        getTamper: () => options?.tamperDvReadback,
+        clearLeavesHostType: options?.clearLeavesHostType,
+      });
       const conditionalFormats = makeConditionalFormatsApi({
         key,
         cfs,
@@ -72,6 +66,7 @@ export function installValidationExcel(options?: {
         setItemProxies: (items) => {
           itemProxies = items;
         },
+        getTamper: () => options?.tamperCfReadback,
       });
 
       return {
@@ -88,7 +83,13 @@ export function installValidationExcel(options?: {
         conditionalFormats,
         dataValidation: dvProxy,
         getRange(inner: string) {
-          return { address: `${sheetName}!${inner}` };
+          const bare = inner.replace(/^.*!/, "");
+          return {
+            address: `${sheetName}!${bare}`,
+            load(_props?: string) {
+              /* address already populated for test Range-like sources */
+            },
+          };
         },
       };
     }
@@ -114,9 +115,8 @@ export function installValidationExcel(options?: {
           const onlyClear = [...pending.dvWrites.values()].every((v) => v === "clear");
           if (!onlyClear) throw new Error("sync failed on write");
         }
-        for (const load of pending.loads) load();
-        pending.loads.length = 0;
 
+        // Commit mutations first, then apply loads (Office.js: sync flushes then resolves loads).
         for (const add of pending.cfAdds) {
           const list = cfs.get(add.key) ?? [];
           list.push({ ...add.state });
@@ -126,6 +126,12 @@ export function installValidationExcel(options?: {
           const list = cfs.get(patch.key) ?? [];
           const hit = list.find((s) => s.id === patch.id);
           if (hit) Object.assign(hit, patch.patch);
+          // Also patch in-memory add state object (same reference when add not yet listed).
+          for (const add of pending.cfAdds) {
+            if (add.key === patch.key && add.state.id === patch.id) {
+              Object.assign(add.state, patch.patch);
+            }
+          }
         }
         for (const del of pending.cfDeletes) {
           if (options?.failDeleteReadback) continue;
@@ -136,15 +142,26 @@ export function installValidationExcel(options?: {
         }
         for (const [k, v] of pending.dvWrites) {
           if (v === "clear") {
-            if (!options?.failClearReadback) dvs.delete(k);
+            // failClearReadback: leave previous DV so clear appears incomplete.
+            // clearLeavesHostType: delete so load synthesizes non-None hostType.
+            if (!options?.failClearReadback) {
+              dvs.delete(k);
+            }
           } else {
-            dvs.set(k, v);
+            dvs.set(k, {
+              type: v.type,
+              ignoreBlanks: v.ignoreBlanks,
+              rule: v.rule,
+            });
           }
         }
         pending.cfAdds.length = 0;
         pending.cfDeletes.length = 0;
         pending.cfPatches.length = 0;
         pending.dvWrites.clear();
+
+        for (const load of pending.loads) load();
+        pending.loads.length = 0;
       },
     };
   }
