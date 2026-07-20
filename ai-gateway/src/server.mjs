@@ -93,8 +93,6 @@ async function handleRequest(req, res, config, runtime) {
   const abortUpstream = () => {
     if (!ac.signal.aborted) ac.abort();
   };
-  // Socket close is the reliable client-disconnect signal. Ignore after a full
-  // response completes (writableFinished).
   const onSocketClose = () => {
     if (!res.writableFinished) abortUpstream();
   };
@@ -104,6 +102,10 @@ async function handleRequest(req, res, config, runtime) {
   req.on("aborted", abortUpstream);
   req.socket?.on("close", onSocketClose);
   res.on("close", onResClose);
+
+  // Total timeout covers headers + full response body transfer.
+  const totalTimer = setTimeout(() => abortUpstream(), config.totalTimeoutMs);
+  let proxied = null;
 
   try {
     let body = null;
@@ -122,7 +124,6 @@ async function handleRequest(req, res, config, runtime) {
         return;
       }
     } else if (method === "GET") {
-      // models GET: reject unexpected body
       const peek = await readBodyLimited(req, 1);
       if (peek && peek.length > 0) {
         sendJson(res, 400, { error: "body_not_allowed" });
@@ -131,17 +132,30 @@ async function handleRequest(req, res, config, runtime) {
     }
 
     const upstream = config.upstreams.get(upstreamId);
-    const proxied = await proxyToUpstream({
+    proxied = await proxyToUpstream({
       upstream,
       suffix,
       method: isPost ? "POST" : "GET",
       headers: req.headers,
       body,
       connectTimeoutMs: config.connectTimeoutMs,
-      totalTimeoutMs: config.totalTimeoutMs,
       signal: ac.signal,
       fetchImpl: runtime.fetchImpl,
     });
+
+    if (ac.signal.aborted) {
+      try {
+        await proxied.body?.cancel();
+      } catch {
+        // ignore
+      }
+      if (!res.headersSent) {
+        sendJson(res, 504, { error: "upstream_timeout" });
+      } else {
+        res.destroy();
+      }
+      return;
+    }
 
     res.writeHead(proxied.status, {
       ...proxied.headers,
@@ -169,19 +183,24 @@ async function handleRequest(req, res, config, runtime) {
         }
         const ok = res.write(Buffer.from(value));
         if (!ok) {
-          if (ac.signal.aborted || res.destroyed) {
+          const drained = await waitForDrainOrAbort(res, ac.signal);
+          if (!drained) {
             await reader.cancel().catch(() => {});
             abortUpstream();
             break;
           }
-          await onceDrain(res);
         }
+      }
+      if (ac.signal.aborted && !res.writableEnded) {
+        // Total timeout after headers: close without inventing a new status.
+        res.destroy();
       }
     } catch {
       abortUpstream();
+      if (!res.writableEnded) res.destroy();
     } finally {
       ac.signal.removeEventListener("abort", onSignalAbort);
-      if (!res.writableEnded) {
+      if (!res.writableEnded && !res.destroyed) {
         res.end();
       }
     }
@@ -196,11 +215,42 @@ async function handleRequest(req, res, config, runtime) {
     }
     sendJson(res, 502, { error: "upstream_error" });
   } finally {
+    clearTimeout(totalTimer);
+    proxied?.release?.();
     req.off("aborted", abortUpstream);
     req.socket?.off("close", onSocketClose);
     res.off("close", onResClose);
     runtime.concurrency.release();
   }
+}
+
+/**
+ * Wait for response drain, or wake early on client abort / response close.
+ * @param {http.ServerResponse} res
+ * @param {AbortSignal} signal
+ * @returns {Promise<boolean>} true if drained and still writable
+ */
+function waitForDrainOrAbort(res, signal) {
+  if (signal.aborted || res.destroyed || !res.writable) {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      res.off("drain", onDrain);
+      res.off("close", onClose);
+      signal.removeEventListener("abort", onAbort);
+      resolve(ok);
+    };
+    const onDrain = () => finish(true);
+    const onClose = () => finish(false);
+    const onAbort = () => finish(false);
+    res.once("drain", onDrain);
+    res.once("close", onClose);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /**
@@ -226,7 +276,6 @@ function readBodyLimited(req, maxBytes) {
       total += chunk.length;
       if (total > maxBytes) {
         overLimit = true;
-        // Stop consuming; drain remaining so we can still answer 413 cleanly.
         req.resume();
         finish(null);
         return;
@@ -263,7 +312,6 @@ function isJsonContentType(contentType) {
  */
 function looksLikeJsonObjectOrArray(body) {
   if (!body || body.length === 0) return false;
-  // Reject non-JSON before proxy; still fail closed without logging body
   const text = body.toString("utf8").trimStart();
   if (!(text.startsWith("{") || text.startsWith("["))) return false;
   try {
@@ -280,16 +328,9 @@ function looksLikeJsonObjectOrArray(body) {
 function clientRateKey(req) {
   const xf = req.headers["x-forwarded-for"];
   if (typeof xf === "string" && xf.trim()) {
-    return xf.split(",")[0].trim();
+    return xf.split(",")[0].trim().slice(0, 128);
   }
   return req.socket.remoteAddress || "unknown";
-}
-
-/**
- * @param {http.ServerResponse} res
- */
-function onceDrain(res) {
-  return new Promise((resolve) => res.once("drain", resolve));
 }
 
 /**
@@ -309,7 +350,6 @@ function sendJson(res, status, obj) {
 }
 
 /**
- * Structured logs without secrets, bodies, or full URL query.
  * @param {'info'|'error'} level
  * @param {Record<string, unknown>} fields
  */

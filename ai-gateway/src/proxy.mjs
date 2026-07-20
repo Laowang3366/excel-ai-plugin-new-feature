@@ -1,5 +1,7 @@
 /**
  * Fixed-path upstream proxy: byte-transparent stream with header allowlists.
+ * Timers: connect covers pre-headers only; total spans the whole transfer and
+ * is owned by the caller (not cleared when headers arrive).
  */
 
 const FORWARDED_REQUEST_HEADERS = new Set([
@@ -57,7 +59,6 @@ export function filterRequestHeaders(headers) {
     const name = rawName.toLowerCase();
     if (!FORWARDED_REQUEST_HEADERS.has(name)) continue;
     const value = Array.isArray(rawValue) ? rawValue.join(", ") : String(rawValue);
-    // Reject CR/LF injection
     if (/[\r\n]/.test(value)) continue;
     out[name] = value;
   }
@@ -88,7 +89,6 @@ export function filterResponseHeaders(headers) {
  *   headers: import('node:http').IncomingHttpHeaders,
  *   body: Buffer | null,
  *   connectTimeoutMs: number,
- *   totalTimeoutMs: number,
  *   signal: AbortSignal,
  *   fetchImpl?: typeof fetch,
  * }} opts
@@ -104,23 +104,22 @@ export async function proxyToUpstream(opts) {
     headers["content-type"] = headers["content-type"] || "application/json";
   }
 
-  const controller = new AbortController();
-  const onAbort = () => controller.abort();
+  // Connect timeout only until response headers arrive. Total timeout / client
+  // abort remain on opts.signal for the entire stream lifetime.
+  const connectController = new AbortController();
+  const onParentAbort = () => connectController.abort();
   if (opts.signal.aborted) {
-    controller.abort();
+    connectController.abort();
   } else {
-    opts.signal.addEventListener("abort", onAbort, { once: true });
+    opts.signal.addEventListener("abort", onParentAbort, { once: true });
   }
-
-  const totalTimer = setTimeout(() => controller.abort(), opts.totalTimeoutMs);
-  let connectTimer = setTimeout(() => controller.abort(), opts.connectTimeoutMs);
+  const connectTimer = setTimeout(() => connectController.abort(), opts.connectTimeoutMs);
 
   try {
     const init = {
       method: opts.method,
       headers,
-      signal: controller.signal,
-      // Node undici: redirect must not open SSRF via 3xx to private hosts
+      signal: connectController.signal,
       redirect: "manual",
     };
     if (opts.method === "POST" && opts.body) {
@@ -128,18 +127,41 @@ export async function proxyToUpstream(opts) {
     }
 
     const response = await fetchImpl(url, init);
+    // Headers received: drop connect timer only. Keep parent signal for body.
     clearTimeout(connectTimer);
-    connectTimer = null;
+    opts.signal.removeEventListener("abort", onParentAbort);
+
+    // If parent already aborted while headers landed, cancel body immediately.
+    if (opts.signal.aborted) {
+      try {
+        await response.body?.cancel();
+      } catch {
+        // ignore
+      }
+      const error = new Error("upstream timeout or aborted");
+      error.code = "UPSTREAM_ABORTED";
+      throw error;
+    }
+
+    // Bridge parent abort -> cancel response body for mid-stream disconnect.
+    const onBodyAbort = () => {
+      response.body?.cancel().catch(() => {});
+    };
+    opts.signal.addEventListener("abort", onBodyAbort, { once: true });
 
     return {
       status: response.status,
       headers: filterResponseHeaders(response.headers),
       body: response.body,
-      // Keep response for tests that need arrayBuffer; streaming path uses body
       response,
+      release() {
+        opts.signal.removeEventListener("abort", onBodyAbort);
+      },
     };
   } catch (err) {
-    if (controller.signal.aborted) {
+    clearTimeout(connectTimer);
+    opts.signal.removeEventListener("abort", onParentAbort);
+    if (opts.signal.aborted || connectController.signal.aborted) {
       const error = new Error("upstream timeout or aborted");
       error.code = "UPSTREAM_ABORTED";
       throw error;
@@ -147,10 +169,6 @@ export async function proxyToUpstream(opts) {
     const error = new Error("upstream request failed");
     error.code = "UPSTREAM_FAILED";
     throw error;
-  } finally {
-    clearTimeout(totalTimer);
-    if (connectTimer) clearTimeout(connectTimer);
-    opts.signal.removeEventListener("abort", onAbort);
   }
 }
 

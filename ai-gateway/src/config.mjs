@@ -4,8 +4,6 @@
  */
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
-const PRIVATE_HOST_RE =
-  /^(localhost|127\.|0\.0\.0\.0|\[::1\]|::1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|169\.254\.|100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.)/i;
 
 /** @typedef {{ type: 'bearer' | 'x-api-key', env: string }} AuthConfig */
 /** @typedef {{ id: string, baseUrl: string, authHeaderName: string, authHeaderValue: string }} Upstream */
@@ -154,40 +152,78 @@ export function assertSafeBaseUrl(raw, opts) {
   if (url.hash) {
     throw new Error(`upstream ${opts.id}: baseUrl must not include a fragment`);
   }
+  if (url.search) {
+    throw new Error(`upstream ${opts.id}: baseUrl must not include a query string`);
+  }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new Error(`upstream ${opts.id}: baseUrl must use http or https`);
   }
-  if (url.protocol === "http:" && !opts.allowLocalUpstreams) {
-    throw new Error(`upstream ${opts.id}: http baseUrl requires AI_GATEWAY_ALLOW_LOCAL_UPSTREAMS=1`);
-  }
-  if (url.protocol === "https:" && !opts.allowLocalUpstreams && isDangerousHost(url.hostname)) {
-    throw new Error(`upstream ${opts.id}: private/local baseUrl host is not allowed`);
-  }
-  if (url.protocol === "http:" && opts.allowLocalUpstreams) {
-    if (!isLoopbackHost(url.hostname)) {
-      throw new Error(`upstream ${opts.id}: http baseUrl may only target loopback in test mode`);
+
+  const loopback = isLoopbackHost(url.hostname);
+  const privateOrLocal = isPrivateOrLocalHost(url.hostname);
+
+  if (opts.allowLocalUpstreams) {
+    // Test/dev only: loopback HTTP or loopback HTTPS. Never open private LAN.
+    if (!loopback) {
+      throw new Error(
+        `upstream ${opts.id}: AI_GATEWAY_ALLOW_LOCAL_UPSTREAMS only permits loopback hosts`,
+      );
+    }
+  } else {
+    if (url.protocol === "http:") {
+      throw new Error(
+        `upstream ${opts.id}: http baseUrl requires AI_GATEWAY_ALLOW_LOCAL_UPSTREAMS=1`,
+      );
+    }
+    if (privateOrLocal) {
+      throw new Error(`upstream ${opts.id}: private/local baseUrl host is not allowed`);
     }
   }
+
   // Normalize: strip trailing slash for fixed endpoint join
-  const normalized = url.toString().replace(/\/+$/, "");
-  return normalized;
+  return url.toString().replace(/\/+$/, "");
 }
 
 /**
  * @param {string} hostname
  */
-function isLoopbackHost(hostname) {
-  const h = hostname.toLowerCase();
-  return h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "[::1]";
+export function isLoopbackHost(hostname) {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  return h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "0:0:0:0:0:0:0:1";
 }
 
 /**
+ * Loopback, RFC1918, link-local, CGNAT, unspecified.
  * @param {string} hostname
  */
-function isDangerousHost(hostname) {
-  const h = hostname.toLowerCase();
-  if (isLoopbackHost(h)) return true;
-  return PRIVATE_HOST_RE.test(h);
+export function isPrivateOrLocalHost(hostname) {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (isLoopbackHost(h) || h === "0.0.0.0" || h === "::" || h === "0:0:0:0:0:0:0:0") {
+    return true;
+  }
+  // IPv4 dotted
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if ([a, b, Number(m[3]), Number(m[4])].some((n) => n > 255)) return true;
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    // CGNAT 100.64.0.0/10
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    return false;
+  }
+  // IPv6 unique local / link-local
+  if (h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80:")) return true;
+  if (h.startsWith("::ffff:")) {
+    const mapped = h.slice("::ffff:".length);
+    if (isPrivateOrLocalHost(mapped)) return true;
+  }
+  return false;
 }
 
 /**
