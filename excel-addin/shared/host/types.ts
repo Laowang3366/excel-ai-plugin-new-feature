@@ -204,6 +204,16 @@ export { GEOMETRIC_SHAPE_TYPES, isGeometricShapeType } from "./shapeTypes";
 export type { SheetDisplayInfo, SheetDisplayUpdateInput } from "./sheetDisplayTypes";
 export type { SheetFreezeCommand, SheetFreezeInfo, SheetFreezeSetInput } from "./sheetFreezeTypes";
 export type {
+  RangeAutofitDirection,
+  RangeAutofitInfo,
+  RangeAutofitInput,
+  RangeDeleteInput,
+  RangeDeleteShift,
+  RangeInsertInput,
+  RangeInsertShift,
+  RangeMutationInfo,
+} from "./rangeStructureTypes";
+export type {
   PageOrientation,
   PagePaperSize,
   PageOrder,

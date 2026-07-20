@@ -161,7 +161,7 @@ describe("ChatController approval path", () => {
         `sys ${msg}\n## ${CHAT_APPROVAL_PROMPT_MARKER}\napproval`,
     });
     // If scripted doesn't pass tools on ctx, assert listChatTools length separately
-    expect(listChatTools()).toHaveLength(62);
+    expect(listChatTools()).toHaveLength(65);
 
     // Use a provider that records tools from AgentLoop
     const bodies: number[] = [];
@@ -181,10 +181,10 @@ describe("ChatController approval path", () => {
     });
     const r1 = await c2.send("t1");
     expect(r1.turnStatus).toBe("completed");
-    expect(bodies[0]).toBe(62);
+    expect(bodies[0]).toBe(65);
     const r2 = await c2.send("t2");
     expect(r2.turnStatus).toBe("completed");
-    expect(bodies[1]).toBe(62);
+    expect(bodies[1]).toBe(65);
     // prompt marker used
     expect(ChatController.approvalMarker).toBe(CHAT_APPROVAL_PROMPT_MARKER);
     void controller;

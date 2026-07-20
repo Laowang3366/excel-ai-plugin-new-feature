@@ -26,9 +26,15 @@ export interface ExcelFill {
 export interface ExcelRangeFormat {
   font: ExcelFont;
   fill: ExcelFill;
+  columnWidth: number | null;
+  rowHeight: number | null;
   horizontalAlignment: string;
   verticalAlignment: string;
   wrapText: boolean;
+  /** ExcelApi 1.2. */
+  autofitColumns(): void;
+  /** ExcelApi 1.2. */
+  autofitRows(): void;
   load(props: string): void;
 }
 
@@ -97,6 +103,10 @@ export interface ExcelRange {
   clear(): void;
   /** ExcelApi 1.7: host Base64 PNG; no width/height params. */
   getImage(): { value: string };
+  /** ExcelApi 1.1. */
+  insert(shift: "Down" | "Right"): ExcelRange;
+  /** ExcelApi 1.1. */
+  delete(shift: "Up" | "Left"): void;
   getSpillingToRange(): ExcelRange;
   getSurroundingRegion(): ExcelRange;
   getCurrentArray(): ExcelRange;

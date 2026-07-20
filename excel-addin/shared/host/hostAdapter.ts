@@ -9,6 +9,13 @@ import type {
 import type { ChartImageGetInput, ChartImageInfo } from "./chartImageTypes";
 import type { RangeImageGetInput, RangeImageInfo } from "./rangeImageTypes";
 import type {
+  RangeAutofitInfo,
+  RangeAutofitInput,
+  RangeDeleteInput,
+  RangeInsertInput,
+  RangeMutationInfo,
+} from "./rangeStructureTypes";
+import type {
   ChartSeriesAxisGroupInfo,
   ChartSeriesAxisGroupUpdateInput,
 } from "./chartSeriesAxisGroupTypes";
@@ -84,6 +91,9 @@ export interface HostAdapter {
     formulas: string[][],
   ): Promise<HostResult<RangeData>>;
   clearRange(sheetName: string, address: string): Promise<HostResult<{ cleared: string }>>;
+  insertRange(input: RangeInsertInput): Promise<HostResult<RangeMutationInfo>>;
+  deleteRange(input: RangeDeleteInput): Promise<HostResult<RangeMutationInfo>>;
+  autofitRange(input: RangeAutofitInput): Promise<HostResult<RangeAutofitInfo>>;
   getFormulaContext(
     sheetName: string,
     address?: string,

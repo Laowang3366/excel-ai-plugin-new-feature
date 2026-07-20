@@ -7,8 +7,13 @@ import type {
   HostResult,
   HostStatus,
   RangeData,
+  RangeAutofitInfo,
+  RangeAutofitInput,
+  RangeDeleteInput,
   RangeFormat,
   RangeFormatData,
+  RangeInsertInput,
+  RangeMutationInfo,
   SelectionInfo,
   SheetInfo,
   TableInfo,
@@ -43,7 +48,10 @@ import type {
   ChartSeriesAxisGroupInfo,
   ChartSeriesAxisGroupUpdateInput,
 } from "../shared/host/chartSeriesAxisGroupTypes";
-import { normalizeSameSheetSourceRange } from "../shared/host/officeJsChartSource";
+import {
+  normalizeSameSheetA1Range,
+  normalizeSameSheetSourceRange,
+} from "../shared/host/officeJsChartSource";
 import { createMockStructureState } from "./mockStructure";
 import { ok, unsupported } from "../shared/host/types";
 
@@ -209,6 +217,52 @@ export class MockHostAdapter implements HostAdapter {
     return ok({ cleared: `${sheetName}!${address}` });
   }
 
+  async insertRange(input: RangeInsertInput): Promise<HostResult<RangeMutationInfo>> {
+    const address = normalizeSameSheetA1Range(
+      input.sheetName,
+      input.address,
+      "range",
+      "range operation",
+    );
+    return ok({
+      sheetName: input.sheetName,
+      address: `${input.sheetName}!${address}`,
+      shift: input.shift,
+      operation: "insert",
+    });
+  }
+
+  async deleteRange(input: RangeDeleteInput): Promise<HostResult<RangeMutationInfo>> {
+    const address = normalizeSameSheetA1Range(
+      input.sheetName,
+      input.address,
+      "range",
+      "range operation",
+    );
+    return ok({
+      sheetName: input.sheetName,
+      address: `${input.sheetName}!${address}`,
+      shift: input.shift,
+      operation: "delete",
+    });
+  }
+
+  async autofitRange(input: RangeAutofitInput): Promise<HostResult<RangeAutofitInfo>> {
+    const address = normalizeSameSheetA1Range(
+      input.sheetName,
+      input.address,
+      "range",
+      "range operation",
+    );
+    return ok({
+      sheetName: input.sheetName,
+      address: `${input.sheetName}!${address}`,
+      direction: input.direction,
+      columnWidth: 64,
+      rowHeight: 18,
+    });
+  }
+
   async listSheets(): Promise<HostResult<SheetInfo[]>> {
     return ok([...this.sheets]);
   }
@@ -315,7 +369,12 @@ export class MockHostAdapter implements HostAdapter {
     if (input.showBandedRows != null) table.showBandedRows = input.showBandedRows;
     if (input.showBandedColumns != null) table.showBandedColumns = input.showBandedColumns;
     if (input.resizeAddress != null) {
-      const bare = normalizeSameSheetSourceRange(input.sheetName, input.resizeAddress);
+      const bare = normalizeSameSheetA1Range(
+        input.sheetName,
+        input.resizeAddress,
+        "resizeAddress",
+        "table",
+      );
       table.address = `${input.sheetName}!${bare}`;
     }
     return ok(table);

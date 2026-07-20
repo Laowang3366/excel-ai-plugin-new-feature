@@ -332,6 +332,9 @@ export class WpsJsaAdapter implements HostAdapter {
   async moveSheet(_sheetName: string, _position: number): Promise<HostResult<SheetInfo>> {
     return unsupported("sheet.move", "wps-jsa", "Worksheet move not verified for WPS JSA");
   }
+  insertRange = wpsStructureSurface.insertRange;
+  deleteRange = wpsStructureSurface.deleteRange;
+  autofitRange = wpsStructureSurface.autofitRange;
   readFormat = wpsReadFormat;
   writeFormat = wpsWriteFormat;
   listTables = wpsListTables;

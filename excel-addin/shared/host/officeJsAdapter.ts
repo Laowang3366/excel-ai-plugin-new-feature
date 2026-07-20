@@ -39,6 +39,11 @@ import { officeJsUpdateChartSeriesValues } from "./officeJsChartSeriesValues";
 import { officeJsUpdateChartSeriesBubbleSizes } from "./officeJsChartSeriesBubbleSizes";
 import { officeJsGetChartImage } from "./officeJsChartImage";
 import { officeJsGetRangeImage } from "./officeJsRangeImage";
+import {
+  officeJsAutofitRange,
+  officeJsDeleteRange,
+  officeJsInsertRange,
+} from "./officeJsRangeStructure";
 import { officeJsUpdateChartAxis } from "./officeJsChartAxes";
 import { officeJsUpdateChartDataLabels } from "./officeJsChartDataLabels";
 import { officeJsUpdateChartSeriesAxisGroup } from "./officeJsChartSeriesAxisGroup";
@@ -227,6 +232,9 @@ export class OfficeJsAdapter implements HostAdapter {
 
   copySheet = officeJsCopySheet;
   moveSheet = officeJsMoveSheet;
+  insertRange = officeJsInsertRange;
+  deleteRange = officeJsDeleteRange;
+  autofitRange = officeJsAutofitRange;
 
   readFormat = officeJsReadFormat;
   writeFormat = officeJsWriteFormat;

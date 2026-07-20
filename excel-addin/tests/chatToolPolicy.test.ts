@@ -14,12 +14,12 @@ describe("chat tool policy", () => {
   it("listChatTools equals registry set with fresh copies", () => {
     const listed = listChatTools();
     expect(listed).toHaveLength(TOOL_DEFINITIONS.length);
-    expect(listed).toHaveLength(62);
+    expect(listed).toHaveLength(65);
     expect(listed.map((t) => t.name)).toEqual(TOOL_DEFINITIONS.map((t) => t.name));
     expect(listed).not.toBe(TOOL_DEFINITIONS);
     expect(listed[0]).not.toBe(TOOL_DEFINITIONS[0]);
     listed.pop();
-    expect(TOOL_DEFINITIONS).toHaveLength(62);
+    expect(TOOL_DEFINITIONS).toHaveLength(65);
 
     let direct = 0;
     let approval = 0;
@@ -30,7 +30,7 @@ describe("chat tool policy", () => {
       else if (d === "approval") approval += 1;
       else deny += 1;
     }
-    expect(direct + approval).toBe(62);
+    expect(direct + approval).toBe(65);
     expect(deny).toBe(0);
     expect(direct).toBe(listChatTools().filter((t) => t.riskLevel === "safe").length);
     expect(approval).toBe(

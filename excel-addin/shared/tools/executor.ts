@@ -23,6 +23,7 @@ import { executeChartSeriesValuesTool } from "./chartSeriesValuesExecutor";
 import { executeChartSeriesBubbleSizesTool } from "./chartSeriesBubbleSizesExecutor";
 import { executeChartImageTool } from "./chartImageExecutor";
 import { executeRangeImageTool } from "./rangeImageExecutor";
+import { executeRangeStructureTool } from "./rangeStructureExecutor";
 import { executeChartSourceTool } from "./chartSourceExecutor";
 import { executeObjectUpdateTool } from "./objectUpdateExecutor";
 import { executePageLayoutTool } from "./pageLayoutExecutor";
@@ -329,6 +330,8 @@ export class ToolExecutor {
           if (chartImage) return chartImage;
           const rangeImage = await executeRangeImageTool(this.host, call);
           if (rangeImage) return rangeImage;
+          const rangeStructure = await executeRangeStructureTool(this.host, call);
+          if (rangeStructure) return rangeStructure;
           const display = await executeDisplayTool(this.host, call);
           if (display) return display;
           const freeze = await executeFreezeTool(this.host, call);
