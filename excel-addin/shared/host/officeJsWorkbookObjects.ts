@@ -1,24 +1,26 @@
 /**
- * workbook.objects.inspect — Office.js batched inventory.
- * One Excel.run; categories load/sync independently so one family failure
- * does not force empty results for others. Avoids per-object unbounded
- * Excel.run (unlike naively calling listTables + listCharts + …).
+ * workbook.objects.inspect — Office.js inventory.
+ *
+ * Isolation: fixed number of Excel.run calls (1 baseline + 1 per category = 5),
+ * independent of sheet/object count. Category sync failures do not reuse a
+ * poisoned RequestContext for other categories.
  */
 import { toChartTypeLabel } from "./officeJsChartTypes";
 import { withExcel } from "./officeJsRuntime";
 import type { ChartInfo } from "./chartTypes";
 import type { ShapeInfo } from "./shapeTypes";
 import type { HostResult, NamedRangeInfo, SheetInfo, TableInfo } from "./types";
-import { fail } from "./types";
 import {
   availableCategory,
+  buildSheetOrder,
   failedCategory,
-  sanitizeInventoryMessage,
+  unsupportedCategory,
   sortCharts,
   sortNamedRanges,
   sortShapes,
   sortSheets,
   sortTables,
+  type SheetOrderIndex,
 } from "./workbookObjectsHelpers";
 import type {
   ObjectCategoryResult,
@@ -50,7 +52,6 @@ type SheetProxy = {
       height: number;
       title: { text?: string; load(props: string): void };
       legend: { visible?: boolean; load(props: string): void };
-      load?(props: string): void;
     }>;
     load(props: string): void;
   };
@@ -93,8 +94,26 @@ type ContextLike = {
   sync(): Promise<void>;
 };
 
-function messageOf(error: unknown): string {
-  return sanitizeInventoryMessage(error instanceof Error ? error.message : String(error));
+type Baseline = {
+  workbookName: string;
+  activeSheetName: string;
+  allSheets: SheetInfo[];
+  targetSheetNames: string[];
+  filterSheetName?: string;
+};
+
+function resolveTargets(
+  allSheets: SheetInfo[],
+  filterSheetName: string | undefined,
+): { sheets: SheetInfo[]; targetSheetNames: string[] } {
+  if (!filterSheetName) {
+    return { sheets: allSheets, targetSheetNames: allSheets.map((s) => s.name) };
+  }
+  const hit = allSheets.find(
+    (s) => s.name.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0,
+  );
+  if (!hit) throw new Error(`Worksheet not found: ${filterSheetName}`);
+  return { sheets: [hit], targetSheetNames: [hit.name] };
 }
 
 export async function officeJsInspectWorkbookObjects(
@@ -103,102 +122,98 @@ export async function officeJsInspectWorkbookObjects(
   const maxItems = input.maxItemsPerCategory ?? WORKBOOK_OBJECTS_MAX_DEFAULT;
   const filterSheetName = input.sheetName?.trim() || undefined;
 
-  try {
-    return await withExcel("workbook.objects.inspect", async (context) => {
-      const ctx = context as unknown as ContextLike;
-      const limitations: string[] = [
-        "Inventory is a capped snapshot for model context; use dedicated list tools for full detail.",
-        "Shape text is omitted in inventory (geometry/type only) to bound payload size.",
-      ];
-
-      ctx.workbook.load("name");
-      ctx.workbook.worksheets.load("items/name,items/position");
-      const active = ctx.workbook.worksheets.getActiveWorksheet();
-      active.load("name");
-      await ctx.sync();
-
-      const allSheets: SheetInfo[] = sortSheets(
-        ctx.workbook.worksheets.items.map((sheet) => ({
-          name: sheet.name,
-          index: sheet.position,
-          isActive: sheet.name === active.name,
-        })),
-      );
-
-      let sheets = allSheets;
-      let targetProxies = [...ctx.workbook.worksheets.items];
-      if (filterSheetName) {
-        const hit = allSheets.find(
-          (s) => s.name.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0,
-        );
-        if (!hit) {
-          throw new Error(`Worksheet not found: ${filterSheetName}`);
-        }
-        sheets = [hit];
-        targetProxies = ctx.workbook.worksheets.items.filter(
-          (s) => s.name.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0,
-        );
-      }
-
-      const tables = await collectTables(ctx, targetProxies, maxItems);
-      const charts = await collectCharts(ctx, targetProxies, maxItems);
-      const namedRanges = await collectNamedRanges(
-        ctx,
-        filterSheetName ? targetProxies : ctx.workbook.worksheets.items,
-        filterSheetName,
-        maxItems,
-      );
-      const shapes = await collectShapes(ctx, targetProxies, maxItems);
-
-      for (const cat of [tables, charts, namedRanges, shapes]) {
-        if (cat.truncated) {
-          limitations.push(
-            `At least one category truncated at maxItemsPerCategory=${maxItems}; totalCount is the true size.`,
-          );
-          break;
-        }
-      }
-
-      return {
-        workbookName: ctx.workbook.name,
-        activeSheetName: active.name,
-        sheetCount: allSheets.length,
-        sheets,
-        tables,
-        charts,
-        namedRanges,
-        shapes,
-        limitations,
-        filterSheetName,
-      };
-    });
-  } catch (error) {
-    return fail(
-      "workbook.objects.inspect",
-      "office-js",
-      messageOf(error),
-      "Office.js workbook.objects.inspect base workbook/sheet load",
+  const baselineResult = await withExcel("workbook.objects.inspect", async (context) => {
+    const ctx = context as unknown as ContextLike;
+    ctx.workbook.load("name");
+    ctx.workbook.worksheets.load("items/name,items/position");
+    const active = ctx.workbook.worksheets.getActiveWorksheet();
+    active.load("name");
+    await ctx.sync();
+    const allSheets = sortSheets(
+      ctx.workbook.worksheets.items.map((sheet) => ({
+        name: sheet.name,
+        index: sheet.position,
+        isActive: sheet.name === active.name,
+      })),
     );
+    const resolved = resolveTargets(allSheets, filterSheetName);
+    return {
+      workbookName: ctx.workbook.name,
+      activeSheetName: active.name,
+      allSheets,
+      targetSheetNames: resolved.targetSheetNames,
+      filterSheetName,
+    } satisfies Baseline;
+  });
+  if (!baselineResult.ok) return baselineResult;
+  const baseline = baselineResult.data;
+  const order = buildSheetOrder(baseline.allSheets);
+  const sheets = filterSheetName
+    ? baseline.allSheets.filter((s) =>
+        s.name.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0,
+      )
+    : baseline.allSheets;
+
+  const limitations: string[] = [
+    "Inventory is a capped snapshot for model context; use dedicated list tools for full detail.",
+    "Shape text is omitted in inventory (geometry/type only) to bound payload size.",
+    "Office.js inventory uses one Excel.run for baseline plus one isolated run per object category (fixed bound).",
+  ];
+
+  const tables = await runTables(baseline.targetSheetNames, maxItems, order);
+  const charts = await runCharts(baseline.targetSheetNames, maxItems, order);
+  const namedRanges = await runNamedRanges(
+    baseline.allSheets.map((s) => s.name),
+    filterSheetName,
+    maxItems,
+    order,
+  );
+  const shapes = await runShapes(baseline.targetSheetNames, maxItems, order);
+
+  for (const cat of [tables, charts, namedRanges, shapes]) {
+    if (cat.truncated) {
+      limitations.push(
+        `At least one category truncated at maxItemsPerCategory=${maxItems}; totalCount is the true size.`,
+      );
+      break;
+    }
   }
+
+  return {
+    ok: true,
+    data: {
+      workbookName: baseline.workbookName,
+      activeSheetName: baseline.activeSheetName,
+      sheetCount: baseline.allSheets.length,
+      sheets,
+      tables,
+      charts,
+      namedRanges,
+      shapes,
+      limitations,
+      filterSheetName,
+    },
+  };
 }
 
-async function collectTables(
-  ctx: ContextLike,
-  sheets: SheetProxy[],
+async function runTables(
+  sheetNames: string[],
   maxItems: number,
+  order: SheetOrderIndex,
 ): Promise<ObjectCategoryResult<TableInfo>> {
-  try {
+  const result = await withExcel("workbook.objects.inspect.tables", async (context) => {
+    const ctx = context as unknown as ContextLike;
+    const sheets = sheetNames.map((name) => ctx.workbook.worksheets.getItem(name));
     for (const sheet of sheets) {
+      sheet.load("name");
       sheet.tables.load("items/name,items/showHeaders,items/showFilterButton");
     }
     await ctx.sync();
-
-    type Pending = {
+    const pending: Array<{
       sheetName: string;
       table: SheetProxy["tables"]["items"][number];
       range: { address?: string; load(props: string): void };
-    };
-    const pending: Pending[] = [];
+    }> = [];
     for (const sheet of sheets) {
       for (const table of sheet.tables.items) {
         const range = table.getRange();
@@ -207,7 +222,6 @@ async function collectTables(
       }
     }
     await ctx.sync();
-
     const items: TableInfo[] = pending.map(({ sheetName, table, range }) => ({
       name: table.name,
       sheetName,
@@ -215,25 +229,32 @@ async function collectTables(
       hasHeaders: table.showHeaders,
       showFilter: table.showFilterButton,
     }));
-    return availableCategory(items, maxItems, sortTables);
-  } catch (error) {
-    return failedCategory(messageOf(error), "Office.js tables inventory");
+    return items;
+  });
+  if (result.ok) {
+    return availableCategory(result.data, maxItems, (items) => sortTables(items, order));
   }
+  if (result.unsupported) {
+    return unsupportedCategory(result.reason, result.evidence);
+  }
+  return failedCategory(result.reason, "Office.js tables inventory (isolated Excel.run)");
 }
 
-async function collectCharts(
-  ctx: ContextLike,
-  sheets: SheetProxy[],
+async function runCharts(
+  sheetNames: string[],
   maxItems: number,
+  order: SheetOrderIndex,
 ): Promise<ObjectCategoryResult<ChartInfo>> {
-  try {
+  const result = await withExcel("workbook.objects.inspect.charts", async (context) => {
+    const ctx = context as unknown as ContextLike;
+    const sheets = sheetNames.map((name) => ctx.workbook.worksheets.getItem(name));
     for (const sheet of sheets) {
+      sheet.load("name");
       sheet.charts.load(
         "items/name,items/chartType,items/style,items/left,items/top,items/width,items/height",
       );
     }
     await ctx.sync();
-
     for (const sheet of sheets) {
       for (const chart of sheet.charts.items) {
         chart.title.load("text");
@@ -241,7 +262,6 @@ async function collectCharts(
       }
     }
     await ctx.sync();
-
     const items: ChartInfo[] = [];
     for (const sheet of sheets) {
       for (const chart of sheet.charts.items) {
@@ -259,27 +279,33 @@ async function collectCharts(
         });
       }
     }
-    return availableCategory(items, maxItems, sortCharts);
-  } catch (error) {
-    return failedCategory(messageOf(error), "Office.js charts inventory");
+    return items;
+  });
+  if (result.ok) {
+    return availableCategory(result.data, maxItems, (items) => sortCharts(items, order));
   }
+  if (result.unsupported) {
+    return unsupportedCategory(result.reason, result.evidence);
+  }
+  return failedCategory(result.reason, "Office.js charts inventory (isolated Excel.run)");
 }
 
-async function collectNamedRanges(
-  ctx: ContextLike,
-  sheets: SheetProxy[],
+async function runNamedRanges(
+  allSheetNames: string[],
   filterSheetName: string | undefined,
   maxItems: number,
+  order: SheetOrderIndex,
 ): Promise<ObjectCategoryResult<NamedRangeInfo>> {
-  try {
+  const result = await withExcel("workbook.objects.inspect.namedRanges", async (context) => {
+    const ctx = context as unknown as ContextLike;
     ctx.workbook.names.load("items/name,items/formula,items/visible");
+    const sheets = allSheetNames.map((name) => ctx.workbook.worksheets.getItem(name));
     for (const sheet of sheets) {
+      sheet.load("name");
       sheet.names.load("items/name,items/formula,items/visible");
     }
     await ctx.sync();
-
     const items: NamedRangeInfo[] = [];
-    // Workbook scope always included (even with sheet filter).
     for (const item of ctx.workbook.names.items) {
       items.push({
         name: item.name,
@@ -305,25 +331,32 @@ async function collectNamedRanges(
         });
       }
     }
-    return availableCategory(items, maxItems, sortNamedRanges);
-  } catch (error) {
-    return failedCategory(messageOf(error), "Office.js named ranges inventory");
+    return items;
+  });
+  if (result.ok) {
+    return availableCategory(result.data, maxItems, (items) => sortNamedRanges(items, order));
   }
+  if (result.unsupported) {
+    return unsupportedCategory(result.reason, result.evidence);
+  }
+  return failedCategory(result.reason, "Office.js named ranges inventory (isolated Excel.run)");
 }
 
-async function collectShapes(
-  ctx: ContextLike,
-  sheets: SheetProxy[],
+async function runShapes(
+  sheetNames: string[],
   maxItems: number,
+  order: SheetOrderIndex,
 ): Promise<ObjectCategoryResult<ShapeInfo>> {
-  try {
+  const result = await withExcel("workbook.objects.inspect.shapes", async (context) => {
+    const ctx = context as unknown as ContextLike;
+    const sheets = sheetNames.map((name) => ctx.workbook.worksheets.getItem(name));
     for (const sheet of sheets) {
+      sheet.load("name");
       sheet.shapes.load(
         "items/name,items/type,items/geometricShapeType,items/left,items/top,items/width,items/height,items/visible",
       );
     }
     await ctx.sync();
-
     const items: ShapeInfo[] = [];
     for (const sheet of sheets) {
       for (const shape of sheet.shapes.items) {
@@ -342,10 +375,15 @@ async function collectShapes(
         });
       }
     }
-    return availableCategory(items, maxItems, sortShapes, {
+    return items;
+  });
+  if (result.ok) {
+    return availableCategory(result.data, maxItems, (items) => sortShapes(items, order), {
       limitations: ["Shape text omitted in workbook.objects.inspect inventory"],
     });
-  } catch (error) {
-    return failedCategory(messageOf(error), "Office.js shapes inventory");
   }
+  if (result.unsupported) {
+    return unsupportedCategory(result.reason, result.evidence);
+  }
+  return failedCategory(result.reason, "Office.js shapes inventory (isolated Excel.run)");
 }

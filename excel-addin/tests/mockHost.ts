@@ -1402,6 +1402,7 @@ export class MockHostAdapter implements HostAdapter {
   > {
     const {
       availableCategory,
+      buildSheetOrder,
       failedCategory,
       sortCharts,
       sortNamedRanges,
@@ -1441,6 +1442,7 @@ export class MockHostAdapter implements HostAdapter {
       !filterSheetName ||
       sheetName.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0;
 
+    const order = buildSheetOrder(allSheets);
     const cat = <T,>(
       key: "tables" | "charts" | "namedRanges" | "shapes",
       items: T[],
@@ -1475,18 +1477,18 @@ export class MockHostAdapter implements HostAdapter {
       tables: cat(
         "tables",
         this.tables.filter((t) => matchSheet(t.sheetName)),
-        sortTables,
+        (items) => sortTables(items, order),
       ),
       charts: cat(
         "charts",
         this.charts.filter((c) => matchSheet(c.sheetName)),
-        sortCharts,
+        (items) => sortCharts(items, order),
       ),
-      namedRanges: cat("namedRanges", namedItems, sortNamedRanges),
+      namedRanges: cat("namedRanges", namedItems, (items) => sortNamedRanges(items, order)),
       shapes: cat(
         "shapes",
         this.shapes.filter((s) => matchSheet(s.sheetName)),
-        sortShapes,
+        (items) => sortShapes(items, order),
       ),
       limitations: [
         "Mock inventory; not a real Office/WPS host.",

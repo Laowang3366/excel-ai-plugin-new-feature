@@ -1,12 +1,18 @@
 /**
- * Batched fake for workbook.objects.inspect (multi sheet / table / chart / name / shape).
+ * Batched fake for workbook.objects.inspect.
+ * - Each Excel.run gets a fresh context (category isolation).
+ * - Failures queue on collection.load() and surface only at context.sync().
+ * - runCount is fixed-bound evidence (not O(sheets)).
  */
 export function installWorkbookObjectsExcel(options?: {
-  failTables?: boolean;
-  failCharts?: boolean;
-  failNames?: boolean;
-  failShapes?: boolean;
-  failWorkbook?: boolean;
+  /** Fail tables category at sync time (after load queues). */
+  failTablesOnSync?: boolean;
+  failChartsOnSync?: boolean;
+  failNamesOnSync?: boolean;
+  failShapesOnSync?: boolean;
+  failWorkbookOnSync?: boolean;
+  /** Extra sheets to prove run count does not grow with sheet count. */
+  extraSheetCount?: number;
 }) {
   type Named = { name: string; formula: string; visible: boolean };
   type Table = { name: string; showHeaders: boolean; showFilterButton: boolean; address: string };
@@ -116,128 +122,168 @@ export function installWorkbookObjectsExcel(options?: {
     names: [{ name: "DataLocal", formula: "=Data!$B$2", visible: true }],
   });
 
+  const extra = options?.extraSheetCount ?? 0;
+  for (let i = 0; i < extra; i += 1) {
+    const name = `Extra${i}`;
+    sheets.set(name, {
+      name,
+      position: 2 + i,
+      tables: [{ name: `T_${name}`, showHeaders: true, showFilterButton: false, address: `${name}!A1` }],
+      charts: [],
+      shapes: [],
+      names: [],
+    });
+  }
+
   const workbookNames: Named[] = [
     { name: "WbName", formula: "=Sheet1!$Z$1", visible: true },
     { name: "Alpha", formula: "=1", visible: false },
   ];
 
-  function makeNamedCollection(list: Named[]) {
-    return {
-      items: list.map((n) => ({
-        name: n.name,
-        formula: n.formula,
-        visible: n.visible,
-      })),
-      load() {
-        if (options?.failNames) throw new Error("names load failed");
-      },
-    };
-  }
+  let runCount = 0;
 
-  function makeSheetProxy(sheet: Sheet) {
-    return {
-      get name() {
-        return sheet.name;
-      },
-      get position() {
-        return sheet.position;
-      },
-      load() {},
-      tables: {
-        get items() {
-          return sheet.tables.map((t) => ({
-            name: t.name,
-            showHeaders: t.showHeaders,
-            showFilterButton: t.showFilterButton,
-            getRange() {
-              return {
-                address: t.address,
-                load() {},
-              };
-            },
-          }));
-        },
-        load() {
-          if (options?.failTables) throw new Error("tables load failed");
-        },
-      },
-      charts: {
-        get items() {
-          return sheet.charts.map((c) => ({
-            name: c.name,
-            chartType: c.chartType,
-            style: c.style,
-            left: c.left,
-            top: c.top,
-            width: c.width,
-            height: c.height,
-            title: {
-              text: c.title,
-              load() {},
-            },
-            legend: {
-              visible: c.legendVisible,
-              load() {},
-            },
-          }));
-        },
-        load() {
-          if (options?.failCharts) throw new Error("charts load failed");
-        },
-      },
-      shapes: {
-        get items() {
-          return sheet.shapes.map((s) => ({
-            name: s.name,
-            type: s.type,
-            geometricShapeType: s.geometricShapeType,
-            left: s.left,
-            top: s.top,
-            width: s.width,
-            height: s.height,
-            visible: s.visible,
-            load() {},
-          }));
-        },
-        load() {
-          if (options?.failShapes) throw new Error("shapes load failed");
-        },
-      },
-      names: makeNamedCollection(sheet.names),
-    };
-  }
+  function makeContext() {
+    const pendingSyncErrors: string[] = [];
 
-  const context = {
-    workbook: {
-      name: "Book1.xlsx",
-      load() {
-        if (options?.failWorkbook) throw new Error("workbook load failed");
-      },
-      names: makeNamedCollection(workbookNames),
-      worksheets: {
-        get items() {
-          return [...sheets.values()].map(makeSheetProxy);
+    function queueSyncError(code: string, enabled: boolean | undefined) {
+      if (enabled) pendingSyncErrors.push(code);
+    }
+
+    function makeNamedCollection(list: Named[], failFlag: boolean | undefined) {
+      return {
+        items: list.map((n) => ({
+          name: n.name,
+          formula: n.formula,
+          visible: n.visible,
+        })),
+        load() {
+          // Queue only; real Office.js rejects at sync.
+          queueSyncError("names sync failed", failFlag);
+        },
+      };
+    }
+
+    function makeSheetProxy(sheet: Sheet) {
+      return {
+        get name() {
+          return sheet.name;
+        },
+        get position() {
+          return sheet.position;
         },
         load() {},
-        getActiveWorksheet() {
-          return { name: "Sheet1", load() {} };
+        tables: {
+          get items() {
+            return sheet.tables.map((t) => ({
+              name: t.name,
+              showHeaders: t.showHeaders,
+              showFilterButton: t.showFilterButton,
+              getRange() {
+                return {
+                  address: t.address,
+                  load() {},
+                };
+              },
+            }));
+          },
+          load() {
+            queueSyncError("tables sync failed", options?.failTablesOnSync);
+          },
         },
-        getItem(name: string) {
-          const sheet = sheets.get(name);
-          if (!sheet) throw new Error(`ItemNotFound: Worksheet ${name} not found`);
-          return makeSheetProxy(sheet);
+        charts: {
+          get items() {
+            return sheet.charts.map((c) => ({
+              name: c.name,
+              chartType: c.chartType,
+              style: c.style,
+              left: c.left,
+              top: c.top,
+              width: c.width,
+              height: c.height,
+              title: {
+                text: c.title,
+                load() {},
+              },
+              legend: {
+                visible: c.legendVisible,
+                load() {},
+              },
+            }));
+          },
+          load() {
+            queueSyncError("charts sync failed", options?.failChartsOnSync);
+          },
+        },
+        shapes: {
+          get items() {
+            return sheet.shapes.map((s) => ({
+              name: s.name,
+              type: s.type,
+              geometricShapeType: s.geometricShapeType,
+              left: s.left,
+              top: s.top,
+              width: s.width,
+              height: s.height,
+              visible: s.visible,
+              load() {},
+            }));
+          },
+          load() {
+            queueSyncError("shapes sync failed", options?.failShapesOnSync);
+          },
+        },
+        names: makeNamedCollection(sheet.names, options?.failNamesOnSync),
+      };
+    }
+
+    return {
+      workbook: {
+        name: "Book1.xlsx",
+        load() {
+          queueSyncError("workbook sync failed", options?.failWorkbookOnSync);
+        },
+        names: makeNamedCollection(workbookNames, options?.failNamesOnSync),
+        worksheets: {
+          get items() {
+            return [...sheets.values()]
+              .sort((a, b) => a.position - b.position)
+              .map(makeSheetProxy);
+          },
+          load() {},
+          getActiveWorksheet() {
+            return { name: "Sheet1", load() {} };
+          },
+          getItem(name: string) {
+            const sheet = sheets.get(name);
+            if (!sheet) throw new Error(`ItemNotFound: Worksheet ${name} not found`);
+            return makeSheetProxy(sheet);
+          },
         },
       },
-    },
-    async sync() {},
-  };
+      async sync() {
+        if (pendingSyncErrors.length > 0) {
+          const message = pendingSyncErrors.join("; ");
+          pendingSyncErrors.length = 0;
+          throw new Error(message);
+        }
+      },
+    };
+  }
 
   (globalThis as unknown as { window: unknown }).window = globalThis;
   (globalThis as unknown as { Excel: { run: Function } }).Excel = {
-    run: async <T>(fn: (ctx: typeof context) => Promise<T>) => fn(context),
+    run: async <T>(fn: (ctx: ReturnType<typeof makeContext>) => Promise<T>) => {
+      runCount += 1;
+      // Fresh context per run — mirrors real Office.js isolation.
+      return fn(makeContext());
+    },
   };
 
   return {
-    context,
+    getRunCount: () => runCount,
+    resetRunCount: () => {
+      runCount = 0;
+    },
+    sheetCount: () => sheets.size,
   };
 }

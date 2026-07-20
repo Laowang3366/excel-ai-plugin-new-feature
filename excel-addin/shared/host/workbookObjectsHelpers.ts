@@ -7,6 +7,29 @@ function cmpStr(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
 }
 
+/** sheetName (as stored) -> workbook position/index; lower sorts first. */
+export type SheetOrderIndex = ReadonlyMap<string, number>;
+
+export function buildSheetOrder(sheets: readonly SheetInfo[]): SheetOrderIndex {
+  const map = new Map<string, number>();
+  for (const sheet of sheets) {
+    map.set(sheet.name, sheet.index);
+  }
+  return map;
+}
+
+/** Resolve position; unknown sheets sort last (stable via name). */
+export function sheetPosition(order: SheetOrderIndex, sheetName: string): number {
+  const direct = order.get(sheetName);
+  if (direct !== undefined) return direct;
+  for (const [name, index] of order) {
+    if (name.localeCompare(sheetName, undefined, { sensitivity: "accent" }) === 0) {
+      return index;
+    }
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
 export function sortSheets(sheets: SheetInfo[]): SheetInfo[] {
   return [...sheets].sort((a, b) => {
     if (a.index !== b.index) return a.index - b.index;
@@ -14,39 +37,51 @@ export function sortSheets(sheets: SheetInfo[]): SheetInfo[] {
   });
 }
 
-export function sortTables(items: TableInfo[]): TableInfo[] {
+export function sortTables(items: TableInfo[], order: SheetOrderIndex): TableInfo[] {
   return [...items].sort((a, b) => {
-    const s = cmpStr(a.sheetName, b.sheetName);
-    if (s !== 0) return s;
+    const pa = sheetPosition(order, a.sheetName);
+    const pb = sheetPosition(order, b.sheetName);
+    if (pa !== pb) return pa - pb;
+    const sn = cmpStr(a.sheetName, b.sheetName);
+    if (sn !== 0) return sn;
     return cmpStr(a.name, b.name);
   });
 }
 
-export function sortCharts(items: ChartInfo[]): ChartInfo[] {
+export function sortCharts(items: ChartInfo[], order: SheetOrderIndex): ChartInfo[] {
   return [...items].sort((a, b) => {
-    const s = cmpStr(a.sheetName, b.sheetName);
-    if (s !== 0) return s;
+    const pa = sheetPosition(order, a.sheetName);
+    const pb = sheetPosition(order, b.sheetName);
+    if (pa !== pb) return pa - pb;
+    const sn = cmpStr(a.sheetName, b.sheetName);
+    if (sn !== 0) return sn;
     return cmpStr(a.name, b.name);
   });
 }
 
-export function sortNamedRanges(items: NamedRangeInfo[]): NamedRangeInfo[] {
+export function sortShapes(items: ShapeInfo[], order: SheetOrderIndex): ShapeInfo[] {
+  return [...items].sort((a, b) => {
+    const pa = sheetPosition(order, a.sheetName);
+    const pb = sheetPosition(order, b.sheetName);
+    if (pa !== pb) return pa - pb;
+    const sn = cmpStr(a.sheetName, b.sheetName);
+    if (sn !== 0) return sn;
+    return cmpStr(a.name, b.name);
+  });
+}
+
+export function sortNamedRanges(items: NamedRangeInfo[], order: SheetOrderIndex): NamedRangeInfo[] {
   return [...items].sort((a, b) => {
     const scopeOrder = (s: NamedRangeInfo["scope"]) => (s === "workbook" ? 0 : 1);
     const so = scopeOrder(a.scope) - scopeOrder(b.scope);
     if (so !== 0) return so;
-    const sheetA = a.sheetName ?? "";
-    const sheetB = b.sheetName ?? "";
-    const ss = cmpStr(sheetA, sheetB);
-    if (ss !== 0) return ss;
-    return cmpStr(a.name, b.name);
-  });
-}
-
-export function sortShapes(items: ShapeInfo[]): ShapeInfo[] {
-  return [...items].sort((a, b) => {
-    const s = cmpStr(a.sheetName, b.sheetName);
-    if (s !== 0) return s;
+    if (a.scope === "worksheet" || b.scope === "worksheet") {
+      const pa = sheetPosition(order, a.sheetName ?? "");
+      const pb = sheetPosition(order, b.sheetName ?? "");
+      if (pa !== pb) return pa - pb;
+      const sn = cmpStr(a.sheetName ?? "", b.sheetName ?? "");
+      if (sn !== 0) return sn;
+    }
     return cmpStr(a.name, b.name);
   });
 }
@@ -118,7 +153,6 @@ export function categoryFromHostList<T>(
 }
 
 export function sanitizeInventoryMessage(message: string): string {
-  // Keep messages short and free of accidental path dumps.
   const oneLine = message.replace(/\s+/g, " ").trim();
   return oneLine.length > 400 ? `${oneLine.slice(0, 400)}…` : oneLine;
 }

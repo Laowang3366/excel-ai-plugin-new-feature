@@ -3,6 +3,11 @@ import { OfficeJsAdapter } from "../shared/host/officeJsAdapter";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
 import { TOOL_DEFINITION_MAP, ToolExecutor } from "../shared/tools";
 import { listChatReadOnlyTools } from "../shared/agentChat";
+import {
+  buildSheetOrder,
+  sortNamedRanges,
+  sortTables,
+} from "../shared/host/workbookObjectsHelpers";
 import { MockHostAdapter } from "./mockHost";
 import { installWorkbookObjectsExcel } from "./fakes/officeJsWorkbookObjectsFake";
 
@@ -48,6 +53,42 @@ describe("workbook.objects.inspect", () => {
         arguments: { maxItemsPerCategory: 501 },
       });
       expect(high.ok).toBe(false);
+    });
+  });
+
+  describe("position-first sorting helpers", () => {
+    it("orders sheet objects by position before name, even when alphabet disagrees", () => {
+      const order = buildSheetOrder([
+        { name: "Sheet1", index: 0, isActive: true },
+        { name: "Data", index: 1, isActive: false },
+      ]);
+      const tables = sortTables(
+        [
+          { name: "T_Data", sheetName: "Data", address: "A1", hasHeaders: true },
+          { name: "T_B", sheetName: "Sheet1", address: "A1", hasHeaders: true },
+          { name: "T_A", sheetName: "Sheet1", address: "B1", hasHeaders: true },
+        ],
+        order,
+      );
+      expect(tables.map((t) => `${t.sheetName}:${t.name}`)).toEqual([
+        "Sheet1:T_A",
+        "Sheet1:T_B",
+        "Data:T_Data",
+      ]);
+
+      const names = sortNamedRanges(
+        [
+          { name: "Zed", refersTo: "=1", scope: "workbook" },
+          { name: "DataLocal", refersTo: "=1", scope: "worksheet", sheetName: "Data" },
+          { name: "Local", refersTo: "=1", scope: "worksheet", sheetName: "Sheet1" },
+        ],
+        order,
+      );
+      expect(names.map((n) => `${n.scope}:${n.sheetName ?? ""}:${n.name}`)).toEqual([
+        "workbook::Zed",
+        "worksheet:Sheet1:Local",
+        "worksheet:Data:DataLocal",
+      ]);
     });
   });
 
@@ -127,18 +168,27 @@ describe("workbook.objects.inspect", () => {
       expect(full.ok).toBe(true);
       if (!full.ok) return;
       const data = full.data as {
-        tables: { items: { name: string; sheetName: string }[]; totalCount: number; truncated: boolean; status: string };
+        tables: {
+          items: { name: string; sheetName: string }[];
+          totalCount: number;
+          truncated: boolean;
+          status: string;
+        };
         charts: { items: { name: string }[]; totalCount: number };
-        namedRanges: { items: { name: string; scope: string; sheetName?: string }[]; status: string };
+        namedRanges: {
+          items: { name: string; scope: string; sheetName?: string }[];
+          status: string;
+        };
         shapes: { items: { name: string }[] };
         sheets: { name: string }[];
         limitations: string[];
       };
       expect(data.tables.status).toBe("available");
+      // Sheet1 (pos 0) before Data (pos 1) despite "Data" < "Sheet1" alphabetically.
       expect(data.tables.items.map((t) => `${t.sheetName}:${t.name}`)).toEqual([
-        "Data:T_Data",
         "Sheet1:T_A",
         "Sheet1:T_B",
+        "Data:T_Data",
       ]);
       expect(data.charts.items.map((c) => c.name)).toEqual(["ChartA", "ChartB"]);
       expect(data.shapes.items.map((s) => s.name)).toEqual(["ShapeA", "ShapeB"]);
@@ -154,11 +204,13 @@ describe("workbook.objects.inspect", () => {
       expect(capped.ok).toBe(true);
       if (!capped.ok) return;
       const c = capped.data as {
-        tables: { items: unknown[]; totalCount: number; truncated: boolean };
+        tables: { items: { name: string; sheetName: string }[]; totalCount: number; truncated: boolean };
       };
       expect(c.tables.items).toHaveLength(1);
       expect(c.tables.totalCount).toBe(3);
       expect(c.tables.truncated).toBe(true);
+      // First after position sort is Sheet1:T_A
+      expect(`${c.tables.items[0]!.sheetName}:${c.tables.items[0]!.name}`).toBe("Sheet1:T_A");
     });
 
     it("keeps other categories when one is unsupported or failed", async () => {
@@ -207,53 +259,60 @@ describe("workbook.objects.inspect", () => {
       delete (globalThis as { Excel?: unknown }).Excel;
     });
 
-    it("lists multi-sheet tables/charts/names/shapes with stable sort", async () => {
-      installWorkbookObjectsExcel();
+    it("lists multi-sheet objects with position-first sort and bounded Excel.run count", async () => {
+      const fake = installWorkbookObjectsExcel({ extraSheetCount: 5 });
       const adapter = new OfficeJsAdapter();
       const result = await adapter.inspectWorkbookObjects({ maxItemsPerCategory: 100 });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.data.workbookName).toBe("Book1.xlsx");
-      expect(result.data.sheets.map((s) => s.name)).toEqual(["Sheet1", "Data"]);
+      expect(result.data.sheets[0]?.name).toBe("Sheet1");
+      expect(result.data.sheets[1]?.name).toBe("Data");
       expect(result.data.tables.status).toBe("available");
-      expect(result.data.tables.items.map((t) => `${t.sheetName}:${t.name}`)).toEqual([
-        "Data:T_Data",
+      // Position order: Sheet1 (0) before Data (1)
+      expect(result.data.tables.items.map((t) => `${t.sheetName}:${t.name}`).slice(0, 3)).toEqual([
         "Sheet1:T_A",
         "Sheet1:T_B",
+        "Data:T_Data",
       ]);
       expect(result.data.charts.items.map((c) => c.name)).toEqual(["ChartA", "ChartB"]);
-      expect(result.data.shapes.items.map((s) => `${s.sheetName}:${s.name}`)).toEqual([
-        "Data:DataShape",
+      expect(result.data.shapes.items.map((s) => `${s.sheetName}:${s.name}`).slice(0, 3)).toEqual([
         "Sheet1:ShapeA",
         "Sheet1:ShapeB",
+        "Data:DataShape",
       ]);
       const names = result.data.namedRanges.items;
       expect(names.some((n) => n.scope === "workbook" && n.name === "Alpha")).toBe(true);
       expect(names.some((n) => n.scope === "worksheet" && n.sheetName === "Data")).toBe(true);
-      expect(names.some((n) => n.scope === "worksheet" && n.sheetName === "Sheet1")).toBe(true);
-      // workbook names sort before worksheet; Alpha before WbName
-      const wb = names.filter((n) => n.scope === "workbook").map((n) => n.name);
-      expect(wb).toEqual(["Alpha", "WbName"]);
+      // Fixed bound: 1 baseline + 4 categories = 5, independent of sheet count (7 sheets here)
+      expect(fake.sheetCount()).toBe(7);
+      expect(fake.getRunCount()).toBe(5);
     });
 
-    it("marks only the failed category when tables load fails", async () => {
-      installWorkbookObjectsExcel({ failTables: true });
+    it("tables sync-time failure fails only tables; other categories stay available", async () => {
+      const fake = installWorkbookObjectsExcel({ failTablesOnSync: true });
       const adapter = new OfficeJsAdapter();
       const result = await adapter.inspectWorkbookObjects({});
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.data.tables.status).toBe("failed");
       expect(result.data.tables.items).toEqual([]);
+      expect(result.data.tables.reason).toMatch(/tables sync failed/i);
       expect(result.data.charts.status).toBe("available");
+      expect(result.data.charts.items.length).toBeGreaterThan(0);
       expect(result.data.namedRanges.status).toBe("available");
       expect(result.data.shapes.status).toBe("available");
+      // Still one run per phase even when tables fail
+      expect(fake.getRunCount()).toBe(5);
     });
 
-    it("fails whole tool when workbook base load fails", async () => {
-      installWorkbookObjectsExcel({ failWorkbook: true });
+    it("fails whole tool when workbook baseline sync fails", async () => {
+      const fake = installWorkbookObjectsExcel({ failWorkbookOnSync: true });
       const adapter = new OfficeJsAdapter();
       const result = await adapter.inspectWorkbookObjects({});
       expect(result.ok).toBe(false);
+      // Only baseline run attempted
+      expect(fake.getRunCount()).toBe(1);
     });
   });
 
@@ -263,15 +322,21 @@ describe("workbook.objects.inspect", () => {
       delete (globalThis as { window?: { Application?: unknown } }).window?.Application;
     });
 
-    function installWps(options?: { withNames?: boolean; worksheetNames?: boolean }) {
-      const withNames = options?.withNames ?? true;
+    function installWps(options?: {
+      withWorkbookNames?: boolean;
+      withWorksheetNames?: boolean;
+      workbookNamesEmpty?: boolean;
+    }) {
+      const withWorkbookNames = options?.withWorkbookNames ?? true;
+      const withWorksheetNames = options?.withWorksheetNames ?? true;
       const sheets = [
         { Name: "Sheet1", Index: 1 },
         { Name: "Data", Index: 2 },
       ];
-      const wbNames: Array<{ Name: string; RefersTo: string; Visible: boolean }> = [
-        { Name: "Wb1", RefersTo: "=Sheet1!$A$1", Visible: true },
-      ];
+      const wbNames: Array<{ Name: string; RefersTo: string; Visible: boolean }> =
+        options?.workbookNamesEmpty
+          ? []
+          : [{ Name: "Wb1", RefersTo: "=Sheet1!$A$1", Visible: true }];
       const sheetNames: Record<string, Array<{ Name: string; RefersTo: string; Visible: boolean }>> =
         {
           Sheet1: [{ Name: "Local1", RefersTo: "=Sheet1!$B$1", Visible: true }],
@@ -305,16 +370,21 @@ describe("workbook.objects.inspect", () => {
         };
       }
 
+      function sheetObj(s: { Name: string; Index: number }) {
+        return {
+          Name: s.Name,
+          Index: s.Index,
+          Names: withWorksheetNames ? namesApi(sheetNames[s.Name] ?? []) : undefined,
+        };
+      }
+
       const workbook = {
         Name: "BookWps.xlsx",
         get ActiveSheet() {
           return {
             Name: "Sheet1",
             UsedRange: { Address: "A1:B2" },
-            Names:
-              options?.worksheetNames === false
-                ? undefined
-                : namesApi(sheetNames.Sheet1 ?? []),
+            Names: withWorksheetNames ? namesApi(sheetNames.Sheet1 ?? []) : undefined,
           };
         },
         Worksheets: {
@@ -325,28 +395,14 @@ describe("workbook.objects.inspect", () => {
             if (typeof indexOrName === "number") {
               const s = sheets[indexOrName - 1];
               if (!s) throw new Error("sheet");
-              return {
-                Name: s.Name,
-                Index: s.Index,
-                Names:
-                  options?.worksheetNames === false
-                    ? undefined
-                    : namesApi(sheetNames[s.Name] ?? []),
-              };
+              return sheetObj(s);
             }
             const s = sheets.find((x) => x.Name === indexOrName);
             if (!s) throw new Error("sheet");
-            return {
-              Name: s.Name,
-              Index: s.Index,
-              Names:
-                options?.worksheetNames === false
-                  ? undefined
-                  : namesApi(sheetNames[s.Name] ?? []),
-            };
+            return sheetObj(s);
           },
         },
-        Names: withNames ? namesApi(wbNames) : undefined,
+        Names: withWorkbookNames ? namesApi(wbNames) : undefined,
       };
 
       const Application = {
@@ -374,26 +430,39 @@ describe("workbook.objects.inspect", () => {
       expect(result.data.tables.reason).toBeTruthy();
       expect(result.data.charts.status).toBe("unsupported");
       expect(result.data.shapes.status).toBe("unsupported");
-      expect(result.data.limitations.some((l) => /WPS|unsupported|member/i.test(l))).toBe(true);
     });
 
-    it("does not invent worksheet names when Names member is missing", async () => {
-      installWps({ worksheetNames: false });
+    it("namedRanges is unsupported when all Names members are missing (not available+[])", async () => {
+      installWps({ withWorkbookNames: false, withWorksheetNames: false });
       const adapter = new WpsJsaAdapter();
       const result = await adapter.inspectWorkbookObjects({});
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      // workbook names still available
+      expect(result.data.namedRanges.status).toBe("unsupported");
+      expect(result.data.namedRanges.items).toEqual([]);
+      expect(result.data.namedRanges.totalCount).toBeNull();
+      expect(result.data.namedRanges.reason).toMatch(/Names/i);
+      expect(result.data.namedRanges.evidence).toBeTruthy();
+    });
+
+    it("namedRanges stays available when workbook Names succeeds empty and worksheet Names unsupported", async () => {
+      installWps({
+        withWorkbookNames: true,
+        workbookNamesEmpty: true,
+        withWorksheetNames: false,
+      });
+      const adapter = new WpsJsaAdapter();
+      const result = await adapter.inspectWorkbookObjects({});
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
       expect(result.data.namedRanges.status).toBe("available");
-      expect(
-        result.data.namedRanges.items.every((n) => n.scope === "workbook" || n.sheetName != null),
-      ).toBe(true);
-      // limitations should mention worksheet-scoped gap when unsupported
+      expect(result.data.namedRanges.totalCount).toBe(0);
+      expect(result.data.namedRanges.items).toEqual([]);
       const lim = [
         ...(result.data.limitations ?? []),
         ...(result.data.namedRanges.limitations ?? []),
       ].join(" ");
-      expect(lim.length).toBeGreaterThan(0);
+      expect(lim).toMatch(/worksheet\.Names|unavailable/i);
     });
   });
 });

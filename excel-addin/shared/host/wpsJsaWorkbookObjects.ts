@@ -1,7 +1,6 @@
 /**
  * workbook.objects.inspect — WPS JSA partial inventory.
- * Sheets + named ranges via member-probe paths already implemented.
- * table/chart/shape remain typed unsupported categories (partial success).
+ * Sheets + named ranges via member-probe; table/chart/shape typed unsupported.
  */
 import { requireWorkbook } from "./wpsJsaRuntime";
 import type { ChartInfo } from "./chartTypes";
@@ -10,6 +9,7 @@ import type { HostResult, NamedRangeInfo, SheetInfo, TableInfo } from "./types";
 import { fail, ok } from "./types";
 import {
   availableCategory,
+  buildSheetOrder,
   failedCategory,
   sanitizeInventoryMessage,
   sortNamedRanges,
@@ -25,6 +25,67 @@ import { WORKBOOK_OBJECTS_MAX_DEFAULT } from "./workbookObjectsTypes";
 const TABLE_EVIDENCE = "No in-repo WPS ListObjects contract";
 const CHART_EVIDENCE = "No in-repo WPS ChartObjects contract";
 const SHAPE_EVIDENCE = "No in-repo WPS Shapes/ShapeObjects contract";
+
+type NameSource =
+  | { kind: "ok"; items: NamedRangeInfo[]; label: string }
+  | { kind: "unsupported"; reason: string; evidence?: string; label: string }
+  | { kind: "failed"; reason: string; evidence?: string; label: string };
+
+function mapNameResult(
+  label: string,
+  result: HostResult<NamedRangeInfo[]>,
+): NameSource {
+  if (result.ok) return { kind: "ok", items: result.data, label };
+  if (result.unsupported) {
+    return {
+      kind: "unsupported",
+      reason: result.reason,
+      evidence: result.evidence,
+      label,
+    };
+  }
+  return { kind: "failed", reason: result.reason, evidence: result.evidence, label };
+}
+
+function mergeNamedRanges(
+  sources: NameSource[],
+  maxItems: number,
+  sheetOrder: ReturnType<typeof buildSheetOrder>,
+) {
+  const okSources = sources.filter((s): s is Extract<NameSource, { kind: "ok" }> => s.kind === "ok");
+  const failed = sources.filter((s) => s.kind === "failed");
+  const unsupported = sources.filter((s) => s.kind === "unsupported");
+  const gapNotes = [...unsupported, ...failed].map(
+    (s) => `${s.label}: ${sanitizeInventoryMessage(s.reason)}`,
+  );
+
+  if (okSources.length > 0) {
+    const items = okSources.flatMap((s) => s.items);
+    return availableCategory(items, maxItems, (list) => sortNamedRanges(list, sheetOrder), {
+      limitations: gapNotes.length > 0 ? gapNotes : undefined,
+    });
+  }
+  if (failed.length > 0) {
+    const first = failed[0]!;
+    return failedCategory<NamedRangeInfo>(
+      first.reason,
+      first.evidence,
+      gapNotes,
+    );
+  }
+  if (unsupported.length > 0) {
+    const first = unsupported[0]!;
+    return unsupportedCategory<NamedRangeInfo>(
+      first.reason,
+      first.evidence,
+      gapNotes,
+    );
+  }
+  return unsupportedCategory<NamedRangeInfo>(
+    "No named-range sources were queried",
+    "WPS Names inventory",
+  );
+}
 
 export async function wpsInspectWorkbookObjects(
   input: WorkbookObjectsInspectInput,
@@ -49,14 +110,6 @@ export async function wpsInspectWorkbookObjects(
 
   const sheetsResult = await deps.listSheets();
   if (!sheetsResult.ok) {
-    if (sheetsResult.unsupported) {
-      return fail(
-        "workbook.objects.inspect",
-        "wps-jsa",
-        sanitizeInventoryMessage(sheetsResult.reason),
-        sheetsResult.evidence,
-      );
-    }
     return fail(
       "workbook.objects.inspect",
       "wps-jsa",
@@ -83,71 +136,28 @@ export async function wpsInspectWorkbookObjects(
   }
 
   const activeName =
-    workbook.ActiveSheet?.Name != null ? String(workbook.ActiveSheet.Name) : sheets.find((s) => s.isActive)?.name ?? "";
+    workbook.ActiveSheet?.Name != null
+      ? String(workbook.ActiveSheet.Name)
+      : sheets.find((s) => s.isActive)?.name ?? "";
 
-  // Named ranges: workbook scope + worksheet scopes when members exist.
-  const namedItems: NamedRangeInfo[] = [];
-  const namedLimitations: string[] = [];
-  let namedFailed: { reason: string; evidence?: string } | null = null;
-
-  const wbNames = await deps.listNamedRanges({ scope: "workbook" });
-  if (wbNames.ok) {
-    namedItems.push(...wbNames.data);
-  } else if (wbNames.unsupported) {
-    namedLimitations.push(`workbook-scoped Names unavailable: ${wbNames.reason}`);
-  } else {
-    namedFailed = { reason: wbNames.reason, evidence: wbNames.evidence };
+  const sources: NameSource[] = [];
+  sources.push(
+    mapNameResult("workbook.Names", await deps.listNamedRanges({ scope: "workbook" })),
+  );
+  const sheetTargets = filterSheetName ? sheets : allSheets;
+  for (const sheet of sheetTargets) {
+    sources.push(
+      mapNameResult(
+        `worksheet.Names(${sheet.name})`,
+        await deps.listNamedRanges({ scope: "worksheet", sheetName: sheet.name }),
+      ),
+    );
   }
 
-  if (!namedFailed) {
-    const sheetTargets = filterSheetName ? sheets : allSheets;
-    for (const sheet of sheetTargets) {
-      const wsNames = await deps.listNamedRanges({
-        scope: "worksheet",
-        sheetName: sheet.name,
-      });
-      if (wsNames.ok) {
-        namedItems.push(
-          ...wsNames.data.map((n) => ({
-            ...n,
-            scope: "worksheet" as const,
-            sheetName: n.sheetName ?? sheet.name,
-          })),
-        );
-      } else if (wsNames.unsupported) {
-        namedLimitations.push(
-          `worksheet-scoped Names unavailable on ${sheet.name}: ${wsNames.reason}`,
-        );
-      } else {
-        namedLimitations.push(
-          `worksheet-scoped Names failed on ${sheet.name}: ${sanitizeInventoryMessage(wsNames.reason)}`,
-        );
-      }
-    }
-  }
-
-  const namedRanges =
-    namedFailed != null
-      ? failedCategory<NamedRangeInfo>(namedFailed.reason, namedFailed.evidence, namedLimitations)
-      : availableCategory(namedItems, maxItems, sortNamedRanges, {
-          limitations: namedLimitations.length > 0 ? namedLimitations : undefined,
-        });
-
-  const tables = unsupportedCategory<TableInfo>(
-    "Table list is not verified for WPS JSA",
-    TABLE_EVIDENCE,
-  );
-  const charts = unsupportedCategory<ChartInfo>(
-    "Chart list is not verified for WPS JSA",
-    CHART_EVIDENCE,
-  );
-  const shapes = unsupportedCategory<ShapeInfo>(
-    "shape.list is not verified for WPS JSA",
-    SHAPE_EVIDENCE,
-  );
-
-  if (namedRanges.truncated || namedLimitations.length > 0) {
-    limitations.push(...namedLimitations);
+  const sheetOrder = buildSheetOrder(allSheets);
+  const namedRanges = mergeNamedRanges(sources, maxItems, sheetOrder);
+  if (namedRanges.limitations?.length) {
+    limitations.push(...namedRanges.limitations);
   }
   if (namedRanges.truncated) {
     limitations.push(
@@ -160,10 +170,19 @@ export async function wpsInspectWorkbookObjects(
     activeSheetName: activeName,
     sheetCount: allSheets.length,
     sheets,
-    tables,
-    charts,
+    tables: unsupportedCategory<TableInfo>(
+      "Table list is not verified for WPS JSA",
+      TABLE_EVIDENCE,
+    ),
+    charts: unsupportedCategory<ChartInfo>(
+      "Chart list is not verified for WPS JSA",
+      CHART_EVIDENCE,
+    ),
     namedRanges,
-    shapes,
+    shapes: unsupportedCategory<ShapeInfo>(
+      "shape.list is not verified for WPS JSA",
+      SHAPE_EVIDENCE,
+    ),
     limitations,
     filterSheetName,
   });
