@@ -97,8 +97,14 @@ export function mapDvOperatorToHost(op: DataValidationOperator): string {
   return DV_OP_TO_HOST[op];
 }
 
+/**
+ * Case-insensitive exact official DataValidationOperator host tokens only.
+ * Lower-case only — no trim, no whitespace/punctuation stripping (unlike normalizeToken).
+ * mapDvOperatorToHost is unchanged.
+ */
 export function unmapDvOperator(host: string | null | undefined): DataValidationOperator | undefined {
-  return DV_HOST_OP_TO_PUBLIC[normalizeToken(String(host ?? ""))];
+  if (host == null || typeof host !== "string") return undefined;
+  return DV_HOST_OP_TO_PUBLIC[host.toLowerCase()];
 }
 
 export function classifyCfHostType(raw: string | null | undefined): {

@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项 Phase53.3：DataValidation type/operator/alertStyle 宿主枚举回读改为仅大小写不敏感的精确匹配（enum exact readback）；**未**真实侧载验证。
+
 - 独立 Excel 加载项 Phase53.2：DataValidation 完整 surface 类型校验 + 纯 planDvRuleWrite 写前计划；**未**真实侧载验证。
 
 - 独立 Excel 加载项 Phase53.1：DataValidation errorAlert/prompt 按 Office.js ClientObject 合同预读 load+sync、整对象赋值与严格完整 snapshot；**未**真实侧载验证。

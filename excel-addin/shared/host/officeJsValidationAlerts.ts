@@ -9,7 +9,6 @@
  * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationalertstyle
  */
 import type { ExcelDataValidation } from "./officeJsExcelTypes";
-import { normalizeToken } from "./officeJsValidationMapping";
 import type {
   DataValidationAlertStyle,
   DataValidationErrorAlert,
@@ -73,10 +72,13 @@ export function mapAlertStyleToHost(style: DataValidationAlertStyle): string {
   return STYLE_TO_HOST[style];
 }
 
-/** Case-insensitive exact official tokens only — no punctuation stripping. */
+/**
+ * Case-insensitive exact official tokens only.
+ * Lower-case only — no trim, no whitespace/punctuation stripping, no aliases.
+ */
 export function unmapAlertStyle(host: unknown): DataValidationAlertStyle | undefined {
-  if (typeof host !== "string" || host.trim() === "") return undefined;
-  return HOST_STYLE_TO_PUBLIC[host.trim().toLowerCase()];
+  if (typeof host !== "string") return undefined;
+  return HOST_STYLE_TO_PUBLIC[host.toLowerCase()];
 }
 
 export function isDataValidationAlertStyle(
@@ -170,8 +172,9 @@ const OFFICIAL_DV_HOST_TYPES: Record<string, string> = {
 };
 
 /**
- * Runtime type must be an official DataValidationType token (case-insensitive, no fuzzy strip).
- * null/undefined/number/unknown → ordinary failed.
+ * Runtime type must be an official DataValidationType token.
+ * Case-insensitive exact match only (lower-case); no trim / space collapse / aliases.
+ * null/undefined/number/unknown/"Whole Number" → ordinary failed.
  */
 export function assertOfficialDvHostType(raw: unknown): string {
   if (raw === null || raw === undefined) {
@@ -182,7 +185,7 @@ export function assertOfficialDvHostType(raw: unknown): string {
       `dataValidation.type host readback is not string (got ${typeof raw})`,
     );
   }
-  const canon = OFFICIAL_DV_HOST_TYPES[normalizeToken(raw)];
+  const canon = OFFICIAL_DV_HOST_TYPES[raw.toLowerCase()];
   if (!canon) {
     throw new Error(`dataValidation.type host readback unknown: ${raw}`);
   }
