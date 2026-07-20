@@ -5,7 +5,7 @@ export const CHART_SERIES_TRENDLINE_FORMAT_TOOL_DEFINITIONS: ToolDefinition[] = 
   {
     name: "chart.series.trendlines.format.update",
     description:
-      "更新图表 series 趋势线线型格式：color(#RRGGBB)/lineStyle/weight(pt)；seriesIndex+trendlineIndex 1-based；ExcelApi 1.7 format.line 写后回读；WPS unsupported",
+      "更新图表 series 趋势线线型格式：color(#RRGGBB)/lineStyle/weight(pt 有限数，官方无范围下限)/；seriesIndex+trendlineIndex 1-based；ExcelApi 1.7 format.line 写后回读；WPS unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -16,7 +16,10 @@ export const CHART_SERIES_TRENDLINE_FORMAT_TOOL_DEFINITIONS: ToolDefinition[] = 
         trendlineIndex: { type: "integer", exclusiveMinimum: 0 },
         color: { type: "string", minLength: 6, maxLength: 7 },
         lineStyle: { type: "string", enum: [...CHART_LINE_STYLES] },
-        weight: { type: "number", exclusiveMinimum: 0 },
+        weight: {
+          type: "number",
+          description: "Line weight in points (finite number; no official min/max; host may reject)",
+        },
       },
       required: ["sheetName", "chartName", "seriesIndex", "trendlineIndex"],
       additionalProperties: false,

@@ -30,7 +30,7 @@ export interface ChartTrendlineFormatUpdateInput {
   /** #RRGGBB only after host normalization. */
   color?: string;
   lineStyle?: ChartLineStyle;
-  /** Weight in points; finite number > 0. */
+  /** Weight in points; finite number. No official min/max in Office.js docs; host may reject invalid values. */
   weight?: number;
 }
 

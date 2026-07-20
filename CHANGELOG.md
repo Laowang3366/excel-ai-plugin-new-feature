@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 修正 `chart.series.trendlines.format.update` 的 weight 合同：官方仅声明 points、无 min/max，执行层只校验有限数，不再无证据拒绝 ≤0。
+
 - 独立 Excel 加载项新增 `chart.series.trendlines.format.update`（Office.js ExcelApi 1.7 `ChartTrendline.format.line` 颜色/线型/粗细写后回读；WPS 仍 unsupported；趋势线 label 格式未纳入；真实 Excel/WPS 侧载尚未验收）。
 
 - 独立 Excel 加载项新增 `chart.series.markers.update`（Office.js ExcelApi 1.7 写后回读 series 标记样式/尺寸/颜色；WPS 仍 unsupported；真实 Excel/WPS 侧载尚未验收）。

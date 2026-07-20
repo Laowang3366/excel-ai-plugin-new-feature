@@ -163,7 +163,14 @@ describe("phase49 chart series trendline format", () => {
           chartName: "C1",
           seriesIndex: 1,
           trendlineIndex: 1,
-          weight: 0,
+          weight: Number.NaN,
+        },
+        {
+          sheetName: "Sheet1",
+          chartName: "C1",
+          seriesIndex: 1,
+          trendlineIndex: 1,
+          weight: Number.POSITIVE_INFINITY,
         },
         {
           sheetName: "Sheet1",
@@ -209,6 +216,38 @@ describe("phase49 chart series trendline format", () => {
         expect(result.ok).toBe(false);
       }
       expect(hostCalls).toBe(0);
+    });
+
+    it("allows weight 0 through executor (no official min; host decides)", async () => {
+      const host = new MockHostAdapter();
+      await host.createChart({ sheetName: "Sheet1", sourceRange: "A1:B2", name: "C1" });
+      await host.addChartSeriesTrendline({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        type: "linear",
+      });
+      let hostCalls = 0;
+      const original = host.updateChartSeriesTrendlineFormat.bind(host);
+      host.updateChartSeriesTrendlineFormat = async (input) => {
+        hostCalls += 1;
+        return original(input);
+      };
+      const result = await new ToolExecutor(host).execute({
+        name: "chart.series.trendlines.format.update",
+        arguments: {
+          sheetName: "Sheet1",
+          chartName: "C1",
+          seriesIndex: 1,
+          trendlineIndex: 1,
+          weight: 0,
+        },
+      });
+      expect(hostCalls).toBe(1);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect((result.data as { weight: number }).weight).toBe(0);
+      }
     });
 
     it("registers tool and keeps total count 89", () => {

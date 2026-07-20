@@ -48,8 +48,9 @@ function optionalWeight(args: Record<string, unknown>): number | undefined {
   if (args.weight === undefined) throw new Error("weight must not be undefined");
   if (args.weight === null) throw new Error("weight must not be null");
   const value = args.weight;
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    throw new Error("weight must be a finite number greater than 0");
+  // Official ChartLineFormat.weight: finite number in points; no documented min/max.
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("weight must be a finite number (points; host may reject invalid values)");
   }
   return value;
 }
