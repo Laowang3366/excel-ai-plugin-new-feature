@@ -77,8 +77,45 @@ describe("capability matrix", () => {
       "Phase27",
       "doughnut",
       "linemarkers",
+      // Task A: WPS implemented* vs still-unsupported split at HEAD a8378293
+      "range.read expand currentRegion",
+      "range.read expand spill / currentArray",
+      "wpsJsaRangeRead",
+      "wpsJsaSheetOps",
+      "wpsJsaFormat",
+      "wpsAutofitRange",
+      "implemented*",
+      "not official JSA",
+      "not real sideload",
+      "WPS still typed unsupported",
+      "expand **spill**",
+      "formula.protection.*",
     ]) {
       expect(text).toContain(token);
     }
   });
+
+  it("marks WPS currentRegion/format/copy-move/autofit/structure/governance as implemented* not blanket unsupported", () => {
+    const text = readFileSync(path.join(root, "docs/capability-matrix.md"), "utf8");
+    // Positive implemented* rows
+    expect(text).toMatch(/range\.read expand currentRegion[\s\S]*?implemented\*/);
+    expect(text).toMatch(/sheet\.operation copy[\s\S]*?implemented\*/);
+    expect(text).toMatch(/sheet\.operation move[\s\S]*?implemented\*/);
+    expect(text).toMatch(/range\.format\.read\/write[\s\S]*?implemented\*/);
+    expect(text).toMatch(/\| range \| autofit \|[\s\S]*?implemented\*/);
+    expect(text).toMatch(/\| range \| insert \/ delete \|[\s\S]*?implemented\*/);
+    expect(text).toMatch(/visibility get\/set[\s\S]*?implemented\*/);
+    expect(text).toMatch(/protection get\/protect\/unprotect[\s\S]*?implemented\*/);
+    expect(text).toMatch(/named range \| list\/create\/update\/delete[\s\S]*?implemented\*/);
+    expect(text).toMatch(/dependencies\.inspect[\s\S]*?implemented\*/);
+    expect(text).toMatch(/chart\.source\.update[\s\S]*?cross-sheet/);
+    // Still unsupported
+    expect(text).toMatch(/range\.read expand spill \/ currentArray[\s\S]*?\*\*unsupported\*\*/);
+    expect(text).toMatch(/protection inspect\/manage[\s\S]*?\*\*unsupported\*\*/);
+    // Assumptions must not claim format/copy-move all unverified
+    expect(text).not.toMatch(
+      /Format \/ ListObjects \/ ChartObjects \/ expand \/ sheet copy-move are \*\*not\*\* verified/,
+    );
+  });
+
 });

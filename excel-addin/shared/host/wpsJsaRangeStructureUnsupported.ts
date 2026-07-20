@@ -9,11 +9,30 @@ import type {
 import type { HostResult } from "./types";
 import { fail, ok, unsupported } from "./types";
 
-const RANGE_STRUCTURE_EVIDENCE =
-  "No in-repo WPS JSA Range.Insert/Delete contract";
-
 const AUTOFIT_EVIDENCE =
   "Assumed Range.Columns/Rows.AutoFit + ColumnWidth/RowHeight (desktop ExcelTemplatePrintActionService COM parity; not in bridge contract; not device-verified)";
+
+/**
+ * Excel COM Shift constants (xlShift*). Used as host contract for Insert/Delete.
+ * Not in JSA bridge; member-probed at runtime.
+ */
+const XL_SHIFT_DOWN = -4121;
+const XL_SHIFT_TO_RIGHT = -4161;
+const XL_SHIFT_UP = -4162;
+const XL_SHIFT_TO_LEFT = -4159;
+
+const INSERT_SHIFT = {
+  down: XL_SHIFT_DOWN,
+  right: XL_SHIFT_TO_RIGHT,
+} as const;
+
+const DELETE_SHIFT = {
+  up: XL_SHIFT_UP,
+  left: XL_SHIFT_TO_LEFT,
+} as const;
+
+const INSERT_DELETE_EVIDENCE =
+  "Assumed Range.Insert/Delete with xlShift constants (ET COM parity; not in bridge contract; not device-verified)";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -50,25 +69,122 @@ function pickAutoFitTarget(
 }
 
 export async function wpsInsertRange(
-  _input: RangeInsertInput,
+  input: RangeInsertInput,
 ): Promise<HostResult<RangeMutationInfo>> {
-  return unsupported(
-    "range.insert",
-    "wps-jsa",
-    "range.insert is not verified for WPS JSA",
-    RANGE_STRUCTURE_EVIDENCE,
-  );
+  if (input.shift !== "down" && input.shift !== "right") {
+    return fail(
+      "range.insert",
+      "wps-jsa",
+      `shift must be down|right, got "${String(input.shift)}"`,
+      INSERT_DELETE_EVIDENCE,
+    );
+  }
+  const workbookResult = requireWorkbook("range.insert");
+  if (!workbookResult.ok) return workbookResult;
+  const sheet = getSheet(workbookResult.data, input.sheetName);
+  if (!sheet?.Range) {
+    return unsupported(
+      "range.insert",
+      "wps-jsa",
+      `Sheet "${input.sheetName}" or Range API missing`,
+      INSERT_DELETE_EVIDENCE,
+    );
+  }
+  let range: WpsRange;
+  try {
+    range = sheet.Range(input.address);
+  } catch (error) {
+    return fail("range.insert", "wps-jsa", messageOf(error), INSERT_DELETE_EVIDENCE);
+  }
+  if (typeof range.Insert !== "function") {
+    return unsupported(
+      "range.insert",
+      "wps-jsa",
+      "Range.Insert is unavailable",
+      INSERT_DELETE_EVIDENCE,
+    );
+  }
+  try {
+    const hostShift = INSERT_SHIFT[input.shift];
+    const inserted = range.Insert(hostShift);
+    const resultRange =
+      inserted && typeof inserted === "object" ? (inserted as WpsRange) : range;
+    const address = String(resultRange.Address ?? range.Address ?? input.address);
+    if (!address) {
+      return fail(
+        "range.insert",
+        "wps-jsa",
+        "Insert completed but Address is unavailable",
+        INSERT_DELETE_EVIDENCE,
+      );
+    }
+    return ok({
+      sheetName: input.sheetName,
+      address,
+      shift: input.shift,
+      operation: "insert",
+    });
+  } catch (error) {
+    return fail("range.insert", "wps-jsa", messageOf(error), INSERT_DELETE_EVIDENCE);
+  }
 }
 
 export async function wpsDeleteRange(
-  _input: RangeDeleteInput,
+  input: RangeDeleteInput,
 ): Promise<HostResult<RangeMutationInfo>> {
-  return unsupported(
-    "range.delete",
-    "wps-jsa",
-    "range.delete is not verified for WPS JSA",
-    RANGE_STRUCTURE_EVIDENCE,
-  );
+  if (input.shift !== "up" && input.shift !== "left") {
+    return fail(
+      "range.delete",
+      "wps-jsa",
+      `shift must be up|left, got "${String(input.shift)}"`,
+      INSERT_DELETE_EVIDENCE,
+    );
+  }
+  const workbookResult = requireWorkbook("range.delete");
+  if (!workbookResult.ok) return workbookResult;
+  const sheet = getSheet(workbookResult.data, input.sheetName);
+  if (!sheet?.Range) {
+    return unsupported(
+      "range.delete",
+      "wps-jsa",
+      `Sheet "${input.sheetName}" or Range API missing`,
+      INSERT_DELETE_EVIDENCE,
+    );
+  }
+  let range: WpsRange;
+  try {
+    range = sheet.Range(input.address);
+  } catch (error) {
+    return fail("range.delete", "wps-jsa", messageOf(error), INSERT_DELETE_EVIDENCE);
+  }
+  if (typeof range.Delete !== "function") {
+    return unsupported(
+      "range.delete",
+      "wps-jsa",
+      "Range.Delete is unavailable",
+      INSERT_DELETE_EVIDENCE,
+    );
+  }
+  try {
+    const address = String(range.Address ?? input.address);
+    if (!address) {
+      return fail(
+        "range.delete",
+        "wps-jsa",
+        "Range.Address is unavailable before Delete",
+        INSERT_DELETE_EVIDENCE,
+      );
+    }
+    range.Delete(DELETE_SHIFT[input.shift]);
+    return ok({
+      sheetName: input.sheetName,
+      address,
+      shift: input.shift,
+      operation: "delete",
+    });
+  } catch (error) {
+    return fail("range.delete", "wps-jsa", messageOf(error), INSERT_DELETE_EVIDENCE);
+  }
 }
 
 export async function wpsAutofitRange(

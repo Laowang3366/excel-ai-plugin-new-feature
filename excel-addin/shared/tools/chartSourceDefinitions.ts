@@ -4,7 +4,7 @@ export const CHART_SOURCE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "chart.source.update",
     description:
-      "替换图表数据源：同表 A1 sourceRange + seriesBy auto|rows|columns（默认 auto）；回读 series 快照。Office.js；WPS unsupported",
+      "替换图表数据源：sourceRange 为同表 A1，或同工作簿跨表 Sheet2!A1:B10 / 'Sheet 2'!A1:B10；seriesBy auto|rows|columns（默认 auto）；回读 series 快照。拒绝外部工作簿/3D/多区域/结构化引用。Office.js Chart.setData(Range)；WPS unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",

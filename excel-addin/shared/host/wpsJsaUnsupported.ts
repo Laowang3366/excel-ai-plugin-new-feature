@@ -166,15 +166,6 @@ export async function wpsClearDataValidation(
   );
 }
 
-function wpsStructureUnsupported(capability: string): HostResult<never> {
-  return unsupported(
-    capability,
-    "wps-jsa",
-    `${capability} is not verified for WPS JSA`,
-    "No in-repo WPS sheet visibility/protection/Names contract",
-  ) as HostResult<never>;
-}
-
 export async function wpsUpdateTable(_input: unknown) {
   return unsupported(
     "table.update",
@@ -247,33 +238,21 @@ export async function wpsUpdateChart(_input: unknown) {
   ) as HostResult<never>;
 }
 
-export async function wpsGetSheetVisibility(_sheetName: string) {
-  return wpsStructureUnsupported("sheet.visibility.get");
-}
-export async function wpsSetSheetVisibility(_sheetName: string, _visibility: string) {
-  return wpsStructureUnsupported("sheet.visibility.set");
-}
-export async function wpsGetSheetProtection(_sheetName: string) {
-  return wpsStructureUnsupported("sheet.protection.get");
-}
-export async function wpsProtectSheet(_sheetName: string, _password?: string) {
-  return wpsStructureUnsupported("sheet.protection.protect");
-}
-export async function wpsUnprotectSheet(_sheetName: string, _password?: string) {
-  return wpsStructureUnsupported("sheet.protection.unprotect");
-}
-export async function wpsListNamedRanges(_input?: unknown) {
-  return wpsStructureUnsupported("namedRange.list");
-}
-export async function wpsCreateNamedRange(_input: unknown) {
-  return wpsStructureUnsupported("namedRange.create");
-}
-export async function wpsUpdateNamedRange(_input: unknown) {
-  return wpsStructureUnsupported("namedRange.update");
-}
-export async function wpsDeleteNamedRange(_input: unknown) {
-  return wpsStructureUnsupported("namedRange.delete");
-}
+export {
+  wpsGetSheetVisibility,
+  wpsSetSheetVisibility,
+} from "./wpsJsaSheetVisibility";
+export {
+  wpsGetSheetProtection,
+  wpsProtectSheet,
+  wpsUnprotectSheet,
+} from "./wpsJsaSheetProtection";
+export {
+  wpsListNamedRanges,
+  wpsCreateNamedRange,
+  wpsUpdateNamedRange,
+  wpsDeleteNamedRange,
+} from "./wpsJsaNamedRanges";
 
 export async function wpsGetSheetDisplay(_sheetName: string) {
   return unsupported(

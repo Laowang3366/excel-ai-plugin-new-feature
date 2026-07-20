@@ -6,12 +6,15 @@ Evidence columns:
 - **wps-jsa**: only members with in-repo or strictly checked contracts; otherwise typed unsupported
 - **desktop-source**: current Electron + .NET Worker tool surface (not used at runtime here)
 
+Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo mock unit tests. It is **not** an official WPS JSA contract and **not** real-device sideload verification. Missing members must surface as typed `unsupported` (never fake success / never COM·.NET·Shell).
+
 | Capability family | Capability | office-js | wps-jsa | desktop-source | Evidence / notes |
 |---|---|---|---|---|---|
 | host | connection status | implemented | implemented | `office.connection.status` | `shared/host/*` |
 | selection | selection.get | implemented | implemented* | `selection.get` | *Assumes `Application.Selection` |
 | range | range.read/write/clear | implemented | implemented* | `range.*` | *Assumes Value2/Formula/Clear |
-| range | range.read expand spill/currentArray/currentRegion | implemented | **unsupported** | expand modes | Office.js APIs; omit expand on single cell → spill (desktop parity) |
+| range | range.read expand currentRegion | implemented | implemented* | expand modes | Office.js `getSurroundingRegion`; WPS `wpsJsaRangeRead` CurrentRegion member-probe + `tests/wpsJsaBasics.test.ts`; *not official JSA / not real sideload |
+| range | range.read expand spill / currentArray | implemented | **unsupported** | expand modes | Office.js spill/currentArray; omit expand on single cell → spill (desktop parity). WPS typed unsupported for spill/currentArray |
 | formula | formula.read / formula.write | implemented | implemented* | formula tools | writeFormulas primitive |
 | formula | formula.context | implemented | implemented* | `formula.context` | Desktop shape `{sheetName,address,formulas[]}`; range optional → UsedRange |
 | formula | protection inspect/manage | implemented | **unsupported** | `inspectFormulaProtection` / `manageFormulaProtection` | Office.js `Range.formulas` + `Range.format.protection.locked` **ExcelApi 1.2**; lock/unlock **formula cells only** (not whole-sheet fake); scope workbook\|sheet\|target; lock defaults unlockInputs=true (target range only) + protectSheet=true; password request-memory only, never in result; write-back verify; WPS typed unsupported; **not** real Excel sideload verified |
@@ -20,9 +23,9 @@ Evidence columns:
 | formula | convertToValues | implemented | implemented* | `convertFormulasToValues` | Mandatory persistent backup then replace formulas with calculated values; createBackup=false rejected; *WPS member-probe; **not** real sideload verified |
 | formula | backups.inspect / restore | implemented | implemented* | `inspectFormulaBackups` / `restoreFormulas` | Magic/header check; skip corrupt rows; restore by backupId with write-back verify; default retain backup (removeAfterRestore optional); *WPS member-probe; **not** real sideload verified |
 | sheet | list/add/rename/delete | implemented | implemented* | `sheet.operation` | |
-| sheet | sheet.operation copy | implemented | **unsupported** | `sheet.operation` copy | Office.js `Worksheet.copy` |
-| sheet | sheet.operation move | implemented | **unsupported** | `sheet.operation` move | Public position **1-based**; Office.js converts to 0-based |
-| range format | range.format.read/write | implemented | **unsupported** | COM format | WPS: no in-repo format contract |
+| sheet | sheet.operation copy | implemented | implemented* | `sheet.operation` copy | Office.js `Worksheet.copy`; WPS `wpsJsaSheetOps.wpsCopySheet` member-probe + mock tests; *not official JSA / not real sideload |
+| sheet | sheet.operation move | implemented | implemented* | `sheet.operation` move | Public position **1-based**; Office.js 0-based convert; WPS `wpsJsaSheetOps.wpsMoveSheet` member-probe + mock tests; *not official JSA / not real sideload |
+| range format | range.format.read/write | implemented | implemented* | COM format | Office.js Range format; WPS `wpsJsaFormat` Font/Interior/NumberFormat/Align member-probe + mock tests; *not official JSA / not real sideload |
 | table | list/create/delete | implemented | **unsupported** | table actions | WPS: no in-repo ListObjects contract; delete = hard delete |
 | table | unlist (convertToRange) | implemented | **unsupported** | table unlist boolean | Office.js `Table.convertToRange` **ExcelApi 1.2**; keeps cell data; absence check after sync; **no** getItemOrNullObject(1.4); WPS: no ListObjects/Unlist/convertToRange contract |
 | table | update (name/style/headers/totals/filter button/banded rows+columns/first+last column/resize) | implemented | **unsupported** | manageWorkbookObject | Office.js Table fields; banded + showFirstColumn/showLastColumn **ExcelApi 1.3**; same-sheet single-area A1 resize **ExcelApi 1.13** with host overlap/header-row rules |
@@ -42,7 +45,8 @@ Evidence columns:
 | chart | series bubbleSizes update | implemented | **unsupported** | formatChart series bubble | Office.js `setBubbleSizes` (1.7) + `getDimensionDataSourceString("BubbleSizes")` (**ExcelApi 1.15**); same-sheet A1; bubble chart only; host source string readback; bubble type via create/update (Phase27); **unsupported**: formula/categoryFormula/array/cross-sheet/trendlines/bubbleScale/showBubbleSize/getDimensionValues-as-primary/PDF/path export |
 | chart | image get (Base64) | implemented | **unsupported** | formatChart export PNG path | Office.js `Chart.getImage` **ExcelApi 1.2** → memory Base64 only; optional width/height 1–4096; **unsupported**: path write/PDF/MIME claim/fittingMode |
 | range | image get (Base64 PNG) | implemented | **unsupported** | office.action snapshot range PNG | Office.js `Range.getImage` **ExcelApi 1.7** → memory Base64 only; host sheetName/address readback; **unsupported**: path write/PDF/MIME claim/width/height |
-| range | insert / delete / autofit | implemented | **unsupported** | row/column insert/delete + autofit | Office.js `Range.insert/delete` **ExcelApi 1.1**; `RangeFormat.autofitRows` / `RangeFormat.autofitColumns` **ExcelApi 1.2** with rowHeight/columnWidth readback; WPS has no verified JSA contract |
+| range | insert / delete | implemented | implemented* | row/column insert/delete | Office.js `Range.insert/delete` **ExcelApi 1.1** shift down\|right / up\|left; *WPS: `Range.Insert`/`Delete` + xlShift member-probe + mock tests; **not** official JSA / **not** real sideload |
+| range | autofit | implemented | implemented* | row/column autofit | Office.js `RangeFormat.autofitRows` / `RangeFormat.autofitColumns` **ExcelApi 1.2** with rowHeight/columnWidth readback; WPS `wpsAutofitRange` member-probe + mock tests; *not official JSA / not real sideload |
 
 
 
@@ -60,21 +64,21 @@ Evidence columns:
 | UI | task-pane controls beyond demo | unsupported | unsupported | N/A | task pane is host chrome only |
 | UI | UserForm / ActiveX / VBA forms | unsupported | unsupported | partial desktop | **out of scope** |
 | UI | custom ribbon menus / command bars | unsupported | unsupported | partial desktop | **out of scope** |
-| sheet | visibility get/set (visible/hidden/veryHidden) | implemented | **unsupported** | hide/veryHide/show | Office.js `Worksheet.visibility` |
+| sheet | visibility get/set (visible/hidden/veryHidden) | implemented | implemented* | hide/veryHide/show | Office.js `Worksheet.visibility`; *WPS: `Worksheet.Visible` member-probe + mock only |
 | sheet | display get/set (tabColor/showGridlines/showHeadings) | implemented | **unsupported** | worksheet update tabColor/gridlines | Office.js `Worksheet.tabColor|showGridlines|showHeadings`; empty tabColor=auto |
 | sheet | freeze get/set (rows/columns/at/clear) | implemented | **unsupported** | template freezeRows | Office.js `Worksheet.freezePanes`; location writeback |
 | sheet | pageLayout get/set (print settings subset) | implemented | **unsupported** | inspectPrintSettings/configurePrint | Office.js **ExcelApi 1.9**: paperSize/zoom/fit; draftMode/printOrder/firstPageNumber; margins header/footer points; headers/footers default text; **manual** horizontal/vertical page breaks (A1 append + clearPageBreaks); **unsupported**: auto page breaks/clear titles/first|even|odd/state/images/fitToOnePage |
-| sheet | protection get/protect/unprotect | implemented | **unsupported** | protect/unprotect | Office.js `Worksheet.protection`; password request-memory only |
-| named range | list/create/update/delete | implemented | **unsupported** | name.* | Office.js names；rename=add-then-delete（add 失败保留旧名；冲突大小写不敏感） |
+| sheet | protection get/protect/unprotect | implemented | implemented* | protect/unprotect | Office.js `Worksheet.protection`; password request-memory only; *WPS: ProtectContents/Protect/Unprotect member-probe; password never echoed |
+| named range | list/create/update/delete | implemented | implemented* | name.* | Office.js names；rename=add-then-delete；*WPS: Names Add/Delete member-probe；rename Add 先于 Delete，失败回滚 |
 | shape | list/create/delete/update (MVP) | implemented | **unsupported** | manageWorkbookObject shape | Office.js ExcelApi 1.9 `Worksheet.shapes`；geometric whitelist + textBox；shallow pos/size/text/visible；**no** image/line/group/fill/lineFormat/rotation/zOrder |
 
 ## Runnable tools
 
 - Phase1: `host.status`, `selection.get`, `range.read/write/clear`, `formula.read/write`, `sheet.list/add/rename/delete`
-- Phase3: `range.format.read/write`, `table.list/create/delete`, `chart.list/create/delete`, `workbook.inspect` (Office.js full; WPS format/table/chart unsupported)
-- Phase4: `range.read` expand, `formula.context`, `sheet.operation` (add/rename/delete/copy/move)
+- Phase3: `range.format.read/write`, `table.list/create/delete`, `chart.list/create/delete`, `workbook.inspect` (Office.js full; **WPS format = implemented* member-probe**; table/chart still unsupported)
+- Phase4: `range.read` expand, `formula.context`, `sheet.operation` (add/rename/delete/copy/move). WPS: currentRegion + copy/move = implemented* (member-probe); spill/currentArray still unsupported
 - Phase5: `conditionalFormat.list/add/delete`, `dataValidation.read/write/clear` (Office.js via `rule`; WPS unsupported)
-- Phase6: `sheet.visibility.get/set`, `sheet.protection.get/protect/unprotect`, `namedRange.list/create/update/delete` (Office.js; WPS unsupported)
+- Phase6: `sheet.visibility.get/set`, `sheet.protection.get/protect/unprotect`, `namedRange.list/create/update/delete` (Office.js + **WPS implemented*** member-probe; not device-verified)
 - Phase7: `table.update`, `chart.update` (initial shallow fields; Office.js; WPS unsupported)
 - Phase9: `sheet.display.get/set` (tabColor empty=auto or #RRGGBB, showGridlines, showHeadings; Office.js; WPS unsupported)
 - Phase10: `workbook.inspect` per-sheet `usedRangeAddress`/`rowCount`/`columnCount` (Office.js; WPS dims unset)
@@ -84,7 +88,7 @@ Evidence columns:
 - Phase14: chart.update/list style + legendVisible (Office.js Chart.style / legend.visible)
 - Phase15: `shape.list/create/delete/update` (Office.js shapes MVP; WPS unsupported)
 - Phase16: `chart.series.list` / `chart.series.update` (name/chartType/smooth only; 1-based index; Office.js; WPS unsupported)
-- Phase17: `chart.source.update` (same-sheet A1 setData + seriesBy auto|rows|columns; series readback; Office.js; WPS unsupported)
+- Phase17: `chart.source.update` (Office.js `Chart.setData(Range)`: same-sheet **or** cross-sheet `Sheet2!A1` / `'Sheet 2'!A1`; rejects external/3D/multi-area/structured; series readback; WPS unsupported)
 - Phase18: `chart.axes.update` (category|value primary|secondary; title/min/max/majorUnit/numberFormat/reverse; Office.js; WPS unsupported)
 - Phase19: `chart.series.dataLabels.update` (showValue/showCategoryName/showSeriesName/numberFormat; ExcelApi 1.8 path; 1-based seriesIndex; Office.js; WPS unsupported)
 - Phase20: `chart.series.axisGroup.update` (primary|secondary; 1-based seriesIndex; Office.js; WPS unsupported)
@@ -102,7 +106,7 @@ Evidence columns:
 - Phase32: `sheet.pageLayout` adds default-page `headers`/`footers` left|center|right text (**ExcelApi 1.9** headersFooters.defaultForAllPages; "" clears; host readback; WPS unsupported)
 - Phase33: `sheet.pageLayout` adds manual `horizontalPageBreaks`/`verticalPageBreaks` + `clearPageBreaks` (**ExcelApi 1.9** Worksheet page break collections; bare A1; append not replace; [] no-op; WPS unsupported). **unsupported**: automatic page breaks, single-break delete tool, printArea/titles clear, fitToOnePage
 - Phase34: `range.image.get` (ExcelApi 1.7 Range.getImage Base64 PNG; memory only; no width/height/path/PDF/MIME; Office.js; WPS unsupported)
-- Phase38: `range.insert` / `range.delete` (ExcelApi 1.1, shift down|right/up|left) and `range.autofit` (ExcelApi 1.2, rows|columns|both with dimension readback); Office.js only, WPS typed unsupported
+- Phase38: `range.insert` / `range.delete` (ExcelApi 1.1 Office.js + **WPS implemented*** xlShift member-probe) and `range.autofit` (ExcelApi 1.2; Office.js + **WPS implemented*** member-probe)
 - Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with requirement-set precheck and write→sync→load→sync host readback; overlap/header-row geometry remains host-validated; WPS unsupported
 - Phase41: formula governance tools wired to pure core — `formula.dependencies.inspect` (safe), `formula.references.repair` / `formula.convertToValues` / `formula.backups.restore` (dangerous), `formula.backups.inspect` (safe); plan-first repair; mandatory backup for convert; WPS member-probe paths; **not** real sideload verified
 - Phase40: `formula.protection.inspect` (safe) + `formula.protection.manage` (dangerous): ExcelApi 1.2 locked on formula cells only; scope workbook|sheet|target; unlockInputs range-limited; protectSheet optional; password request-memory only; post-write verify; WPS unsupported; **not** real Excel sideload verified
@@ -121,9 +125,26 @@ Evidence columns:
 
 ## Assumptions (WPS)
 
-In-repo verified JSA surface: Application / ActiveWorkbook name / JSIDE CodeModule via desktop bridge.
+In-repo verified JSA surface (desktop bridge history): Application / ActiveWorkbook name / JSIDE CodeModule.
 Range value/formula/sheet ops use common ET assumptions with member checks.
-Format / ListObjects / ChartObjects / expand / sheet copy-move are **not** verified — typed `unsupported`.
+
+**WPS implemented*** (member-probe + mock/unit tests only; **not** official JSA contract; **not** real device sideload):
+
+- `range.read` expand **currentRegion** (`wpsJsaRangeRead.ts`)
+- `sheet.operation` **copy/move** (`wpsJsaSheetOps.ts`)
+- `range.format.read/write` (`wpsJsaFormat.ts`)
+- `range.autofit` / `range.insert` / `range.delete` (`wpsJsaRangeStructureUnsupported.ts`; Insert/Delete use xlShift constants)
+- `sheet.visibility.get/set` (`wpsJsaSheetVisibility.ts`)
+- `sheet.protection.get/protect/unprotect` (`wpsJsaSheetProtection.ts`; password request-memory only, never echoed)
+- `namedRange.list/create/update/delete` (`wpsJsaNamedRanges.ts`; rename = Add then Delete with rollback)
+- formula governance: dependencies / repair / convertToValues / backups inspect|restore (`wpsJsaFormulaGovernance*`)
+
+**WPS still typed unsupported** (do not enlarge claims):
+
+- expand **spill** / **currentArray**
+- `formula.protection.*`
+- table / chart / CF / DV / pageLayout / freeze / display / shape / range.image / chart.image
+- macros / Power Query / Pivot / arbitrary-path OpenXML / workbook open-create-save-switch / cross-Office disk transactions
 
 ## 交付/侧载状态
 

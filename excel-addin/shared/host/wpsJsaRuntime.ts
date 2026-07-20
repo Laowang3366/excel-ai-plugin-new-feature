@@ -45,6 +45,10 @@ export interface WpsRange {
   Rows?: WpsRangeCollection;
   EntireColumn?: WpsRangeCollection;
   EntireRow?: WpsRangeCollection;
+  /** Excel/WPS COM Range.Insert(Shift). */
+  Insert?: (shift?: number | string) => WpsRange | void;
+  /** Excel/WPS COM Range.Delete(Shift). */
+  Delete?: (shift?: number | string) => void;
 }
 
 export interface WpsSheet {
@@ -57,6 +61,13 @@ export interface WpsSheet {
   Copy?: (before?: WpsSheet | undefined, after?: WpsSheet | undefined) => void;
   /** Excel/WPS COM: Move(Before?, After?). */
   Move?: (before?: WpsSheet | undefined, after?: WpsSheet | undefined) => void;
+  /** xlSheetVisible=-1, Hidden=0, VeryHidden=2 (desktop ExcelObjectActionService). */
+  Visible?: number | string;
+  /** True when sheet contents are protected. */
+  ProtectContents?: boolean;
+  Protect?: (password?: string, ...rest: unknown[]) => void;
+  Unprotect?: (password?: string) => void;
+  Names?: WpsNames;
 }
 
 export interface WpsSheets {
@@ -65,10 +76,24 @@ export interface WpsSheets {
   Add?: (before?: unknown, after?: unknown, count?: number, type?: unknown) => WpsSheet;
 }
 
+export interface WpsName {
+  Name?: string;
+  RefersTo?: string;
+  Visible?: boolean;
+  Delete?: () => void;
+}
+
+export interface WpsNames {
+  Count?: number;
+  Item?: (indexOrName: number | string) => WpsName;
+  Add?: (name: string, refersTo?: string, ...rest: unknown[]) => WpsName;
+}
+
 export interface WpsWorkbook {
   Name: string;
   ActiveSheet: WpsSheet;
   Worksheets: WpsSheets;
+  Names?: WpsNames;
 }
 
 export interface WpsApplication {

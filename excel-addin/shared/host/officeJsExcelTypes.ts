@@ -175,6 +175,8 @@ export interface ExcelChart {
   top: number;
   width: number;
   height: number;
+  /** Official: Chart.setData(sourceData: Range, seriesBy?: ChartSeriesBy). */
+  setData(sourceData: ExcelRange, seriesBy?: string): void;
   delete(): void;
   load(props: string): void;
 }

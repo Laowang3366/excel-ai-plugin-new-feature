@@ -68,6 +68,39 @@ describe("add-in prompt runtime parity", () => {
     expect(boundary).not.toMatch(/值、公式、格式、固定汇总用 `range\.write`/);
   });
 
+  it("advanced boundary allows WPS implemented* subset and keeps spill/protection/table unsupported", () => {
+    const boundary = buildAdvancedExcelBoundary({ content: "清洗表格并做图表" });
+    // Implemented* on WPS — model must not blanket-reject these
+    expect(boundary).toContain("currentRegion");
+    expect(boundary).toContain("range.format.read/write");
+    expect(boundary).toContain("range.autofit");
+    expect(boundary).toContain("range.insert");
+    expect(boundary).toContain("range.delete");
+    expect(boundary).toContain("sheet.visibility.get/set");
+    expect(boundary).toContain("sheet.protection.get/protect/unprotect");
+    expect(boundary).toContain("namedRange.list/create/update/delete");
+    expect(boundary).toContain("copy/move");
+    expect(boundary).toContain("formula.dependencies.inspect");
+    expect(boundary).toContain("formula.backups.inspect|restore");
+    expect(boundary).toContain("跨表");
+    expect(boundary).toMatch(/成员缺失/);
+    expect(boundary).toContain("COM/.NET/Shell");
+    // Still unsupported on WPS
+    expect(boundary).toContain("spill|currentArray");
+    expect(boundary).toContain("formula.protection.*");
+    expect(boundary).toContain("仍 typed unsupported");
+    expect(boundary).toContain("table/filter/sort");
+    expect(boundary).toContain("chart 全系");
+    // Must not claim the whole batch is WPS unsupported for format/copy/autofit
+    expect(boundary).not.toMatch(
+      /WPS JSA 对本批 expand、format、range\.insert、range\.delete、range\.autofit/,
+    );
+    // insert/delete/visibility/protection/namedRange are no longer in the WPS unsupported list
+    expect(boundary).not.toMatch(
+      /仍 typed unsupported[\s\S]*`range\.insert`\/`range\.delete`[\s\S]*visibility/,
+    );
+  });
+
   it("detects advanced intents but keeps PQ/Pivot unsupported in boundary text", () => {
     const pq = resolveOfficeAdvancedIntents({ content: "创建 Power Query 可刷新 ETL" });
     expect(pq.has("refreshable-etl")).toBe(true);

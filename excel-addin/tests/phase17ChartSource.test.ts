@@ -1,24 +1,63 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeJsAdapter } from "../shared/host/officeJsAdapter";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
-import { normalizeSameSheetSourceRange } from "../shared/host/officeJsChartSource";
+import {
+  normalizeSameSheetSourceRange,
+  parseChartSourceRange,
+} from "../shared/host/officeJsChartSource";
 import { TOOL_DEFINITIONS, ToolExecutor } from "../shared/tools";
 import { installChartSourceExcel } from "./fakes/officeJsChartSourceFake";
 import { MockHostAdapter } from "./mockHost";
 
 describe("phase17 chart source update", () => {
-  describe("normalizeSameSheetSourceRange", () => {
+  describe("parseChartSourceRange", () => {
+    it("parses bare A1 and same-sheet prefix", () => {
+      expect(parseChartSourceRange("Sheet1", "a1:b3")).toEqual({
+        sourceSheetName: "Sheet1",
+        bareA1: "A1:B3",
+        displaySourceRange: "A1:B3",
+      });
+      expect(parseChartSourceRange("Sheet1", "Sheet1!A1:C2").displaySourceRange).toBe("A1:C2");
+    });
+
+    it("parses cross-sheet and quoted sheet names", () => {
+      const cross = parseChartSourceRange("Sheet1", "Sheet2!A1:B10");
+      expect(cross.sourceSheetName).toBe("Sheet2");
+      expect(cross.bareA1).toBe("A1:B10");
+      expect(cross.displaySourceRange).toBe("Sheet2!A1:B10");
+
+      const spaced = parseChartSourceRange("Sheet1", "'Sheet 2'!A1:B2");
+      expect(spaced.sourceSheetName).toBe("Sheet 2");
+      expect(spaced.displaySourceRange).toBe("'Sheet 2'!A1:B2");
+    });
+
+    it("parses and re-escapes sheet names containing apostrophes (Excel '')", () => {
+      const parsed = parseChartSourceRange("Sheet1", "'O''Brien'!A1:B2");
+      expect(parsed.sourceSheetName).toBe("O'Brien");
+      expect(parsed.bareA1).toBe("A1:B2");
+      expect(parsed.displaySourceRange).toBe("'O''Brien'!A1:B2");
+    });
+
+    it("rejects external, 3D, multi-area, structured, and invalid A1", () => {
+      expect(() => parseChartSourceRange("Sheet1", "[Book.xlsx]Sheet1!A1")).toThrow(/external/i);
+      expect(() => parseChartSourceRange("Sheet1", "'[Book.xlsx]Data'!A1")).toThrow(/external/i);
+      expect(() => parseChartSourceRange("Sheet1", "Sheet1:Sheet3!A1")).toThrow(/3D/i);
+      expect(() => parseChartSourceRange("Sheet1", "A1:B2,C3:D4")).toThrow(/multi-area/i);
+      expect(() => parseChartSourceRange("Sheet1", "Table1[Col]")).toThrow(/structured/i);
+      expect(() => parseChartSourceRange("Sheet1", "   ")).toThrow();
+      expect(() => parseChartSourceRange("Sheet1", "not-a-range")).toThrow(/A1/i);
+      expect(() => parseChartSourceRange("Sheet1", "A0")).toThrow(/row must be >= 1/);
+    });
+  });
+
+  describe("normalizeSameSheetSourceRange (series helpers)", () => {
     it("strips matching sheet prefix and uppercases", () => {
       expect(normalizeSameSheetSourceRange("Sheet1", "Sheet1!a1:b3")).toBe("A1:B3");
       expect(normalizeSameSheetSourceRange("Sheet1", "A1:C2")).toBe("A1:C2");
     });
-    it("rejects cross-sheet, empty, multi-area, and row 0", () => {
+    it("still rejects cross-sheet for same-sheet helpers", () => {
       expect(() => normalizeSameSheetSourceRange("Sheet1", "Other!A1")).toThrow(/same worksheet/);
-      expect(() => normalizeSameSheetSourceRange("Sheet1", "   ")).toThrow();
-      expect(() => normalizeSameSheetSourceRange("Sheet1", "not-a-range")).toThrow(/A1/);
       expect(() => normalizeSameSheetSourceRange("Sheet1", "A1:B2,C3:D4")).toThrow(/multi-area/);
-      expect(() => normalizeSameSheetSourceRange("Sheet1", "A0")).toThrow(/row must be >= 1/);
-      expect(() => normalizeSameSheetSourceRange("Sheet1", "A0:B1")).toThrow(/row must be >= 1/);
     });
   });
 
@@ -29,6 +68,7 @@ describe("phase17 chart source update", () => {
     });
     afterEach(() => {
       delete (globalThis as { Excel?: unknown }).Excel;
+      delete (globalThis as { window?: unknown }).window;
     });
 
     it("setData is pending until first sync; series only after load+sync", async () => {
@@ -53,6 +93,7 @@ describe("phase17 chart source update", () => {
       }
       expect(fake.getPending()).toBeUndefined();
       expect(fake.getCommitted().sourceRange).toBe("A1:C3");
+      expect(fake.getCommitted().sourceSheet).toBe("Sheet1");
       expect(fake.getItemsVisible()).toBe(true);
     });
 
@@ -81,7 +122,7 @@ describe("phase17 chart source update", () => {
       }
     });
 
-    it("accepts same-sheet Sheet! prefix and rejects cross-sheet", async () => {
+    it("accepts same-sheet Sheet! prefix", async () => {
       const adapter = new OfficeJsAdapter();
       const ok = await adapter.updateChartSource({
         sheetName: "Sheet1",
@@ -91,13 +132,91 @@ describe("phase17 chart source update", () => {
       });
       expect(ok.ok).toBe(true);
       if (ok.ok) expect(ok.data.sourceRange).toBe("B2:D5");
+    });
 
-      const bad = await adapter.updateChartSource({
+    it("supports cross-sheet source via setData Range from source worksheet", async () => {
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.updateChartSource({
         sheetName: "Sheet1",
         chartName: "C1",
-        sourceRange: "Other!A1:B2",
+        sourceRange: "Sheet2!A1:C3",
+        seriesBy: "columns",
       });
-      expect(bad.ok).toBe(false);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.sourceRange).toBe("Sheet2!A1:C3");
+        expect(result.data.series.map((s) => s.name)).toEqual(["C1", "C2"]);
+      }
+      expect(fake.getCommitted().sourceSheet).toBe("Sheet2");
+      expect(fake.getCommitted().sourceRange).toBe("A1:C3");
+    });
+
+    it("supports quoted sheet names with spaces", async () => {
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.updateChartSource({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        sourceRange: "'Sheet 2'!A1:B4",
+        seriesBy: "rows",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.sourceRange).toBe("'Sheet 2'!A1:B4");
+        expect(result.data.series.map((s) => s.name)).toEqual(["R1", "R2", "R3"]);
+      }
+      expect(fake.getCommitted().sourceSheet).toBe("Sheet 2");
+    });
+
+    it("supports apostrophe sheet names via Excel '' escaping", async () => {
+      fake = installChartSourceExcel({ sheets: ["Sheet1", "O'Brien"] });
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.updateChartSource({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        sourceRange: "'O''Brien'!A1:B4",
+        seriesBy: "columns",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.sourceRange).toBe("'O''Brien'!A1:B4");
+      }
+      expect(fake.getCommitted().sourceSheet).toBe("O'Brien");
+    });
+
+    it("fails clearly when source sheet is missing", async () => {
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.updateChartSource({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        sourceRange: "Missing!A1:B2",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.reason).toMatch(/not found|ItemNotFound|Missing/i);
+      }
+    });
+
+    it("rejects illegal external workbook references", async () => {
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.updateChartSource({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        sourceRange: "[Other.xlsx]Sheet1!A1:B2",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toMatch(/external/i);
+    });
+
+    it("fails when Chart.setData is missing on host", async () => {
+      fake = installChartSourceExcel({ withSetData: false });
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.updateChartSource({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        sourceRange: "A1:B2",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toMatch(/setData/i);
     });
 
     it("skipping first sync after setData yields old series snapshot", async () => {
@@ -216,6 +335,7 @@ describe("phase17 chart source update", () => {
       expect((def?.parameters as { additionalProperties?: boolean }).additionalProperties).toBe(
         false,
       );
+      expect(def?.description).toMatch(/跨表|Sheet2/i);
     });
   });
 

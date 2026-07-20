@@ -1,15 +1,14 @@
 /**
  * Sync-gated fake for Chart.setData + series readback.
  * setData writes stay pending until context.sync(); series.items only after load+sync.
+ * Multi-sheet worksheets supported for cross-sheet source Range proxies.
  */
-
 type SeriesState = { name: string; chartType: string; smooth: boolean };
-type SourceState = { sourceRange: string; seriesBy: string; series: SeriesState[] };
 
 type ChartState = {
   name: string;
-  committed: SourceState;
-  pending: SourceState | undefined;
+  pending?: { sourceRange: string; seriesBy: string; series: SeriesState[]; sourceSheet: string };
+  committed: { sourceRange: string; seriesBy: string; series: SeriesState[]; sourceSheet: string };
 };
 
 type SeriesProxy = {
@@ -18,50 +17,60 @@ type SeriesProxy = {
   smooth: boolean;
 };
 
-export function installChartSourceExcel() {
+export function installChartSourceExcel(options?: {
+  sheets?: string[];
+  chartSheet?: string;
+  chartName?: string;
+  /** When false, chart has no setData method. */
+  withSetData?: boolean;
+}) {
+  const sheetNames = options?.sheets ?? ["Sheet1", "Sheet2", "Sheet 2"];
+  const chartSheetName = options?.chartSheet ?? "Sheet1";
+  const chartName = options?.chartName ?? "C1";
+  const withSetData = options?.withSetData !== false;
+
   const chart: ChartState = {
-    name: "C1",
+    name: chartName,
     committed: {
       sourceRange: "A1:B2",
       seriesBy: "Auto",
+      sourceSheet: chartSheetName,
       series: [
         { name: "Series1", chartType: "ColumnClustered", smooth: false },
         { name: "Series2", chartType: "ColumnClustered", smooth: false },
       ],
     },
-    pending: undefined,
   };
 
   let seriesItems: SeriesProxy[] | null = null;
   let pendingSeriesItems: SeriesProxy[] | null = null;
   const seriesSnapshots = new WeakMap<SeriesProxy, SeriesState>();
 
-  function makeSeriesProxy(_state: SeriesState): SeriesProxy {
-    const proxy: SeriesProxy = {
-      get name() {
-        const snap = seriesSnapshots.get(proxy);
-        if (!snap) throw new Error("ChartSeries.name not loaded");
-        return snap.name;
+  function makeSeriesProxy(snap: SeriesState): SeriesProxy {
+    const proxy = {} as SeriesProxy;
+    Object.defineProperties(proxy, {
+      name: {
+        get() {
+          return seriesSnapshots.get(proxy)?.name ?? snap.name;
+        },
       },
-      get chartType() {
-        const snap = seriesSnapshots.get(proxy);
-        if (!snap) throw new Error("ChartSeries.chartType not loaded");
-        return snap.chartType;
+      chartType: {
+        get() {
+          return seriesSnapshots.get(proxy)?.chartType ?? snap.chartType;
+        },
       },
-      get smooth() {
-        const snap = seriesSnapshots.get(proxy);
-        if (!snap) throw new Error("ChartSeries.smooth not loaded");
-        return snap.smooth;
+      smooth: {
+        get() {
+          return seriesSnapshots.get(proxy)?.smooth ?? snap.smooth;
+        },
       },
-    };
+    });
     return proxy;
   }
 
   function buildSeriesFromSource(sourceRange: string, seriesBy: string): SeriesState[] {
-    // Minimal deterministic model: columns → 1 series per data column after header row;
-    // rows → 1 series per data row after header col; auto → columns.
-    const bare = sourceRange.includes("!") ? sourceRange.split("!")[1]! : sourceRange;
-    const parts = bare.split(":")[0] && bare.includes(":") ? bare.split(":") : [bare, bare];
+    const bare = sourceRange.includes("!") ? sourceRange.split("!").pop()! : sourceRange;
+    const parts = bare.includes(":") ? bare.split(":") : [bare, bare];
     const start = parts[0]!;
     const end = parts[1] ?? parts[0]!;
     const col = (a: string) => {
@@ -91,21 +100,44 @@ export function installChartSourceExcel() {
     }));
   }
 
-  const chartApi = {
+  function makeRange(sheetName: string, address: string) {
+    const bare = address.includes("!") ? address.split("!").pop()! : address;
+    return {
+      address: `${sheetName}!${bare.toUpperCase()}`,
+      load() {},
+    };
+  }
+
+  function makeWorksheet(name: string) {
+    return {
+      getRange(address: string) {
+        return makeRange(name, address);
+      },
+      charts: {
+        getItem(nameArg: string) {
+          if (name !== chartSheetName) {
+            throw new Error(`Worksheet ${name} has no charts collection access in fake`);
+          }
+          if (nameArg !== chart.name) throw new Error(`missing chart ${nameArg}`);
+          return chartApi;
+        },
+      },
+    };
+  }
+
+  const chartApi: {
+    name: string;
+    load: (props?: string) => void;
+    setData?: (range: { address?: string }, seriesBy?: string) => void;
+    series: {
+      items: SeriesProxy[];
+      load: (props?: string) => void;
+    };
+  } = {
     get name() {
       return chart.name;
     },
     load(_props?: string) {},
-    setData(range: { address?: string }, seriesBy?: string) {
-      const address = String(range.address ?? "A1");
-      const bare = address.includes("!") ? address.split("!")[1]! : address;
-      const by = seriesBy ?? "Auto";
-      chart.pending = {
-        sourceRange: bare.toUpperCase(),
-        seriesBy: by,
-        series: buildSeriesFromSource(bare, by),
-      };
-    },
     series: {
       get items() {
         return seriesItems ?? [];
@@ -121,26 +153,29 @@ export function installChartSourceExcel() {
     },
   };
 
+  if (withSetData) {
+    chartApi.setData = (range: { address?: string }, seriesBy?: string) => {
+      const address = String(range.address ?? "A1");
+      const bang = address.indexOf("!");
+      const sourceSheet = bang >= 0 ? address.slice(0, bang) : chartSheetName;
+      const bare = bang >= 0 ? address.slice(bang + 1) : address;
+      const by = seriesBy ?? "Auto";
+      chart.pending = {
+        sourceRange: bare.toUpperCase(),
+        seriesBy: by,
+        sourceSheet,
+        series: buildSeriesFromSource(bare, by),
+      };
+    };
+  }
+
   const context = {
     workbook: {
       worksheets: {
         getItem(name: string) {
-          if (name !== "Sheet1") throw new Error(`missing sheet ${name}`);
-          return {
-            getRange(address: string) {
-              const bare = address.includes("!") ? address.split("!")[1]! : address;
-              return {
-                address: `Sheet1!${bare.toUpperCase()}`,
-                load() {},
-              };
-            },
-            charts: {
-              getItem(chartName: string) {
-                if (chartName !== chart.name) throw new Error(`missing chart ${chartName}`);
-                return chartApi;
-              },
-            },
-          };
+          const hit = sheetNames.find((s) => s.toLowerCase() === name.toLowerCase());
+          if (!hit) throw new Error(`ItemNotFound: Worksheet ${name} not found`);
+          return makeWorksheet(hit);
         },
       },
     },
@@ -194,16 +229,15 @@ export function installChartSourceExcel() {
     },
     /**
      * Broken production path: setData → load → single sync (no first sync).
-     * series load snapshots committed-at-load (old); after one sync series stay old
-     * while committed source is new — proves first-sync causality.
      */
     async brokenUpdateSkipFirstSync(sourceRange: string) {
-      const sheet = context.workbook.worksheets.getItem("Sheet1");
-      const chartApi = sheet.charts.getItem("C1");
-      chartApi.setData(sheet.getRange(sourceRange), "Columns");
-      chartApi.series.load("items/name,items/chartType,items/smooth");
+      const sheet = context.workbook.worksheets.getItem(chartSheetName);
+      const api = sheet.charts.getItem(chart.name);
+      if (!api.setData) throw new Error("setData missing");
+      api.setData(sheet.getRange(sourceRange), "Columns");
+      api.series.load("items/name,items/chartType,items/smooth");
       await context.sync();
-      return chartApi.series.items.map((item) => ({
+      return api.series.items.map((item) => ({
         name: item.name,
         chartType: item.chartType,
         smooth: item.smooth,
