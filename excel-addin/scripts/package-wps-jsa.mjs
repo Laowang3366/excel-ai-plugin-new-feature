@@ -22,6 +22,7 @@ import {
   WPS_ENTRY_SCRIPT,
   WPS_PUBLISH_URL,
 } from "./wpsJsaPackage.mjs";
+import { assertNoRuntimeDesktopDepsInPackageFiles } from "./runtimeDesktopDeps.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(__dirname, "..");
@@ -228,6 +229,14 @@ export function createWpsPackage(args = {}, env = process.env) {
     fs.writeFileSync(path.join(distDir, "SHA256SUMS.txt"), sums, "utf8");
     files = listFilesRecursiveStrict(distDir).sort();
     assertNoSensitiveDistPaths(files);
+
+    const textArtifacts = files
+      .filter((r) => /\.(js|mjs|cjs|html|css|json|xml|md|txt)$/i.test(r))
+      .map((rel) => ({
+        relativePath: rel,
+        content: fs.readFileSync(path.join(distDir, rel), "utf8"),
+      }));
+    assertNoRuntimeDesktopDepsInPackageFiles(textArtifacts);
 
     return {
       ok: true,

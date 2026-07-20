@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项交付门禁：区分提示词/文档中的 desktop·Electron 文本说明与运行时 import/require；WPS/生产包扫描禁止 child_process/Electron/COM/.NET 运行时依赖；WPS 剩余能力审计见 docs（无凭猜测扩实现）。
+
 - 文档纠偏：Office.js `chart.source.update` 同表/跨表 A1 已实现（非 cross-sheet unsupported）；WPS JSA 开发指引默认 `https://localhost:3000`。
 
 - 独立 Excel 加载项 WPS 数据验证：between/notBetween 缺 Formula2 时 read 诚实返回 unsupported（rule=null）；已有规则时 Delete 失败不再继续 Add；真实侧载尚未验收。

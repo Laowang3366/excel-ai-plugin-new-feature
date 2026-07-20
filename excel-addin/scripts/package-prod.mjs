@@ -24,6 +24,7 @@ import {
   renderOfficeManifest,
   validateOfficeManifest,
 } from "./officeManifest.mjs";
+import { assertNoRuntimeDesktopDepsInPackageFiles } from "./runtimeDesktopDeps.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(__dirname, "..");
@@ -205,6 +206,14 @@ export function createPackage(args, env = process.env) {
       viteBase: resolved.viteBase,
       relativePaths: rels,
     });
+
+    const textArtifacts = rels
+      .filter((r) => /\.(js|mjs|cjs|html|css|json|xml|md|txt)$/i.test(r))
+      .map((rel) => ({
+        relativePath: rel,
+        content: fs.readFileSync(path.join(distDir, rel), "utf8"),
+      }));
+    assertNoRuntimeDesktopDepsInPackageFiles(textArtifacts);
 
     return {
       ok: true,

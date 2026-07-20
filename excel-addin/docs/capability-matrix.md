@@ -152,6 +152,11 @@ Range value/formula/sheet ops use common ET assumptions with member checks.
 - table / chart / pageLayout / freeze / display / shape / range.image / chart.image
 - macros / Power Query / Pivot / arbitrary-path OpenXML / workbook open-create-save-switch / cross-Office disk transactions
 
+
+## WPS remaining-capability audit
+
+See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): no additional WPS features without bridge/member evidence; package gates distinguish prompt/doc text from runtime Electron/COM/.NET/child_process imports.
+
 ## 交付/侧载状态
 
 | 项 | 状态 | 说明 |
