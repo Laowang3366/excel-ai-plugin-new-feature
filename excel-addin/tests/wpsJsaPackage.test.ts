@@ -297,7 +297,14 @@ describe("createWpsPackage layout, hashes, and path safety", () => {
     mkdirSync(outsideDist, { recursive: true });
     writeFileSync(path.join(outsideDist, "sentinel.txt"), "keep");
     seedBuiltDist(outsideDist);
-    symlinkSync(outside, path.join(project, "linked"), "dir");
+    // win32: junction (absolute target) works without Developer Mode; other platforms use dir symlinks.
+    const linked = path.join(project, "linked");
+    const outsideAbs = path.resolve(outside);
+    symlinkSync(
+      outsideAbs,
+      linked,
+      process.platform === "win32" ? "junction" : "dir",
+    );
 
     expect(() =>
       createWpsPackage({
