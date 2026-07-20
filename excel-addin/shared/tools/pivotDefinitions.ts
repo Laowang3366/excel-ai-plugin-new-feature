@@ -65,7 +65,7 @@ export const PIVOT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "pivot.refresh",
     description:
-      "刷新当前工作簿透视表：省略 sheetName/name 刷新全部；可按 sheet 或 name 精确刷新。写后回读确认对象仍在。refreshConnections=true 拒绝（桌面 Workbook.RefreshAll 无可靠 Office.js 等价，非桌面对等）。必填 advancedIntent=interactive-pivot。Office.js ExcelApi 1.3（PivotTable.refresh）；WPS unsupported。",
+      "刷新当前工作簿透视表：省略 sheetName/name 刷新全部；可按 sheet 或 name 精确刷新。写后回读确认透视对象仍在。refreshConnections=true 时额外调用 Workbook.dataConnections.refreshAll（ExcelApi 1.7；仅 Office.js 支持的连接：如透视→Power BI、同簿 Data Model→表/区域；不含 Power Query/外部工作簿（Power BI 除外）/防火墙连接；无连接状态回读，verified:false，非完整 Workbook.RefreshAll）。false/省略仅 PivotTable.refresh（ExcelApi 1.3）。必填 advancedIntent=interactive-pivot。WPS unsupported。",
     riskLevel: "moderate",
     parameters: {
       type: "object",

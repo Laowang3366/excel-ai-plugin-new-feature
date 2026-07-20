@@ -92,8 +92,9 @@ export type PivotRefreshInput = {
   sheetName?: string;
   name?: string;
   /**
-   * Desktop maps true → Workbook.RefreshAll. Office.js has no proven equivalent;
-   * true is rejected at the tool/host boundary.
+   * When true, also queue Workbook.dataConnections.refreshAll() (ExcelApi 1.7).
+   * Limited Office.js connection set only — not full desktop Workbook.RefreshAll parity.
+   * Omitted/false: PivotTable.refresh only (ExcelApi 1.3).
    */
   refreshConnections?: boolean;
   advancedIntent?: "interactive-pivot";
@@ -105,9 +106,19 @@ export type PivotRefreshEntry = {
   refreshed: boolean;
 };
 
+/** Request-accepted connection refresh only; Office.js has no verified per-connection readback. */
+export type PivotConnectionRefreshInfo = {
+  requested: true;
+  method: "Workbook.dataConnections.refreshAll";
+  verified: false;
+  scope: "supported-office-js-connections";
+};
+
 export type PivotRefreshInfo = {
   refreshed: PivotRefreshEntry[];
   count: number;
+  /** Present only when refreshConnections=true and the request was queued. */
+  connectionRefresh?: PivotConnectionRefreshInfo;
   limitations?: string[];
 };
 

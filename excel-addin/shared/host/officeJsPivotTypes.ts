@@ -78,8 +78,15 @@ export type ExcelWorksheetWithPivot = ExcelWorksheet & {
   pivotTables: ExcelPivotTableCollection;
 };
 
+export type ExcelDataConnectionCollection = {
+  /** ExcelApi 1.7 — no official items/count readback contract. */
+  refreshAll(): void;
+};
+
 export type ExcelRequestContextWithPivot = ExcelRequestContext & {
   workbook: ExcelRequestContext["workbook"] & {
+    /** ExcelApi 1.7 DataConnectionCollection (optional member). */
+    dataConnections?: ExcelDataConnectionCollection;
     worksheets: ExcelRequestContext["workbook"]["worksheets"] & {
       getItem(name: string): ExcelWorksheetWithPivot;
       getItemOrNullObject?(name: string): ExcelWorksheetWithPivot & { isNullObject?: boolean };

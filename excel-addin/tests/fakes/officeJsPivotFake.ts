@@ -3,31 +3,21 @@
  */
 import {
   createLoadTracker,
+  installPivotOfficeRequirements,
   makeRange,
   type HierarchyAxis,
+  type InstallPivotExcelOptions,
   type Pending,
   type PivotState,
   type SheetState,
 } from "./officeJsPivotFakeHelpers";
 
-export type InstallPivotExcelOptions = {
-  excelApi18?: boolean;
-  /** When false, isSetSupported('ExcelApi','1.3') is false. Default true. */
-  excelApi13?: boolean;
-  missingIsSetSupported?: boolean;
-  isSetSupportedThrows?: boolean;
-  hierarchyNames?: string[];
-  sheets?: string[];
-  tamperHierarchies?: boolean;
-  strictLoad?: boolean;
-  missingAdd?: boolean;
-  missingRefresh?: boolean;
-  noDataSourceString?: boolean;
-};
+export type { InstallPivotExcelOptions };
 
 export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
   const excelApi18 = options.excelApi18 !== false;
   const excelApi13 = options.excelApi13 !== false;
+  const excelApi17 = options.excelApi17 !== false;
   const hierarchyNames = options.hierarchyNames ?? ["Region", "Product", "Sales"];
   const sheetNames = options.sheets ?? ["Sheet1"];
   const strictLoad = options.strictLoad !== false;
@@ -42,6 +32,7 @@ export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
   let syncCount = 0;
   let addCalls = 0;
   let refreshCalls = 0;
+  let connectionRefreshCalls = 0;
   let pending: Pending[] = [];
 
   function makeHierarchyCollection(pivot: PivotState, axis: HierarchyAxis) {
@@ -275,14 +266,27 @@ export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
       } else if (op.kind === "refresh") {
         refreshCalls += 1;
         op.pivot.refreshed = true;
+      } else if (op.kind === "connectionRefreshAll") {
+        connectionRefreshCalls += 1;
       }
     }
   }
+
+  const dataConnections = options.missingDataConnections
+    ? undefined
+    : {
+        refreshAll: options.missingRefreshAll
+          ? undefined
+          : () => {
+              pending.push({ kind: "connectionRefreshAll" });
+            },
+      };
 
   const context = {
     workbook: {
       name: "Book1.xlsx",
       load(_p?: string) {},
+      ...(dataConnections ? { dataConnections } : {}),
       worksheets: {
         items: [] as unknown[],
         load(props?: string) {
@@ -320,50 +324,22 @@ export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
   };
 
   const g = globalThis as unknown as {
-    window: unknown;
     Excel?: { run: <T>(fn: (ctx: typeof context) => Promise<T>) => Promise<T> };
-    Office?: {
-      context?: {
-        requirements?: { isSetSupported?: (name: string, version?: string) => boolean };
-      };
-    };
   };
-
-  g.window = globalThis;
   g.Excel = { run: async (fn) => fn(context) };
-
-  if (options.missingIsSetSupported) {
-    g.Office = { context: { requirements: {} } };
-  } else if (options.isSetSupportedThrows) {
-    g.Office = {
-      context: {
-        requirements: {
-          isSetSupported: () => {
-            throw new Error("isSetSupported boom");
-          },
-        },
-      },
-    };
-  } else {
-    g.Office = {
-      context: {
-        requirements: {
-          isSetSupported: (name: string, version?: string) => {
-            if (name !== "ExcelApi") return false;
-            if (version === "1.8") return excelApi18;
-            if (version === "1.3") return excelApi13;
-            // Higher/other sets not claimed for pivot
-            return false;
-          },
-        },
-      },
-    };
-  }
+  installPivotOfficeRequirements({
+    excelApi18,
+    excelApi17,
+    excelApi13,
+    missingIsSetSupported: options.missingIsSetSupported,
+    isSetSupportedThrows: options.isSetSupportedThrows,
+  });
 
   return {
     syncCount: () => syncCount,
     addCalls: () => addCalls,
     refreshCalls: () => refreshCalls,
+    connectionRefreshCalls: () => connectionRefreshCalls,
     pivotNames: (sheet?: string) => {
       const out: string[] = [];
       for (const s of sheets.values()) {

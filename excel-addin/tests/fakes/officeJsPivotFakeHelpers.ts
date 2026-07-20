@@ -30,6 +30,7 @@ export type Pending =
       data?: { name: string; summarizeBy: string; caption: string };
     }
   | { kind: "refresh"; pivot: PivotState }
+  | { kind: "connectionRefreshAll" }
   | { kind: "createSheet"; name: string };
 
 export function createLoadTracker() {
@@ -78,4 +79,69 @@ export function makeRange(
     },
   };
   return range;
+}
+
+
+export type InstallPivotExcelOptions = {
+  excelApi18?: boolean;
+  excelApi13?: boolean;
+  excelApi17?: boolean;
+  missingIsSetSupported?: boolean;
+  isSetSupportedThrows?: boolean;
+  hierarchyNames?: string[];
+  sheets?: string[];
+  tamperHierarchies?: boolean;
+  strictLoad?: boolean;
+  missingAdd?: boolean;
+  missingRefresh?: boolean;
+  missingDataConnections?: boolean;
+  missingRefreshAll?: boolean;
+  noDataSourceString?: boolean;
+};
+
+export function installPivotOfficeRequirements(options: {
+  excelApi18: boolean;
+  excelApi17: boolean;
+  excelApi13: boolean;
+  missingIsSetSupported?: boolean;
+  isSetSupportedThrows?: boolean;
+}): void {
+  const g = globalThis as unknown as {
+    window: unknown;
+    Office?: {
+      context?: {
+        requirements?: { isSetSupported?: (name: string, version?: string) => boolean };
+      };
+    };
+  };
+  g.window = globalThis;
+  if (options.missingIsSetSupported) {
+    g.Office = { context: { requirements: {} } };
+    return;
+  }
+  if (options.isSetSupportedThrows) {
+    g.Office = {
+      context: {
+        requirements: {
+          isSetSupported: () => {
+            throw new Error("isSetSupported boom");
+          },
+        },
+      },
+    };
+    return;
+  }
+  g.Office = {
+    context: {
+      requirements: {
+        isSetSupported: (name: string, version?: string) => {
+          if (name !== "ExcelApi") return false;
+          if (version === "1.8") return options.excelApi18;
+          if (version === "1.7") return options.excelApi17;
+          if (version === "1.3") return options.excelApi13;
+          return false;
+        },
+      },
+    },
+  };
 }

@@ -1,7 +1,8 @@
 /**
  * Pivot requirement-set prechecks.
  * - list/create + hierarchy layout: ExcelApi 1.8
- * - refresh (PivotTable.refresh / collection items name): ExcelApi 1.3
+ * - refresh PivotTable.refresh: ExcelApi 1.3
+ * - refreshConnections → Workbook.dataConnections.refreshAll: ExcelApi 1.7
  * Fail-safe: missing isSetSupported or throw → typed unsupported.
  */
 import type { HostResult } from "./types";
@@ -9,10 +10,12 @@ import { unsupported } from "./types";
 
 const REQUIREMENT_SET = "ExcelApi";
 
-export type PivotExcelApiVersion = "1.3" | "1.8";
+export type PivotExcelApiVersion = "1.3" | "1.7" | "1.8";
 
 const EVIDENCE: Record<PivotExcelApiVersion, string> = {
   "1.3": "PivotTable.refresh / PivotTableCollection items require ExcelApi 1.3",
+  "1.7":
+    "Workbook.dataConnections.refreshAll requires ExcelApi 1.7 (limited connection set; not full RefreshAll)",
   "1.8":
     "Worksheet.pivotTables.add + row/column/filter/data hierarchies require ExcelApi 1.8",
 };
@@ -60,4 +63,8 @@ export function requireExcelApi18ForPivot(capability: string): HostResult<never>
 
 export function requireExcelApi13ForPivotRefresh(capability: string): HostResult<never> | null {
   return requireExcelApiForPivot(capability, "1.3");
+}
+
+export function requireExcelApi17ForPivotConnections(capability: string): HostResult<never> | null {
+  return requireExcelApiForPivot(capability, "1.7");
 }

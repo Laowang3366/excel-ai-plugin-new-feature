@@ -45,7 +45,7 @@ describe("phase45 pivot host paths", () => {
       }
     });
 
-    it("rejects zero-field create and refreshConnections true", async () => {
+    it("rejects zero-field create", async () => {
       const host = new MockHostAdapter();
       const empty = await host.createPivot({
         sourceSheetName: "Sheet1",
@@ -53,13 +53,6 @@ describe("phase45 pivot host paths", () => {
       });
       expect(empty.ok).toBe(false);
       if (!empty.ok) expect(empty.reason).toMatch(/at least one field/);
-
-      const result = await host.refreshPivots({ refreshConnections: true });
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.reason).toMatch(/refreshConnections/);
-        expect(result.reason).toMatch(/not desktop parity|no proven Office\.js/i);
-      }
     });
   });
 
@@ -188,7 +181,7 @@ describe("phase45 pivot host paths", () => {
       }
     });
 
-    it("rejects illegal source and refreshConnections not-desktop-parity", async () => {
+    it("rejects illegal multi-area source", async () => {
       const adapter = new OfficeJsAdapter();
       const multi = await adapter.createPivot({
         sourceSheetName: "Sheet1",
@@ -196,13 +189,6 @@ describe("phase45 pivot host paths", () => {
         rowFields: ["Region"],
       });
       expect(multi.ok).toBe(false);
-
-      const conn = await adapter.refreshPivots({ refreshConnections: true });
-      expect(conn.ok).toBe(false);
-      if (!conn.ok) {
-        expect(conn.reason).toMatch(/refreshConnections/);
-        expect(conn.reason).toMatch(/not desktop parity|no proven Office\.js/i);
-      }
     });
 
     it("missing add member after precheck is failed not unsupported", async () => {

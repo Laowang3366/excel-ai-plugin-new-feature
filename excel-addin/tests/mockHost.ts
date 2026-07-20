@@ -2061,13 +2061,6 @@ export class MockHostAdapter implements HostAdapter {
   }
 
   async refreshPivots(input: PivotRefreshInput = {}): Promise<HostResult<PivotRefreshInfo>> {
-    if (input.refreshConnections === true) {
-      return fail(
-        "pivot.refresh",
-        this.kind,
-        "refreshConnections is not supported on the add-in: desktop Workbook.RefreshAll has no proven Office.js equivalent (not desktop parity)",
-      );
-    }
     let targets = [...this.pivots];
     if (input.sheetName) targets = targets.filter((p) => p.sheetName === input.sheetName);
     if (input.name) {
@@ -2076,14 +2069,38 @@ export class MockHostAdapter implements HostAdapter {
         return fail("pivot.refresh", this.kind, `pivot not found: ${input.name}`);
       }
     }
+    const wantConnections = input.refreshConnections === true;
+    if (targets.length === 0 && !wantConnections) {
+      return ok({
+        refreshed: [],
+        count: 0,
+        limitations: ["no pivot tables matched"],
+      });
+    }
     for (const t of targets) t.refreshed = true;
-    return ok({
+    const limitations: string[] = [];
+    const result: PivotRefreshInfo = {
       refreshed: targets.map((t) => ({
         name: t.name,
         sheetName: t.sheetName,
         refreshed: true,
       })),
       count: targets.length,
-    });
+    };
+    if (wantConnections) {
+      result.connectionRefresh = {
+        requested: true,
+        method: "Workbook.dataConnections.refreshAll",
+        verified: false,
+        scope: "supported-office-js-connections",
+      };
+      limitations.push(
+        "Office.js DataConnectionCollection.refreshAll only refreshes supported connections",
+        "Power Query / external workbook (except Power BI) / firewall connections unsupported",
+        "No connection status readback; verified:false",
+      );
+      result.limitations = limitations;
+    }
+    return ok(result);
   }
 }
