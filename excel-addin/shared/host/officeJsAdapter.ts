@@ -1,3 +1,4 @@
+import { officeJsInspectWorkbookObjects } from "./officeJsWorkbookObjects";
 import {
   getExcelRun,
   getOfficeJsRuntimeCapabilities,
@@ -301,6 +302,7 @@ export class OfficeJsAdapter implements HostAdapter {
   updateChartDataLabels = officeJsUpdateChartDataLabels;
   updateChartSeriesAxisGroup = officeJsUpdateChartSeriesAxisGroup;
   inspectWorkbook = officeJsInspectWorkbook;
+  inspectWorkbookObjects = officeJsInspectWorkbookObjects;
 
   listConditionalFormats = officeJsListConditionalFormats;
   addConditionalFormat = officeJsAddConditionalFormat;

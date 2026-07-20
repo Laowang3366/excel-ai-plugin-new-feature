@@ -37,6 +37,10 @@ import type {
 import type { ChartSourceInfo, ChartSourceUpdateInput } from "./chartSourceTypes";
 import type { ChartInfo, ChartType, ChartUpdateInput } from "./chartTypes";
 import type { ShapeCreateInput, ShapeInfo, ShapeUpdateInput } from "./shapeTypes";
+import type {
+  WorkbookObjectsInspectInfo,
+  WorkbookObjectsInspectInput,
+} from "./workbookObjectsTypes";
 import type { SheetDisplayInfo, SheetDisplayUpdateInput } from "./sheetDisplayTypes";
 import type { SheetFreezeInfo, SheetFreezeSetInput } from "./sheetFreezeTypes";
 import type {
@@ -218,6 +222,9 @@ export interface HostAdapter {
     input: ChartSeriesAxisGroupUpdateInput,
   ): Promise<HostResult<ChartSeriesAxisGroupInfo>>;
   inspectWorkbook(): Promise<HostResult<WorkbookInspectInfo>>;
+  inspectWorkbookObjects(
+    input?: WorkbookObjectsInspectInput,
+  ): Promise<HostResult<WorkbookObjectsInspectInfo>>;
   listConditionalFormats(
     sheetName: string,
     range: string,

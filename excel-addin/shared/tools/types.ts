@@ -60,6 +60,7 @@ export type ToolName =
   | "chart.image.get"
   | "range.image.get"
   | "workbook.inspect"
+  | "workbook.objects.inspect"
   | "conditionalFormat.list"
   | "conditionalFormat.add"
   | "conditionalFormat.delete"

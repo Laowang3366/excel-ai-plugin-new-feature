@@ -1,3 +1,4 @@
+import { wpsInspectWorkbookObjects } from "./wpsJsaWorkbookObjects";
 import { absoluteA1FromOrigin } from "./a1Address";
 import {
   formulaMatrixFrom,
@@ -344,6 +345,11 @@ export class WpsJsaAdapter implements HostAdapter {
   updateChartDataLabels = wpsStructureSurface.updateChartDataLabels;
   updateChartSeriesAxisGroup = wpsStructureSurface.updateChartSeriesAxisGroup;
   inspectWorkbook = () => wpsInspectWorkbook(() => this.listSheets());
+  inspectWorkbookObjects = (input?: import("./workbookObjectsTypes").WorkbookObjectsInspectInput) =>
+    wpsInspectWorkbookObjects(input ?? {}, {
+      listSheets: () => this.listSheets(),
+      listNamedRanges: (opts) => this.listNamedRanges(opts),
+    });
   listConditionalFormats = wpsListConditionalFormats;
   addConditionalFormat = wpsAddConditionalFormat;
   deleteConditionalFormat = wpsDeleteConditionalFormat;

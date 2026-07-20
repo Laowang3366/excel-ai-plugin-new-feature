@@ -90,7 +90,7 @@ import {
   normalizeSameSheetSourceRange,
 } from "../shared/host/officeJsChartSource";
 import { createMockStructureState } from "./mockStructure";
-import { ok, unsupported } from "../shared/host/types";
+import { fail, ok, unsupported } from "../shared/host/types";
 
 function key(sheet: string, address: string): string {
   return `${sheet}!${address.toUpperCase()}`;
@@ -1385,6 +1385,113 @@ export class MockHostAdapter implements HostAdapter {
       sheetCount: this.sheets.length,
       usedRangeAddress: this.usedRangeAddress,
       sheets: [...this.sheets],
+    });
+  }
+
+  /** Force a category status for workbook.objects.inspect tests. */
+  objectCategoryOverride: Partial<
+    Record<"tables" | "charts" | "namedRanges" | "shapes", "unsupported" | "failed">
+  > = {};
+
+  async inspectWorkbookObjects(
+    input: import("../shared/host/workbookObjectsTypes").WorkbookObjectsInspectInput = {},
+  ): Promise<
+    import("../shared/host/types").HostResult<
+      import("../shared/host/workbookObjectsTypes").WorkbookObjectsInspectInfo
+    >
+  > {
+    const {
+      availableCategory,
+      failedCategory,
+      sortCharts,
+      sortNamedRanges,
+      sortShapes,
+      sortSheets,
+      sortTables,
+      unsupportedCategory,
+    } = await import("../shared/host/workbookObjectsHelpers");
+    const { WORKBOOK_OBJECTS_MAX_DEFAULT } = await import(
+      "../shared/host/workbookObjectsTypes"
+    );
+    if (this.failCapability === "workbook.objects.inspect" || this.failCapability === "workbook.inspect") {
+      return fail(
+        "workbook.objects.inspect",
+        this.kind,
+        "forced workbook objects inspect failure",
+      );
+    }
+    const maxItems = input.maxItemsPerCategory ?? WORKBOOK_OBJECTS_MAX_DEFAULT;
+    const filterSheetName = input.sheetName?.trim() || undefined;
+    const allSheets = sortSheets([...this.sheets]);
+    let sheets = allSheets;
+    if (filterSheetName) {
+      const hit = allSheets.find(
+        (s) => s.name.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0,
+      );
+      if (!hit) {
+        return fail(
+          "workbook.objects.inspect",
+          this.kind,
+          `Worksheet not found: ${filterSheetName}`,
+        );
+      }
+      sheets = [hit];
+    }
+    const matchSheet = (sheetName: string) =>
+      !filterSheetName ||
+      sheetName.localeCompare(filterSheetName, undefined, { sensitivity: "accent" }) === 0;
+
+    const cat = <T,>(
+      key: "tables" | "charts" | "namedRanges" | "shapes",
+      items: T[],
+      sort: (items: T[]) => T[],
+    ) => {
+      const override = this.objectCategoryOverride[key];
+      if (override === "unsupported") {
+        return unsupportedCategory<T>(`${key} forced unsupported`, "mock");
+      }
+      if (override === "failed") {
+        return failedCategory<T>(`${key} forced failure`, "mock");
+      }
+      return availableCategory(items, maxItems, sort);
+    };
+
+    const named = await this.listNamedRanges();
+    const namedItems = named.ok
+      ? named.data.filter(
+          (n) =>
+            n.scope === "workbook" ||
+            (n.sheetName != null && matchSheet(n.sheetName)) ||
+            !filterSheetName,
+        )
+      : [];
+
+    const active = this.sheets.find((sheet) => sheet.isActive) ?? this.sheets[0];
+    return ok({
+      workbookName: this.workbookName,
+      activeSheetName: active?.name ?? "",
+      sheetCount: allSheets.length,
+      sheets,
+      tables: cat(
+        "tables",
+        this.tables.filter((t) => matchSheet(t.sheetName)),
+        sortTables,
+      ),
+      charts: cat(
+        "charts",
+        this.charts.filter((c) => matchSheet(c.sheetName)),
+        sortCharts,
+      ),
+      namedRanges: cat("namedRanges", namedItems, sortNamedRanges),
+      shapes: cat(
+        "shapes",
+        this.shapes.filter((s) => matchSheet(s.sheetName)),
+        sortShapes,
+      ),
+      limitations: [
+        "Mock inventory; not a real Office/WPS host.",
+      ],
+      filterSheetName,
     });
   }
 

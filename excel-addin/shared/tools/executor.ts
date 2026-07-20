@@ -119,6 +119,18 @@ function fromHost(
   return mapHostResultToToolResult(tool, result);
 }
 
+
+function parseMaxItemsPerCategory(args: Record<string, unknown>): number {
+  if (!Object.prototype.hasOwnProperty.call(args, "maxItemsPerCategory") || args.maxItemsPerCategory === undefined) {
+    return 100;
+  }
+  const value = args.maxItemsPerCategory;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 500) {
+    throw new Error("maxItemsPerCategory must be an integer between 1 and 500");
+  }
+  return value;
+}
+
 export class ToolExecutor {
   constructor(private readonly host: HostAdapter) {}
 
@@ -254,6 +266,14 @@ export class ToolExecutor {
           );
         case "workbook.inspect":
           return fromHost(call.name, await this.host.inspectWorkbook());
+        case "workbook.objects.inspect":
+          return fromHost(
+            call.name,
+            await this.host.inspectWorkbookObjects({
+              maxItemsPerCategory: parseMaxItemsPerCategory(call.arguments),
+              sheetName: optionalIdent(call.arguments, "sheetName"),
+            }),
+          );
         case "conditionalFormat.list":
           return fromHost(
             call.name,

@@ -52,6 +52,7 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 
 
 | workbook | inspect (name/active/usedRange + per-sheet dims) | implemented | implemented* | `workbook.inspect` | Office.js per-sheet address/rowCount/columnCount; empty=null/0/0. *WPS: active UsedRange address only; sheet dims not verified |
+| workbook | objects.inspect (sheets + tables/charts/namedRanges/shapes) | implemented | implemented* | `workbook.objects.inspect` | Safe inventory; categories status available\|unsupported\|failed; maxItemsPerCategory 1..500 default 100; truncated keeps totalCount; partial category failure OK. Office.js batched; *WPS: sheets+namedRanges available*, table/chart/shape unsupported (not empty success); **not** real sideload verified |
 | workbook | open/create/save/switch | unsupported | unsupported | `workbook.*` | out of scope |
 | macro | detect / write / run | **unsupported** | **unsupported** | `macro.*` (desktop bridge only) | 本加载项 Office.js 与 WPS 均无宏工具；desktop-source 仅记录桌面 localhost 桥，不得在加载项 runtime 宣称可用 |
 | Power Query | create/manage/inspect | unsupported | unsupported | PQ ops | not claimed available |
@@ -82,6 +83,7 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 - Phase7: `table.update`, `chart.update` (initial shallow fields; Office.js; WPS unsupported)
 - Phase9: `sheet.display.get/set` (tabColor empty=auto or #RRGGBB, showGridlines, showHeadings; Office.js; WPS unsupported)
 - Phase10: `workbook.inspect` per-sheet `usedRangeAddress`/`rowCount`/`columnCount` (Office.js; WPS dims unset)
+- Phase42: `workbook.objects.inspect` capped object inventory (Office.js full categories; WPS sheets+names; table/chart/shape unsupported categories)
 - Phase11: `sheet.freeze.get/set` (rows|columns|at|clear; Office.js freezePanes; WPS unsupported)
 - Phase12: `sheet.pageLayout.get/set` (orientation/margins/printArea/titles/zoom/flags; Office.js; WPS unsupported)
 - Phase13: chart types expanded to column|line|bar|area|pie|scatter; `toChartTypeLabel` order fixed

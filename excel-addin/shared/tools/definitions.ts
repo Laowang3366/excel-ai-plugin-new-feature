@@ -287,6 +287,21 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     riskLevel: "safe",
     parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
+  {
+    name: "workbook.objects.inspect",
+    description:
+      "只读聚合当前工作簿对象清单：sheets + tables/charts/namedRanges/shapes 分类。maxItemsPerCategory 默认 100（1..500），超限 truncated=true 且保留真实 totalCount；可选 sheetName 过滤表级对象（workbook 命名区域仍包含）。单分类 unsupported/failed 不拖垮整项；WPS 上 table/chart/shape 为 typed unsupported。",
+    riskLevel: "safe",
+    parameters: {
+      type: "object",
+      properties: {
+        maxItemsPerCategory: { type: "integer", minimum: 1, maximum: 500 },
+        sheetName: { type: "string", minLength: 1 },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+  },
   ...CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
   ...DATA_VALIDATION_TOOL_DEFINITIONS,
   ...CHART_TOOL_DEFINITIONS,

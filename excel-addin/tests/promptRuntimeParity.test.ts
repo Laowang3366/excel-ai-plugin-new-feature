@@ -71,6 +71,7 @@ describe("add-in prompt runtime parity", () => {
   it("advanced boundary allows WPS implemented* subset and keeps spill/protection/table unsupported", () => {
     const boundary = buildAdvancedExcelBoundary({ content: "清洗表格并做图表" });
     // Implemented* on WPS — model must not blanket-reject these
+    expect(boundary).toContain("workbook.objects.inspect");
     expect(boundary).toContain("currentRegion");
     expect(boundary).toContain("range.format.read/write");
     expect(boundary).toContain("range.autofit");

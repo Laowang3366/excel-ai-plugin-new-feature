@@ -27,6 +27,7 @@ describe("chat readonly allowlist", () => {
       "chart.image.get",
       "range.image.get",
       "workbook.inspect",
+      "workbook.objects.inspect",
       "conditionalFormat.list",
       "dataValidation.read",
       "sheet.visibility.get",

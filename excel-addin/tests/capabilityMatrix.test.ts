@@ -59,6 +59,7 @@ describe("capability matrix", () => {
       "ExcelApi 1.1",
       "ExcelApi 1.2",
       "workbook.inspect",
+      "workbook.objects.inspect",
       "Power Query",
       "COM / .NET / Electron",
       "unsupported",

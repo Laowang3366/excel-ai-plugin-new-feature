@@ -22,6 +22,7 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "chart.image.get",
   "range.image.get",
   "workbook.inspect",
+  "workbook.objects.inspect",
   "conditionalFormat.list",
   "dataValidation.read",
   "sheet.visibility.get",
