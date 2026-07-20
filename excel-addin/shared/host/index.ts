@@ -79,8 +79,13 @@ export {
   isChartAxisKind,
 } from "./chartAxisTypes";
 export type {
+  ChartDataLabelPosition,
   ChartDataLabelsInfo,
   ChartDataLabelsUpdateInput,
+} from "./chartDataLabelsTypes";
+export {
+  CHART_DATA_LABEL_POSITIONS,
+  isChartDataLabelPosition,
 } from "./chartDataLabelsTypes";
 export type {
   ChartSeriesAxisGroupInfo,

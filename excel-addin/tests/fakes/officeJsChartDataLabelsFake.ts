@@ -1,13 +1,16 @@
 /**
  * Sync-gated fake for ChartSeries.hasDataLabels + ChartSeries.dataLabels.
- * Office.context.requirements.isSetSupported precheck must pass before writes.
  */
-
 type LabelsState = {
   showValue: boolean;
   showCategoryName: boolean;
   showSeriesName: boolean;
   numberFormat: string;
+  showPercentage: boolean;
+  showBubbleSize: boolean;
+  showLegendKey: boolean;
+  separator: string;
+  position: string;
 };
 
 type SeriesEntry = {
@@ -17,16 +20,30 @@ type SeriesEntry = {
   pending: Partial<LabelsState> | undefined;
 };
 
+const DEFAULT_LABELS: LabelsState = {
+  showValue: false,
+  showCategoryName: false,
+  showSeriesName: false,
+  numberFormat: "General",
+  showPercentage: false,
+  showBubbleSize: false,
+  showLegendKey: false,
+  separator: ", ",
+  position: "Center",
+};
+
+const LABEL_KEYS = Object.keys(DEFAULT_LABELS) as Array<keyof LabelsState>;
+
 export function installChartDataLabelsExcel(options?: {
   seriesCount?: number;
-  /** When false, isSetSupported('ExcelApi','1.7') is false. Default true. */
   excelApi17?: boolean;
-  /** When false, isSetSupported('ExcelApi','1.8') is false. Default true. */
   excelApi18?: boolean;
-  /** When false, series has no hasDataLabels property. Default true. */
+  missingIsSetSupported?: boolean;
+  isSetSupportedThrows?: boolean;
   supportHasDataLabels?: boolean;
-  /** When false, series has no dataLabels property. Default true. */
   supportDataLabels?: boolean;
+  /** When false, extended 1.8 props are absent on proxy. Default true. */
+  supportExtendedLabels?: boolean;
   sheetNameValue?: unknown;
   chartNameValue?: unknown;
 }) {
@@ -35,28 +52,16 @@ export function installChartDataLabelsExcel(options?: {
   const excelApi18 = options?.excelApi18 !== false;
   const supportHasDataLabels = options?.supportHasDataLabels !== false;
   const supportDataLabels = options?.supportDataLabels !== false;
+  const supportExtended = options?.supportExtendedLabels !== false;
 
   const series: SeriesEntry[] = Array.from({ length: seriesCount }, () => ({
     committedEnabled: false,
     pendingEnabled: undefined,
-    committed: {
-      showValue: false,
-      showCategoryName: false,
-      showSeriesName: false,
-      numberFormat: "General",
-    },
+    committed: { ...DEFAULT_LABELS },
     pending: undefined,
   }));
 
-  type LabelsProxy = {
-    showValue: boolean;
-    showCategoryName: boolean;
-    showSeriesName: boolean;
-    numberFormat: string;
-    load: (p?: string) => void;
-    _flushLoad: () => void;
-  };
-
+  type LabelsProxy = LabelsState & { load: (p?: string) => void; _flushLoad: () => void };
   type SeriesProxy = {
     hasDataLabels?: boolean;
     dataLabels?: LabelsProxy;
@@ -74,39 +79,7 @@ export function installChartDataLabelsExcel(options?: {
   function makeLabelsProxy(entry: SeriesEntry): LabelsProxy {
     let pendingSnap: LabelsState | undefined;
     let snapshot: LabelsState | undefined;
-    return {
-      get showValue() {
-        if (!snapshot) throw new Error("ChartDataLabels.showValue not loaded");
-        return snapshot.showValue;
-      },
-      set showValue(v: boolean) {
-        dataLabelsWriteCalls += 1;
-        entry.pending = { ...entry.pending, showValue: v };
-      },
-      get showCategoryName() {
-        if (!snapshot) throw new Error("ChartDataLabels.showCategoryName not loaded");
-        return snapshot.showCategoryName;
-      },
-      set showCategoryName(v: boolean) {
-        dataLabelsWriteCalls += 1;
-        entry.pending = { ...entry.pending, showCategoryName: v };
-      },
-      get showSeriesName() {
-        if (!snapshot) throw new Error("ChartDataLabels.showSeriesName not loaded");
-        return snapshot.showSeriesName;
-      },
-      set showSeriesName(v: boolean) {
-        dataLabelsWriteCalls += 1;
-        entry.pending = { ...entry.pending, showSeriesName: v };
-      },
-      get numberFormat() {
-        if (!snapshot) throw new Error("ChartDataLabels.numberFormat not loaded");
-        return snapshot.numberFormat;
-      },
-      set numberFormat(v: string) {
-        dataLabelsWriteCalls += 1;
-        entry.pending = { ...entry.pending, numberFormat: v };
-      },
+    const proxy = {
       load() {
         pendingSnap = { ...entry.committed };
         snapshot = undefined;
@@ -117,7 +90,33 @@ export function installChartDataLabelsExcel(options?: {
           pendingSnap = undefined;
         }
       },
-    };
+    } as LabelsProxy;
+
+    for (const key of LABEL_KEYS) {
+      if (
+        !supportExtended &&
+        (key === "showPercentage" ||
+          key === "showBubbleSize" ||
+          key === "showLegendKey" ||
+          key === "separator" ||
+          key === "position")
+      ) {
+        continue;
+      }
+      Object.defineProperty(proxy, key, {
+        enumerable: true,
+        configurable: true,
+        get() {
+          if (!snapshot) throw new Error(`ChartDataLabels.${key} not loaded`);
+          return snapshot[key];
+        },
+        set(v: LabelsState[typeof key]) {
+          dataLabelsWriteCalls += 1;
+          entry.pending = { ...entry.pending, [key]: v };
+        },
+      });
+    }
+    return proxy;
   }
 
   function makeSeriesProxy(entry: SeriesEntry): SeriesProxy {
@@ -155,20 +154,11 @@ export function installChartDataLabelsExcel(options?: {
         },
       });
     }
-    if (supportDataLabels && labelsProxy) {
-      Object.defineProperty(proxy, "dataLabels", {
-        enumerable: true,
-        configurable: true,
-        get() {
-          return labelsProxy;
-        },
-      });
-    }
+    if (labelsProxy) proxy.dataLabels = labelsProxy;
     return proxy;
   }
 
   const proxies = new Map<number, SeriesProxy>();
-
   function proxyAt(index: number): SeriesProxy {
     let p = proxies.get(index);
     if (!p) {
@@ -223,31 +213,45 @@ export function installChartDataLabelsExcel(options?: {
           entry.pending = undefined;
         }
       }
-      for (const p of proxies.values()) {
-        p._flushLoad();
-      }
+      for (const p of proxies.values()) p._flushLoad();
     },
   };
 
   (globalThis as unknown as { window: unknown }).window = globalThis;
-  (globalThis as unknown as {
-    Office: {
-      context: {
-        requirements: { isSetSupported: (name: string, minVersion?: string) => boolean };
-      };
+  if (options?.missingIsSetSupported) {
+    (globalThis as unknown as { Office: unknown }).Office = {
+      context: { requirements: {} },
     };
-  }).Office = {
-    context: {
-      requirements: {
-        isSetSupported(name: string, minVersion?: string) {
-          if (name !== "ExcelApi") return false;
-          if (minVersion === "1.7") return excelApi17;
-          if (minVersion === "1.8") return excelApi18;
-          return false;
+  } else if (options?.isSetSupportedThrows) {
+    (globalThis as unknown as { Office: unknown }).Office = {
+      context: {
+        requirements: {
+          isSetSupported: () => {
+            throw new Error("isSetSupported boom");
+          },
         },
       },
-    },
-  };
+    };
+  } else {
+    (globalThis as unknown as {
+      Office: {
+        context: {
+          requirements: { isSetSupported: (n: string, v?: string) => boolean };
+        };
+      };
+    }).Office = {
+      context: {
+        requirements: {
+          isSetSupported(name: string, minVersion?: string) {
+            if (name !== "ExcelApi") return false;
+            if (minVersion === "1.7") return excelApi17;
+            if (minVersion === "1.8") return excelApi18;
+            return false;
+          },
+        },
+      },
+    };
+  }
   (globalThis as unknown as { Excel: { run: Function } }).Excel = {
     run: async <T>(fn: (ctx: typeof context) => Promise<T>) => {
       excelRunCalls += 1;
@@ -277,9 +281,7 @@ export function installChartDataLabelsExcel(options?: {
     poisonCommitted(index0: number, patch: Record<string, unknown>) {
       const entry = series[index0];
       if (!entry) throw new Error("missing series");
-      if ("enabled" in patch) {
-        entry.committedEnabled = patch.enabled as boolean;
-      }
+      if ("enabled" in patch) entry.committedEnabled = patch.enabled as boolean;
       const { enabled: _e, ...labelsPatch } = patch as { enabled?: unknown } & Partial<LabelsState>;
       entry.committed = { ...entry.committed, ...labelsPatch } as LabelsState;
     },
@@ -289,9 +291,6 @@ export function installChartDataLabelsExcel(options?: {
     setChartName(value: unknown) {
       chartNameValue = value;
     },
-    /**
-     * Stale path: write then load without first sync → load samples old committed.
-     */
     async brokenUpdateSkipFirstSync() {
       const seriesProxy = context.workbook.worksheets
         .getItem("Sheet1")
@@ -300,7 +299,7 @@ export function installChartDataLabelsExcel(options?: {
       seriesProxy.hasDataLabels = true;
       seriesProxy.dataLabels!.showValue = true;
       seriesProxy.load("hasDataLabels");
-      seriesProxy.dataLabels!.load("showValue,showCategoryName,showSeriesName,numberFormat");
+      seriesProxy.dataLabels!.load();
       await context.sync();
       return {
         enabled: seriesProxy.hasDataLabels,

@@ -1,5 +1,6 @@
 import { withExcel } from "./officeJsRuntime";
 import type {
+  ChartDataLabelPosition,
   ChartDataLabelsInfo,
   ChartDataLabelsUpdateInput,
 } from "./chartDataLabelsTypes";
@@ -10,11 +11,30 @@ const REQUIREMENT_SET = "ExcelApi";
 const ENABLED_VERSION = "1.7";
 const DATA_LABELS_VERSION = "1.8";
 
+const POSITION_TO_HOST: Record<ChartDataLabelPosition, string> = {
+  none: "None",
+  center: "Center",
+  insideEnd: "InsideEnd",
+  insideBase: "InsideBase",
+  outsideEnd: "OutsideEnd",
+  left: "Left",
+  right: "Right",
+  top: "Top",
+  bottom: "Bottom",
+  bestFit: "BestFit",
+  callout: "Callout",
+};
+
 interface ExcelDataLabels {
   showValue: boolean;
   showCategoryName: boolean;
   showSeriesName: boolean;
   numberFormat: string;
+  showPercentage: boolean;
+  showBubbleSize: boolean;
+  showLegendKey: boolean;
+  separator: string;
+  position: string;
   load(props: string): void;
 }
 
@@ -38,14 +58,42 @@ function requireLoadedBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
-/** Only explicit requirement-set precheck failures — not missing members / business errors. */
+function mapPositionFromHost(raw: unknown): ChartDataLabelPosition {
+  if (typeof raw !== "string") {
+    throw new Error("ChartDataLabels.position is not a loaded string");
+  }
+  const key = raw.toLowerCase().replace(/[^a-z]/g, "");
+  const table: Record<string, ChartDataLabelPosition> = {
+    none: "none",
+    center: "center",
+    insideend: "insideEnd",
+    insidebase: "insideBase",
+    outsideend: "outsideEnd",
+    left: "left",
+    right: "right",
+    top: "top",
+    bottom: "bottom",
+    bestfit: "bestFit",
+    callout: "callout",
+  };
+  const mapped = table[key];
+  if (!mapped) {
+    throw new Error(`ChartDataLabels.position has unsupported host value: ${raw}`);
+  }
+  return mapped;
+}
 
 function touchesDataLabelsFields(input: ChartDataLabelsUpdateInput): boolean {
   return (
     input.showValue !== undefined ||
     input.showCategoryName !== undefined ||
     input.showSeriesName !== undefined ||
-    input.numberFormat !== undefined
+    input.numberFormat !== undefined ||
+    input.showPercentage !== undefined ||
+    input.showBubbleSize !== undefined ||
+    input.showLegendKey !== undefined ||
+    input.separator !== undefined ||
+    input.position !== undefined
   );
 }
 
@@ -67,10 +115,13 @@ export function isExcelApiSupportedForDataLabels(version: "1.7" | "1.8"): boolea
   }
 }
 
+const LOAD_PROPS =
+  "showValue,showCategoryName,showSeriesName,numberFormat,showPercentage,showBubbleSize,showLegendKey,separator,position";
+
 /**
  * Update series dataLabels/hasDataLabels.
  * - enabled-only: ExcelApi 1.7; never touches series.dataLabels; result omits show fields.
- * - any show field or numberFormat (optionally with enabled): ExcelApi 1.8 full snapshot path.
+ * - any dataLabels field (optionally with enabled): ExcelApi 1.8 full snapshot path.
  */
 export async function officeJsUpdateChartDataLabels(
   input: ChartDataLabelsUpdateInput,
@@ -88,7 +139,7 @@ export async function officeJsUpdateChartDataLabels(
     );
   }
 
-  const result = await withExcel("chart.series.dataLabels.update", async (context) => {
+  return withExcel("chart.series.dataLabels.update", async (context) => {
     const sheet = context.workbook.worksheets.getItem(input.sheetName) as unknown as {
       name: string;
       load(props: string): void;
@@ -114,7 +165,6 @@ export async function officeJsUpdateChartDataLabels(
     }
 
     if (!needDataLabels) {
-      // ExcelApi 1.7 enabled-only: do not access series.dataLabels.
       await context.sync();
       sheet.load("name");
       chart.load("name");
@@ -137,12 +187,19 @@ export async function officeJsUpdateChartDataLabels(
     if (input.showCategoryName !== undefined) labels.showCategoryName = input.showCategoryName;
     if (input.showSeriesName !== undefined) labels.showSeriesName = input.showSeriesName;
     if (input.numberFormat !== undefined) labels.numberFormat = input.numberFormat;
+    if (input.showPercentage !== undefined) labels.showPercentage = input.showPercentage;
+    if (input.showBubbleSize !== undefined) labels.showBubbleSize = input.showBubbleSize;
+    if (input.showLegendKey !== undefined) labels.showLegendKey = input.showLegendKey;
+    if (input.separator !== undefined) labels.separator = input.separator;
+    if (input.position !== undefined) {
+      labels.position = POSITION_TO_HOST[input.position];
+    }
 
     await context.sync();
     sheet.load("name");
     chart.load("name");
     series.load("hasDataLabels");
-    labels.load("showValue,showCategoryName,showSeriesName,numberFormat");
+    labels.load(LOAD_PROPS);
     await context.sync();
 
     return {
@@ -160,8 +217,17 @@ export async function officeJsUpdateChartDataLabels(
         "ChartDataLabels.showSeriesName",
       ),
       numberFormat: requireLoadedString(labels.numberFormat, "ChartDataLabels.numberFormat"),
+      showPercentage: requireLoadedBoolean(
+        labels.showPercentage,
+        "ChartDataLabels.showPercentage",
+      ),
+      showBubbleSize: requireLoadedBoolean(
+        labels.showBubbleSize,
+        "ChartDataLabels.showBubbleSize",
+      ),
+      showLegendKey: requireLoadedBoolean(labels.showLegendKey, "ChartDataLabels.showLegendKey"),
+      separator: requireLoadedString(labels.separator, "ChartDataLabels.separator"),
+      position: mapPositionFromHost(labels.position),
     };
   });
-
-  return result;
 }

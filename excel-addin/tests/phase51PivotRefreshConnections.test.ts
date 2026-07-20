@@ -132,6 +132,43 @@ describe("phase51 pivot.refresh refreshConnections", () => {
       }
       expect(fake.connectionRefreshCalls()).toBe(0);
     });
+
+    it("excelApi13=true excelApi17=false: omit/false succeed, connection zero calls", async () => {
+      delete (globalThis as { Excel?: unknown }).Excel;
+      delete (globalThis as { Office?: unknown }).Office;
+      fake = installPivotExcel({ excelApi13: true, excelApi17: false });
+      fake.seedPivot({ name: "P1", sheetName: "Sheet1", row: ["Region"] });
+      for (const input of [{}, { refreshConnections: false as const }]) {
+        const beforePivot = fake.refreshCalls();
+        const beforeConn = fake.connectionRefreshCalls();
+        const result = await new OfficeJsAdapter().refreshPivots(input);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.data.count).toBe(1);
+          expect(result.data.connectionRefresh).toBeUndefined();
+        }
+        expect(fake.refreshCalls()).toBeGreaterThan(beforePivot);
+        expect(fake.connectionRefreshCalls()).toBe(beforeConn);
+      }
+    });
+
+    it("excelApi13=false excelApi17=true: omit/false still ExcelApi 1.3 unsupported, zero side effects", async () => {
+      delete (globalThis as { Excel?: unknown }).Excel;
+      delete (globalThis as { Office?: unknown }).Office;
+      fake = installPivotExcel({ excelApi13: false, excelApi17: true });
+      fake.seedPivot({ name: "P1", sheetName: "Sheet1", row: ["Region"] });
+      for (const input of [{}, { refreshConnections: false as const }]) {
+        const result = await new OfficeJsAdapter().refreshPivots(input);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.unsupported).toBe(true);
+          expect(result.reason).toMatch(/ExcelApi 1\.3/);
+        }
+        expect(fake.refreshCalls()).toBe(0);
+        expect(fake.connectionRefreshCalls()).toBe(0);
+      }
+    });
+
   });
 
   describe("executor / schema / WPS", () => {

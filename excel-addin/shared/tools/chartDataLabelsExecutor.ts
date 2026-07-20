@@ -1,4 +1,8 @@
 import type { HostAdapter } from "../host/types";
+import {
+  isChartDataLabelPosition,
+  type ChartDataLabelPosition,
+} from "../host/chartDataLabelsTypes";
 import type { ToolCall, ToolResult } from "./types";
 
 function requireString(args: Record<string, unknown>, key: string): string {
@@ -47,6 +51,27 @@ function optionalNumberFormat(args: Record<string, unknown>): string | undefined
   return trimmed;
 }
 
+/** separator: preserve exactly (including "" and edge spaces); reject null/undefined/non-string. */
+function optionalSeparator(args: Record<string, unknown>): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "separator")) return undefined;
+  if (args.separator === undefined) throw new Error("separator must not be undefined");
+  if (args.separator === null) throw new Error("separator must not be null");
+  if (typeof args.separator !== "string") throw new Error("Invalid string argument: separator");
+  return args.separator;
+}
+
+function optionalPosition(args: Record<string, unknown>): ChartDataLabelPosition | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "position")) return undefined;
+  if (args.position === undefined) throw new Error("position must not be undefined");
+  if (args.position === null) throw new Error("position must not be null");
+  if (!isChartDataLabelPosition(args.position)) {
+    throw new Error(
+      "position must be none|center|insideEnd|insideBase|outsideEnd|left|right|top|bottom|bestFit|callout",
+    );
+  }
+  return args.position;
+}
+
 function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
   for (const key of Object.keys(args)) {
     if (!allowed.includes(key)) throw new Error(`unknown field: ${key}`);
@@ -70,6 +95,18 @@ function fromHost(
   return { ok: false, tool, error: result.reason ?? "host failed", detail: result };
 }
 
+const LABEL_FIELDS = [
+  "showValue",
+  "showCategoryName",
+  "showSeriesName",
+  "numberFormat",
+  "showPercentage",
+  "showBubbleSize",
+  "showLegendKey",
+  "separator",
+  "position",
+] as const;
+
 export async function executeChartDataLabelsTool(
   host: HostAdapter,
   call: ToolCall,
@@ -80,10 +117,7 @@ export async function executeChartDataLabelsTool(
     "chartName",
     "seriesIndex",
     "enabled",
-    "showValue",
-    "showCategoryName",
-    "showSeriesName",
-    "numberFormat",
+    ...LABEL_FIELDS,
   ]);
   const input = {
     sheetName: requireString(call.arguments, "sheetName"),
@@ -94,24 +128,22 @@ export async function executeChartDataLabelsTool(
     showCategoryName: optionalBoolean(call.arguments, "showCategoryName"),
     showSeriesName: optionalBoolean(call.arguments, "showSeriesName"),
     numberFormat: optionalNumberFormat(call.arguments),
+    showPercentage: optionalBoolean(call.arguments, "showPercentage"),
+    showBubbleSize: optionalBoolean(call.arguments, "showBubbleSize"),
+    showLegendKey: optionalBoolean(call.arguments, "showLegendKey"),
+    separator: optionalSeparator(call.arguments),
+    position: optionalPosition(call.arguments),
   };
   if (
     input.enabled === undefined &&
-    input.showValue === undefined &&
-    input.showCategoryName === undefined &&
-    input.showSeriesName === undefined &&
-    input.numberFormat === undefined
+    LABEL_FIELDS.every((key) => input[key] === undefined)
   ) {
     throw new Error("chart.series.dataLabels.update requires at least one update field");
   }
-  const hasOtherLabelFields =
-    input.showValue !== undefined ||
-    input.showCategoryName !== undefined ||
-    input.showSeriesName !== undefined ||
-    input.numberFormat !== undefined;
+  const hasOtherLabelFields = LABEL_FIELDS.some((key) => input[key] !== undefined);
   if (input.enabled === false && hasOtherLabelFields) {
     throw new Error(
-      "enabled=false cannot be combined with showValue/showCategoryName/showSeriesName/numberFormat",
+      "enabled=false cannot be combined with data label fields (show*/numberFormat/separator/position)",
     );
   }
   return fromHost(call.name, await host.updateChartDataLabels(input));

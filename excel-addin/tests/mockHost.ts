@@ -1652,6 +1652,11 @@ export class MockHostAdapter implements HostAdapter {
         showCategoryName: false,
         showSeriesName: false,
         numberFormat: "General",
+        showPercentage: false,
+        showBubbleSize: false,
+        showLegendKey: false,
+        separator: ", ",
+        position: "center",
       };
       this.chartDataLabels.set(key, labels);
     }
@@ -1661,6 +1666,11 @@ export class MockHostAdapter implements HostAdapter {
     if (input.showCategoryName !== undefined) labels.showCategoryName = input.showCategoryName;
     if (input.showSeriesName !== undefined) labels.showSeriesName = input.showSeriesName;
     if (input.numberFormat !== undefined) labels.numberFormat = input.numberFormat;
+    if (input.showPercentage !== undefined) labels.showPercentage = input.showPercentage;
+    if (input.showBubbleSize !== undefined) labels.showBubbleSize = input.showBubbleSize;
+    if (input.showLegendKey !== undefined) labels.showLegendKey = input.showLegendKey;
+    if (input.separator !== undefined) labels.separator = input.separator;
+    if (input.position !== undefined) labels.position = input.position;
     return ok({ ...labels });
   }
 
