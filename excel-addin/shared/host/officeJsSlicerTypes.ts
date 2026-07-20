@@ -35,7 +35,7 @@ export interface ExcelSlicer {
   load(props: string): void;
   delete(): void;
   clearFilters(): void;
-  getSelectedItems(): { value: string[] };
+  getSelectedItems(): { value: string[] }; // value only after context.sync (ClientResult)
   selectItems(items?: string[]): void;
 }
 

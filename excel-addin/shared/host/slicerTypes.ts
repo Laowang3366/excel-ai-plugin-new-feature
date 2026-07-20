@@ -57,7 +57,10 @@ export type SlicerCreateInput = {
   advancedIntent: "interactive-pivot";
   sourceType: SlicerSourceType;
   sourceName: string;
-  /** Table column name or PivotField name (string only; no raw index). */
+  /**
+   * Official add() sourceField: Table column name/ID, or PivotField ID (or TableColumn/PivotField object).
+   * This tool accepts a string only; host resolves it — wrong IDs fail ordinary.
+   */
   sourceField: string;
   destinationSheet: string;
   name?: string;

@@ -20,6 +20,9 @@ export type SlicerFakeState = {
   style: string;
   isFilterCleared: boolean;
   items: SlicerFakeItem[];
+  /** Optional type-poison overrides applied after load (test-only). */
+  poison?: Partial<Record<string, unknown>>;
+  itemPoison?: Array<Partial<Record<string, unknown>> | undefined>;
 };
 
 export type WriteCounts = {
@@ -28,6 +31,11 @@ export type WriteCounts = {
   selectItems: number;
   clearFilters: number;
   propertySets: number;
+};
+
+export type ClientResultBag = {
+  pending: Array<{ resolve: () => void }>;
+  generation: number;
 };
 
 export function notLoaded(name: string): Error {
@@ -69,15 +77,39 @@ export function requireLoaded(maps: LoadMaps, target: object, prop: string): voi
   if (!done || !done.has(prop)) throw notLoaded(prop);
 }
 
+export function makeClientResult(getValue: () => string[], bag: ClientResultBag): { value: string[] } {
+  let ready = false;
+  bag.pending.push({
+    resolve: () => {
+      ready = true;
+    },
+  });
+  return {
+    get value() {
+      if (!ready) throw notLoaded("ClientResult.value");
+      return getValue();
+    },
+  };
+}
+
+export function flushClientResults(bag: ClientResultBag): void {
+  const pending = bag.pending.splice(0, bag.pending.length);
+  for (const p of pending) p.resolve();
+}
+
+export type SlicerProxyOpts = {
+  poisonSortBy?: Map<string, string>;
+  noGetSelected?: Set<string>;
+  selectItemsNoOp?: Set<string>;
+  clientResults: ClientResultBag;
+  onDelete?: () => void;
+};
+
 export function makeSlicerProxy(
   s: SlicerFakeState,
   maps: LoadMaps,
   writeCounts: WriteCounts,
-  opts: {
-    poisonSortBy?: Map<string, string>;
-    noGetSelected?: Set<string>;
-    onDelete?: () => void;
-  },
+  opts: SlicerProxyOpts,
 ): Record<string, unknown> {
   const proxy: Record<string, unknown> = {
     load(props: string) {
@@ -94,6 +126,7 @@ export function makeSlicerProxy(
     },
     selectItems(items?: string[]) {
       writeCounts.selectItems += 1;
+      if (opts.selectItemsNoOp?.has(s.name)) return;
       if (!items || items.length === 0) {
         for (const it of s.items) it.isSelected = true;
         s.isFilterCleared = true;
@@ -103,21 +136,27 @@ export function makeSlicerProxy(
       for (const it of s.items) it.isSelected = set.has(it.key);
       s.isFilterCleared = false;
     },
-    getSelectedItems() {
-      if (opts.noGetSelected?.has(s.name)) throw new Error("getSelectedItems missing");
-      return { value: s.items.filter((i) => i.isSelected).map((i) => i.key) };
-    },
   };
   maps.proxies.push(proxy);
 
-  const bind = (
-    prop: string,
-    get: () => unknown,
-    set?: (v: unknown) => void,
-  ): void => {
+  if (!opts.noGetSelected?.has(s.name)) {
+    proxy.getSelectedItems = () =>
+      makeClientResult(
+        () => s.items.filter((i) => i.isSelected).map((i) => i.key),
+        opts.clientResults,
+      );
+  }
+
+  const bind = (prop: string, get: () => unknown, set?: (v: unknown) => void): void => {
     Object.defineProperty(proxy, prop, {
       get() {
         requireLoaded(maps, proxy, prop);
+        if (s.poison && Object.prototype.hasOwnProperty.call(s.poison, prop)) {
+          return s.poison[prop];
+        }
+        if (prop === "sortBy" && opts.poisonSortBy?.has(s.name)) {
+          return opts.poisonSortBy.get(s.name);
+        }
         return get();
       },
       set(v: unknown) {
@@ -147,13 +186,9 @@ export function makeSlicerProxy(
   bind("height", () => s.height, (v) => {
     s.height = Number(v);
   });
-  bind(
-    "sortBy",
-    () => opts.poisonSortBy?.get(s.name) ?? s.sortBy,
-    (v) => {
-      s.sortBy = String(v);
-    },
-  );
+  bind("sortBy", () => s.sortBy, (v) => {
+    s.sortBy = String(v);
+  });
   bind("style", () => s.style, (v) => {
     s.style = String(v);
   });
@@ -188,7 +223,7 @@ export function makeSlicerProxy(
   Object.defineProperty(itemsColl, "items", {
     get() {
       requireLoaded(maps, itemsColl, "items");
-      return s.items.map((item) => makeItemProxy(item, maps, writeCounts));
+      return s.items.map((item, index) => makeItemProxy(item, maps, writeCounts, s, index));
     },
     configurable: true,
   });
@@ -206,6 +241,8 @@ function makeItemProxy(
   item: SlicerFakeItem,
   maps: LoadMaps,
   writeCounts: WriteCounts,
+  parent: SlicerFakeState,
+  index: number,
 ): Record<string, unknown> {
   const proxy: Record<string, unknown> = {
     load(props: string) {
@@ -217,6 +254,10 @@ function makeItemProxy(
     Object.defineProperty(proxy, key, {
       get() {
         requireLoaded(maps, proxy, key);
+        const poison = parent.itemPoison?.[index];
+        if (poison && Object.prototype.hasOwnProperty.call(poison, key)) {
+          return poison[key];
+        }
         return item[key];
       },
       set(v: unknown) {

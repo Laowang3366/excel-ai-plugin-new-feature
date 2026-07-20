@@ -36,7 +36,7 @@ export const SLICER_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "slicer.create",
     description:
-      "Create a slicer from a Table or PivotTable (Office.js ExcelApi 1.10). Requires advancedIntent=interactive-pivot, sourceType, sourceName, sourceField, destinationSheet. Write→sync→load→sync; requestedSource is input-only (host cannot verify source).",
+      "Create a slicer from a Table or PivotTable (Office.js ExcelApi 1.10). Requires advancedIntent=interactive-pivot, sourceType, sourceName, sourceField, destinationSheet. sourceField is Table column name/ID or PivotField ID (host-resolved). Write→sync→load→sync; requestedSource is input-only (no host source readback).",
     riskLevel: "moderate",
     parameters: {
       type: "object",
