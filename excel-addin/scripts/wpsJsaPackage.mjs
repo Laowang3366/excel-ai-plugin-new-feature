@@ -95,17 +95,14 @@ export function validateWpsRibbon(xml) {
     {
       id: "wenggeExcelAiOpenChatButton",
       onAction: "WenggeExcelAiOpenChat",
-      image: "assets/icon-32.png",
     },
     {
       id: "wenggeExcelAiOpenProvidersButton",
       onAction: "WenggeExcelAiOpenProviders",
-      image: "assets/icon-32.png",
     },
     {
       id: "wenggeExcelAiOpenHostButton",
       onAction: "WenggeExcelAiOpenHost",
-      image: "assets/icon-16.png",
     },
   ];
   for (const expected of expectedButtons) {
@@ -120,12 +117,12 @@ export function validateWpsRibbon(xml) {
     if (action !== expected.onAction) {
       errors.push(`ribbon button ${expected.id} onAction mismatch`);
     }
-    const image = tag.match(/\bimage\s*=\s*"([^"]*)"/i)?.[1] ?? "";
-    if (image !== expected.image) {
-      errors.push(`ribbon button ${expected.id} image must be ${expected.image}`);
+    const getImage = tag.match(/\bgetImage\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    if (getImage !== "WenggeExcelAiGetImage") {
+      errors.push(`ribbon button ${expected.id} must use getImage=WenggeExcelAiGetImage`);
     }
-    if (!image || /^https?:/i.test(image) || image.includes("..") || image.startsWith("/")) {
-      errors.push(`ribbon button ${expected.id} image must be a package-relative asset`);
+    if (/\bimage\s*=/.test(tag)) {
+      errors.push(`ribbon button ${expected.id} must not use direct image attribute`);
     }
   }
   const remoteUrls = xml.match(/https?:\/\/[^"'\s>]+/gi) ?? [];
@@ -144,6 +141,7 @@ export function validateWpsEntryScript(source) {
   for (const callback of [
     "WenggeExcelAiOnLoad",
     "WenggeExcelAiTabVisible",
+    "WenggeExcelAiGetImage",
     "WenggeExcelAiOpenChat",
     "WenggeExcelAiOpenProviders",
     "WenggeExcelAiOpenHost",
@@ -160,6 +158,9 @@ export function validateWpsEntryScript(source) {
   }
   if (!/PluginStorage/.test(text)) {
     errors.push("WPS entry must use PluginStorage for pane id reuse");
+  }
+  if (!text.includes("assets/icon-32.png") || !text.includes("assets/icon-16.png")) {
+    errors.push("WPS entry getImage must map to package-relative icon-32/icon-16 assets");
   }
   if (/\beval\s*\(|\bnew\s+Function\s*\(/.test(text)) {
     errors.push("dynamic code execution is forbidden in WPS entry");

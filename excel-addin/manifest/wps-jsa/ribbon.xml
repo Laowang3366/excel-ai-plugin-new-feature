@@ -8,19 +8,19 @@
             id="wenggeExcelAiOpenChatButton"
             label="打开助手"
             size="large"
-            image="assets/icon-32.png"
+            getImage="WenggeExcelAiGetImage"
             onAction="WenggeExcelAiOpenChat" />
           <button
             id="wenggeExcelAiOpenProvidersButton"
             label="模型配置"
             size="large"
-            image="assets/icon-32.png"
+            getImage="WenggeExcelAiGetImage"
             onAction="WenggeExcelAiOpenProviders" />
           <button
             id="wenggeExcelAiOpenHostButton"
             label="宿主状态"
             size="normal"
-            image="assets/icon-16.png"
+            getImage="WenggeExcelAiGetImage"
             onAction="WenggeExcelAiOpenHost" />
         </group>
       </tab>

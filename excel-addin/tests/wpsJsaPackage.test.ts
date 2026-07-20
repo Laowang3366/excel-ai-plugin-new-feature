@@ -96,6 +96,17 @@ describe("WPS JSA source validation", () => {
     });
     expect(result).toEqual({ ok: true, errors: [] });
   });
+  it("rejects direct image attribute; requires shared getImage callback", () => {
+    const ribbon = readSource("ribbon.xml").replaceAll(
+      'getImage="WenggeExcelAiGetImage"',
+      'image="assets/icon-32.png"',
+    );
+    const res = validateWpsRibbon(ribbon);
+    expect(res.ok).toBe(false);
+    expect(res.errors.join(" ")).toMatch(/getImage|image/i);
+    expect(validateWpsEntryScript(readSource(WPS_ENTRY_SCRIPT)).ok).toBe(true);
+  });
+
 
   it("matches desktop-style publish contract (jsplugins/et/file jsaddons url)", () => {
     const publish = renderWpsPublishXml();

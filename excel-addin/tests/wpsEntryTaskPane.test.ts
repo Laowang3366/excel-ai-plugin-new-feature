@@ -17,6 +17,7 @@ type Pane = {
 
 function loadEntry(opts: {
   locationHref?: string;
+  locationThrows?: boolean;
   api?: Record<string, unknown> | null;
   apiOn?: "wps" | "window.wps" | "window.Wps" | "none";
   openImpl?: ((url: string) => unknown) | null;
@@ -71,8 +72,15 @@ function loadEntry(opts: {
   const api = opts.api === null ? null : { ...defaultApi, ...(opts.api || {}) };
   const on = opts.apiOn ?? "wps";
 
+  const defaultHref =
+    opts.locationHref ?? "file:///tmp/jsaddons/wengge-excel-ai-addin/index.html";
   const windowObj: Record<string, unknown> = {
-    location: { href: opts.locationHref ?? "file:///tmp/jsaddons/wengge-excel-ai-addin/index.html" },
+    location: {
+      get href() {
+        if (opts.locationThrows) throw new Error("location boom");
+        return defaultHref;
+      },
+    },
     focus() {
       calls.focus += 1;
     },
@@ -109,6 +117,7 @@ function loadEntry(opts: {
       WenggeExcelAiOpenChat: () => boolean;
       WenggeExcelAiOpenProviders: () => boolean;
       WenggeExcelAiOpenHost: () => boolean;
+      WenggeExcelAiGetImage: (control?: unknown) => string;
       __WenggeExcelAiEntryTest: {
         buildTaskPaneUrl: (r: string) => string;
         openTaskPaneForRoute: (r: string) => boolean;
@@ -287,4 +296,149 @@ describe("WPS entry task pane lifecycle", () => {
     expect(entrySource).not.toMatch(/["']https:\/\/localhost/i);
     expect(entrySource).not.toMatch(/\brequire\s*\(|node:child_process|\belectron\b/);
   });
+
+  it("getImage maps control ids to package-relative icons only", () => {
+    const env = loadEntry({});
+    const getImage = env.window.WenggeExcelAiGetImage;
+    expect(typeof getImage).toBe("function");
+    expect(getImage({ Id: "wenggeExcelAiOpenChatButton" })).toBe("assets/icon-32.png");
+    expect(getImage({ ID: "wenggeExcelAiOpenProvidersButton" })).toBe("assets/icon-32.png");
+    expect(getImage({ id: "wenggeExcelAiOpenHostButton" })).toBe("assets/icon-16.png");
+    expect(getImage("wenggeExcelAiOpenHostButton")).toBe("assets/icon-16.png");
+    expect(getImage(null)).toBe("assets/icon-32.png");
+    expect(getImage({ Id: "unknown" })).toBe("assets/icon-32.png");
+    expect(getImage({ Id: "../evil.png" })).toBe("assets/icon-32.png");
+    expect(getImage({ Id: "https://evil.example/x.png" })).toBe("assets/icon-32.png");
+    // must not echo arbitrary path from control fields
+    expect(getImage({ Id: "wenggeExcelAiOpenChatButton", path: "/tmp/x" })).toBe(
+      "assets/icon-32.png",
+    );
+  });
+
+  it("rejects javascript/data/blob locations without open or create", () => {
+    for (const href of [
+      "javascript:alert(1)",
+      "data:text/html,hi",
+      "blob:https://example.com/uuid",
+      "about:blank",
+    ]) {
+      const env = loadEntry({ locationHref: href });
+      const ok = env.window.WenggeExcelAiOpenChat();
+      expect(ok).toBe(false);
+      expect(env.calls.create).toEqual([]);
+      expect(env.calls.open).toEqual([]);
+      expect(env.calls.alert.length).toBeGreaterThan(0);
+      expect(() => env.window.__WenggeExcelAiEntryTest.buildTaskPaneUrl("chat")).toThrow(
+        /protocol|forbidden|unsupported|unsafe|location/i,
+      );
+    }
+  });
+
+  it("location getter throw fails closed without open/create", () => {
+    const env = loadEntry({ locationThrows: true });
+    expect(env.window.WenggeExcelAiOpenChat()).toBe(false);
+    expect(env.calls.create).toEqual([]);
+    expect(env.calls.open).toEqual([]);
+    expect(env.calls.alert.length).toBeGreaterThan(0);
+  });
+
+  it("control characters in location fail closed", () => {
+    const env = loadEntry({
+      locationHref: "file:///tmp/index.html\u0000evil",
+    });
+    expect(env.window.WenggeExcelAiOpenChat()).toBe(false);
+    expect(env.calls.create).toEqual([]);
+    expect(env.calls.open).toEqual([]);
+  });
+
+  it("CreateTaskPane throw falls back to Application.CreateTaskPane", () => {
+    const appCreates: string[] = [];
+    const env = loadEntry({
+      api: {
+        CreateTaskPane() {
+          throw new Error("create boom");
+        },
+        Application: {
+          CreateTaskPane(url: string) {
+            appCreates.push(url);
+            return { ID: 42, Visible: false, url };
+          },
+          GetTaskPane() {
+            return null;
+          },
+        },
+        GetTaskPane: undefined,
+        PluginStorage: {
+          getItem: () => null,
+          setItem: () => undefined,
+        },
+      },
+    });
+    expect(() => env.window.WenggeExcelAiOpenChat()).not.toThrow();
+    expect(env.window.WenggeExcelAiOpenChat()).toBe(true);
+    expect(appCreates.length).toBeGreaterThan(0);
+    expect(appCreates[0]).toContain("page=chat");
+  });
+
+  it("both CreateTaskPane paths throw: callback does not throw; uses open fallback", () => {
+    const env = loadEntry({
+      api: {
+        CreateTaskPane() {
+          throw new Error("create boom");
+        },
+        Application: {
+          CreateTaskPane() {
+            throw new Error("app create boom");
+          },
+        },
+        PluginStorage: {
+          getItem: () => null,
+          setItem: () => undefined,
+        },
+      },
+    });
+    let threw = false;
+    let ok = false;
+    try {
+      ok = env.window.WenggeExcelAiOpenChat();
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(false);
+    expect(ok).toBe(true);
+    expect(env.calls.open[0]).toContain("page=chat");
+  });
+
+  it("pane ID getter throw after Visible success still returns true", () => {
+    let createCount = 0;
+    const env = loadEntry({
+      api: {
+        CreateTaskPane(url: string) {
+          createCount += 1;
+          const pane: Record<string, unknown> = { url, Visible: false };
+          Object.defineProperty(pane, "ID", {
+            get() {
+              throw new Error("id boom");
+            },
+          });
+          Object.defineProperty(pane, "Id", {
+            get() {
+              throw new Error("id boom");
+            },
+          });
+          Object.defineProperty(pane, "id", {
+            get() {
+              throw new Error("id boom");
+            },
+          });
+          return pane;
+        },
+      },
+    });
+    expect(() => env.window.WenggeExcelAiOpenChat()).not.toThrow();
+    expect(env.window.WenggeExcelAiOpenChat()).toBe(true);
+    expect(createCount).toBeGreaterThan(0);
+    expect(env.calls.open).toEqual([]);
+  });
+
 });
