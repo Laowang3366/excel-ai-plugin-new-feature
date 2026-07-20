@@ -168,25 +168,3 @@ export function assertFilterSurfaceConsistent(
   }
   return { allSelected: allSelectedOrEmpty };
 }
-
-/** @deprecated use assertFilterSurfaceConsistent */
-export function assertSelectionConsistent(
-  selectedKeys: string[],
-  items: SlicerItemInfo[],
-  mode: "exact-keys" | "all-selected",
-  expectedKeys?: string[],
-): void {
-  const isFilterCleared = mode === "all-selected";
-  assertFilterSurfaceConsistent(
-    selectedKeys,
-    items,
-    isFilterCleared,
-    mode === "all-selected" ? undefined : expectedKeys,
-  );
-  if (mode === "all-selected") {
-    const itemKeys = items.map((i) => i.key);
-    if (!items.every((i) => i.isSelected) || !setsEqual(selectedKeys, itemKeys)) {
-      throw new Error("expected all slicer items selected");
-    }
-  }
-}
