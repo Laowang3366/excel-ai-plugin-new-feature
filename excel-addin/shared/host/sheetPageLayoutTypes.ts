@@ -95,9 +95,15 @@ export interface SheetPageLayoutUpdateInput {
   fitToPagesWide?: number;
   /** Finite integer 1..32767; mutually exclusive with zoomScale. */
   fitToPagesTall?: number;
-  /** Non-empty string only; clear is not a proven Office.js no-arg contract. */
+  // fitToOnePageWide/Tall are tool-layer aliases resolved to fitToPages* before host.
+  /**
+   * Non-empty A1/print-area string only (PageLayout.setPrintArea).
+   * Clear has no official no-arg API in ExcelApi PageLayout → not supported.
+   */
   printArea?: string;
+  /** Non-empty; maps setPrintTitleRows (desktop alias: repeatRows). */
   printTitleRows?: string;
+  /** Non-empty; maps setPrintTitleColumns (desktop alias: repeatColumns). */
   printTitleColumns?: string;
   /** true: clear both manual break collections before appends in this request. */
   clearPageBreaks?: boolean;

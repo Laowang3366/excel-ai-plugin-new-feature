@@ -113,6 +113,46 @@ function optionalNonEmptyString(args: Record<string, unknown>, key: string): str
   return (args[key] as string).trim();
 }
 
+/** Official field or desktop alias; both present → conflict. */
+function optionalAliasedNonEmpty(
+  args: Record<string, unknown>,
+  official: string,
+  alias: string,
+): string | undefined {
+  const hasOfficial = Object.prototype.hasOwnProperty.call(args, official);
+  const hasAlias = Object.prototype.hasOwnProperty.call(args, alias);
+  if (hasOfficial && hasAlias) {
+    throw new Error(`${official} and ${alias} are mutually exclusive aliases`);
+  }
+  if (hasOfficial) return optionalNonEmptyString(args, official);
+  if (hasAlias) return optionalNonEmptyString(args, alias);
+  return undefined;
+}
+
+/**
+ * Desktop fitToOnePageWide/Tall → fitToPages* (Office.js zoom fit pages).
+ * Wide must be true when provided; tall only with wide=true.
+ */
+function resolveFitToOnePage(args: Record<string, unknown>): {
+  fitToPagesWide?: number;
+  fitToPagesTall?: number;
+} {
+  const wide = optionalBoolean(args, "fitToOnePageWide");
+  const tall = optionalBoolean(args, "fitToOnePageTall");
+  if (wide === undefined && tall === undefined) return {};
+  if (wide === false) {
+    throw new Error("fitToOnePageWide only accepts true when provided (omit to leave unchanged)");
+  }
+  if (wide !== true) {
+    throw new Error("fitToOnePageTall requires fitToOnePageWide:true");
+  }
+  if (tall === true) {
+    return { fitToPagesWide: 1, fitToPagesTall: 1 };
+  }
+  // tall omitted or false → wide only (desktop FitToPagesTall=false/auto)
+  return { fitToPagesWide: 1 };
+}
+
 function optionalMargins(
   args: Record<string, unknown>,
 ): SheetPageLayoutUpdateInput["margins"] | undefined {
@@ -253,10 +293,27 @@ export async function executePageLayoutTool(
       "paperSize",
       "fitToPagesWide",
       "fitToPagesTall",
+      "fitToOnePageWide",
+      "fitToOnePageTall",
       "printArea",
       "printTitleRows",
       "printTitleColumns",
+      "repeatRows",
+      "repeatColumns",
     ]);
+    const fitNumericWide = optionalFitPages(call.arguments, "fitToPagesWide");
+    const fitNumericTall = optionalFitPages(call.arguments, "fitToPagesTall");
+    const fitOne = resolveFitToOnePage(call.arguments);
+    if (
+      (fitOne.fitToPagesWide !== undefined || fitOne.fitToPagesTall !== undefined) &&
+      (fitNumericWide !== undefined || fitNumericTall !== undefined)
+    ) {
+      throw new Error(
+        "fitToOnePageWide/fitToOnePageTall is mutually exclusive with fitToPagesWide/fitToPagesTall",
+      );
+    }
+    const fitToPagesWide = fitOne.fitToPagesWide ?? fitNumericWide;
+    const fitToPagesTall = fitOne.fitToPagesTall ?? fitNumericTall;
     const input: SheetPageLayoutUpdateInput = {
       sheetName: requireString(call.arguments, "sheetName"),
       orientation: optionalOrientation(call.arguments),
@@ -276,17 +333,23 @@ export async function executePageLayoutTool(
       verticalPageBreaks: optionalPageBreakAddresses(call.arguments, "verticalPageBreaks"),
       zoomScale: optionalZoomScale(call.arguments),
       paperSize: optionalPaperSize(call.arguments),
-      fitToPagesWide: optionalFitPages(call.arguments, "fitToPagesWide"),
-      fitToPagesTall: optionalFitPages(call.arguments, "fitToPagesTall"),
+      fitToPagesWide,
+      fitToPagesTall,
       printArea: optionalNonEmptyString(call.arguments, "printArea"),
-      printTitleRows: optionalNonEmptyString(call.arguments, "printTitleRows"),
-      printTitleColumns: optionalNonEmptyString(call.arguments, "printTitleColumns"),
+      printTitleRows: optionalAliasedNonEmpty(call.arguments, "printTitleRows", "repeatRows"),
+      printTitleColumns: optionalAliasedNonEmpty(
+        call.arguments,
+        "printTitleColumns",
+        "repeatColumns",
+      ),
     };
     if (
       input.zoomScale !== undefined &&
       (input.fitToPagesWide !== undefined || input.fitToPagesTall !== undefined)
     ) {
-      throw new Error("zoomScale is mutually exclusive with fitToPagesWide/fitToPagesTall");
+      throw new Error(
+        "zoomScale is mutually exclusive with fitToPagesWide/fitToPagesTall/fitToOnePage*",
+      );
     }
     if (
       input.orientation === undefined &&

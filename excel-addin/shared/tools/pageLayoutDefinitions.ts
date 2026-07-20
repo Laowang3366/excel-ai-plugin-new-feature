@@ -16,7 +16,7 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "sheet.pageLayout.set",
     description:
-      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/headers|footers(default left|center|right 文本,空串清除)/clearPageBreaks/horizontalPageBreaks|verticalPageBreaks(A1 append,[] no-op)/zoomScale/paperSize/fitToPagesWide/fitToPagesTall/printArea/printTitle*；≥1 字段；fit 与 zoomScale 互斥；print* 仅非空；firstPageNumber 仅有限整数≥1。ExcelApi 1.9；WPS unsupported",
+      "设置页面布局。可选 orientation/center*/print*/blackAndWhite/draft/pageOrder/firstPageNumber/margins/headers|footers(default left|center|right 文本,空串清除)/clearPageBreaks/horizontalPageBreaks|verticalPageBreaks(A1 append,[] no-op)/zoomScale/paperSize/fitToPagesWide|fitToPagesTall/fitToOnePageWide|fitToOnePageTall/printArea/printTitleRows|printTitleColumns（别名 repeatRows|repeatColumns）；≥1 字段；fit/fitToOnePage 与 zoomScale 互斥；printArea/titles 仅非空（clear 无官方 no-arg 合同→拒绝空串）；fitToOnePageWide=true → wide=1，可选 fitToOnePageTall=true → tall=1。ExcelApi 1.9；WPS unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -68,9 +68,17 @@ export const PAGE_LAYOUT_TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         fitToPagesWide: { type: "integer", minimum: 1, maximum: 32767 },
         fitToPagesTall: { type: "integer", minimum: 1, maximum: 32767 },
+        /** Desktop-parity: true → fitToPagesWide=1 (ExcelApi zoom.horizontalFitToPages). */
+        fitToOnePageWide: { type: "boolean" },
+        /** With fitToOnePageWide=true, true → fitToPagesTall=1. */
+        fitToOnePageTall: { type: "boolean" },
         printArea: { type: "string", minLength: 1 },
         printTitleRows: { type: "string", minLength: 1 },
         printTitleColumns: { type: "string", minLength: 1 },
+        /** Alias of printTitleRows (desktop configurePrint.repeatRows). */
+        repeatRows: { type: "string", minLength: 1 },
+        /** Alias of printTitleColumns (desktop configurePrint.repeatColumns). */
+        repeatColumns: { type: "string", minLength: 1 },
         clearPageBreaks: { type: "boolean" },
         horizontalPageBreaks: {
           type: "array",

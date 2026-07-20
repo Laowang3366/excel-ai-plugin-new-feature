@@ -331,7 +331,7 @@ export async function officeJsSetSheetPageLayout(
       if (input.fitToPagesTall !== undefined) zoom.verticalFitToPages = input.fitToPagesTall;
       layout.zoom = zoom;
     }
-    // setPrintArea/title require non-empty string; clear is not a proven no-arg contract.
+    // setPrintArea/title require non-empty string (ExcelApi 1.9); no official clear*/empty-string clear contract.
     if (input.printArea != null) layout.setPrintArea(input.printArea);
     if (input.printTitleRows != null) layout.setPrintTitleRows(input.printTitleRows);
     if (input.printTitleColumns != null) layout.setPrintTitleColumns(input.printTitleColumns);
