@@ -4,7 +4,7 @@
  * Missing stable members after 1.10 precheck → ordinary failure (not verified:false success).
  */
 import {
-  assertSelectionConsistent,
+  assertFilterSurfaceConsistent,
   parseSelectedKeys,
   parseSlicerItem,
   requireHostBoolean,
@@ -35,6 +35,7 @@ function getCollection(context: {
 async function readFilterSnapshot(
   context: { sync(): Promise<void> },
   slicer: ExcelSlicer,
+  expectedKeys?: string[],
 ): Promise<SlicerFilterInfo> {
   queueLoadSlicer(slicer);
   if (!slicer.slicerItems || typeof slicer.slicerItems.load !== "function") {
@@ -67,31 +68,26 @@ async function readFilterSnapshot(
 
   const allItems: SlicerItemInfo[] = itemProxies.map((item, index) => parseSlicerItem(item, index));
   const itemCount = allItems.length;
-  const truncated = itemCount > SLICER_MAX_ITEMS_READBACK;
-  const items = truncated ? allItems.slice(0, SLICER_MAX_ITEMS_READBACK) : allItems;
-  if (truncated) {
+  if (itemCount > SLICER_MAX_ITEMS_READBACK) {
     throw new Error(
       `slicer has ${itemCount} items; exceeds readback cap ${SLICER_MAX_ITEMS_READBACK}`,
     );
   }
 
-  // Always assert items↔selectedKeys consistency on the full set
-  assertSelectionConsistent(selectedKeys, allItems, "exact-keys", selectedKeys);
-
-  const limitations = [
-    "selectItems([]) selects all items (official); empty keys is not 'select none'",
-    "Stable Excel.Slicer has no sourceName/sourceType/sourceField readback",
-  ];
+  assertFilterSurfaceConsistent(selectedKeys, allItems, isFilterCleared, expectedKeys);
 
   return {
     name,
     isFilterCleared,
     selectedKeys,
-    items,
+    items: allItems,
     itemCount,
     truncated: false,
     verified: true,
-    limitations,
+    limitations: [
+      "selectItems([]) selects all items (official); empty keys is not 'select none'",
+      "Stable Excel.Slicer has no sourceName/sourceType/sourceField readback",
+    ],
   };
 }
 
@@ -116,20 +112,13 @@ export async function officeJsApplySlicerFilter(
     }
     slicer.selectItems(input.keys);
     await context.sync();
-    const snap = await readFilterSnapshot(context, slicer);
-
-    if (input.keys.length === 0) {
-      // Official select-all: all items selected + isFilterCleared true
-      assertSelectionConsistent(snap.selectedKeys, snap.items, "all-selected");
-      if (snap.isFilterCleared !== true) {
-        throw new Error(
-          "selectItems([]) readback: isFilterCleared must be true when all items are selected",
-        );
-      }
-      return snap;
+    // keys=[] → select all: expect selectedKeys = all item keys (via surface check only)
+    // non-empty → exact selectedKeys match
+    const expected = input.keys.length === 0 ? undefined : input.keys;
+    const snap = await readFilterSnapshot(context, slicer, expected);
+    if (input.keys.length === 0 && !snap.isFilterCleared) {
+      throw new Error("selectItems([]) readback: isFilterCleared must be true");
     }
-
-    assertSelectionConsistent(snap.selectedKeys, snap.items, "exact-keys", input.keys);
     return snap;
   });
 }
@@ -150,7 +139,6 @@ export async function officeJsClearSlicerFilter(
     if (snap.isFilterCleared !== true) {
       throw new Error("clearFilters readback: isFilterCleared is not true");
     }
-    assertSelectionConsistent(snap.selectedKeys, snap.items, "all-selected");
     return snap;
   });
 }

@@ -107,13 +107,32 @@ export function setsEqual(a: readonly string[], b: readonly string[]): boolean {
   return b.every((k) => set.has(k));
 }
 
-/** Assert selection readback is internally consistent. */
-export function assertSelectionConsistent(
+/** Reject duplicate SlicerItem.key values. */
+export function assertUniqueItemKeys(items: SlicerItemInfo[]): void {
+  const seen = new Set<string>();
+  for (let i = 0; i < items.length; i += 1) {
+    const key = items[i]!.key;
+    if (seen.has(key)) {
+      throw new Error(`slicerItems has duplicate key: ${key}`);
+    }
+    seen.add(key);
+  }
+}
+
+/**
+ * Full filter surface consistency:
+ * - unique item keys
+ * - selectedKeys ⊆ item keys, no unknown keys
+ * - each item.isSelected matches membership in selectedKeys
+ * - isFilterCleared === allSelected (all items selected and selectedKeys covers all keys)
+ */
+export function assertFilterSurfaceConsistent(
   selectedKeys: string[],
   items: SlicerItemInfo[],
-  mode: "exact-keys" | "all-selected",
+  isFilterCleared: boolean,
   expectedKeys?: string[],
-): void {
+): { allSelected: boolean } {
+  assertUniqueItemKeys(items);
   const itemKeys = items.map((i) => i.key);
   const itemKeySet = new Set(itemKeys);
   for (const key of selectedKeys) {
@@ -129,18 +148,45 @@ export function assertSelectionConsistent(
       );
     }
   }
-  if (mode === "all-selected") {
-    if (!items.every((i) => i.isSelected)) {
-      throw new Error("expected all slicer items selected");
-    }
-    if (!setsEqual(selectedKeys, itemKeys)) {
-      throw new Error("selectedKeys must equal all item keys when all are selected");
-    }
-  } else if (expectedKeys) {
+  const allSelected =
+    items.length > 0 &&
+    items.every((i) => i.isSelected) &&
+    setsEqual(selectedKeys, itemKeys);
+  // Empty slicer: treat allSelected as isFilterCleared must still match (both true when no items)
+  const allSelectedOrEmpty = items.length === 0 ? true : allSelected;
+  if (isFilterCleared !== allSelectedOrEmpty) {
+    throw new Error(
+      `isFilterCleared=${isFilterCleared} inconsistent with selection (allSelected=${allSelectedOrEmpty})`,
+    );
+  }
+  if (expectedKeys !== undefined) {
     if (!setsEqual(selectedKeys, expectedKeys)) {
       throw new Error(
         `selectedKeys mismatch: requested=[${expectedKeys.join(",")}] got=[${selectedKeys.join(",")}]`,
       );
+    }
+  }
+  return { allSelected: allSelectedOrEmpty };
+}
+
+/** @deprecated use assertFilterSurfaceConsistent */
+export function assertSelectionConsistent(
+  selectedKeys: string[],
+  items: SlicerItemInfo[],
+  mode: "exact-keys" | "all-selected",
+  expectedKeys?: string[],
+): void {
+  const isFilterCleared = mode === "all-selected";
+  assertFilterSurfaceConsistent(
+    selectedKeys,
+    items,
+    isFilterCleared,
+    mode === "all-selected" ? undefined : expectedKeys,
+  );
+  if (mode === "all-selected") {
+    const itemKeys = items.map((i) => i.key);
+    if (!items.every((i) => i.isSelected) || !setsEqual(selectedKeys, itemKeys)) {
+      throw new Error("expected all slicer items selected");
     }
   }
 }

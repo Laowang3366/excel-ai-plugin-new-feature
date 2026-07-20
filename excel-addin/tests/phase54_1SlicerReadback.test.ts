@@ -119,6 +119,7 @@ describe("phase54.1 slicer strict readback", () => {
 
   it("ClientResult.value requires sync before read", async () => {
     await createNamed("CR");
+    fake.state.resetClientResultReadFlag();
     const got = await adapter.getSlicerFilter({ name: "CR" });
     expect(got.ok).toBe(true);
     if (got.ok) {
@@ -126,6 +127,7 @@ describe("phase54.1 slicer strict readback", () => {
       expect(got.data.verified).toBe(true);
     }
     expect(fake.state.syncCount).toBeGreaterThanOrEqual(2);
+    expect(fake.state.lastClientResultReadBeforeSync).toBe(false);
   });
 
   it("list missing sheetName ordinary failed (not empty success)", async () => {

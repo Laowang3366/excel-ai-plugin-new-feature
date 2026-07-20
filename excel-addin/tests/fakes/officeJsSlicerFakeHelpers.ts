@@ -23,6 +23,8 @@ export type SlicerFakeState = {
   /** Optional type-poison overrides applied after load (test-only). */
   poison?: Partial<Record<string, unknown>>;
   itemPoison?: Array<Partial<Record<string, unknown>> | undefined>;
+  /** Override getSelectedItems ClientResult payload after sync (test poison). */
+  selectedKeysOverride?: unknown;
 };
 
 export type WriteCounts = {
@@ -36,6 +38,8 @@ export type WriteCounts = {
 export type ClientResultBag = {
   pending: Array<{ resolve: () => void }>;
   generation: number;
+  /** Set true if .value was read while not ready (before sync). */
+  readBeforeSync: boolean;
 };
 
 export function notLoaded(name: string): Error {
@@ -77,7 +81,7 @@ export function requireLoaded(maps: LoadMaps, target: object, prop: string): voi
   if (!done || !done.has(prop)) throw notLoaded(prop);
 }
 
-export function makeClientResult(getValue: () => string[], bag: ClientResultBag): { value: string[] } {
+export function makeClientResult(getValue: () => unknown, bag: ClientResultBag): { value: unknown } {
   let ready = false;
   bag.pending.push({
     resolve: () => {
@@ -86,7 +90,10 @@ export function makeClientResult(getValue: () => string[], bag: ClientResultBag)
   });
   return {
     get value() {
-      if (!ready) throw notLoaded("ClientResult.value");
+      if (!ready) {
+        bag.readBeforeSync = true;
+        throw notLoaded("ClientResult.value");
+      }
       return getValue();
     },
   };
@@ -134,17 +141,19 @@ export function makeSlicerProxy(
       }
       const set = new Set(items);
       for (const it of s.items) it.isSelected = set.has(it.key);
-      s.isFilterCleared = false;
+      s.isFilterCleared = s.items.length > 0 && s.items.every((it) => it.isSelected);
     },
   };
   maps.proxies.push(proxy);
 
   if (!opts.noGetSelected?.has(s.name)) {
     proxy.getSelectedItems = () =>
-      makeClientResult(
-        () => s.items.filter((i) => i.isSelected).map((i) => i.key),
-        opts.clientResults,
-      );
+      makeClientResult(() => {
+        if (Object.prototype.hasOwnProperty.call(s, "selectedKeysOverride")) {
+          return s.selectedKeysOverride;
+        }
+        return s.items.filter((i) => i.isSelected).map((i) => i.key);
+      }, opts.clientResults);
   }
 
   const bind = (prop: string, get: () => unknown, set?: (v: unknown) => void): void => {

@@ -6,6 +6,7 @@
 
 ### Excel 加载项
 
+- Phase54.2：selectedKeys/item key 唯一性与 isFilterCleared↔全选一致性；ClientResult 显式 lastClientResultReadBeforeSync 断言。
 - Phase54.1：切片器宿主回读严格化（禁止 String/Number/Boolean 强制转换假绿）；filter apply/clear 验证全选与 isFilterCleared；list 不存在 sheet 失败；ClientResult 需 sync 后读 value。
 - 新增 Office.js 切片器工具（`slicer.list` / `slicer.create` / `slicer.update` / `slicer.delete` / `slicer.filter.get|apply|clear`，ExcelApi 1.10 稳定子集）；创建需 `advancedIntent=interactive-pivot`，支持 Table/PivotTable 源；宿主无法回读来源字段时返回 `requestedSource` 与 limitations；`selectItems([])` 表示全选。WPS 仍为 typed unsupported。**尚未真实 Excel/WPS 侧载验收。**
 

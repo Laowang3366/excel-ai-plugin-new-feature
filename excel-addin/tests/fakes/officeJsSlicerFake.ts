@@ -28,6 +28,9 @@ export type SlicerFakeInstall = {
     removeGetSelectedItems: (name: string) => void;
     setSelectItemsNoOp: (name: string) => void;
     disableGetItemOrNullObject: () => void;
+    poisonSelectedKeys: (name: string, value: unknown) => void;
+    clearSelectedKeysPoison: (name: string) => void;
+    resetClientResultReadFlag: () => void;
     lastClientResultReadBeforeSync: boolean;
   };
 };
@@ -61,7 +64,7 @@ export function installSlicerExcel(options?: {
   const selectItemsNoOp = new Set<string>();
   let useGetItemOrNullObject = true;
   let lastClientResultReadBeforeSync = false;
-  const clientResults: ClientResultBag = { pending: [], generation: 0 };
+  const clientResults: ClientResultBag = { pending: [], generation: 0, readBeforeSync: false };
 
   function proxyOpts(s: SlicerFakeState) {
     return {
@@ -302,7 +305,7 @@ export function installSlicerExcel(options?: {
         return excelRunCalls;
       },
       get lastClientResultReadBeforeSync() {
-        return lastClientResultReadBeforeSync;
+        return clientResults.readBeforeSync || lastClientResultReadBeforeSync;
       },
       setRequirement(supported: boolean | "throw" | "missing") {
         requirement = supported;
@@ -330,6 +333,20 @@ export function installSlicerExcel(options?: {
       },
       disableGetItemOrNullObject() {
         useGetItemOrNullObject = false;
+      },
+      poisonSelectedKeys(name: string, value: unknown) {
+        const s = slicers.find((x) => x.name === name);
+        if (!s) throw new Error(`poisonSelectedKeys: slicer not found ${name}`);
+        s.selectedKeysOverride = value;
+      },
+      clearSelectedKeysPoison(name: string) {
+        const s = slicers.find((x) => x.name === name);
+        if (!s) throw new Error(`clearSelectedKeysPoison: slicer not found ${name}`);
+        delete s.selectedKeysOverride;
+      },
+      resetClientResultReadFlag() {
+        clientResults.readBeforeSync = false;
+        lastClientResultReadBeforeSync = false;
       },
     },
   };
