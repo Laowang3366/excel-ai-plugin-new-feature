@@ -1312,6 +1312,13 @@ export class MockHostAdapter implements HostAdapter {
         majorUnit: 10,
         numberFormat: "General",
         reverse: false,
+        displayUnit: "none",
+        customDisplayUnit: 0,
+        scaleType: "linear",
+        logBase: 10,
+        showDisplayUnitLabel: false,
+        majorGridlinesVisible: true,
+        minorGridlinesVisible: false,
       };
       this.chartAxes.set(key, axis);
     }
@@ -1336,6 +1343,32 @@ export class MockHostAdapter implements HostAdapter {
     if (input.majorUnit !== undefined) axis.majorUnit = input.majorUnit;
     if (input.numberFormat !== undefined) axis.numberFormat = input.numberFormat;
     if (input.reverse !== undefined) axis.reverse = input.reverse;
+    if (input.displayUnit !== undefined) {
+      if (input.displayUnit === "custom") {
+        if (input.customDisplayUnit === undefined) {
+          throw new Error("customDisplayUnit is required when displayUnit is custom");
+        }
+        axis.displayUnit = "custom";
+        axis.customDisplayUnit = input.customDisplayUnit;
+      } else {
+        axis.displayUnit = input.displayUnit;
+      }
+    }
+    if (input.customDisplayUnit !== undefined && input.displayUnit !== "custom") {
+      axis.customDisplayUnit = input.customDisplayUnit;
+      axis.displayUnit = "custom";
+    }
+    if (input.scaleType !== undefined) axis.scaleType = input.scaleType;
+    if (input.logBase !== undefined) axis.logBase = input.logBase;
+    if (input.showDisplayUnitLabel !== undefined) {
+      axis.showDisplayUnitLabel = input.showDisplayUnitLabel;
+    }
+    if (input.majorGridlinesVisible !== undefined) {
+      axis.majorGridlinesVisible = input.majorGridlinesVisible;
+    }
+    if (input.minorGridlinesVisible !== undefined) {
+      axis.minorGridlinesVisible = input.minorGridlinesVisible;
+    }
     return ok({ ...axis });
   }
 

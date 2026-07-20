@@ -13,6 +13,13 @@ type AxisState = {
   majorUnit: number | string | null;
   numberFormat: string | null;
   reverse: boolean | null;
+  displayUnit: string | null;
+  customDisplayUnit: number | null;
+  scaleType: string | null;
+  logBase: number | null;
+  showDisplayUnitLabel: boolean | null;
+  majorGridlinesVisible: boolean | null;
+  minorGridlinesVisible: boolean | null;
 };
 
 type AxisEntry = {
@@ -31,10 +38,18 @@ function defaultAxis(type: string, axisGroup: string): AxisState {
     majorUnit: 10,
     numberFormat: "General",
     reverse: false,
+    displayUnit: "None",
+    customDisplayUnit: 0,
+    scaleType: "Linear",
+    logBase: 10,
+    showDisplayUnitLabel: false,
+    majorGridlinesVisible: true,
+    minorGridlinesVisible: false,
   };
 }
 
-export function installChartAxesExcel() {
+export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
+  const excelApi17 = options?.excelApi17 !== false;
   const axes = new Map<string, AxisEntry>();
   for (const kind of ["Category", "Value"]) {
     for (const group of ["Primary", "Secondary"]) {
@@ -53,7 +68,15 @@ export function installChartAxesExcel() {
     majorUnit: number | string | null;
     numberFormat: string | null;
     reversePlotOrder: boolean | null;
+    displayUnit: string | null;
+    customDisplayUnit: number | null;
+    scaleType: string | null;
+    logBase: number | null;
+    showDisplayUnitLabel: boolean | null;
     title: { text: string; visible: boolean; load: (p?: string) => void };
+    majorGridlines: { visible: boolean; load: (p?: string) => void };
+    minorGridlines: { visible: boolean; load: (p?: string) => void };
+    setCustomDisplayUnit: (value: number) => void;
     load: (p?: string) => void;
     _flushLoad: () => void;
   };
@@ -111,6 +134,45 @@ export function installChartAxesExcel() {
       set reversePlotOrder(v: boolean | null) {
         entry().pending = { ...entry().pending, reverse: v };
       },
+      get displayUnit() {
+        if (!snapshot) throw new Error("ChartAxis.displayUnit not loaded");
+        return snapshot.displayUnit;
+      },
+      set displayUnit(v: string | null) {
+        entry().pending = { ...entry().pending, displayUnit: v };
+      },
+      get customDisplayUnit() {
+        if (!snapshot) throw new Error("ChartAxis.customDisplayUnit not loaded");
+        return snapshot.customDisplayUnit;
+      },
+      get scaleType() {
+        if (!snapshot) throw new Error("ChartAxis.scaleType not loaded");
+        return snapshot.scaleType;
+      },
+      set scaleType(v: string | null) {
+        entry().pending = { ...entry().pending, scaleType: v };
+      },
+      get logBase() {
+        if (!snapshot) throw new Error("ChartAxis.logBase not loaded");
+        return snapshot.logBase;
+      },
+      set logBase(v: number | null) {
+        entry().pending = { ...entry().pending, logBase: v };
+      },
+      get showDisplayUnitLabel() {
+        if (!snapshot) throw new Error("ChartAxis.showDisplayUnitLabel not loaded");
+        return snapshot.showDisplayUnitLabel;
+      },
+      set showDisplayUnitLabel(v: boolean | null) {
+        entry().pending = { ...entry().pending, showDisplayUnitLabel: v };
+      },
+      setCustomDisplayUnit(value: number) {
+        entry().pending = {
+          ...entry().pending,
+          displayUnit: "Custom",
+          customDisplayUnit: value,
+        };
+      },
       title: {
         get text() {
           if (!snapshot) throw new Error("ChartAxis.title.text not loaded");
@@ -125,6 +187,26 @@ export function installChartAxesExcel() {
         },
         set visible(v: boolean) {
           entry().pending = { ...entry().pending, titleVisible: v };
+        },
+        load() {},
+      },
+      majorGridlines: {
+        get visible() {
+          if (!snapshot) throw new Error("ChartAxis.majorGridlines.visible not loaded");
+          return snapshot.majorGridlinesVisible as boolean;
+        },
+        set visible(v: boolean) {
+          entry().pending = { ...entry().pending, majorGridlinesVisible: v };
+        },
+        load() {},
+      },
+      minorGridlines: {
+        get visible() {
+          if (!snapshot) throw new Error("ChartAxis.minorGridlines.visible not loaded");
+          return snapshot.minorGridlinesVisible as boolean;
+        },
+        set visible(v: boolean) {
+          entry().pending = { ...entry().pending, minorGridlinesVisible: v };
         },
         load() {},
       },
@@ -198,6 +280,21 @@ export function installChartAxesExcel() {
   (globalThis as unknown as { Excel: { run: Function } }).Excel = {
     run: async <T>(fn: (ctx: typeof context) => Promise<T>) => fn(context),
   };
+  (globalThis as unknown as {
+    Office: {
+      context: { requirements: { isSetSupported: (n: string, v?: string) => boolean } };
+    };
+  }).Office = {
+    context: {
+      requirements: {
+        isSetSupported(name: string, minVersion?: string) {
+          if (name !== "ExcelApi") return false;
+          if (minVersion === "1.7") return excelApi17;
+          return true;
+        },
+      },
+    },
+  };
 
   return {
     getCommitted(kind: string, group: string) {
@@ -221,8 +318,12 @@ export function installChartAxesExcel() {
         .axes.getItem("Value", "Primary");
       axis.minimum = 5;
       axis.maximum = 50;
-      axis.load("minimum,maximum,majorUnit,numberFormat,reversePlotOrder");
+      axis.load(
+        "minimum,maximum,majorUnit,numberFormat,reversePlotOrder,displayUnit,customDisplayUnit,scaleType,logBase,showDisplayUnitLabel",
+      );
       axis.title.load("text,visible");
+      axis.majorGridlines.load("visible");
+      axis.minorGridlines.load("visible");
       await context.sync();
       return { minimum: axis.minimum, maximum: axis.maximum };
     },

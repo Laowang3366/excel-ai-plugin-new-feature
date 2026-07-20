@@ -1,9 +1,13 @@
 import type { HostAdapter } from "../host/types";
 import {
+  isChartAxisDisplayUnit,
   isChartAxisGroup,
   isChartAxisKind,
+  isChartAxisScaleType,
+  type ChartAxisDisplayUnit,
   type ChartAxisGroup,
   type ChartAxisKind,
+  type ChartAxisScaleType,
 } from "../host/chartAxisTypes";
 import type { ToolCall, ToolResult } from "./types";
 
@@ -60,6 +64,12 @@ function optionalFinite(args: Record<string, unknown>, key: string): number | un
   return value;
 }
 
+function optionalPositiveFinite(args: Record<string, unknown>, key: string): number | undefined {
+  const value = optionalFinite(args, key);
+  if (value != null && value <= 0) throw new Error(`${key} must be a positive finite number`);
+  return value;
+}
+
 function optionalMajorUnit(args: Record<string, unknown>): number | undefined {
   const value = optionalFinite(args, "majorUnit");
   if (value != null && value < 0) throw new Error("majorUnit must be >= 0");
@@ -84,6 +94,26 @@ function optionalBoolean(args: Record<string, unknown>, key: string): boolean | 
   if (args[key] === null) throw new Error(`${key} must not be null`);
   if (typeof args[key] !== "boolean") throw new Error(`Invalid boolean argument: ${key}`);
   return args[key] as boolean;
+}
+
+function optionalDisplayUnit(args: Record<string, unknown>): ChartAxisDisplayUnit | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "displayUnit")) return undefined;
+  if (args.displayUnit === undefined) throw new Error("displayUnit must not be undefined");
+  if (args.displayUnit === null) throw new Error("displayUnit must not be null");
+  if (!isChartAxisDisplayUnit(args.displayUnit)) {
+    throw new Error("displayUnit must be a supported ChartAxisDisplayUnit");
+  }
+  return args.displayUnit;
+}
+
+function optionalScaleType(args: Record<string, unknown>): ChartAxisScaleType | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "scaleType")) return undefined;
+  if (args.scaleType === undefined) throw new Error("scaleType must not be undefined");
+  if (args.scaleType === null) throw new Error("scaleType must not be null");
+  if (!isChartAxisScaleType(args.scaleType)) {
+    throw new Error("scaleType must be linear|logarithmic");
+  }
+  return args.scaleType;
 }
 
 function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
@@ -125,6 +155,13 @@ export async function executeChartAxesTool(
     "majorUnit",
     "numberFormat",
     "reverse",
+    "displayUnit",
+    "customDisplayUnit",
+    "scaleType",
+    "logBase",
+    "showDisplayUnitLabel",
+    "majorGridlinesVisible",
+    "minorGridlinesVisible",
   ]);
   const input = {
     sheetName: requireString(call.arguments, "sheetName"),
@@ -137,14 +174,38 @@ export async function executeChartAxesTool(
     majorUnit: optionalMajorUnit(call.arguments),
     numberFormat: optionalNumberFormat(call.arguments),
     reverse: optionalBoolean(call.arguments, "reverse"),
+    displayUnit: optionalDisplayUnit(call.arguments),
+    customDisplayUnit: optionalPositiveFinite(call.arguments, "customDisplayUnit"),
+    scaleType: optionalScaleType(call.arguments),
+    logBase: optionalPositiveFinite(call.arguments, "logBase"),
+    showDisplayUnitLabel: optionalBoolean(call.arguments, "showDisplayUnitLabel"),
+    majorGridlinesVisible: optionalBoolean(call.arguments, "majorGridlinesVisible"),
+    minorGridlinesVisible: optionalBoolean(call.arguments, "minorGridlinesVisible"),
   };
+  if (input.displayUnit === "custom" && input.customDisplayUnit === undefined) {
+    throw new Error("customDisplayUnit is required when displayUnit is custom");
+  }
+  if (
+    input.customDisplayUnit !== undefined &&
+    input.displayUnit !== undefined &&
+    input.displayUnit !== "custom"
+  ) {
+    throw new Error("customDisplayUnit requires displayUnit custom (or omit displayUnit)");
+  }
   if (
     input.title === undefined &&
     input.minimum === undefined &&
     input.maximum === undefined &&
     input.majorUnit === undefined &&
     input.numberFormat === undefined &&
-    input.reverse === undefined
+    input.reverse === undefined &&
+    input.displayUnit === undefined &&
+    input.customDisplayUnit === undefined &&
+    input.scaleType === undefined &&
+    input.logBase === undefined &&
+    input.showDisplayUnitLabel === undefined &&
+    input.majorGridlinesVisible === undefined &&
+    input.minorGridlinesVisible === undefined
   ) {
     throw new Error("chart.axes.update requires at least one update field");
   }
