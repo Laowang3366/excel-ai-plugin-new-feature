@@ -81,6 +81,50 @@ describe("production package asset URL hardening", () => {
     expect(() =>
       assertIndexAssetsUnderBase("<script src=/app/assets/x.js></script>", "/app/"),
     ).toThrow(/quoted URL/);
+    expect(() =>
+      assertIndexAssetsUnderBase("<script src></script>", "/app/"),
+    ).toThrow(/quoted URL/);
+  });
+
+  it("matches only exact attributes and rejects duplicate targets", () => {
+    expect(
+      assertIndexAssetsUnderBase(
+        '<script data-src="/app/assets/ignored.js"></script>',
+        "/app/",
+      ),
+    ).toEqual([]);
+    expect(() =>
+      assertIndexAssetsUnderBase(
+        '<script src="/app/assets/a.js" src="/app/assets/b.js"></script>',
+        "/app/",
+      ),
+    ).toThrow(/duplicate/);
+  });
+
+  it.each([
+    [
+      '<script data-src="/app/assets/good.js" src=//evil.example/x.js></script>',
+      /quoted URL/,
+    ],
+    [
+      '<script src=//evil.example/x.js src="/app/assets/good.js"></script>',
+      /quoted URL|duplicate/,
+    ],
+    [
+      '<link data-href="/app/assets/good.css" href=//evil.example/x.css>',
+      /quoted URL/,
+    ],
+  ])("rejects target-attribute confusion in %s", (html, expected) => {
+    expect(() => assertIndexAssetsUnderBase(html, "/app/")).toThrow(expected);
+  });
+
+  it("rejects HTML character references before URL resolution", () => {
+    expect(() =>
+      assertIndexAssetsUnderBase(
+        '<script src="/app/&period;&period;/escape.js"></script>',
+        "/app/",
+      ),
+    ).toThrow(/character references/);
   });
 
   it("does not hide an unsafe URL behind a greater-than sign in another attribute", () => {
@@ -153,6 +197,32 @@ describe("production package filesystem hardening", () => {
       }),
     ).toThrow(/missing/);
     expect(existsSync(dist)).toBe(false);
+  });
+
+  it("does not delete outside the project through a linked dist parent", () => {
+    const parent = makeTempRoot();
+    const project = path.join(parent, "project");
+    const outside = path.join(parent, "outside");
+    const outsideDist = path.join(outside, "dist");
+    mkdirSync(path.join(project, "manifest/templates"), { recursive: true });
+    mkdirSync(outsideDist, { recursive: true });
+    writeFileSync(path.join(outsideDist, "sentinel.txt"), "keep");
+    writeFileSync(path.join(project, "package.json"), '{"version":"0.1.0"}\n');
+    writeFileSync(
+      path.join(project, "manifest/templates/office-excel-manifest.template.xml"),
+      template,
+    );
+    symlinkSync(outside, path.join(project, "linked"), "junction");
+
+    expect(() =>
+      createPackage({
+        baseUrl: "https://example.com/app",
+        rootDir: project,
+        distDir: path.join(project, "linked/dist"),
+        skipBuild: true,
+      }),
+    ).toThrow(/symlink/);
+    expect(existsSync(path.join(outsideDist, "sentinel.txt"))).toBe(true);
   });
 
   it("formats spawn start, signal, and exit failures safely", () => {

@@ -90,6 +90,8 @@ function decodeAssetPath(rawPath, ref) {
 function collectIndexAssetRefs(html) {
   const refs = [];
   const startRe = /<(script|link)\b/gi;
+  const attributeRe =
+    /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
   let match;
   while ((match = startRe.exec(html)) !== null) {
     const tagName = match[1].toLowerCase();
@@ -107,17 +109,23 @@ function collectIndexAssetRefs(html) {
       }
     }
     if (end < 0) throw new Error(`unterminated ${tagName} tag in index.html`);
-    const tag = html.slice(match.index, end);
+    const attributes = html.slice(match.index + match[0].length, end - 1);
     startRe.lastIndex = end;
     const attrName = tagName === "script" ? "src" : "href";
-    const assignmentRe = new RegExp(`\\b${attrName}\\s*=`, "i");
-    if (!assignmentRe.test(tag)) continue;
-    const quotedRe = new RegExp(`\\b${attrName}\\s*=\\s*(["'])(.*?)\\1`, "i");
-    const attr = tag.match(quotedRe);
-    if (!attr) {
-      throw new Error(`${tagName} ${attrName} must use a quoted URL`);
+    let ref = null;
+    attributeRe.lastIndex = 0;
+    let attribute;
+    while ((attribute = attributeRe.exec(attributes)) !== null) {
+      if (attribute[1].toLowerCase() !== attrName) continue;
+      if (ref !== null) {
+        throw new Error(`duplicate ${tagName} ${attrName} is forbidden`);
+      }
+      if (attribute[2] === undefined && attribute[3] === undefined) {
+        throw new Error(`${tagName} ${attrName} must use a quoted URL`);
+      }
+      ref = attribute[2] ?? attribute[3];
     }
-    refs.push(attr[2]);
+    if (ref !== null) refs.push(ref);
   }
   return refs;
 }
@@ -128,6 +136,9 @@ function resolveIndexAssetRef(ref, viteBase) {
   }
   if (ref.includes("\\") || CONTROL_CHAR_RE.test(ref)) {
     throw new Error(`asset URL contains backslash/control characters: ${ref}`);
+  }
+  if (ref.includes("&")) {
+    throw new Error(`HTML character references are forbidden in asset URL: ${ref}`);
   }
   if (ref.startsWith("//")) {
     throw new Error(`protocol-relative asset URL is forbidden: ${ref}`);

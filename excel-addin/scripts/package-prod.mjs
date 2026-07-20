@@ -36,7 +36,7 @@ Writes production static files into dist/ and prints one JSON summary line to st
   process.exit(code);
 }
 
-function assertDistInsideRoot(rootDir, distDir) {
+function assertSafeDistPath(rootDir, distDir) {
   const relative = path.relative(rootDir, distDir);
   if (
     relative === "" ||
@@ -46,9 +46,31 @@ function assertDistInsideRoot(rootDir, distDir) {
   ) {
     throw new Error(`dist directory must be inside project root: ${distDir}`);
   }
+  const rootStat = fs.lstatSync(rootDir);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new Error(`project root must be a real directory: ${rootDir}`);
+  }
+  let current = rootDir;
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    let stat;
+    try {
+      stat = fs.lstatSync(current);
+    } catch (error) {
+      if (error?.code === "ENOENT") break;
+      throw error;
+    }
+    if (stat.isSymbolicLink()) {
+      throw new Error(`dist path must not contain symlinks: ${current}`);
+    }
+    if (!stat.isDirectory()) {
+      throw new Error(`dist path component must be a directory: ${current}`);
+    }
+  }
 }
 
-function removeDist(distDir) {
+function removeDist(rootDir, distDir) {
+  assertSafeDistPath(rootDir, distDir);
   fs.rmSync(distDir, { recursive: true, force: true });
 }
 
@@ -78,7 +100,7 @@ export function createPackage(args, env = process.env) {
   if (!args?.baseUrl) throw new Error("--base-url is required");
   const rootDir = path.resolve(args.rootDir || defaultRoot);
   const distDir = path.resolve(args.distDir || path.join(rootDir, "dist"));
-  assertDistInsideRoot(rootDir, distDir);
+  assertSafeDistPath(rootDir, distDir);
   const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8"));
   const rawGitSha =
     args.gitSha ||
@@ -99,7 +121,7 @@ export function createPackage(args, env = process.env) {
   let packagingStarted = false;
   try {
     if (!args.skipBuild) {
-      removeDist(distDir);
+      removeDist(rootDir, distDir);
       packagingStarted = true;
       runNpmBuild(rootDir, resolved.viteBase);
     } else {
@@ -188,7 +210,7 @@ export function createPackage(args, env = process.env) {
       files: rels.slice().sort(),
     };
   } catch (error) {
-    if (packagingStarted) removeDist(distDir);
+    if (packagingStarted) removeDist(rootDir, distDir);
     throw error;
   }
 }
