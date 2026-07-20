@@ -67,7 +67,7 @@ import type {
   ConditionalFormatInfo,
   ConditionalFormatRule,
   DataValidationInfo,
-  DataValidationRule,
+  DataValidationWriteInput,
   FormulaContextData,
   HostKind,
   HostResult,
@@ -291,11 +291,9 @@ export interface HostAdapter {
     sheetName: string,
     range: string,
   ): Promise<HostResult<DataValidationInfo>>;
-  writeDataValidation(input: {
-    sheetName: string;
-    range: string;
-    rule: DataValidationRule;
-  }): Promise<HostResult<DataValidationInfo>>;
+  writeDataValidation(
+    input: DataValidationWriteInput,
+  ): Promise<HostResult<DataValidationInfo>>;
   clearDataValidation(
     sheetName: string,
     range: string,

@@ -8,8 +8,8 @@ import {
   requireIdent,
   requireValueString,
 } from "./argValidation";
-import { requireCfRule, requireDvRule } from "./ruleValidation";
 import { executeSheetOperation } from "./sheetOperation";
+import { executeValidationTool } from "./validationExecutor";
 import { executeDisplayTool } from "./displayExecutor";
 import { executeFreezeTool } from "./freezeExecutor";
 import { executeChartTool } from "./chartExecutor";
@@ -122,7 +122,6 @@ function fromHost(
 ): ReturnType<typeof mapHostResultToToolResult> {
   return mapHostResultToToolResult(tool, result);
 }
-
 
 function parseMaxItemsPerCategory(args: Record<string, unknown>): number {
   if (!Object.prototype.hasOwnProperty.call(args, "maxItemsPerCategory") || args.maxItemsPerCategory === undefined) {
@@ -280,58 +279,9 @@ export class ToolExecutor {
           );
         case "workbook.save":
           return fromHost(call.name, await this.host.saveWorkbook());
-        case "conditionalFormat.list":
-          return fromHost(
-            call.name,
-            await this.host.listConditionalFormats(
-              requireIdent(call.arguments, "sheetName"),
-              requireIdent(call.arguments, "range"),
-            ),
-          );
-        case "conditionalFormat.add":
-          return fromHost(
-            call.name,
-            await this.host.addConditionalFormat({
-              sheetName: requireIdent(call.arguments, "sheetName"),
-              range: requireIdent(call.arguments, "range"),
-              rule: requireCfRule(call.arguments),
-            }),
-          );
-        case "conditionalFormat.delete":
-          return fromHost(
-            call.name,
-            await this.host.deleteConditionalFormat(
-              requireIdent(call.arguments, "sheetName"),
-              requireIdent(call.arguments, "range"),
-              requireIdent(call.arguments, "id"),
-            ),
-          );
-        case "dataValidation.read":
-          return fromHost(
-            call.name,
-            await this.host.readDataValidation(
-              requireIdent(call.arguments, "sheetName"),
-              requireIdent(call.arguments, "range"),
-            ),
-          );
-        case "dataValidation.write":
-          return fromHost(
-            call.name,
-            await this.host.writeDataValidation({
-              sheetName: requireIdent(call.arguments, "sheetName"),
-              range: requireIdent(call.arguments, "range"),
-              rule: requireDvRule(call.arguments),
-            }),
-          );
-        case "dataValidation.clear":
-          return fromHost(
-            call.name,
-            await this.host.clearDataValidation(
-              requireIdent(call.arguments, "sheetName"),
-              requireIdent(call.arguments, "range"),
-            ),
-          );
         default: {
+          const validation = await executeValidationTool(this.host, call);
+          if (validation) return validation;
           const chart = await executeChartTool(this.host, call);
           if (chart) return chart;
           const structure = await executeStructureTool(this.host, call);

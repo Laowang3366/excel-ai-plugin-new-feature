@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项 Phase53：`dataValidation.read/write` 支持 Office.js `errorAlert`/`prompt` 与 `allowBlank`↔`ignoreBlanks` 完整回读；WPS 对新元数据 typed unsupported；**未**真实侧载验证。
+
 - 独立 Excel 加载项 `chart.series.dataLabels` 合同收口：position 公开类型仅规范枚举；宿主 position 只接受官方 11 token（禁止模糊归一化）；1.8 路径写前预检全部成员；bubbleSizes 矩阵措辞与 dataLabels 对齐。
 - 独立 Excel 加载项 `chart.series.dataLabels.update` 扩展 showPercentage/showBubbleSize/showLegendKey/separator/position（ExcelApi 1.8 `ChartSeries.dataLabels` 完整快照；position 不含 Invalid；separator 原样保留）；enabled-only 仍 ExcelApi 1.7；WPS 仍 unsupported；真实侧载尚未验收。
 - 独立 Excel 加载项补强 `pivot.refresh` 版本回归：ExcelApi 1.3 与 1.7 门禁独立（1.7 关闭时 omit/false 仍可刷新透视）。

@@ -11,10 +11,25 @@ export type CfState = {
   customFont?: string;
 };
 
+export type DvAlertState = {
+  showAlert?: boolean;
+  style?: string;
+  title?: string;
+  message?: string;
+};
+
+export type DvPromptState = {
+  showPrompt?: boolean;
+  title?: string;
+  message?: string;
+};
+
 export type DvState = {
   type: string | null;
   ignoreBlanks: boolean;
   rule: Record<string, unknown>;
+  errorAlert?: DvAlertState;
+  prompt?: DvPromptState;
 };
 
 export type CtxPending = {
@@ -41,6 +56,12 @@ export type ValidationFakeOptions = {
   seedManyCf?: number;
   /** Keep list.source as Range-like object after commit (default true). */
   keepListSourceAsRangeObject?: boolean;
+  /** Omit dataValidation.errorAlert member (precheck fail). */
+  missingDvErrorAlert?: boolean;
+  /** Omit dataValidation.prompt member (precheck fail). */
+  missingDvPrompt?: boolean;
+  /** Omit nested errorAlert.style etc. */
+  missingDvErrorAlertFields?: boolean;
   /** Tamper CF detail fields after commit (id/type preserved). */
   tamperCfReadback?: {
     operator?: string;
@@ -56,7 +77,14 @@ export type ValidationFakeOptions = {
     formula1?: string;
     formula2?: string;
     allowBlank?: boolean;
-    listSource?: string;
+    listSource?: unknown;
+    errorAlertStyle?: string;
+    errorAlertTitle?: string;
+    errorAlertMessage?: string;
+    errorAlertShow?: boolean;
+    promptTitle?: string;
+    promptMessage?: string;
+    promptShow?: boolean;
   };
 };
 
@@ -251,6 +279,28 @@ export function applyDvTamper(
   }
   if (tamper.listSource != null && next.rule.list && typeof next.rule.list === "object") {
     (next.rule.list as { source?: unknown }).source = tamper.listSource;
+  }
+  if (
+    tamper.errorAlertStyle != null ||
+    tamper.errorAlertTitle != null ||
+    tamper.errorAlertMessage != null ||
+    tamper.errorAlertShow !== undefined
+  ) {
+    next.errorAlert = { ...(state.errorAlert ?? {}) };
+    if (tamper.errorAlertStyle != null) next.errorAlert.style = tamper.errorAlertStyle;
+    if (tamper.errorAlertTitle != null) next.errorAlert.title = tamper.errorAlertTitle;
+    if (tamper.errorAlertMessage != null) next.errorAlert.message = tamper.errorAlertMessage;
+    if (tamper.errorAlertShow !== undefined) next.errorAlert.showAlert = tamper.errorAlertShow;
+  }
+  if (
+    tamper.promptTitle != null ||
+    tamper.promptMessage != null ||
+    tamper.promptShow !== undefined
+  ) {
+    next.prompt = { ...(state.prompt ?? {}) };
+    if (tamper.promptTitle != null) next.prompt.title = tamper.promptTitle;
+    if (tamper.promptMessage != null) next.prompt.message = tamper.promptMessage;
+    if (tamper.promptShow !== undefined) next.prompt.showPrompt = tamper.promptShow;
   }
   return next;
 }

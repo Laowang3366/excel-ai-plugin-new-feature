@@ -1825,7 +1825,14 @@ export class MockHostAdapter implements HostAdapter {
     string,
     import("../shared/host/types").ConditionalFormatInfo[]
   >();
-  private dvRules = new Map<string, import("../shared/host/types").DataValidationRule | null>();
+  private dvRules = new Map<
+    string,
+    {
+      rule: import("../shared/host/types").DataValidationRule;
+      errorAlert?: import("../shared/host/types").DataValidationErrorAlert;
+      prompt?: import("../shared/host/types").DataValidationPrompt;
+    } | null
+  >();
 
   async listConditionalFormats(sheetName: string, range: string) {
     return ok(this.cfRules.get(key(sheetName, range)) ?? []);
@@ -1861,7 +1868,8 @@ export class MockHostAdapter implements HostAdapter {
   }
 
   async readDataValidation(sheetName: string, range: string) {
-    const rule = this.dvRules.get(key(sheetName, range)) ?? null;
+    const entry = this.dvRules.get(key(sheetName, range)) ?? null;
+    const rule = entry?.rule ?? null;
     const listSourceKind: import("../shared/host/types").DataValidationListSourceKind | null =
       rule?.type === "list"
         ? rule.listValues
@@ -1877,15 +1885,24 @@ export class MockHostAdapter implements HostAdapter {
       hostType: rule?.type ?? "None",
       supported: rule != null,
       listSourceKind,
+      errorAlert: entry?.errorAlert ?? null,
+      prompt: entry?.prompt ?? null,
     });
   }
 
-  async writeDataValidation(input: {
-    sheetName: string;
-    range: string;
-    rule: import("../shared/host/types").DataValidationRule;
-  }) {
-    this.dvRules.set(key(input.sheetName, input.range), input.rule);
+  async writeDataValidation(
+    input: import("../shared/host/types").DataValidationWriteInput,
+  ) {
+    const prev = this.dvRules.get(key(input.sheetName, input.range));
+    // Only overwrite alert/prompt when explicitly provided (omit = keep host values).
+    const errorAlert =
+      input.errorAlert !== undefined ? input.errorAlert : prev?.errorAlert;
+    const prompt = input.prompt !== undefined ? input.prompt : prev?.prompt;
+    this.dvRules.set(key(input.sheetName, input.range), {
+      rule: input.rule,
+      errorAlert,
+      prompt,
+    });
     const listSourceKind: import("../shared/host/types").DataValidationListSourceKind | null =
       input.rule.type === "list"
         ? input.rule.listValues
@@ -1901,6 +1918,8 @@ export class MockHostAdapter implements HostAdapter {
       hostType: input.rule.type,
       supported: true,
       listSourceKind,
+      errorAlert: errorAlert ?? null,
+      prompt: prompt ?? null,
     });
   }
 

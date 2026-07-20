@@ -154,8 +154,20 @@ export async function wpsWriteDataValidation(input: {
   sheetName: string;
   range: string;
   rule: DataValidationRule;
+  errorAlert?: unknown;
+  prompt?: unknown;
 }): Promise<HostResult<DataValidationInfo>> {
   const capability = "dataValidation.write";
+  // No in-repo JSA/member evidence for ErrorTitle/ErrorMessage/InputTitle/ShowError etc.
+  // Do not invent COM shapes; zero write side effects when new metadata is requested.
+  if (input.errorAlert !== undefined || input.prompt !== undefined) {
+    return unsupported(
+      capability,
+      "wps-jsa",
+      "errorAlert/prompt require Office.js DataValidation metadata; WPS JSA has no verified ErrorTitle/InputMessage members",
+      EVIDENCE,
+    );
+  }
   const resolved = resolveRange(capability, input.sheetName, input.range);
   if (!resolved.ok) return resolved;
   const vResult = requireValidation(capability, resolved.data.range);

@@ -98,7 +98,7 @@ export const DATA_VALIDATION_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "dataValidation.read",
     description:
-      "读取区域数据验证。支持 list/wholeNumber/decimal/date/time/textLength/custom；Inconsistent/MixedCriteria 诚实标记 limitations 且 rule=null。list 公式/区域源不拆成 listValues。ExcelApi 1.8；WPS unsupported",
+      "读取区域数据验证。支持 list/wholeNumber/decimal/date/time/textLength/custom；返回 ignoreBlanks(allowBlank)、errorAlert、prompt 宿主真实值；Inconsistent/MixedCriteria 诚实标记 limitations 且 rule=null。list 公式/区域源不拆成 listValues。ExcelApi 1.8；WPS：规则已实现*，errorAlert/prompt 无证据时可能缺失",
     riskLevel: "safe",
     parameters: {
       type: "object",
@@ -113,7 +113,7 @@ export const DATA_VALIDATION_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "dataValidation.write",
     description:
-      "写入数据验证。list：listValues 内联 与 formula1 区域源互斥（区域源传 Range 代理）。比较型：完整 operator；between/notBetween 需 formula2。custom：formula1 为公式。errorAlert/prompt 本批不实现。写后宿主回读。ExcelApi 1.8；WPS unsupported",
+      "写入数据验证。list：listValues 内联 与 formula1 区域源互斥（区域源传 Range 代理）。比较型：完整 operator；between/notBetween 需 formula2。custom：formula1 为公式。allowBlank→ignoreBlanks；可选 errorAlert(showAlert/title/message/style=stop|warning|information) 与 prompt(showPrompt/title/message)，title/message ≤255。写后宿主回读。ExcelApi 1.8；WPS：规则已实现*，errorAlert/prompt 无 JSA 证据时 typed unsupported",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -136,6 +136,25 @@ export const DATA_VALIDATION_TOOL_DEFINITIONS: ToolDefinition[] = [
             allowBlank: { type: "boolean" },
           },
           required: ["type"],
+          additionalProperties: false,
+        },
+        errorAlert: {
+          type: "object",
+          properties: {
+            showAlert: { type: "boolean" },
+            style: { type: "string", enum: ["stop", "warning", "information"] },
+            title: { type: "string", maxLength: 255 },
+            message: { type: "string", maxLength: 255 },
+          },
+          additionalProperties: false,
+        },
+        prompt: {
+          type: "object",
+          properties: {
+            showPrompt: { type: "boolean" },
+            title: { type: "string", maxLength: 255 },
+            message: { type: "string", maxLength: 255 },
+          },
           additionalProperties: false,
         },
       },

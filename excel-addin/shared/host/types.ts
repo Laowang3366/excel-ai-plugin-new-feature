@@ -210,7 +210,34 @@ export interface DataValidationRule {
   formula2?: string;
   /** Inline list items only; mutually exclusive with formula1 range source. */
   listValues?: string[];
+  /**
+   * Maps to Office.js DataValidation.ignoreBlanks (ExcelApi 1.8).
+   * Omitted on write → host default true (ignoreBlanks=true).
+   */
   allowBlank?: boolean;
+}
+/** Official Excel.DataValidationAlertStyle (public camel tokens). */
+export type DataValidationAlertStyle = "stop" | "warning" | "information";
+
+/**
+ * Office.js DataValidationErrorAlert (ExcelApi 1.8).
+ * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationerroralert
+ */
+export interface DataValidationErrorAlert {
+  showAlert?: boolean;
+  style?: DataValidationAlertStyle;
+  title?: string;
+  message?: string;
+}
+
+/**
+ * Office.js DataValidationPrompt (ExcelApi 1.8).
+ * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationprompt
+ */
+export interface DataValidationPrompt {
+  showPrompt?: boolean;
+  title?: string;
+  message?: string;
 }
 
 export type DataValidationListSourceKind = "inline" | "range";
@@ -224,7 +251,20 @@ export interface DataValidationInfo {
   /** false when host type is not a single writable rule (Inconsistent/MixedCriteria/unknown). */
   supported?: boolean;
   listSourceKind?: DataValidationListSourceKind | null;
+  /** Host errorAlert snapshot (null when absent / not loaded). */
+  errorAlert?: DataValidationErrorAlert | null;
+  /** Host prompt snapshot (null when absent / not loaded). */
+  prompt?: DataValidationPrompt | null;
   limitations?: string[];
+}
+
+/** Write input shared by HostAdapter / Office.js / Mock. */
+export interface DataValidationWriteInput {
+  sheetName: string;
+  range: string;
+  rule: DataValidationRule;
+  errorAlert?: DataValidationErrorAlert;
+  prompt?: DataValidationPrompt;
 }
 
 /** Office.js Excel.SheetVisibility subset. */

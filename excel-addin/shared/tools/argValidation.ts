@@ -56,7 +56,7 @@ export const CORE_TOOL_ARGUMENT_ALLOWLIST = {
   "conditionalFormat.add": ["sheetName", "range", "rule"],
   "conditionalFormat.delete": ["sheetName", "range", "id"],
   "dataValidation.read": ["sheetName", "range"],
-  "dataValidation.write": ["sheetName", "range", "rule"],
+  "dataValidation.write": ["sheetName", "range", "rule", "errorAlert", "prompt"],
   "dataValidation.clear": ["sheetName", "range"],
 } as const satisfies Record<string, readonly string[]>;
 

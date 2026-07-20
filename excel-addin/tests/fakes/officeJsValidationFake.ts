@@ -53,6 +53,9 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
         keepListSourceAsRangeObject,
         getTamper: () => options?.tamperDvReadback,
         clearLeavesHostType: options?.clearLeavesHostType,
+        missingDvErrorAlert: options?.missingDvErrorAlert,
+        missingDvPrompt: options?.missingDvPrompt,
+        missingDvErrorAlertFields: options?.missingDvErrorAlertFields,
       });
       const conditionalFormats = makeConditionalFormatsApi({
         key,
@@ -145,10 +148,14 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
               dvs.delete(k);
             }
           } else {
+            const prev = dvs.get(k);
             dvs.set(k, {
               type: v.type,
               ignoreBlanks: v.ignoreBlanks,
               rule: v.rule,
+              // Omit-preserving: only replace metadata when the write queue marked it.
+              errorAlert: "errorAlert" in v ? v.errorAlert : prev?.errorAlert,
+              prompt: "prompt" in v ? v.prompt : prev?.prompt,
             });
           }
         }

@@ -4,7 +4,7 @@
  * - Post-precheck member/sync/business errors → ordinary failed
  * - CF list: one batch load/sync (O(1) in rule count)
  * - CF add: load id/type before first sync; verify rule/colors after second sync
- * - DV write: full rule match (operator/formulas/list/allowBlank) after readback
+ * - DV write: full rule + ignoreBlanks + errorAlert/prompt match after readback
  * - List source: string inline or Excel.Range proxy (never String(object))
  */
 import type { ExcelRequestContext } from "./officeJsRuntime";
@@ -21,6 +21,12 @@ import {
   requireExcelApiForDv,
 } from "./officeJsValidationRequirements";
 import {
+  applyErrorAlert,
+  applyPrompt,
+  DV_FULL_LOAD_PROPS,
+  requireDvAlertMembers,
+} from "./officeJsValidationAlerts";
+import {
   applyCompareDv,
   assertDvCleared,
   assertDvWriteMatches,
@@ -32,7 +38,7 @@ import type {
   ConditionalFormatInfo,
   ConditionalFormatRule,
   DataValidationInfo,
-  DataValidationRule,
+  DataValidationWriteInput,
   HostResult,
 } from "./types";
 
@@ -233,24 +239,26 @@ export async function officeJsReadDataValidation(
   return withExcel("dataValidation.read", async (context: ExcelRequestContext) => {
     const range = context.workbook.worksheets.getItem(sheetName).getRange(rangeAddress);
     range.load("address");
-    range.dataValidation.load("type,rule,ignoreBlanks");
+    range.dataValidation.load(DV_FULL_LOAD_PROPS);
     await context.sync();
     const parsed = await parseDvRule(range.dataValidation, context);
     return toDvInfo(sheetName, range.address, parsed);
   });
 }
 
-export async function officeJsWriteDataValidation(input: {
-  sheetName: string;
-  range: string;
-  rule: DataValidationRule;
-}): Promise<HostResult<DataValidationInfo>> {
+export async function officeJsWriteDataValidation(
+  input: DataValidationWriteInput,
+): Promise<HostResult<DataValidationInfo>> {
   const pre = requireExcelApiForDv("dataValidation.write");
   if (pre) return pre;
   return withExcel("dataValidation.write", async (context: ExcelRequestContext) => {
     const range = context.workbook.worksheets.getItem(input.sheetName).getRange(input.range);
     range.load("address");
     const dv = range.dataValidation;
+    const wantsError = input.errorAlert !== undefined;
+    const wantsPrompt = input.prompt !== undefined;
+    // Member precheck before any write (zero partial side effects on missing members).
+    requireDvAlertMembers(dv, wantsError, wantsPrompt);
     if (input.rule.type === "list") {
       if (input.rule.listValues && input.rule.listValues.length > 0) {
         if (input.rule.listValues.some((v) => v.includes(","))) {
@@ -280,11 +288,19 @@ export async function officeJsWriteDataValidation(input: {
       applyCompareDv(dv, input.rule);
     }
     dv.ignoreBlanks = input.rule.allowBlank !== false;
+    if (input.errorAlert !== undefined) applyErrorAlert(dv, input.errorAlert);
+    if (input.prompt !== undefined) applyPrompt(dv, input.prompt);
     await context.sync();
-    dv.load("type,rule,ignoreBlanks");
+    dv.load(DV_FULL_LOAD_PROPS);
     await context.sync();
     const parsed = await parseDvRule(dv, context);
-    assertDvWriteMatches(input.rule, parsed, input.sheetName);
+    assertDvWriteMatches(
+      input.rule,
+      parsed,
+      input.sheetName,
+      input.errorAlert,
+      input.prompt,
+    );
     return toDvInfo(input.sheetName, range.address, parsed);
   });
 }
@@ -300,7 +316,7 @@ export async function officeJsClearDataValidation(
     range.load("address");
     range.dataValidation.clear();
     await context.sync();
-    range.dataValidation.load("type,rule,ignoreBlanks");
+    range.dataValidation.load(DV_FULL_LOAD_PROPS);
     await context.sync();
     const parsed = await parseDvRule(range.dataValidation, context);
     assertDvCleared(parsed);
