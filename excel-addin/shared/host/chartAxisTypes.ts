@@ -16,6 +16,15 @@ export type ChartAxisDisplayUnit =
   | "trillions"
   | "custom";
 
+/** Excel.ChartAxisTickMark — ExcelApi 1.7. */
+export type ChartAxisTickMark = "none" | "cross" | "inside" | "outside";
+
+/** Excel.ChartAxisTickLabelPosition — ExcelApi 1.7. */
+export type ChartAxisTickLabelPosition = "nextToAxis" | "high" | "low" | "none";
+
+/** Excel.ChartAxisPosition — ExcelApi 1.8 (types also list 1.7 enum). */
+export type ChartAxisPosition = "automatic" | "maximum" | "minimum" | "custom";
+
 export const CHART_AXIS_KINDS: readonly ChartAxisKind[] = ["category", "value"];
 export const CHART_AXIS_GROUPS: readonly ChartAxisGroup[] = ["primary", "secondary"];
 export const CHART_AXIS_SCALE_TYPES: readonly ChartAxisScaleType[] = ["linear", "logarithmic"];
@@ -30,6 +39,24 @@ export const CHART_AXIS_DISPLAY_UNITS: readonly ChartAxisDisplayUnit[] = [
   "hundredMillions",
   "billions",
   "trillions",
+  "custom",
+];
+export const CHART_AXIS_TICK_MARKS: readonly ChartAxisTickMark[] = [
+  "none",
+  "cross",
+  "inside",
+  "outside",
+];
+export const CHART_AXIS_TICK_LABEL_POSITIONS: readonly ChartAxisTickLabelPosition[] = [
+  "nextToAxis",
+  "high",
+  "low",
+  "none",
+];
+export const CHART_AXIS_POSITIONS: readonly ChartAxisPosition[] = [
+  "automatic",
+  "maximum",
+  "minimum",
   "custom",
 ];
 
@@ -49,6 +76,21 @@ export function isChartAxisDisplayUnit(value: unknown): value is ChartAxisDispla
   return typeof value === "string" && (CHART_AXIS_DISPLAY_UNITS as readonly string[]).includes(value);
 }
 
+export function isChartAxisTickMark(value: unknown): value is ChartAxisTickMark {
+  return typeof value === "string" && (CHART_AXIS_TICK_MARKS as readonly string[]).includes(value);
+}
+
+export function isChartAxisTickLabelPosition(value: unknown): value is ChartAxisTickLabelPosition {
+  return (
+    typeof value === "string" &&
+    (CHART_AXIS_TICK_LABEL_POSITIONS as readonly string[]).includes(value)
+  );
+}
+
+export function isChartAxisPosition(value: unknown): value is ChartAxisPosition {
+  return typeof value === "string" && (CHART_AXIS_POSITIONS as readonly string[]).includes(value);
+}
+
 export interface ChartAxisUpdateInput {
   sheetName: string;
   chartName: string;
@@ -59,8 +101,16 @@ export interface ChartAxisUpdateInput {
   title?: string;
   minimum?: number;
   maximum?: number;
-  /** Finite number >= 0. */
-  majorUnit?: number;
+  /**
+   * Interval between major tick marks.
+   * Official: numeric or empty string (automatic); readback always number. ExcelApi 1.1.
+   */
+  majorUnit?: number | "";
+  /**
+   * Interval between minor tick marks.
+   * Official: numeric or empty string (automatic); readback always number. ExcelApi 1.1.
+   */
+  minorUnit?: number | "";
   numberFormat?: string;
   reverse?: boolean;
   /** ExcelApi 1.7 ChartAxis.displayUnit (Custom requires customDisplayUnit). */
@@ -77,6 +127,21 @@ export interface ChartAxisUpdateInput {
   majorGridlinesVisible?: boolean;
   /** ExcelApi 1.1 ChartAxis.minorGridlines.visible. */
   minorGridlinesVisible?: boolean;
+  /** ExcelApi 1.7 ChartAxis.majorTickMark. */
+  majorTickMark?: ChartAxisTickMark;
+  /** ExcelApi 1.7 ChartAxis.minorTickMark. */
+  minorTickMark?: ChartAxisTickMark;
+  /** ExcelApi 1.7 ChartAxis.tickLabelPosition. */
+  tickLabelPosition?: ChartAxisTickLabelPosition;
+  /** ExcelApi 1.8 ChartAxis.position. */
+  position?: ChartAxisPosition;
+  /**
+   * ExcelApi 1.8 crossing value via ChartAxis.setPositionAt.
+   * Required when position is custom; may be set alone to call setPositionAt.
+   */
+  positionAt?: number;
+  /** ExcelApi 1.9 ChartAxis.linkNumberFormat. */
+  linkNumberFormat?: boolean;
 }
 
 /** Real axis snapshot after write→sync→load→sync (not input echo). */
@@ -93,6 +158,7 @@ export interface ChartAxisInfo {
   minimum: number | string | null;
   maximum: number | string | null;
   majorUnit: number | string | null;
+  minorUnit: number | string | null;
   numberFormat: string | null;
   reverse: boolean | null;
   displayUnit: ChartAxisDisplayUnit | string | null;
@@ -102,4 +168,10 @@ export interface ChartAxisInfo {
   showDisplayUnitLabel: boolean | null;
   majorGridlinesVisible: boolean | null;
   minorGridlinesVisible: boolean | null;
+  majorTickMark: ChartAxisTickMark | string | null;
+  minorTickMark: ChartAxisTickMark | string | null;
+  tickLabelPosition: ChartAxisTickLabelPosition | string | null;
+  position: ChartAxisPosition | string | null;
+  positionAt: number | null;
+  linkNumberFormat: boolean | null;
 }

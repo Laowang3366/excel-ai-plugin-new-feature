@@ -3,11 +3,17 @@ import {
   isChartAxisDisplayUnit,
   isChartAxisGroup,
   isChartAxisKind,
+  isChartAxisPosition,
   isChartAxisScaleType,
+  isChartAxisTickLabelPosition,
+  isChartAxisTickMark,
   type ChartAxisDisplayUnit,
   type ChartAxisGroup,
   type ChartAxisKind,
+  type ChartAxisPosition,
   type ChartAxisScaleType,
+  type ChartAxisTickLabelPosition,
+  type ChartAxisTickMark,
 } from "../host/chartAxisTypes";
 import type { ToolCall, ToolResult } from "./types";
 
@@ -70,9 +76,30 @@ function optionalPositiveFinite(args: Record<string, unknown>, key: string): num
   return value;
 }
 
-function optionalMajorUnit(args: Record<string, unknown>): number | undefined {
-  const value = optionalFinite(args, "majorUnit");
-  if (value != null && value < 0) throw new Error("majorUnit must be >= 0");
+/** majorUnit: finite number (>=0 keeps prior contract) or "" for automatic. */
+function optionalMajorUnit(args: Record<string, unknown>): number | "" | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "majorUnit")) return undefined;
+  if (args.majorUnit === undefined) throw new Error("majorUnit must not be undefined");
+  if (args.majorUnit === null) throw new Error("majorUnit must not be null");
+  if (args.majorUnit === "") return "";
+  const value = args.majorUnit;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("majorUnit must be a finite number or empty string");
+  }
+  if (value < 0) throw new Error("majorUnit must be >= 0");
+  return value;
+}
+
+/** minorUnit: finite number or "" for automatic; no invented range bounds. */
+function optionalMinorUnit(args: Record<string, unknown>): number | "" | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "minorUnit")) return undefined;
+  if (args.minorUnit === undefined) throw new Error("minorUnit must not be undefined");
+  if (args.minorUnit === null) throw new Error("minorUnit must not be null");
+  if (args.minorUnit === "") return "";
+  const value = args.minorUnit;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("minorUnit must be a finite number or empty string");
+  }
   return value;
 }
 
@@ -116,6 +143,43 @@ function optionalScaleType(args: Record<string, unknown>): ChartAxisScaleType | 
   return args.scaleType;
 }
 
+function optionalTickMark(
+  args: Record<string, unknown>,
+  key: "majorTickMark" | "minorTickMark",
+): ChartAxisTickMark | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, key)) return undefined;
+  if (args[key] === undefined) throw new Error(`${key} must not be undefined`);
+  if (args[key] === null) throw new Error(`${key} must not be null`);
+  if (!isChartAxisTickMark(args[key])) {
+    throw new Error(`${key} must be none|cross|inside|outside`);
+  }
+  return args[key] as ChartAxisTickMark;
+}
+
+function optionalTickLabelPosition(
+  args: Record<string, unknown>,
+): ChartAxisTickLabelPosition | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "tickLabelPosition")) return undefined;
+  if (args.tickLabelPosition === undefined) {
+    throw new Error("tickLabelPosition must not be undefined");
+  }
+  if (args.tickLabelPosition === null) throw new Error("tickLabelPosition must not be null");
+  if (!isChartAxisTickLabelPosition(args.tickLabelPosition)) {
+    throw new Error("tickLabelPosition must be nextToAxis|high|low|none");
+  }
+  return args.tickLabelPosition;
+}
+
+function optionalPosition(args: Record<string, unknown>): ChartAxisPosition | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "position")) return undefined;
+  if (args.position === undefined) throw new Error("position must not be undefined");
+  if (args.position === null) throw new Error("position must not be null");
+  if (!isChartAxisPosition(args.position)) {
+    throw new Error("position must be automatic|maximum|minimum|custom");
+  }
+  return args.position;
+}
+
 function rejectUnknown(args: Record<string, unknown>, allowed: string[]): void {
   for (const key of Object.keys(args)) {
     if (!allowed.includes(key)) throw new Error(`unknown field: ${key}`);
@@ -139,6 +203,29 @@ function fromHost(
   return { ok: false, tool, error: result.reason ?? "host failed", detail: result };
 }
 
+const UPDATE_FIELDS = [
+  "title",
+  "minimum",
+  "maximum",
+  "majorUnit",
+  "minorUnit",
+  "numberFormat",
+  "reverse",
+  "displayUnit",
+  "customDisplayUnit",
+  "scaleType",
+  "logBase",
+  "showDisplayUnitLabel",
+  "majorGridlinesVisible",
+  "minorGridlinesVisible",
+  "majorTickMark",
+  "minorTickMark",
+  "tickLabelPosition",
+  "position",
+  "positionAt",
+  "linkNumberFormat",
+] as const;
+
 export async function executeChartAxesTool(
   host: HostAdapter,
   call: ToolCall,
@@ -149,19 +236,7 @@ export async function executeChartAxesTool(
     "chartName",
     "kind",
     "group",
-    "title",
-    "minimum",
-    "maximum",
-    "majorUnit",
-    "numberFormat",
-    "reverse",
-    "displayUnit",
-    "customDisplayUnit",
-    "scaleType",
-    "logBase",
-    "showDisplayUnitLabel",
-    "majorGridlinesVisible",
-    "minorGridlinesVisible",
+    ...UPDATE_FIELDS,
   ]);
   const input = {
     sheetName: requireString(call.arguments, "sheetName"),
@@ -172,6 +247,7 @@ export async function executeChartAxesTool(
     minimum: optionalFinite(call.arguments, "minimum"),
     maximum: optionalFinite(call.arguments, "maximum"),
     majorUnit: optionalMajorUnit(call.arguments),
+    minorUnit: optionalMinorUnit(call.arguments),
     numberFormat: optionalNumberFormat(call.arguments),
     reverse: optionalBoolean(call.arguments, "reverse"),
     displayUnit: optionalDisplayUnit(call.arguments),
@@ -181,6 +257,12 @@ export async function executeChartAxesTool(
     showDisplayUnitLabel: optionalBoolean(call.arguments, "showDisplayUnitLabel"),
     majorGridlinesVisible: optionalBoolean(call.arguments, "majorGridlinesVisible"),
     minorGridlinesVisible: optionalBoolean(call.arguments, "minorGridlinesVisible"),
+    majorTickMark: optionalTickMark(call.arguments, "majorTickMark"),
+    minorTickMark: optionalTickMark(call.arguments, "minorTickMark"),
+    tickLabelPosition: optionalTickLabelPosition(call.arguments),
+    position: optionalPosition(call.arguments),
+    positionAt: optionalFinite(call.arguments, "positionAt"),
+    linkNumberFormat: optionalBoolean(call.arguments, "linkNumberFormat"),
   };
   if (input.displayUnit === "custom" && input.customDisplayUnit === undefined) {
     throw new Error("customDisplayUnit is required when displayUnit is custom");
@@ -192,21 +274,10 @@ export async function executeChartAxesTool(
   ) {
     throw new Error("customDisplayUnit requires displayUnit custom (or omit displayUnit)");
   }
-  if (
-    input.title === undefined &&
-    input.minimum === undefined &&
-    input.maximum === undefined &&
-    input.majorUnit === undefined &&
-    input.numberFormat === undefined &&
-    input.reverse === undefined &&
-    input.displayUnit === undefined &&
-    input.customDisplayUnit === undefined &&
-    input.scaleType === undefined &&
-    input.logBase === undefined &&
-    input.showDisplayUnitLabel === undefined &&
-    input.majorGridlinesVisible === undefined &&
-    input.minorGridlinesVisible === undefined
-  ) {
+  if (input.position === "custom" && input.positionAt === undefined) {
+    throw new Error("positionAt is required when position is custom");
+  }
+  if (!UPDATE_FIELDS.some((key) => input[key] !== undefined)) {
     throw new Error("chart.axes.update requires at least one update field");
   }
   return fromHost(call.name, await host.updateChartAxis(input));

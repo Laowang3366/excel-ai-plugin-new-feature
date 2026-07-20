@@ -1535,6 +1535,7 @@ export class MockHostAdapter implements HostAdapter {
         minimum: 0,
         maximum: 100,
         majorUnit: 10,
+        minorUnit: 2,
         numberFormat: "General",
         reverse: false,
         displayUnit: "none",
@@ -1544,6 +1545,12 @@ export class MockHostAdapter implements HostAdapter {
         showDisplayUnitLabel: false,
         majorGridlinesVisible: true,
         minorGridlinesVisible: false,
+        majorTickMark: "outside",
+        minorTickMark: "none",
+        tickLabelPosition: "nextToAxis",
+        position: "automatic",
+        positionAt: 0,
+        linkNumberFormat: true,
       };
       this.chartAxes.set(key, axis);
     }
@@ -1565,7 +1572,9 @@ export class MockHostAdapter implements HostAdapter {
     }
     if (input.minimum !== undefined) axis.minimum = input.minimum;
     if (input.maximum !== undefined) axis.maximum = input.maximum;
-    if (input.majorUnit !== undefined) axis.majorUnit = input.majorUnit;
+    if (input.majorUnit !== undefined) {
+      axis.majorUnit = input.majorUnit === "" ? 10 : input.majorUnit;
+    }
     if (input.numberFormat !== undefined) axis.numberFormat = input.numberFormat;
     if (input.reverse !== undefined) axis.reverse = input.reverse;
     if (input.displayUnit !== undefined) {
@@ -1593,6 +1602,31 @@ export class MockHostAdapter implements HostAdapter {
     }
     if (input.minorGridlinesVisible !== undefined) {
       axis.minorGridlinesVisible = input.minorGridlinesVisible;
+    }
+    if (input.minorUnit !== undefined) {
+      axis.minorUnit = input.minorUnit === "" ? 2 : input.minorUnit;
+    }
+    if (input.majorTickMark !== undefined) axis.majorTickMark = input.majorTickMark;
+    if (input.minorTickMark !== undefined) axis.minorTickMark = input.minorTickMark;
+    if (input.tickLabelPosition !== undefined) {
+      axis.tickLabelPosition = input.tickLabelPosition;
+    }
+    if (input.position !== undefined) {
+      if (input.position === "custom") {
+        if (input.positionAt === undefined) {
+          throw new Error("positionAt is required when position is custom");
+        }
+        axis.position = "custom";
+        axis.positionAt = input.positionAt;
+      } else {
+        axis.position = input.position;
+      }
+    } else if (input.positionAt !== undefined) {
+      axis.position = "custom";
+      axis.positionAt = input.positionAt;
+    }
+    if (input.linkNumberFormat !== undefined) {
+      axis.linkNumberFormat = input.linkNumberFormat;
     }
     return ok({ ...axis });
   }

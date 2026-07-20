@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- 独立 Excel 加载项 `chart.axes.update` 扩展 minorUnit（`""`=自动）、major/minorTickMark、tickLabelPosition（ExcelApi 1.7）、position/`setPositionAt`（ExcelApi 1.8）、linkNumberFormat（ExcelApi 1.9）；写后宿主回读；趋势线 label 仍暂缓；WPS 仍 unsupported；真实 Excel/WPS 侧载尚未验收。
 - 修正 `chart.series.trendlines.format.update` 的 weight 合同：官方仅声明 points、无 min/max，执行层只校验有限数，不再无证据拒绝 ≤0。
 
 - 独立 Excel 加载项新增 `chart.series.trendlines.format.update`（Office.js ExcelApi 1.7 `ChartTrendline.format.line` 颜色/线型/粗细写后回读；WPS 仍 unsupported；趋势线 label 格式未纳入；真实 Excel/WPS 侧载尚未验收）。

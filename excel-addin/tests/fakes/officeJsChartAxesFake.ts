@@ -1,6 +1,5 @@
 /**
- * Sync-gated fake for Chart.axes.
- * Writes pending until sync; load captures committed snapshot at load time.
+ * Sync-gated fake for Chart.axes (writes pending until sync).
  */
 
 type AxisState = {
@@ -11,6 +10,7 @@ type AxisState = {
   minimum: number | string | null;
   maximum: number | string | null;
   majorUnit: number | string | null;
+  minorUnit: number | string | null;
   numberFormat: string | null;
   reverse: boolean | null;
   displayUnit: string | null;
@@ -20,68 +20,56 @@ type AxisState = {
   showDisplayUnitLabel: boolean | null;
   majorGridlinesVisible: boolean | null;
   minorGridlinesVisible: boolean | null;
+  majorTickMark: string | null;
+  minorTickMark: string | null;
+  tickLabelPosition: string | null;
+  position: string | null;
+  positionAt: number | null;
+  linkNumberFormat: boolean | null;
 };
 
-type AxisEntry = {
-  committed: AxisState;
-  pending: Partial<AxisState> | undefined;
-};
+type AxisEntry = { committed: AxisState; pending: Partial<AxisState> | undefined };
 
 function defaultAxis(type: string, axisGroup: string): AxisState {
   return {
-    type,
-    axisGroup,
-    title: "",
-    titleVisible: false,
-    minimum: 0,
-    maximum: 100,
-    majorUnit: 10,
-    numberFormat: "General",
-    reverse: false,
-    displayUnit: "None",
-    customDisplayUnit: 0,
-    scaleType: "Linear",
-    logBase: 10,
-    showDisplayUnitLabel: false,
-    majorGridlinesVisible: true,
-    minorGridlinesVisible: false,
+    type, axisGroup, title: "", titleVisible: false, minimum: 0, maximum: 100,
+    majorUnit: 10, minorUnit: 2, numberFormat: "General", reverse: false,
+    displayUnit: "None", customDisplayUnit: 0, scaleType: "Linear", logBase: 10,
+    showDisplayUnitLabel: false, majorGridlinesVisible: true, minorGridlinesVisible: false,
+    majorTickMark: "Outside", minorTickMark: "None", tickLabelPosition: "NextToAxis",
+    position: "Automatic", positionAt: 0, linkNumberFormat: true,
   };
 }
 
-export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
+function resolveUnit(v: number | string | null | undefined, fallback: number) {
+  return v === "" ? fallback : (v as number | string | null);
+}
+
+export function installChartAxesExcel(options?: {
+  excelApi17?: boolean; excelApi18?: boolean; excelApi19?: boolean;
+}) {
   const excelApi17 = options?.excelApi17 !== false;
+  const excelApi18 = options?.excelApi18 !== false;
+  const excelApi19 = options?.excelApi19 !== false;
   const axes = new Map<string, AxisEntry>();
   for (const kind of ["Category", "Value"]) {
     for (const group of ["Primary", "Secondary"]) {
-      axes.set(`${kind}:${group}`, {
-        committed: defaultAxis(kind, group),
-        pending: undefined,
-      });
+      axes.set(`${kind}:${group}`, { committed: defaultAxis(kind, group), pending: undefined });
     }
   }
 
-  type AxisProxy = {
-    type: string;
-    axisGroup: string;
-    minimum: number | string | null;
-    maximum: number | string | null;
-    majorUnit: number | string | null;
-    numberFormat: string | null;
-    reversePlotOrder: boolean | null;
-    displayUnit: string | null;
-    customDisplayUnit: number | null;
-    scaleType: string | null;
-    logBase: number | null;
-    showDisplayUnitLabel: boolean | null;
-    title: { text: string; visible: boolean; load: (p?: string) => void };
-    majorGridlines: { visible: boolean; load: (p?: string) => void };
-    minorGridlines: { visible: boolean; load: (p?: string) => void };
-    setCustomDisplayUnit: (value: number) => void;
-    load: (p?: string) => void;
+  type Proxy = {
+    [k: string]: unknown;
+    title: { text: string; visible: boolean; load: () => void };
+    majorGridlines: { visible: boolean; load: () => void };
+    minorGridlines: { visible: boolean; load: () => void };
+    setCustomDisplayUnit: (v: number) => void;
+    setPositionAt: (v: number) => void;
+    load: () => void;
     _flushLoad: () => void;
   };
 
-  function makeAxisProxy(key: string): AxisProxy {
+  function makeAxisProxy(key: string): Proxy {
     const entry = () => {
       const found = axes.get(key);
       if (!found) throw new Error(`missing axis ${key}`);
@@ -89,126 +77,80 @@ export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
     };
     let pendingSnap: AxisState | undefined;
     let snapshot: AxisState | undefined;
+    const need = (field: string) => {
+      if (!snapshot) throw new Error(`${field} not loaded`);
+    };
+    const queue = (patch: Partial<AxisState>) => {
+      entry().pending = { ...entry().pending, ...patch };
+    };
+    const scalar = <K extends keyof AxisState>(field: string, key: K, alias?: string) => {
+      const prop = alias ?? String(key);
+      Object.defineProperty(proxy, prop, {
+        enumerable: true,
+        configurable: true,
+        get() {
+          need(field);
+          return snapshot![key];
+        },
+        set(v: AxisState[K]) {
+          queue({ [key]: v } as Partial<AxisState>);
+        },
+      });
+    };
+    const ro = <K extends keyof AxisState>(field: string, key: K) => {
+      Object.defineProperty(proxy, key, {
+        enumerable: true,
+        configurable: true,
+        get() {
+          need(field);
+          return snapshot![key];
+        },
+      });
+    };
 
-    const proxy: AxisProxy = {
-      get type() {
-        if (!snapshot) throw new Error("ChartAxis.type not loaded");
-        return snapshot.type;
-      },
-      get axisGroup() {
-        if (!snapshot) throw new Error("ChartAxis.axisGroup not loaded");
-        return snapshot.axisGroup;
-      },
-      get minimum() {
-        if (!snapshot) throw new Error("ChartAxis.minimum not loaded");
-        return snapshot.minimum;
-      },
-      set minimum(v: number | string | null) {
-        entry().pending = { ...entry().pending, minimum: v };
-      },
-      get maximum() {
-        if (!snapshot) throw new Error("ChartAxis.maximum not loaded");
-        return snapshot.maximum;
-      },
-      set maximum(v: number | string | null) {
-        entry().pending = { ...entry().pending, maximum: v };
-      },
-      get majorUnit() {
-        if (!snapshot) throw new Error("ChartAxis.majorUnit not loaded");
-        return snapshot.majorUnit;
-      },
-      set majorUnit(v: number | string | null) {
-        entry().pending = { ...entry().pending, majorUnit: v };
-      },
-      get numberFormat() {
-        if (!snapshot) throw new Error("ChartAxis.numberFormat not loaded");
-        return snapshot.numberFormat;
-      },
-      set numberFormat(v: string | null) {
-        entry().pending = { ...entry().pending, numberFormat: v };
-      },
-      get reversePlotOrder() {
-        if (!snapshot) throw new Error("ChartAxis.reversePlotOrder not loaded");
-        return snapshot.reverse;
-      },
-      set reversePlotOrder(v: boolean | null) {
-        entry().pending = { ...entry().pending, reverse: v };
-      },
-      get displayUnit() {
-        if (!snapshot) throw new Error("ChartAxis.displayUnit not loaded");
-        return snapshot.displayUnit;
-      },
-      set displayUnit(v: string | null) {
-        entry().pending = { ...entry().pending, displayUnit: v };
-      },
-      get customDisplayUnit() {
-        if (!snapshot) throw new Error("ChartAxis.customDisplayUnit not loaded");
-        return snapshot.customDisplayUnit;
-      },
-      get scaleType() {
-        if (!snapshot) throw new Error("ChartAxis.scaleType not loaded");
-        return snapshot.scaleType;
-      },
-      set scaleType(v: string | null) {
-        entry().pending = { ...entry().pending, scaleType: v };
-      },
-      get logBase() {
-        if (!snapshot) throw new Error("ChartAxis.logBase not loaded");
-        return snapshot.logBase;
-      },
-      set logBase(v: number | null) {
-        entry().pending = { ...entry().pending, logBase: v };
-      },
-      get showDisplayUnitLabel() {
-        if (!snapshot) throw new Error("ChartAxis.showDisplayUnitLabel not loaded");
-        return snapshot.showDisplayUnitLabel;
-      },
-      set showDisplayUnitLabel(v: boolean | null) {
-        entry().pending = { ...entry().pending, showDisplayUnitLabel: v };
-      },
-      setCustomDisplayUnit(value: number) {
-        entry().pending = {
-          ...entry().pending,
-          displayUnit: "Custom",
-          customDisplayUnit: value,
-        };
-      },
+    const proxy = {
       title: {
         get text() {
-          if (!snapshot) throw new Error("ChartAxis.title.text not loaded");
-          return snapshot.title;
+          need("ChartAxis.title.text");
+          return snapshot!.title;
         },
         set text(v: string) {
-          entry().pending = { ...entry().pending, title: v };
+          queue({ title: v });
         },
         get visible() {
-          if (!snapshot) throw new Error("ChartAxis.title.visible not loaded");
-          return snapshot.titleVisible;
+          need("ChartAxis.title.visible");
+          return snapshot!.titleVisible;
         },
         set visible(v: boolean) {
-          entry().pending = { ...entry().pending, titleVisible: v };
+          queue({ titleVisible: v });
         },
         load() {},
       },
       majorGridlines: {
         get visible() {
-          if (!snapshot) throw new Error("ChartAxis.majorGridlines.visible not loaded");
-          return snapshot.majorGridlinesVisible as boolean;
+          need("ChartAxis.majorGridlines.visible");
+          return snapshot!.majorGridlinesVisible as boolean;
         },
         set visible(v: boolean) {
-          entry().pending = { ...entry().pending, majorGridlinesVisible: v };
+          queue({ majorGridlinesVisible: v });
         },
         load() {},
       },
       minorGridlines: {
         get visible() {
-          if (!snapshot) throw new Error("ChartAxis.minorGridlines.visible not loaded");
-          return snapshot.minorGridlinesVisible as boolean;
+          need("ChartAxis.minorGridlines.visible");
+          return snapshot!.minorGridlinesVisible as boolean;
         },
         set visible(v: boolean) {
-          entry().pending = { ...entry().pending, minorGridlinesVisible: v };
+          queue({ minorGridlinesVisible: v });
         },
         load() {},
+      },
+      setCustomDisplayUnit(value: number) {
+        queue({ displayUnit: "Custom", customDisplayUnit: value });
+      },
+      setPositionAt(value: number) {
+        queue({ position: "Custom", positionAt: value });
       },
       load() {
         pendingSnap = { ...entry().committed };
@@ -220,14 +162,33 @@ export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
           pendingSnap = undefined;
         }
       },
-    };
+    } as Proxy;
+
+    ro("ChartAxis.type", "type");
+    ro("ChartAxis.axisGroup", "axisGroup");
+    scalar("ChartAxis.minimum", "minimum");
+    scalar("ChartAxis.maximum", "maximum");
+    scalar("ChartAxis.majorUnit", "majorUnit");
+    scalar("ChartAxis.minorUnit", "minorUnit");
+    scalar("ChartAxis.numberFormat", "numberFormat");
+    scalar("ChartAxis.reversePlotOrder", "reverse", "reversePlotOrder");
+    scalar("ChartAxis.displayUnit", "displayUnit");
+    ro("ChartAxis.customDisplayUnit", "customDisplayUnit");
+    scalar("ChartAxis.scaleType", "scaleType");
+    scalar("ChartAxis.logBase", "logBase");
+    scalar("ChartAxis.showDisplayUnitLabel", "showDisplayUnitLabel");
+    scalar("ChartAxis.majorTickMark", "majorTickMark");
+    scalar("ChartAxis.minorTickMark", "minorTickMark");
+    scalar("ChartAxis.tickLabelPosition", "tickLabelPosition");
+    scalar("ChartAxis.position", "position");
+    ro("ChartAxis.positionAt", "positionAt");
+    scalar("ChartAxis.linkNumberFormat", "linkNumberFormat");
     return proxy;
   }
 
-  const proxies = new Map<string, AxisProxy>();
+  const proxies = new Map<string, Proxy>();
   let chartNameValue: unknown = "C1";
-
-  function proxyFor(type: string, group: string): AxisProxy {
+  function proxyFor(type: string, group: string) {
     const key = `${type}:${group}`;
     let p = proxies.get(key);
     if (!p) {
@@ -266,13 +227,14 @@ export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
     async sync() {
       for (const entry of axes.values()) {
         if (entry.pending) {
-          entry.committed = { ...entry.committed, ...entry.pending };
+          const next = { ...entry.committed, ...entry.pending };
+          next.majorUnit = resolveUnit(next.majorUnit, 10);
+          next.minorUnit = resolveUnit(next.minorUnit, 2);
+          entry.committed = next;
           entry.pending = undefined;
         }
       }
-      for (const p of proxies.values()) {
-        p._flushLoad();
-      }
+      for (const p of proxies.values()) p._flushLoad();
     },
   };
 
@@ -281,14 +243,14 @@ export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
     run: async <T>(fn: (ctx: typeof context) => Promise<T>) => fn(context),
   };
   (globalThis as unknown as {
-    Office: {
-      context: { requirements: { isSetSupported: (n: string, v?: string) => boolean } };
-    };
+    Office: { context: { requirements: { isSetSupported: (n: string, v?: string) => boolean } } };
   }).Office = {
     context: {
       requirements: {
         isSetSupported(name: string, minVersion?: string) {
           if (name !== "ExcelApi") return false;
+          if (minVersion === "1.9") return excelApi19;
+          if (minVersion === "1.8") return excelApi18;
           if (minVersion === "1.7") return excelApi17;
           return true;
         },
@@ -313,17 +275,13 @@ export function installChartAxesExcel(options?: { excelApi17?: boolean }) {
     },
     async brokenUpdateSkipFirstSync() {
       const axis = context.workbook.worksheets
-        .getItem("Sheet1")
-        .charts.getItem("C1")
-        .axes.getItem("Value", "Primary");
+        .getItem("Sheet1").charts.getItem("C1").axes.getItem("Value", "Primary");
       axis.minimum = 5;
       axis.maximum = 50;
-      axis.load(
-        "minimum,maximum,majorUnit,numberFormat,reversePlotOrder,displayUnit,customDisplayUnit,scaleType,logBase,showDisplayUnitLabel",
-      );
-      axis.title.load("text,visible");
-      axis.majorGridlines.load("visible");
-      axis.minorGridlines.load("visible");
+      axis.load();
+      axis.title.load();
+      axis.majorGridlines.load();
+      axis.minorGridlines.load();
       await context.sync();
       return { minimum: axis.minimum, maximum: axis.maximum };
     },
