@@ -25,6 +25,7 @@ import {
   validateWpsPublishXml,
   validateWpsRibbon,
   validateWpsSourceBundle,
+  LEGACY_OWN_ADDON_DIRECTORY,
   WPS_ADDON_DIRECTORY,
   WPS_ADDON_NAME,
   WPS_ENTRY_SCRIPT,
@@ -235,6 +236,11 @@ describe("createWpsPackage layout, hashes, and path safety", () => {
     expect(summary.ok).toBe(true);
     expect(summary.artifactName).toBe("excel-addin-wps-jsa-0.1.0-0123456");
     expect(summary.addonDirectory).toBe(WPS_ADDON_DIRECTORY);
+    expect(WPS_ADDON_DIRECTORY).toBe("WenggeExcelAiAddin_");
+    expect(summary.addonDirectory).not.toBe(LEGACY_OWN_ADDON_DIRECTORY);
+    expect(existsSync(path.join(dist, LEGACY_OWN_ADDON_DIRECTORY))).toBe(false);
+    expect(existsSync(path.join(dist, WPS_ADDON_DIRECTORY, "index.html"))).toBe(true);
+
     expect(summary.files).toEqual(
       expect.arrayContaining([
         "publish.xml",

@@ -14,6 +14,8 @@ import {
 } from "./wpsJsaInstallPaths.mjs";
 import { assertSafeAddonHashKey } from "./wpsJsaInstallValidate.mjs";
 import {
+  LEGACY_OWN_ADDON_DIRECTORY,
+  LEGACY_OWN_PUBLISH_URL,
   WPS_ADDON_DIRECTORY,
   WPS_ADDON_NAME,
   WPS_PUBLISH_URL,
@@ -77,6 +79,68 @@ export function validateInstallState(state) {
   }
   if (state.installedAt != null && typeof state.installedAt !== "string") {
     return { ok: false, reason: "state-installedAt" };
+  }
+  if (
+    state.migratedFromAddonDirectory != null &&
+    state.migratedFromAddonDirectory !== LEGACY_OWN_ADDON_DIRECTORY
+  ) {
+    return { ok: false, reason: "state-migratedFromAddonDirectory" };
+  }
+  return { ok: true, state };
+}
+
+/**
+ * Legacy Phase56–58 state (kebab-case directory) for migration verification only.
+ */
+export function validateLegacyOwnInstallState(state) {
+  if (state == null || typeof state !== "object" || Array.isArray(state)) {
+    return { ok: false, reason: "state-invalid-type" };
+  }
+  if (state.schemaVersion !== 1) {
+    return { ok: false, reason: "state-schemaVersion" };
+  }
+  if (state.addonName !== WPS_ADDON_NAME) {
+    return { ok: false, reason: "state-addonName" };
+  }
+  if (state.addonDirectory !== LEGACY_OWN_ADDON_DIRECTORY) {
+    return { ok: false, reason: "state-addonDirectory-not-legacy" };
+  }
+  if (state.publishUrl !== LEGACY_OWN_PUBLISH_URL) {
+    return { ok: false, reason: "state-publishUrl-not-legacy" };
+  }
+  if (!SAFE_VERSION_RE.test(String(state.packageVersion ?? ""))) {
+    return { ok: false, reason: "state-packageVersion" };
+  }
+  if (!SAFE_SHA_RE.test(String(state.gitSha ?? ""))) {
+    return { ok: false, reason: "state-gitSha" };
+  }
+  if (state.restartRequired !== true) {
+    return { ok: false, reason: "state-restartRequired" };
+  }
+  if (typeof state.packageDigest !== "string" || !/^[0-9a-f]{64}$/i.test(state.packageDigest)) {
+    return { ok: false, reason: "state-packageDigest" };
+  }
+  if (
+    state.fileHashes == null ||
+    typeof state.fileHashes !== "object" ||
+    Array.isArray(state.fileHashes)
+  ) {
+    return { ok: false, reason: "state-fileHashes-type" };
+  }
+  const keys = Object.keys(state.fileHashes);
+  if (keys.length === 0) {
+    return { ok: false, reason: "state-fileHashes-empty" };
+  }
+  for (const key of keys) {
+    try {
+      assertSafeAddonHashKey(key, { directory: LEGACY_OWN_ADDON_DIRECTORY });
+    } catch {
+      return { ok: false, reason: `state-fileHashes-key:${key}` };
+    }
+    const h = state.fileHashes[key];
+    if (typeof h !== "string" || !/^[0-9a-f]{64}$/i.test(h)) {
+      return { ok: false, reason: `state-fileHashes-value:${key}` };
+    }
   }
   return { ok: true, state };
 }
@@ -165,7 +229,7 @@ export function restoreStateBytes(jsaddons, statePath, previousBytes, previousEx
 }
 
 /** Enumerate real files under addonDir → Map of WPS_ADDON_DIRECTORY/rel -> sha256 */
-export function hashAddonTree(addonDir) {
+export function hashAddonTree(addonDir, directoryName = WPS_ADDON_DIRECTORY) {
   assertInside(path.dirname(addonDir), addonDir, "addonDir");
   const out = new Map();
   function walk(dir, relParts) {
@@ -181,8 +245,8 @@ export function hashAddonTree(addonDir) {
         walk(abs, [...relParts, ent.name]);
       } else if (ent.isFile()) {
         if (!st.isFile()) throw new Error(`non-regular file: ${abs}`);
-        const rel = [WPS_ADDON_DIRECTORY, ...relParts, ent.name].join("/");
-        assertSafeAddonHashKey(rel);
+        const rel = [directoryName, ...relParts, ent.name].join("/");
+        assertSafeAddonHashKey(rel, { directory: directoryName });
         const hash = createHash("sha256").update(fs.readFileSync(abs)).digest("hex");
         out.set(rel, hash);
       } else {

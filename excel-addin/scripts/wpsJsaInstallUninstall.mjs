@@ -29,6 +29,10 @@ import {
   writePublishXmlAtomic,
 } from "./wpsJsaInstallPublish.mjs";
 import { projectPublicWarnings } from "./wpsJsaInstallPublicNames.mjs";
+import {
+  inspectLegacyOwnAddon,
+  removeVerifiedLegacyOwnAddon,
+} from "./wpsJsaInstallLegacy.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME } from "./wpsJsaPackage.mjs";
 
 function compoundError(primary, rollbackErrors) {
@@ -106,7 +110,16 @@ export function uninstallWpsJsa(opts = {}) {
     hasState = true;
   }
 
-  if (!ownInPublish && !hasAddon && !hasState) {
+  // Inspect legacy before any mutation (needs current state bytes).
+  const legacyOwn = inspectLegacyOwnAddon(layout);
+  if (legacyOwn.warning) warnings.push(legacyOwn.warning);
+
+  if (!ownInPublish && !hasAddon && !hasState && !legacyOwn.verified) {
+    if (legacyOwn.present) {
+      warnings.push(
+        "legacy own directory present without verifiable ownership evidence; left untouched",
+      );
+    }
     return {
       ok: true,
       action: "uninstall",
@@ -230,12 +243,20 @@ export function uninstallWpsJsa(opts = {}) {
       }
     }
 
+    const legacyCleanupWarning = removeVerifiedLegacyOwnAddon(layout, legacyOwn);
+    if (legacyCleanupWarning) warnings.push(legacyCleanupWarning);
+    if (legacyOwn.present && !legacyOwn.verified) {
+      warnings.push(
+        "legacy own directory present without verifiable ownership; left untouched",
+      );
+    }
+
     return {
       ok: true,
       action: "uninstall",
       removed: true,
       message:
-        "Own add-in entry/directory/state removed. Fully restart WPS if it was running. Foreign plugins and legacy dirs were left untouched.",
+        "Own add-in entry/directory/state removed. Fully restart WPS if it was running. Foreign plugins left untouched; unverified legacy dirs preserved.",
       warnings: projectPublicWarnings(warnings),
       restartRequired: true,
       publishXml: layout.publishXml,

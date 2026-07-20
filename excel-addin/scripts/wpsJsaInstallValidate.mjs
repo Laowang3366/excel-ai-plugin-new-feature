@@ -18,6 +18,7 @@ import {
   normalizeWpsGitSha,
   validateWpsIndexHtml,
   validateWpsSourceBundle,
+  LEGACY_OWN_ADDON_DIRECTORY,
   WPS_ADDON_DIRECTORY,
   WPS_ADDON_NAME,
   WPS_ENTRY_SCRIPT,
@@ -213,7 +214,16 @@ export function packageDigest(hashes) {
 }
 
 /** Validate a single state hash key for addon files. */
-export function assertSafeAddonHashKey(rel) {
+export function assertSafeAddonHashKey(rel, opts = {}) {
+  const directory =
+    opts.directory === LEGACY_OWN_ADDON_DIRECTORY
+      ? LEGACY_OWN_ADDON_DIRECTORY
+      : opts.directory === WPS_ADDON_DIRECTORY || opts.directory == null
+        ? WPS_ADDON_DIRECTORY
+        : null;
+  if (!directory) {
+    throw new Error(`unsupported hash key directory: ${opts.directory}`);
+  }
   if (typeof rel !== "string" || rel === "") {
     throw new Error("hash key must be non-empty string");
   }
@@ -223,10 +233,10 @@ export function assertSafeAddonHashKey(rel) {
   if (path.isAbsolute(rel) || rel.startsWith("/") || /^[A-Za-z]:/.test(rel)) {
     throw new Error(`absolute hash key forbidden: ${rel}`);
   }
-  if (!rel.startsWith(`${WPS_ADDON_DIRECTORY}/`)) {
-    throw new Error(`hash key must be under ${WPS_ADDON_DIRECTORY}/: ${rel}`);
+  if (!rel.startsWith(`${directory}/`)) {
+    throw new Error(`hash key must be under ${directory}/: ${rel}`);
   }
-  const sub = rel.slice(WPS_ADDON_DIRECTORY.length + 1);
+  const sub = rel.slice(directory.length + 1);
   if (sub.split("/").some((s) => s === "" || s === "." || s === "..")) {
     throw new Error(`unsafe hash key segments: ${rel}`);
   }

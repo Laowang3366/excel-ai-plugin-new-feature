@@ -31,6 +31,7 @@ import {
   projectPublicPluginNames,
   projectPublicWarnings,
 } from "./wpsJsaInstallPublicNames.mjs";
+import { inspectLegacyOwnAddon } from "./wpsJsaInstallLegacy.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(__dirname, "..");
@@ -149,6 +150,12 @@ export function planWpsJsaInstall(opts = {}) {
       activeTemps,
       currentPublishBytes,
       publishExisted,
+      legacyOwn: {
+        present: false,
+        verified: false,
+        wouldRemove: false,
+        path: layout.legacyAddonDir,
+      },
     });
   }
 
@@ -167,6 +174,8 @@ export function planWpsJsaInstall(opts = {}) {
 
   const addonSt = lstatIfPresent(layout.addonDir);
   wouldReplaceAddon = Boolean(addonSt);
+  const legacyOwn = inspectLegacyOwnAddon(layout);
+  if (legacyOwn.warning) warnings.push(legacyOwn.warning);
 
   const pubSt = lstatIfPresent(layout.publishXml);
   let currentPublish = emptyPublish();
@@ -227,6 +236,7 @@ export function planWpsJsaInstall(opts = {}) {
     currentPublishBytes,
     publishExisted,
     stateExisted: Boolean(stateSt),
+    legacyOwn,
   });
 }
 
@@ -261,6 +271,16 @@ function buildPlanResult(ctx) {
     currentPublishBytes: ctx.currentPublishBytes,
     publishExisted: ctx.publishExisted,
     stateExisted: ctx.stateExisted === true,
+    legacyOwnAddonPresent: Boolean(ctx.legacyOwn && ctx.legacyOwn.present),
+    legacyOwnAddonVerified: Boolean(ctx.legacyOwn && ctx.legacyOwn.verified),
+    wouldRemoveLegacyOwnAddon: Boolean(ctx.legacyOwn && ctx.legacyOwn.wouldRemove),
+    legacyOwnAddonPath: ctx.legacyOwn ? ctx.legacyOwn.path : null,
+    legacyOwn: ctx.legacyOwn || {
+      present: false,
+      verified: false,
+      wouldRemove: false,
+      path: null,
+    },
   };
 }
 
@@ -290,6 +310,11 @@ export function formatDryRunResult(plan) {
     wouldUpdatePublish: plan.wouldUpdatePublish,
     wouldWriteState: true,
     existingOwnEntry: plan.existingOwnEntry,
+    legacyOwnAddonPresent: plan.legacyOwnAddonPresent === true,
+    legacyOwnAddonVerified: plan.legacyOwnAddonVerified === true,
+    wouldRemoveLegacyOwnAddon: plan.wouldRemoveLegacyOwnAddon === true,
+    addonDirectory: WPS_ADDON_DIRECTORY,
+    migratedFromAddonDirectory: null,
     preservedPluginNames: projectPublicPluginNames(plan.preservedPluginNames || []),
     activeTemps: plan.activeTemps,
     warnings: projectPublicWarnings(plan.warnings || []),

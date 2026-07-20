@@ -184,6 +184,7 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | WPS JSA 可重复安装 CLI | **已提供** | `npm run wps:install|status|uninstall`；`--dry-run` 只读预演（AppData 零写入）；安全合并 `publish.xml`、原子 addon swap、包哈希校验；**真实 WPS 侧载仍未验收** |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase58.2: WPS addon directory `WenggeExcelAiAddin_`; safe migration from legacy kebab-case layout.
 - Phase58: WPS ribbon real task-pane open + deep-link tabs; plan ancestry preflight; public foreign-name projection.
 - Phase57: WPS install `--dry-run` shared plan, AppData zero-write preview.
 - Phase56.2: WPS install CLI true uninstall transaction + honest multi-package install rollback + CLI exit codes.

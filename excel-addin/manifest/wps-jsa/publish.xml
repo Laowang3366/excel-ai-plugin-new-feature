@@ -3,7 +3,7 @@
   <jsplugin
     name="WenggeExcelAiAddin"
     type="et"
-    url="file://%AppData%/kingsoft/wps/jsaddons/wengge-excel-ai-addin/index.html"
+    url="file://%AppData%/kingsoft/wps/jsaddons/WenggeExcelAiAddin_/index.html"
     debug=""
     enable="enable_dev" />
 </jsplugins>

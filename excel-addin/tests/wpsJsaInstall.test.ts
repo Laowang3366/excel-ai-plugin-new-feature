@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -37,11 +38,13 @@ import {
 import { parseWpsInstallCliArgs } from "../scripts/wpsJsaInstallCliArgs.mjs";
 import { validateWpsPackageDir } from "../scripts/wpsJsaInstallValidate.mjs";
 import {
+  LEGACY_OWN_ADDON_DIRECTORY,
+  LEGACY_OWN_PUBLISH_URL,
   WPS_ADDON_DIRECTORY,
   WPS_ADDON_NAME,
   WPS_ENTRY_SCRIPT,
   WPS_PUBLISH_URL,
-} from "../scripts/wpsJsaPackage.mjs";
+} from "../scripts/wpsJsaPackage.mjs"; // package constants
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = path.join(root, "manifest/wps-jsa");
@@ -103,6 +106,52 @@ function buildPackage(marker = "default"): { packageDir: string; marker: string 
 
 function jsaddonsOf(appData: string) {
   return path.join(appData, "kingsoft/wps/jsaddons");
+}
+
+/** Build a verified Phase56–58 legacy layout from a modern package. */
+function seedLegacyInstall(appData: string, packageDir: string) {
+  const validated = validateWpsPackageDir(packageDir);
+  const js = jsaddonsOf(appData);
+  mkdirSync(js, { recursive: true });
+  const src = path.join(packageDir, WPS_ADDON_DIRECTORY);
+  const dest = path.join(js, LEGACY_OWN_ADDON_DIRECTORY);
+  cpSync(src, dest, { recursive: true });
+  const fileHashes: Record<string, string> = {};
+  for (const [key, hash] of validated.hashes.entries()) {
+    if (key.startsWith(`${WPS_ADDON_DIRECTORY}/`)) {
+      fileHashes[key.replace(WPS_ADDON_DIRECTORY, LEGACY_OWN_ADDON_DIRECTORY)] = hash;
+    }
+  }
+  const state = {
+    schemaVersion: 1,
+    addonName: WPS_ADDON_NAME,
+    addonDirectory: LEGACY_OWN_ADDON_DIRECTORY,
+    installedAt: new Date().toISOString(),
+    packageVersion: validated.buildInfo.packageVersion,
+    gitSha: validated.buildInfo.gitSha,
+    publishUrl: LEGACY_OWN_PUBLISH_URL,
+    packageDigest: "",
+    fileHashes,
+    restartRequired: true,
+  };
+  const rows = [...validated.hashes.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([rel, hash]) => `${hash}  ${rel}`);
+  state.packageDigest = createHash("sha256").update(`${rows.join("\n")}\n`).digest("hex");
+  writeFileSync(
+    path.join(js, "wengge-excel-ai-addin-install-state.json"),
+    `${JSON.stringify(state, null, 2)}\n`,
+  );
+  writeFileSync(
+    path.join(js, "publish.xml"),
+    `<?xml version="1.0" encoding="UTF-8"?>
+<jsplugins>
+  <jsplugin name="ExcelAIWps" enable="enable_dev" url="file://" type="et" version="0.1.30" />
+  <jsplugin name="${WPS_ADDON_NAME}" type="et" url="${LEGACY_OWN_PUBLISH_URL}" debug="" enable="enable_dev" />
+</jsplugins>
+`,
+  );
+  return { js, dest, state };
 }
 
 function snapshotTree(rootDir: string): {
@@ -861,5 +910,122 @@ describe("Phase57.1 plan ancestry + public name projection", () => {
     expect(pub).toContain(WPS_ADDON_NAME);
     expect(JSON.stringify(real)).not.toContain("SECRETTOKEN");
     expect(real.preservedPluginNames).toContain("(unsafe-plugin-name)");
+  });
+});
+
+
+describe("Phase58.2 WenggeExcelAiAddin_ directory + legacy migration", () => {
+  it("fresh install uses WenggeExcelAiAddin_ only", () => {
+    const { packageDir } = buildPackage("dir-new");
+    const appData = makeTempRoot("app-");
+    const r = installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(r.ok).toBe(true);
+    expect(r.addonDirectory).toBe("WenggeExcelAiAddin_");
+    const js = jsaddonsOf(appData);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY, "index.html"))).toBe(true);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(false);
+    const pub = readFileSync(path.join(js, "publish.xml"), "utf8");
+    expect(pub).toContain(WPS_PUBLISH_URL);
+    expect(pub).not.toContain(LEGACY_OWN_PUBLISH_URL);
+    const st = statusWpsJsa({ appData, platform: "linux" });
+    expect(st.current).toBe(true);
+  });
+
+  it("migrates verified legacy layout after commit; preserves ExcelAIWps", () => {
+    const { packageDir } = buildPackage("mig");
+    const appData = makeTempRoot("mig-");
+    seedLegacyInstall(appData, packageDir);
+    const js = jsaddonsOf(appData);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(true);
+
+    const dry = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(dry.legacyOwnAddonPresent).toBe(true);
+    expect(dry.legacyOwnAddonVerified).toBe(true);
+    expect(dry.wouldRemoveLegacyOwnAddon).toBe(true);
+    // dry-run zero remove
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(true);
+
+    const real = installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(real.ok).toBe(true);
+    expect(real.migratedFromAddonDirectory).toBe(LEGACY_OWN_ADDON_DIRECTORY);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY, "index.html"))).toBe(true);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(false);
+    const pub = readFileSync(path.join(js, "publish.xml"), "utf8");
+    expect(pub).toContain("ExcelAIWps");
+    expect(pub).toContain(WPS_ADDON_NAME);
+    expect(pub).toContain(WPS_PUBLISH_URL);
+    const state = JSON.parse(
+      readFileSync(path.join(js, "wengge-excel-ai-addin-install-state.json"), "utf8"),
+    );
+    expect(state.addonDirectory).toBe(WPS_ADDON_DIRECTORY);
+    expect(state.migratedFromAddonDirectory).toBe(LEGACY_OWN_ADDON_DIRECTORY);
+    expect(statusWpsJsa({ appData, platform: "linux" }).current).toBe(true);
+  });
+
+  it("legacy hash drift is not removed", () => {
+    const { packageDir } = buildPackage("drift");
+    const appData = makeTempRoot("drift-");
+    seedLegacyInstall(appData, packageDir);
+    const js = jsaddonsOf(appData);
+    writeFileSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "extra-evil.txt"), "x\n");
+    const dry = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(dry.legacyOwnAddonPresent).toBe(true);
+    expect(dry.legacyOwnAddonVerified).toBe(false);
+    expect(dry.wouldRemoveLegacyOwnAddon).toBe(false);
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY))).toBe(true);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "extra-evil.txt"))).toBe(true);
+  });
+
+  it("legacy symlink is not removed", () => {
+    const { packageDir } = buildPackage("lsym");
+    const appData = makeTempRoot("lsym-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(js, { recursive: true });
+    const target = path.join(appData, "outside-legacy");
+    mkdirSync(target);
+    try {
+      symlinkSync(target, path.join(js, LEGACY_OWN_ADDON_DIRECTORY));
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String((error as {code?:string}).code) : "";
+      if (code === "EPERM" || code === "ENOTSUP") return;
+      throw error;
+    }
+    writeFileSync(
+      path.join(js, "publish.xml"),
+      `<?xml version="1.0" encoding="UTF-8"?>\n<jsplugins>\n</jsplugins>\n`,
+    );
+    const dry = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(dry.legacyOwnAddonPresent).toBe(true);
+    expect(dry.legacyOwnAddonVerified).toBe(false);
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(lstatSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY)).isSymbolicLink()).toBe(true);
+  });
+
+  it("install failpoint before commit does not delete legacy", () => {
+    const { packageDir } = buildPackage("prefail");
+    const appData = makeTempRoot("prefail-");
+    seedLegacyInstall(appData, packageDir);
+    const js = jsaddonsOf(appData);
+    expect(() =>
+      installWpsJsa({ packageDir, appData, platform: "linux", failAfter: "addon-swap" }),
+    ).toThrow(/failpoint/);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(true);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY))).toBe(false);
+  });
+
+  it("uninstall removes new dir; unverified leftover legacy kept with warning", () => {
+    const { packageDir } = buildPackage("unleg");
+    const appData = makeTempRoot("unleg-");
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const js = jsaddonsOf(appData);
+    // plant unverified leftover after install
+    mkdirSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY), { recursive: true });
+    writeFileSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "stale.txt"), "x\n");
+    const un = uninstallWpsJsa({ appData, platform: "linux" });
+    expect(un.ok).toBe(true);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY))).toBe(false);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "stale.txt"))).toBe(true);
+    expect(JSON.stringify(un.warnings)).toMatch(/legacy/i);
   });
 });

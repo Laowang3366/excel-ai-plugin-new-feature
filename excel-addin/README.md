@@ -167,12 +167,12 @@ npm run wps:uninstall -- --app-data /path/to/AppData/Roaming
 `package:wps` 执行 `build:wps`（`vite build --base ./`），整理 `dist/` 为：
 
 - `publish.xml`（包内单插件注册样例；安装时会 **upsert 本插件条目** 并保留其他 jsplugin）
-- `wengge-excel-ai-addin/`：相对路径任务窗格、`manifest.xml` / `ribbon.xml` / `wps-entry.js`（无 Office.js CDN）
+- `WenggeExcelAiAddin_/`：相对路径任务窗格、`manifest.xml` / `ribbon.xml` / `wps-entry.js`（无 Office.js CDN）
 - `BUILD_INFO.json` / `SHA256SUMS.txt`
 
 安装行为摘要：
 
-- 目标：`<appData>/kingsoft/wps/jsaddons/wengge-excel-ai-addin` + 同目录 `publish.xml` 中 `name=WenggeExcelAiAddin` 条目
+- 目标：`<appData>/kingsoft/wps/jsaddons/WenggeExcelAiAddin_` + 同目录 `publish.xml` 中 `name=WenggeExcelAiAddin` 条目
 - 写前完整校验包哈希、拒绝 symlink/路径穿越；addon 目录 staging → atomic swap；`publish.xml` 原子写 + 本工具前缀备份（`publish.xml.wengge-excel-ai.bak.*`，最多 10；**不清理** 第三方 `publish.xml.bak.*`）
 - 状态文件：`wengge-excel-ai-addin-install-state.json`（无密钥）；`status` 以 publish/目录/哈希为准，不靠状态文件伪装成功
 - 安装/卸载后均 `restartRequired: true`：**请完整退出并重启 WPS** 后再加载

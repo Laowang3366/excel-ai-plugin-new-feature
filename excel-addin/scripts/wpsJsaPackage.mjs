@@ -1,10 +1,15 @@
 import { assertIndexAssetsUnderBase } from "./packageProdCore.mjs";
 
 export const WPS_ADDON_NAME = "WenggeExcelAiAddin";
-export const WPS_ADDON_DIRECTORY = "wengge-excel-ai-addin";
+/** Canonical jsaddons directory (WPS name + trailing underscore; matches host authaddin path). */
+export const WPS_ADDON_DIRECTORY = "WenggeExcelAiAddin_";
+/** Phase56–58 mistaken kebab-case layout; install may migrate after verified match. */
+export const LEGACY_OWN_ADDON_DIRECTORY = "wengge-excel-ai-addin";
 export const WPS_ENTRY_SCRIPT = "wps-entry.js";
 export const WPS_PUBLISH_URL =
   `file://%AppData%/kingsoft/wps/jsaddons/${WPS_ADDON_DIRECTORY}/index.html`;
+export const LEGACY_OWN_PUBLISH_URL =
+  `file://%AppData%/kingsoft/wps/jsaddons/${LEGACY_OWN_ADDON_DIRECTORY}/index.html`;
 
 const OFFICE_JS_URL =
   "https://appsforoffice.microsoft.com/lib/1/hosted/office.js";

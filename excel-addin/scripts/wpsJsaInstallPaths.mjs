@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { WPS_ADDON_DIRECTORY } from "./wpsJsaPackage.mjs";
+import { LEGACY_OWN_ADDON_DIRECTORY, WPS_ADDON_DIRECTORY } from "./wpsJsaPackage.mjs";
 
 export const JSADDONS_REL = path.join("kingsoft", "wps", "jsaddons");
 export const STATE_FILE_NAME = "wengge-excel-ai-addin-install-state.json";
@@ -115,13 +115,15 @@ export function resolveJsaddonsLayout(appDataRoot) {
   const appData = path.resolve(appDataRoot);
   const jsaddons = path.join(appData, JSADDONS_REL);
   const addonDir = path.join(jsaddons, WPS_ADDON_DIRECTORY);
+  const legacyAddonDir = path.join(jsaddons, LEGACY_OWN_ADDON_DIRECTORY);
   const publishXml = path.join(jsaddons, "publish.xml");
   const stateFile = path.join(jsaddons, STATE_FILE_NAME);
   assertInside(appData, jsaddons, "jsaddons");
   assertInside(jsaddons, addonDir, "addonDir");
+  assertInside(jsaddons, legacyAddonDir, "legacyAddonDir");
   assertInside(jsaddons, publishXml, "publish.xml");
   assertInside(jsaddons, stateFile, "state file");
-  return { appData, jsaddons, addonDir, publishXml, stateFile };
+  return { appData, jsaddons, addonDir, legacyAddonDir, publishXml, stateFile };
 }
 
 export function ensureJsaddonsDir(jsaddons, appData) {

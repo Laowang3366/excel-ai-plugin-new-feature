@@ -28,6 +28,7 @@ import {
   projectPublicPluginNames,
   projectPublicWarnings,
 } from "./wpsJsaInstallPublicNames.mjs";
+import { removeVerifiedLegacyOwnAddon } from "./wpsJsaInstallLegacy.mjs";
 import {
   assertInside,
   assertRealDirectory,
@@ -41,7 +42,11 @@ import {
   safeRmInside,
   stagingDir,
 } from "./wpsJsaInstallPaths.mjs";
-import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME } from "./wpsJsaPackage.mjs";
+import {
+  LEGACY_OWN_ADDON_DIRECTORY,
+  WPS_ADDON_DIRECTORY,
+  WPS_ADDON_NAME,
+} from "./wpsJsaPackage.mjs";
 import { hashMapToObject } from "./wpsJsaInstallValidate.mjs";
 
 function copyDirReal(src, dest, destRoot) {
@@ -264,6 +269,9 @@ export function installWpsJsa(opts = {}) {
       restartRequired: true,
       builtPackage: packageResolution.built,
     };
+    if (plan.legacyOwnAddonVerified) {
+      state.migratedFromAddonDirectory = LEGACY_OWN_ADDON_DIRECTORY;
+    }
 
     writeStateAtomic(layout.jsaddons, layout.stateFile, state, {
       failBeforeRename: () => runFail("state-write"),
@@ -282,6 +290,10 @@ export function installWpsJsa(opts = {}) {
         );
       }
     }
+
+    // Post-commit only: remove verified Phase56–58 kebab-case directory.
+    const legacyCleanupWarning = removeVerifiedLegacyOwnAddon(layout, plan.legacyOwn);
+    if (legacyCleanupWarning) warnings.push(legacyCleanupWarning);
 
     return {
       ok: true,
@@ -307,6 +319,10 @@ export function installWpsJsa(opts = {}) {
       wouldUpdatePublish: plan.wouldUpdatePublish,
       wouldWriteState: true,
       existingOwnEntry: plan.existingOwnEntry,
+      legacyOwnAddonPresent: plan.legacyOwnAddonPresent === true,
+      legacyOwnAddonVerified: plan.legacyOwnAddonVerified === true,
+      wouldRemoveLegacyOwnAddon: plan.wouldRemoveLegacyOwnAddon === true,
+      migratedFromAddonDirectory: state.migratedFromAddonDirectory || null,
       preservedPluginNames: projectPublicPluginNames(plan.preservedPluginNames || []),
     };
   } catch (error) {

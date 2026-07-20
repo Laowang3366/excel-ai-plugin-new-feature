@@ -13,6 +13,8 @@ import {
   parseJspluginsDocument,
 } from "./wpsJsaInstallPublish.mjs";
 import { projectPublicWarnings } from "./wpsJsaInstallPublicNames.mjs";
+import { inspectLegacyOwnAddon } from "./wpsJsaInstallLegacy.mjs";
+import { LEGACY_OWN_ADDON_DIRECTORY } from "./wpsJsaPackage.mjs";
 import { hashAddonTree, readStateFile } from "./wpsJsaInstallState.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME, WPS_ENTRY_SCRIPT } from "./wpsJsaPackage.mjs";
 
@@ -149,6 +151,25 @@ export function statusWpsJsa(opts = {}) {
     }
   } else {
     result.message = "Not installed";
+  }
+  // Legacy kebab-case dir is never "current"; sanitized warning only.
+  try {
+    const legacy = inspectLegacyOwnAddon(layout);
+    if (legacy.present) {
+      warnings.push(
+        legacy.verified
+          ? "legacy own directory still present (run install to migrate)"
+          : "legacy own directory present without verified state; not treated as current",
+      );
+      result.legacyOwnAddonPresent = true;
+      result.legacyOwnAddonVerified = legacy.verified === true;
+    } else {
+      result.legacyOwnAddonPresent = false;
+      result.legacyOwnAddonVerified = false;
+    }
+  } catch {
+    result.legacyOwnAddonPresent = false;
+    result.legacyOwnAddonVerified = false;
   }
   result.warnings = projectPublicWarnings(warnings);
   return result;
