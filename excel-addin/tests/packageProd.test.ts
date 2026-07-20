@@ -87,8 +87,8 @@ describe("packageProdCore dist checks", () => {
     </head></html>`;
     const refs = assertIndexAssetsUnderBase(html, "/excel-addin/");
     expect(refs).toEqual([
-      "/excel-addin/assets/app.js",
-      "/excel-addin/assets/app.css",
+      "assets/app.js",
+      "assets/app.css",
     ]);
     expect(() =>
       assertIndexAssetsUnderBase(
@@ -109,6 +109,9 @@ describe("packageProdCore dist checks", () => {
     expect(() => assertNoSensitiveDistPaths(["CLAUDE.md"])).toThrow(/sensitive/);
     expect(() =>
       assertNoSensitiveDistPaths(["index.html", "assets/a.js"]),
+    ).not.toThrow();
+    expect(() =>
+      assertNoSensitiveDistPaths(["assets/a..b.js"]),
     ).not.toThrow();
   });
 

@@ -1,14 +1,22 @@
 /**
- * Pure helpers for Excel add-in production packaging.
- * No vite spawn / network — CLI in package-prod.mjs orchestrates build.
+ * Helpers for Excel add-in production packaging.
+ * No Vite spawn or network; filesystem checks stay fail-closed.
  */
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { normalizeBasePath } from "./basePath.mjs";
 import { isLocalhostHost, normalizeBaseUrl } from "./officeManifest.mjs";
 
 const SEMVER3_RE = /^\d+\.\d+\.\d+$/;
 const SEMVER4_RE = /^\d+\.\d+\.\d+\.\d+$/;
 const ARTIFACT_SAFE_RE = /^[A-Za-z0-9._-]+$/;
+const SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
+const ENCODED_SEPARATOR_RE = /%(?:2f|5c)/i;
+const PACKAGE_ORIGIN = "https://package.invalid";
+const OFFICE_JS_CDN_URL =
+  "https://appsforoffice.microsoft.com/lib/1/hosted/office.js";
 
 const SENSITIVE_NAME_RE =
   /(^|\/)(\.env(\..*)?|CLAUDE\.md|.*\.(pem|key|p12|pfx)|node_modules)(\/|$)/i;
@@ -50,6 +58,130 @@ export function assertViteBaseMatchesBaseUrl(viteBase, baseUrl) {
   return actual;
 }
 
+function pathIsInside(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return (
+    relative !== "" &&
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
+}
+
+function decodeAssetPath(rawPath, ref) {
+  if (ENCODED_SEPARATOR_RE.test(rawPath)) {
+    throw new Error(`encoded path separators are not allowed in asset URL: ${ref}`);
+  }
+  let decoded;
+  try {
+    decoded = decodeURIComponent(rawPath);
+  } catch {
+    throw new Error(`asset URL has invalid percent encoding: ${ref}`);
+  }
+  if (decoded.includes("\\") || CONTROL_CHAR_RE.test(decoded)) {
+    throw new Error(`asset URL contains backslash/control characters: ${ref}`);
+  }
+  if (decoded.split("/").includes("..")) {
+    throw new Error(`asset URL contains path traversal: ${ref}`);
+  }
+  return decoded;
+}
+
+function collectIndexAssetRefs(html) {
+  const refs = [];
+  const startRe = /<(script|link)\b/gi;
+  let match;
+  while ((match = startRe.exec(html)) !== null) {
+    const tagName = match[1].toLowerCase();
+    let quote = null;
+    let end = -1;
+    for (let i = match.index; i < html.length; i += 1) {
+      const char = html[i];
+      if (quote) {
+        if (char === quote) quote = null;
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === ">") {
+        end = i + 1;
+        break;
+      }
+    }
+    if (end < 0) throw new Error(`unterminated ${tagName} tag in index.html`);
+    const tag = html.slice(match.index, end);
+    startRe.lastIndex = end;
+    const attrName = tagName === "script" ? "src" : "href";
+    const assignmentRe = new RegExp(`\\b${attrName}\\s*=`, "i");
+    if (!assignmentRe.test(tag)) continue;
+    const quotedRe = new RegExp(`\\b${attrName}\\s*=\\s*(["'])(.*?)\\1`, "i");
+    const attr = tag.match(quotedRe);
+    if (!attr) {
+      throw new Error(`${tagName} ${attrName} must use a quoted URL`);
+    }
+    refs.push(attr[2]);
+  }
+  return refs;
+}
+
+function resolveIndexAssetRef(ref, viteBase) {
+  if (typeof ref !== "string" || ref === "" || ref !== ref.trim()) {
+    throw new Error(`asset URL must be a non-empty trimmed string: ${ref}`);
+  }
+  if (ref.includes("\\") || CONTROL_CHAR_RE.test(ref)) {
+    throw new Error(`asset URL contains backslash/control characters: ${ref}`);
+  }
+  if (ref.startsWith("//")) {
+    throw new Error(`protocol-relative asset URL is forbidden: ${ref}`);
+  }
+
+  if (SCHEME_RE.test(ref)) {
+    let external;
+    try {
+      external = new URL(ref);
+    } catch {
+      throw new Error(`invalid asset URL: ${ref}`);
+    }
+    if (external.protocol !== "https:") {
+      throw new Error(`unsupported asset URL protocol ${external.protocol}: ${ref}`);
+    }
+    if (external.href !== OFFICE_JS_CDN_URL) {
+      throw new Error(`cross-origin asset URL is not allowlisted: ${ref}`);
+    }
+    return { kind: "external", source: ref, url: external.href };
+  }
+
+  const rawPath = ref.split(/[?#]/, 1)[0];
+  decodeAssetPath(rawPath, ref);
+  const base = normalizeBasePath(viteBase);
+  const documentUrl = new URL(`${base}index.html`, PACKAGE_ORIGIN);
+  let resolved;
+  try {
+    resolved = new URL(ref, documentUrl);
+  } catch {
+    throw new Error(`invalid local asset URL: ${ref}`);
+  }
+  if (resolved.origin !== PACKAGE_ORIGIN || resolved.protocol !== "https:") {
+    throw new Error(`local asset URL escaped package origin: ${ref}`);
+  }
+
+  const decodedPathname = decodeAssetPath(resolved.pathname, ref);
+  if (base !== "/" && !decodedPathname.startsWith(base)) {
+    throw new Error(`asset not under VITE_BASE ${base}: ${ref}`);
+  }
+  const relativePath =
+    base === "/"
+      ? decodedPathname.replace(/^\/+/, "")
+      : decodedPathname.slice(base.length);
+  if (!relativePath || relativePath.startsWith("/") || relativePath.split("/").includes("..")) {
+    throw new Error(`asset URL does not resolve to a package file: ${ref}`);
+  }
+  return {
+    kind: "local",
+    source: ref,
+    pathname: decodedPathname,
+    relativePath,
+  };
+}
+
 /**
  * Resolve packaging inputs. Fails closed on localhost prod base, mismatches, bad versions.
  * @param {{ baseUrl: string, version?: string|null, viteBase?: string|null, packageJsonVersion: string }} input
@@ -73,51 +205,92 @@ export function resolvePackageInputs(input) {
   return { baseUrl, viteBase, version, packageJsonVersion: String(input.packageJsonVersion) };
 }
 
-/**
- * Local script/link href/src under same origin path must start with viteBase (or be absolute CDN).
- * Returns list of local asset paths found.
- */
-export function collectLocalAssetRefs(html) {
-  const refs = [];
-  const re = /\b(?:src|href)=["']([^"']+)["']/gi;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const ref = m[1];
-    if (!ref || ref.startsWith("data:") || ref.startsWith("blob:")) continue;
-    if (/^https?:\/\//i.test(ref)) {
-      // external CDN — not local package asset
-      continue;
-    }
-    refs.push(ref);
+export function assertIndexAssetsUnderBase(html, viteBase) {
+  const localAssets = [];
+  for (const ref of collectIndexAssetRefs(html)) {
+    const resolved = resolveIndexAssetRef(ref, viteBase);
+    if (resolved.kind === "local") localAssets.push(resolved.relativePath);
   }
-  return refs;
+  return [...new Set(localAssets)];
 }
 
-export function assertIndexAssetsUnderBase(html, viteBase) {
-  const base = normalizeBasePath(viteBase);
-  const refs = collectLocalAssetRefs(html);
-  const errors = [];
-  for (const ref of refs) {
-    // absolute path on same host
-    if (ref.startsWith("/")) {
-      if (base === "/") {
-        // any absolute path ok under root deploy
-        continue;
-      }
-      if (!(ref === base.slice(0, -1) || ref.startsWith(base))) {
-        errors.push(`asset not under VITE_BASE ${base}: ${ref}`);
-      }
-      continue;
-    }
-    // relative refs are allowed (resolved under base at serve time)
+export function assertLocalAssetFiles(distDir, relativePaths) {
+  const rootPath = path.resolve(distDir);
+  const rootStat = fs.lstatSync(rootPath);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new Error(`dist root must be a real directory: ${distDir}`);
   }
-  if (errors.length) throw new Error(errors.join("; "));
-  return refs;
+  const rootReal = fs.realpathSync(rootPath);
+  const verified = [];
+  for (const relativePath of relativePaths) {
+    const normalized = String(relativePath).replace(/\\/g, "/");
+    const segments = normalized.split("/");
+    if (
+      normalized === "" ||
+      normalized.startsWith("/") ||
+      segments.some((segment) => segment === "" || segment === "." || segment === "..")
+    ) {
+      throw new Error(`invalid local asset path: ${relativePath}`);
+    }
+
+    let current = rootPath;
+    for (let i = 0; i < segments.length; i += 1) {
+      current = path.join(current, segments[i]);
+      let stat;
+      try {
+        stat = fs.lstatSync(current);
+      } catch (error) {
+        if (error?.code === "ENOENT") {
+          throw new Error(`referenced local asset is missing: ${relativePath}`);
+        }
+        throw error;
+      }
+      if (stat.isSymbolicLink()) {
+        throw new Error(`referenced local asset uses a symlink: ${relativePath}`);
+      }
+      if (i < segments.length - 1 && !stat.isDirectory()) {
+        throw new Error(`local asset parent is not a directory: ${relativePath}`);
+      }
+      if (i === segments.length - 1 && !stat.isFile()) {
+        throw new Error(`referenced local asset is not a regular file: ${relativePath}`);
+      }
+    }
+
+    const real = fs.realpathSync(current);
+    if (!pathIsInside(rootReal, real)) {
+      throw new Error(`referenced local asset escaped dist: ${relativePath}`);
+    }
+    verified.push(real);
+  }
+  return verified;
+}
+
+export function listFilesRecursiveStrict(dir, base = dir) {
+  const root = path.resolve(base);
+  const currentDir = path.resolve(dir);
+  const rootStat = fs.lstatSync(root);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new Error(`package root must be a real directory: ${base}`);
+  }
+  const out = [];
+  for (const ent of fs.readdirSync(currentDir, { withFileTypes: true })) {
+    const abs = path.join(currentDir, ent.name);
+    const rel = path.relative(root, abs).replace(/\\/g, "/");
+    if (ent.isSymbolicLink()) {
+      throw new Error(`symlink is forbidden in package: ${rel}`);
+    }
+    if (ent.isDirectory()) out.push(...listFilesRecursiveStrict(abs, root));
+    else if (ent.isFile()) out.push(rel);
+    else throw new Error(`non-regular file is forbidden in package: ${rel}`);
+  }
+  return out;
 }
 
 export function isSensitiveRelativePath(relPath) {
   const norm = String(relPath).replace(/\\/g, "/");
-  if (norm.includes("..")) return true;
+  if (norm.split("/").some((segment) => segment === "." || segment === "..")) {
+    return true;
+  }
   return SENSITIVE_NAME_RE.test(norm);
 }
 
@@ -169,15 +342,23 @@ export function makeArtifactName(version, gitSha) {
   return name;
 }
 
+export function formatSpawnFailure(result) {
+  if (result?.error) {
+    const code = result.error.code ? ` ${result.error.code}` : "";
+    return `npm run build failed to start${code}`;
+  }
+  if (result?.signal) {
+    return `npm run build terminated by signal ${result.signal}`;
+  }
+  return `npm run build failed with status ${result?.status ?? "unknown"}`;
+}
+
 export function parseCliArgs(argv) {
   const out = {
     baseUrl: null,
     version: null,
     viteBase: null,
     gitSha: null,
-    skipBuild: false,
-    distDir: null,
-    rootDir: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -185,9 +366,6 @@ export function parseCliArgs(argv) {
     else if (a === "--version") out.version = argv[++i];
     else if (a === "--vite-base") out.viteBase = argv[++i];
     else if (a === "--git-sha") out.gitSha = argv[++i];
-    else if (a === "--skip-build") out.skipBuild = true;
-    else if (a === "--dist-dir") out.distDir = argv[++i];
-    else if (a === "--root-dir") out.rootDir = argv[++i];
     else if (a === "-h" || a === "--help") out.help = true;
     else throw new Error(`Unknown arg: ${a}`);
   }

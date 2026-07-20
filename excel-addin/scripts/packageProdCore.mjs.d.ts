@@ -16,11 +16,15 @@ export function resolvePackageInputs(input: {
   version: string;
   packageJsonVersion: string;
 };
-export function collectLocalAssetRefs(html: string): string[];
 export function assertIndexAssetsUnderBase(
   html: string,
   viteBase: string,
 ): string[];
+export function assertLocalAssetFiles(
+  distDir: string,
+  relativePaths: string[],
+): string[];
+export function listFilesRecursiveStrict(dir: string, base?: string): string[];
 export function isSensitiveRelativePath(relPath: string): boolean;
 export function assertNoSensitiveDistPaths(relativePaths: string[]): void;
 export function buildSha256Sums(
@@ -40,13 +44,15 @@ export function buildBuildInfo(meta: {
   viteBase: string;
 };
 export function makeArtifactName(version: string, gitSha: string): string;
+export function formatSpawnFailure(result: {
+  error?: { code?: string } | null;
+  signal?: string | null;
+  status?: number | null;
+}): string;
 export function parseCliArgs(argv: string[]): {
   baseUrl: string | null;
   version: string | null;
   viteBase: string | null;
   gitSha: string | null;
-  skipBuild: boolean;
-  distDir: string | null;
-  rootDir: string | null;
   help?: boolean;
 };
