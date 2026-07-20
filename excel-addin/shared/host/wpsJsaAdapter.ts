@@ -31,6 +31,11 @@ import {
 } from "./wpsJsaDataValidation";
 import { wpsInspectWorkbook } from "./wpsJsaInspect";
 import { wpsSaveWorkbook } from "./wpsJsaWorkbookSave";
+import {
+  wpsCreatePivot,
+  wpsListPivots,
+  wpsRefreshPivots,
+} from "./wpsJsaPivotUnsupported";
 import { wpsCopySheet, wpsMoveSheet } from "./wpsJsaSheetOps";
 import { wpsReadRange } from "./wpsJsaRangeRead";
 import { wpsStructureSurface } from "./wpsJsaStructure";
@@ -381,4 +386,7 @@ export class WpsJsaAdapter implements HostAdapter {
   createShape = wpsStructureSurface.createShape;
   deleteShape = wpsStructureSurface.deleteShape;
   updateShape = wpsStructureSurface.updateShape;
+  listPivots = wpsListPivots;
+  createPivot = wpsCreatePivot;
+  refreshPivots = wpsRefreshPivots;
 }

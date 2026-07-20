@@ -37,6 +37,7 @@ describe("chat readonly allowlist", () => {
       "sheet.freeze.get",
       "sheet.pageLayout.get",
       "shape.list",
+      "pivot.list",
     ]);
 
     const listed = listChatReadOnlyTools();

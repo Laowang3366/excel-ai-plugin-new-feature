@@ -32,6 +32,7 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "sheet.freeze.get",
   "sheet.pageLayout.get",
   "shape.list",
+  "pivot.list",
 ] as const;
 
 export type ChatReadOnlyToolName = (typeof CHAT_READONLY_TOOL_ALLOWLIST)[number];

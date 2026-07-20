@@ -34,6 +34,7 @@ import { executeTableFilterTool } from "./tableFilterExecutor";
 import { executeTableSortTool } from "./tableSortExecutor";
 import { executeFormulaProtectionTool } from "./formulaProtectionExecutor";
 import { executeFormulaGovernanceTool } from "./formulaGovernanceExecutor";
+import { executePivotTool } from "./pivotExecutor";
 import { writeFormulaWithVerify, writeRangeWithVerify } from "./writeWithVerify";
 
 function fail(tool: ToolName, error: string, detail?: unknown): ToolFailure {
@@ -376,6 +377,8 @@ export class ToolExecutor {
           if (formulaProtection) return formulaProtection;
           const formulaGovernance = await executeFormulaGovernanceTool(this.host, call);
           if (formulaGovernance) return formulaGovernance;
+          const pivot = await executePivotTool(this.host, call);
+          if (pivot) return pivot;
           return fail(call.name, `Unknown tool: ${String((call as ToolCall).name)}`);
         }
       }

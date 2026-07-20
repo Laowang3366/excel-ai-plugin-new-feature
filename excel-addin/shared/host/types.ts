@@ -278,6 +278,16 @@ export type {
   SheetPageLayoutUpdateInput,
 } from "./sheetPageLayoutTypes";
 export type { HostAdapter } from "./hostAdapter";
+export type {
+  PivotAggregationFunction,
+  PivotCreateInfo,
+  PivotCreateInput,
+  PivotListInfo,
+  PivotListInput,
+  PivotRefreshInfo,
+  PivotRefreshInput,
+  PivotTableInfo,
+} from "./pivotTypes";
 
 export type NamedRangeScope = "workbook" | "worksheet";
 

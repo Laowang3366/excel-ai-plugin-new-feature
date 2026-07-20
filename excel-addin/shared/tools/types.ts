@@ -88,7 +88,10 @@ export type ToolName =
   | "shape.list"
   | "shape.create"
   | "shape.delete"
-  | "shape.update";
+  | "shape.update"
+  | "pivot.list"
+  | "pivot.create"
+  | "pivot.refresh";
 
 export type RiskLevel = "safe" | "moderate" | "dangerous";
 

@@ -92,6 +92,19 @@ import {
 } from "../shared/host/officeJsChartSource";
 import { createMockStructureState } from "./mockStructure";
 import { fail, ok, unsupported } from "../shared/host/types";
+import type {
+  PivotCreateInfo,
+  PivotCreateInput,
+  PivotListInfo,
+  PivotListInput,
+  PivotRefreshInfo,
+  PivotRefreshInput,
+  PivotTableInfo,
+} from "../shared/host/pivotTypes";
+import { buildPivotFieldPlan } from "../shared/host/officeJsPivotFields";
+import { parsePivotDestination } from "../shared/host/officeJsPivotDestination";
+import { validateBareA1 } from "../shared/host/officeJsChartSource";
+import { PIVOT_DEFAULT_SHEET } from "../shared/host/pivotTypes";
 
 function key(sheet: string, address: string): string {
   return `${sheet}!${address.toUpperCase()}`;
@@ -518,6 +531,7 @@ export class MockHostAdapter implements HostAdapter {
   /** sheetName -> { formulas[r][c], locked[r][c], protected } for formula protection tests */
   formulaBackupRows: FormulaBackupRow[] = [];
   formulaBackupSheetName: string | null = null;
+  private pivots: PivotTableInfo[] = [];
   formulaProtectionSheets = new Map<
     string,
     {
@@ -1659,5 +1673,125 @@ export class MockHostAdapter implements HostAdapter {
       shape.text = input.text.length > 0 ? input.text : null;
     }
     return ok(shape);
+  }
+
+  async listPivots(input: PivotListInput = {}): Promise<HostResult<PivotListInfo>> {
+    let pivots = [...this.pivots];
+    if (input.sheetName) {
+      pivots = pivots.filter((p) => p.sheetName === input.sheetName);
+    }
+    pivots.sort((a, b) => {
+      const s = a.sheetName.localeCompare(b.sheetName);
+      return s !== 0 ? s : a.name.localeCompare(b.name);
+    });
+    return ok({
+      pivots,
+      limitations: ["mock host pivot inventory"],
+    });
+  }
+
+  async createPivot(input: PivotCreateInput): Promise<HostResult<PivotCreateInfo>> {
+    try {
+      const plan = buildPivotFieldPlan(input);
+      validateBareA1(input.sourceAddress, "sourceAddress");
+      const destPlan = parsePivotDestination(input.destination);
+      if (!this.sheets.some((s) => s.name === input.sourceSheetName)) {
+        return fail("pivot.create", this.kind, `sheet not found: ${input.sourceSheetName}`);
+      }
+      let sheetName: string;
+      let destBare: string;
+      if (destPlan.useDedicatedSheet) {
+        sheetName = PIVOT_DEFAULT_SHEET;
+        if (!this.sheets.some((s) => s.name === sheetName)) {
+          this.sheets.push({ name: sheetName, index: this.sheets.length, isActive: false });
+        }
+        const existing = this.pivots.filter((p) => p.sheetName === sheetName);
+        destBare = existing.length === 0 ? "A1" : `A${existing.length * 20 + 1}`;
+      } else {
+        sheetName = destPlan.sheetName ?? input.sourceSheetName;
+        if (!this.sheets.some((s) => s.name === sheetName)) {
+          return fail("pivot.create", this.kind, `destination sheet not found: ${sheetName}`);
+        }
+        destBare = destPlan.address;
+      }
+      const name =
+        input.name?.trim() ||
+        `AI_Pivot_${String(this.pivots.length + 1).padStart(3, "0")}`;
+      if (this.pivots.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+        return fail("pivot.create", this.kind, `pivot already exists: ${name}`);
+      }
+      const source = `${input.sourceSheetName}!${input.sourceAddress.replace(/\$/g, "").toUpperCase()}`;
+      const destination = `${sheetName}!${destBare}`;
+      const info: PivotTableInfo = {
+        name,
+        sheetName,
+        source,
+        destination,
+        rowFields: plan.rowFields.map((f) => ({ name: f.name })),
+        columnFields: plan.columnFields.map((f) => ({ name: f.name })),
+        filterFields: plan.filterFields.map((f) => ({ name: f.name })),
+        dataFields: plan.dataFields.map((f) => ({
+          name: f.caption ?? f.name,
+          caption: f.caption,
+          summarizeBy: f.function,
+        })),
+        refreshed: false,
+      };
+      this.pivots.push(info);
+      return ok({
+        name,
+        sheetName,
+        source,
+        destination,
+        rowFields: info.rowFields,
+        columnFields: info.columnFields,
+        filterFields: info.filterFields,
+        dataFields: info.dataFields,
+        verification: {
+          ok: true,
+          objectExists: true,
+          nameMatches: true,
+          destinationReadable: true,
+          rowFieldCount: plan.rowFields.length,
+          columnFieldCount: plan.columnFields.length,
+          filterFieldCount: plan.filterFields.length,
+          dataFieldCount: plan.dataFields.length,
+          checks: [{ name: "mock", ok: true }],
+        },
+      });
+    } catch (error) {
+      return fail(
+        "pivot.create",
+        this.kind,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  async refreshPivots(input: PivotRefreshInput = {}): Promise<HostResult<PivotRefreshInfo>> {
+    if (input.refreshConnections === true) {
+      return fail(
+        "pivot.refresh",
+        this.kind,
+        "refreshConnections is not supported: Office.js has no proven Workbook.RefreshAll equivalent",
+      );
+    }
+    let targets = [...this.pivots];
+    if (input.sheetName) targets = targets.filter((p) => p.sheetName === input.sheetName);
+    if (input.name) {
+      targets = targets.filter((p) => p.name.toLowerCase() === input.name!.toLowerCase());
+      if (targets.length === 0) {
+        return fail("pivot.refresh", this.kind, `pivot not found: ${input.name}`);
+      }
+    }
+    for (const t of targets) t.refreshed = true;
+    return ok({
+      refreshed: targets.map((t) => ({
+        name: t.name,
+        sheetName: t.sheetName,
+        refreshed: true,
+      })),
+      count: targets.length,
+    });
   }
 }

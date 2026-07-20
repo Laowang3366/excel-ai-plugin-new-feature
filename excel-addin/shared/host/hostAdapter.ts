@@ -103,6 +103,14 @@ import type {
   FormulaReferencesRepairInfo,
   FormulaReferencesRepairInput,
 } from "./formulaGovernanceTypes";
+import type {
+  PivotCreateInfo,
+  PivotCreateInput,
+  PivotListInfo,
+  PivotListInput,
+  PivotRefreshInfo,
+  PivotRefreshInput,
+} from "./pivotTypes";
 
 /** Host capability surface implemented by Office.js / WPS / Mock adapters. */
 export interface HostAdapter {
@@ -308,4 +316,8 @@ export interface HostAdapter {
   createShape(input: ShapeCreateInput): Promise<HostResult<ShapeInfo>>;
   deleteShape(sheetName: string, shapeName: string): Promise<HostResult<{ deleted: string }>>;
   updateShape(input: ShapeUpdateInput): Promise<HostResult<ShapeInfo>>;
+
+  listPivots(input?: PivotListInput): Promise<HostResult<PivotListInfo>>;
+  createPivot(input: PivotCreateInput): Promise<HostResult<PivotCreateInfo>>;
+  refreshPivots(input?: PivotRefreshInput): Promise<HostResult<PivotRefreshInfo>>;
 }

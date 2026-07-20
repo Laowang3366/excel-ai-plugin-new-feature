@@ -1,6 +1,11 @@
 import { officeJsInspectWorkbookObjects } from "./officeJsWorkbookObjects";
 import { officeJsSaveWorkbook } from "./officeJsWorkbookSave";
 import {
+  officeJsCreatePivot,
+  officeJsListPivots,
+  officeJsRefreshPivots,
+} from "./officeJsPivot";
+import {
   getExcelRun,
   getOfficeJsRuntimeCapabilities,
   normalizeFormulas,
@@ -332,4 +337,7 @@ export class OfficeJsAdapter implements HostAdapter {
   createShape = officeJsCreateShape;
   deleteShape = officeJsDeleteShape;
   updateShape = officeJsUpdateShape;
+  listPivots = officeJsListPivots;
+  createPivot = officeJsCreatePivot;
+  refreshPivots = officeJsRefreshPivots;
 }

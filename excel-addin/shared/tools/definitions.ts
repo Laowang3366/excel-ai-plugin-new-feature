@@ -27,6 +27,7 @@ import {
   CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
   DATA_VALIDATION_TOOL_DEFINITIONS,
 } from "./validationDefinitions";
+import { PIVOT_TOOL_DEFINITIONS } from "./pivotDefinitions";
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
@@ -335,4 +336,5 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...TABLE_SORT_TOOL_DEFINITIONS,
   ...FORMULA_PROTECTION_TOOL_DEFINITIONS,
   ...FORMULA_GOVERNANCE_TOOL_DEFINITIONS,
+  ...PIVOT_TOOL_DEFINITIONS,
 ];
