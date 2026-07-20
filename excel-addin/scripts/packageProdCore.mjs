@@ -14,6 +14,7 @@ const ARTIFACT_SAFE_RE = /^[A-Za-z0-9._-]+$/;
 const SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f]/;
 const ENCODED_SEPARATOR_RE = /%(?:2f|5c)/i;
+const NESTED_PERCENT_RE = /%25/i;
 const PACKAGE_ORIGIN = "https://package.invalid";
 const OFFICE_JS_CDN_URL =
   "https://appsforoffice.microsoft.com/lib/1/hosted/office.js";
@@ -69,6 +70,9 @@ function pathIsInside(root, candidate) {
 }
 
 function decodeAssetPath(rawPath, ref) {
+  if (NESTED_PERCENT_RE.test(rawPath)) {
+    throw new Error(`nested percent encoding is not allowed in asset URL: ${ref}`);
+  }
   if (ENCODED_SEPARATOR_RE.test(rawPath)) {
     throw new Error(`encoded path separators are not allowed in asset URL: ${ref}`);
   }
