@@ -5,7 +5,7 @@ export const OBJECT_UPDATE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "table.update",
     description:
-      "更新表格浅层属性：newName/style/showHeaders/showTotals/showFilterButton（至少一项；Office.js；WPS unsupported）",
+      "更新表格属性或范围：newName/style/showHeaders/showTotals/showFilterButton/showBandedRows/showBandedColumns/resizeAddress（至少一项；resizeAddress 为同表单区域 A1；Office.js；WPS unsupported）",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -17,6 +17,9 @@ export const OBJECT_UPDATE_TOOL_DEFINITIONS: ToolDefinition[] = [
         showHeaders: { type: "boolean" },
         showTotals: { type: "boolean" },
         showFilterButton: { type: "boolean" },
+        showBandedRows: { type: "boolean" },
+        showBandedColumns: { type: "boolean" },
+        resizeAddress: { type: "string", minLength: 1 },
       },
       required: ["sheetName", "tableName"],
       additionalProperties: false,

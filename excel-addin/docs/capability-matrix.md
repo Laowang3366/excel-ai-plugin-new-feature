@@ -20,7 +20,7 @@ Evidence columns:
 | range format | range.format.read/write | implemented | **unsupported** | COM format | WPS: no in-repo format contract |
 | table | list/create/delete | implemented | **unsupported** | table actions | WPS: no in-repo ListObjects contract; delete = hard delete |
 | table | unlist (convertToRange) | implemented | **unsupported** | table unlist boolean | Office.js `Table.convertToRange` **ExcelApi 1.2**; keeps cell data; absence check after sync; **no** getItemOrNullObject(1.4); WPS: no ListObjects/Unlist/convertToRange contract |
-| table | update (name/style/headers/totals/filter) | implemented | **unsupported** | manageWorkbookObject | Office.js Table shallow fields only; **unsupported**: resize/filter/sort/banded/highlight |
+| table | update (name/style/headers/totals/filter button/banded rows+columns/resize) | implemented | **unsupported** | manageWorkbookObject | Office.js Table fields; banded rows/columns **ExcelApi 1.3**; same-sheet single-area A1 resize **ExcelApi 1.13** with host overlap/header-row rules; **unsupported**: table filter rules/sort/highlight first-or-last column |
 | chart | list/create/delete (column/line/bar/area/pie/scatter/doughnut/bubble/radar/linemarkers) | implemented | **unsupported** | chart actions | Office.js ChartType map via `ChartCollection.add` (**ExcelApi 1.1**); WPS: no ChartObjects contract |
 | chart | update (name/type/title/style/legend/pos/size) | implemented | **unsupported** | formatChart/manage | shallow style+legend.visible; type ∈ 10 labels; `Chart.chartType` **ExcelApi 1.7**; **unsupported**: axes/data labels/source replacement/export/complex layout/stacked/3D/stock/funnel |
 | chart | series list/update (name/chartType/smooth) | implemented | **unsupported** | formatChart series | Office.js `Chart.series` only name/chartType/smooth; public index 1-based; chartType 10 labels (`ChartSeries.chartType` **ExcelApi 1.7**); does **not** handle dataLabels (use chart.series.dataLabels.update); delete/add via dedicated tools; **unsupported**: formula/values/xValues/categoryFormula |
@@ -67,7 +67,7 @@ Evidence columns:
 - Phase4: `range.read` expand, `formula.context`, `sheet.operation` (add/rename/delete/copy/move)
 - Phase5: `conditionalFormat.list/add/delete`, `dataValidation.read/write/clear` (Office.js via `rule`; WPS unsupported)
 - Phase6: `sheet.visibility.get/set`, `sheet.protection.get/protect/unprotect`, `namedRange.list/create/update/delete` (Office.js; WPS unsupported)
-- Phase7: `table.update`, `chart.update` (shallow fields only; Office.js; WPS unsupported)
+- Phase7: `table.update`, `chart.update` (initial shallow fields; Office.js; WPS unsupported)
 - Phase9: `sheet.display.get/set` (tabColor empty=auto or #RRGGBB, showGridlines, showHeadings; Office.js; WPS unsupported)
 - Phase10: `workbook.inspect` per-sheet `usedRangeAddress`/`rowCount`/`columnCount` (Office.js; WPS dims unset)
 - Phase11: `sheet.freeze.get/set` (rows|columns|at|clear; Office.js freezePanes; WPS unsupported)
@@ -87,13 +87,14 @@ Evidence columns:
 - Phase25: `chart.series.bubbleSizes.update` (bubbleSizesRange same-sheet A1; setBubbleSizes + ExcelApi 1.15 BubbleSizes source string readback; bubble chart only; Office.js; WPS unsupported)
 - Phase26: `chart.series.dataLabels.update` adds `enabled` via `hasDataLabels` (**ExcelApi 1.7** enabled-only path, no dataLabels access); show*/numberFormat still **ExcelApi 1.8** full snapshot; enabled=false alone; WPS unsupported
 - Phase27: chart types expanded to column|line|bar|area|pie|scatter|doughnut|bubble|radar|linemarkers; create via ChartCollection.add enum **ExcelApi 1.1**; chart/series chartType property update **ExcelApi 1.7**; LineMarkers→linemarkers (not line), Doughnut→doughnut (not pie); WPS unsupported
-- Phase28: `table.unlist` (ExcelApi 1.2 `Table.convertToRange`; keep data; host absence check; Office.js; WPS unsupported). `table.delete` remains hard delete. **unsupported**: table resize/filter/sort/banded/highlight
+- Phase28: `table.unlist` (ExcelApi 1.2 `Table.convertToRange`; keep data; host absence check; Office.js; WPS unsupported). `table.delete` remains hard delete.
 - Phase29: `sheet.pageLayout` adds `paperSize` + `fitToPagesWide`/`fitToPagesTall` (**ExcelApi 1.9** precheck; host readback; fit mutually exclusive with zoomScale; WPS unsupported)
 - Phase30: `sheet.pageLayout` adds `draft`/`pageOrder`/`firstPageNumber` (**ExcelApi 1.9** draftMode/printOrder/firstPageNumber; host readback; firstPageNumber ""/null→null, set only finite int≥1; WPS unsupported)
 - Phase31: `sheet.pageLayout.margins` adds `header`/`footer` (**ExcelApi 1.9** headerMargin/footerMargin points; host readback; 0 allowed; WPS unsupported)
 - Phase32: `sheet.pageLayout` adds default-page `headers`/`footers` left|center|right text (**ExcelApi 1.9** headersFooters.defaultForAllPages; "" clears; host readback; WPS unsupported)
 - Phase33: `sheet.pageLayout` adds manual `horizontalPageBreaks`/`verticalPageBreaks` + `clearPageBreaks` (**ExcelApi 1.9** Worksheet page break collections; bare A1; append not replace; [] no-op; WPS unsupported). **unsupported**: automatic page breaks, single-break delete tool, printArea/titles clear, fitToOnePage
 - Phase34: `range.image.get` (ExcelApi 1.7 Range.getImage Base64 PNG; memory only; no width/height/path/PDF/MIME; Office.js; WPS unsupported)
+- Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with write→sync→load→sync host readback; table filter rules/sort/highlight first-or-last column remain unsupported; WPS unsupported
 
 ## Phase5 Office.js contract notes
 

@@ -18,6 +18,13 @@ function optionalTrimmed(args: Record<string, unknown>, key: string): string | u
   return trimmed;
 }
 
+function optionalResizeAddress(args: Record<string, unknown>): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "resizeAddress")) return undefined;
+  if (args.resizeAddress === undefined) throw new Error("resizeAddress must not be undefined");
+  if (args.resizeAddress === null) throw new Error("resizeAddress must not be null");
+  return optionalTrimmed(args, "resizeAddress");
+}
+
 /** Chart title may be empty string to clear; do not trim content away. */
 function optionalChartTitle(args: Record<string, unknown>): string | undefined {
   if (!Object.prototype.hasOwnProperty.call(args, "title") || args.title == null) return undefined;
@@ -109,6 +116,9 @@ export async function executeObjectUpdateTool(
       "showHeaders",
       "showTotals",
       "showFilterButton",
+      "showBandedRows",
+      "showBandedColumns",
+      "resizeAddress",
     ]);
     const input = {
       sheetName: requireString(call.arguments, "sheetName"),
@@ -118,13 +128,19 @@ export async function executeObjectUpdateTool(
       showHeaders: optionalBoolean(call.arguments, "showHeaders"),
       showTotals: optionalBoolean(call.arguments, "showTotals"),
       showFilterButton: optionalBoolean(call.arguments, "showFilterButton"),
+      showBandedRows: optionalBoolean(call.arguments, "showBandedRows"),
+      showBandedColumns: optionalBoolean(call.arguments, "showBandedColumns"),
+      resizeAddress: optionalResizeAddress(call.arguments),
     };
     if (
       input.newName == null &&
       input.style == null &&
       input.showHeaders == null &&
       input.showTotals == null &&
-      input.showFilterButton == null
+      input.showFilterButton == null &&
+      input.showBandedRows == null &&
+      input.showBandedColumns == null &&
+      input.resizeAddress == null
     ) {
       throw new Error("table.update requires at least one update field");
     }

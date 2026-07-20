@@ -105,11 +105,17 @@ export interface ExcelRange {
 
 export interface ExcelTable {
   name: string;
+  /** ExcelApi 1.3. */
+  showBandedColumns: boolean;
+  /** ExcelApi 1.3. */
+  showBandedRows: boolean;
   showHeaders: boolean;
   showFilterButton: boolean;
   showTotals: boolean;
   style: string;
   getRange(): ExcelRange;
+  /** ExcelApi 1.13; new range must overlap and keep the header row. */
+  resize(newRange: ExcelRange | string): void;
   delete(): void;
   /** ExcelApi 1.2: convert table to plain range; keeps cell values. */
   convertToRange(): ExcelRange;

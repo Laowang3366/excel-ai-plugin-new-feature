@@ -10,6 +10,12 @@ describe("phase7 object update", () => {
     const names = TOOL_DEFINITIONS.map((tool) => tool.name);
     expect(names).toContain("table.update");
     expect(names).toContain("chart.update");
+    const tableUpdate = TOOL_DEFINITIONS.find((tool) => tool.name === "table.update");
+    const properties = (tableUpdate?.parameters as { properties?: Record<string, unknown> })
+      .properties;
+    expect(Object.keys(properties ?? {})).toEqual(
+      expect.arrayContaining(["resizeAddress", "showBandedRows", "showBandedColumns"]),
+    );
   });
 
   describe("Office.js", () => {
@@ -20,24 +26,43 @@ describe("phase7 object update", () => {
       delete (globalThis as { Excel?: unknown }).Excel;
     });
 
-    it("updates table name/style/toggles and reads back", async () => {
+    it("updates table range/name/style/toggles and reads back", async () => {
       const adapter = new OfficeJsAdapter();
       const updated = await adapter.updateTable({
         sheetName: "Sheet1",
         tableName: "T1",
+        resizeAddress: "Sheet1!a1:d5",
         newName: "SalesTable",
         style: "TableStyleMedium9",
         showHeaders: false,
         showTotals: true,
         showFilterButton: false,
+        showBandedRows: false,
+        showBandedColumns: true,
       });
       expect(updated.ok).toBe(true);
       if (updated.ok) {
         expect(updated.data.name).toBe("SalesTable");
+        expect(updated.data.address).toBe("Sheet1!A1:D5");
         expect(updated.data.style).toBe("TableStyleMedium9");
         expect(updated.data.hasHeaders).toBe(false);
         expect(updated.data.showTotals).toBe(true);
         expect(updated.data.showFilter).toBe(false);
+        expect(updated.data.showBandedRows).toBe(false);
+        expect(updated.data.showBandedColumns).toBe(true);
+      }
+    });
+
+    it("rejects a cross-sheet table resize as an ordinary host failure", async () => {
+      const result = await new OfficeJsAdapter().updateTable({
+        sheetName: "Sheet1",
+        tableName: "T1",
+        resizeAddress: "Other!A1:D5",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.unsupported).toBe(false);
+        expect(result.reason).toMatch(/same worksheet/);
       }
     });
 
@@ -106,14 +131,24 @@ describe("phase7 object update", () => {
     });
     const executor = new ToolExecutor(host);
 
-    expect(
-      (
-        await executor.execute({
-          name: "table.update",
-          arguments: { sheetName: "Sheet1", tableName: "T1", showTotals: true },
-        })
-      ).ok,
-    ).toBe(true);
+    const tableUpdated = await executor.execute({
+      name: "table.update",
+      arguments: {
+        sheetName: "Sheet1",
+        tableName: "T1",
+        resizeAddress: "A1:D4",
+        showBandedRows: false,
+        showBandedColumns: true,
+      },
+    });
+    expect(tableUpdated.ok).toBe(true);
+    if (tableUpdated.ok) {
+      expect(tableUpdated.data).toMatchObject({
+        address: "Sheet1!A1:D4",
+        showBandedRows: false,
+        showBandedColumns: true,
+      });
+    }
 
     expect(
       (
@@ -129,6 +164,59 @@ describe("phase7 object update", () => {
         await executor.execute({
           name: "table.update",
           arguments: { sheetName: "Sheet1", tableName: "T1" },
+        })
+      ).ok,
+    ).toBe(false);
+
+    expect(
+      (
+        await executor.execute({
+          name: "table.update",
+          arguments: {
+            sheetName: "Sheet1",
+            tableName: "T1",
+            resizeAddress: null,
+            showTotals: true,
+          },
+        })
+      ).ok,
+    ).toBe(false);
+
+    expect(
+      (
+        await executor.execute({
+          name: "table.update",
+          arguments: {
+            sheetName: "Sheet1",
+            tableName: "T1",
+            resizeAddress: "Other!A1:D4",
+          },
+        })
+      ).ok,
+    ).toBe(false);
+
+    expect(
+      (
+        await executor.execute({
+          name: "table.update",
+          arguments: {
+            sheetName: "Sheet1",
+            tableName: "T1",
+            resizeAddress: "A0:D4",
+          },
+        })
+      ).ok,
+    ).toBe(false);
+
+    expect(
+      (
+        await executor.execute({
+          name: "table.update",
+          arguments: {
+            sheetName: "Sheet1",
+            tableName: "T1",
+            showBandedRows: "yes",
+          },
         })
       ).ok,
     ).toBe(false);
@@ -213,7 +301,12 @@ describe("phase7 object update", () => {
     for (const call of [
       {
         name: "table.update" as const,
-        arguments: { sheetName: "Sheet1", tableName: "T1", showTotals: true },
+        arguments: {
+          sheetName: "Sheet1",
+          tableName: "T1",
+          resizeAddress: "A1:D4",
+          showBandedRows: false,
+        },
       },
       {
         name: "chart.update" as const,

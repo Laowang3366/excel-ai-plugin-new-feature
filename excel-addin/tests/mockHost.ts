@@ -12,6 +12,7 @@ import type {
   SelectionInfo,
   SheetInfo,
   TableInfo,
+  TableUpdateInput,
   TableUnlistInfo,
   WorkbookInspectInfo,
 } from "../shared/host/types";
@@ -301,15 +302,7 @@ export class MockHostAdapter implements HostAdapter {
     });
   }
 
-  async updateTable(input: {
-    sheetName: string;
-    tableName: string;
-    newName?: string;
-    style?: string;
-    showHeaders?: boolean;
-    showTotals?: boolean;
-    showFilterButton?: boolean;
-  }): Promise<HostResult<TableInfo>> {
+  async updateTable(input: TableUpdateInput): Promise<HostResult<TableInfo>> {
     const table = this.tables.find(
       (item) => item.sheetName === input.sheetName && item.name === input.tableName,
     );
@@ -319,6 +312,12 @@ export class MockHostAdapter implements HostAdapter {
     if (input.showHeaders != null) table.hasHeaders = input.showHeaders;
     if (input.showTotals != null) table.showTotals = input.showTotals;
     if (input.showFilterButton != null) table.showFilter = input.showFilterButton;
+    if (input.showBandedRows != null) table.showBandedRows = input.showBandedRows;
+    if (input.showBandedColumns != null) table.showBandedColumns = input.showBandedColumns;
+    if (input.resizeAddress != null) {
+      const bare = normalizeSameSheetSourceRange(input.sheetName, input.resizeAddress);
+      table.address = `${input.sheetName}!${bare}`;
+    }
     return ok(table);
   }
 

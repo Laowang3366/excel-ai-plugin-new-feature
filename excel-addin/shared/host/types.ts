@@ -81,6 +81,8 @@ export interface TableInfo {
   hasHeaders: boolean;
   showFilter?: boolean;
   showTotals?: boolean;
+  showBandedRows?: boolean;
+  showBandedColumns?: boolean;
   style?: string;
 }
 
@@ -92,6 +94,10 @@ export interface TableUpdateInput {
   showHeaders?: boolean;
   showTotals?: boolean;
   showFilterButton?: boolean;
+  showBandedRows?: boolean;
+  showBandedColumns?: boolean;
+  /** Same-sheet single-area A1 range used by Excel.Table.resize. */
+  resizeAddress?: string;
 }
 
 /** Result of table.unlist (Table.convertToRange); data cells retained. */

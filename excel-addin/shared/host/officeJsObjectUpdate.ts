@@ -1,4 +1,5 @@
 import { mapChartType, toChartTypeLabel } from "./officeJsChartTypes";
+import { normalizeSameSheetSourceRange } from "./officeJsChartSource";
 import { withExcel } from "./officeJsRuntime";
 import type {
   ChartInfo,
@@ -14,12 +15,20 @@ export async function officeJsUpdateTable(
   return withExcel("table.update", async (context) => {
     const sheet = context.workbook.worksheets.getItem(input.sheetName);
     const table = sheet.tables.getItem(input.tableName);
+    if (input.resizeAddress != null) {
+      table.resize(normalizeSameSheetSourceRange(input.sheetName, input.resizeAddress));
+    }
     if (input.newName != null) table.name = input.newName;
     if (input.style != null) table.style = input.style;
     if (input.showHeaders != null) table.showHeaders = input.showHeaders;
     if (input.showTotals != null) table.showTotals = input.showTotals;
     if (input.showFilterButton != null) table.showFilterButton = input.showFilterButton;
-    table.load("name,showHeaders,showFilterButton,showTotals,style");
+    if (input.showBandedRows != null) table.showBandedRows = input.showBandedRows;
+    if (input.showBandedColumns != null) table.showBandedColumns = input.showBandedColumns;
+    await context.sync();
+    table.load(
+      "name,showHeaders,showFilterButton,showTotals,showBandedRows,showBandedColumns,style",
+    );
     const range = table.getRange();
     range.load("address");
     await context.sync();
@@ -30,6 +39,8 @@ export async function officeJsUpdateTable(
       hasHeaders: table.showHeaders,
       showFilter: table.showFilterButton,
       showTotals: table.showTotals,
+      showBandedRows: table.showBandedRows,
+      showBandedColumns: table.showBandedColumns,
       style: table.style,
     };
   });
