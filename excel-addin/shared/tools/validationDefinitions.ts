@@ -140,6 +140,7 @@ export const DATA_VALIDATION_TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         errorAlert: {
           type: "object",
+          minProperties: 1,
           properties: {
             showAlert: { type: "boolean" },
             style: { type: "string", enum: ["stop", "warning", "information"] },
@@ -150,6 +151,7 @@ export const DATA_VALIDATION_TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         prompt: {
           type: "object",
+          minProperties: 1,
           properties: {
             showPrompt: { type: "boolean" },
             title: { type: "string", maxLength: 255 },

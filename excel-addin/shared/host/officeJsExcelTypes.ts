@@ -1,8 +1,6 @@
 import type { CellValue } from "./types";
 import type { ExcelPageBreakCollection } from "./officeJsPageBreakTypes";
-
 export type ExcelRunFn = <T>(batch: (context: ExcelRequestContext) => Promise<T>) => Promise<T>;
-
 export interface ExcelFont {
   name: string;
   size: number;
@@ -98,8 +96,17 @@ export interface ExcelDataValidation {
   type: string | null;
   ignoreBlanks: boolean;
   rule: ExcelDataValidationRule;
-  errorAlert?: { message?: string; showAlert?: boolean; style?: string; title?: string };
-  prompt?: { message?: string; showPrompt?: boolean; title?: string };
+  errorAlert: {
+    showAlert: boolean;
+    style: string;
+    title: string;
+    message: string;
+  };
+  prompt: {
+    showPrompt: boolean;
+    title: string;
+    message: string;
+  };
   load(props: string): void;
   clear(): void;
 }
@@ -251,7 +258,6 @@ export interface ExcelRangeAreas {
   load(props: string): void;
 }
 
-
 /** ExcelApi 1.9 HeaderFooter (default page slots only). */
 export interface ExcelHeaderFooter {
   leftHeader: string;
@@ -391,4 +397,3 @@ declare global {
     };
   }
 }
-

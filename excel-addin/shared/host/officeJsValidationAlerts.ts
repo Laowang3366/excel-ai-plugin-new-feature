@@ -1,10 +1,12 @@
 /**
  * Office.js DataValidation errorAlert / prompt helpers (ExcelApi 1.8).
- * Official:
- * - https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidation
- * - https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationerroralert
- * - https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationprompt
- * - https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationalertstyle
+ * Official ClientObject contract:
+ * - load top-level: type, rule, ignoreBlanks, errorAlert, prompt
+ * - assign whole errorAlert/prompt plain objects (not nested field mutation)
+ * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidation
+ * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationerroralert
+ * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationprompt
+ * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationalertstyle
  */
 import type { ExcelDataValidation } from "./officeJsExcelTypes";
 import type {
@@ -16,6 +18,9 @@ import type {
 /** Explicit schema/runtime cap (Excel UI historically ~255 for messages). */
 export const MAX_DV_ALERT_TITLE_CHARS = 255;
 export const MAX_DV_ALERT_MESSAGE_CHARS = 255;
+
+/** Official DataValidationLoadOptions top-level only (no nested paths). */
+export const DV_FULL_LOAD_PROPS = "type,rule,ignoreBlanks,errorAlert,prompt";
 
 export const DV_ALERT_STYLES: readonly DataValidationAlertStyle[] = [
   "stop",
@@ -35,11 +40,33 @@ const HOST_STYLE_TO_PUBLIC: Record<string, DataValidationAlertStyle> = {
   information: "information",
 };
 
-/** Nested load paths for type/rule/ignoreBlanks + errorAlert + prompt. */
-export const DV_FULL_LOAD_PROPS =
-  "type,rule,ignoreBlanks," +
-  "errorAlert/showAlert,errorAlert/style,errorAlert/title,errorAlert/message," +
-  "prompt/showPrompt,prompt/title,prompt/message";
+/** Complete public snapshot after load (all official fields present). */
+export interface HostErrorAlertSnapshot {
+  showAlert: boolean;
+  style: DataValidationAlertStyle;
+  title: string;
+  message: string;
+}
+
+export interface HostPromptSnapshot {
+  showPrompt: boolean;
+  title: string;
+  message: string;
+}
+
+/** Host-shaped whole-object assignment payload (PascalCase style tokens). */
+export interface HostErrorAlertWrite {
+  showAlert: boolean;
+  style: string;
+  title: string;
+  message: string;
+}
+
+export interface HostPromptWrite {
+  showPrompt: boolean;
+  title: string;
+  message: string;
+}
 
 export function mapAlertStyleToHost(style: DataValidationAlertStyle): string {
   return STYLE_TO_HOST[style];
@@ -57,156 +84,197 @@ export function isDataValidationAlertStyle(
   return typeof value === "string" && (DV_ALERT_STYLES as readonly string[]).includes(value);
 }
 
-type AlertBag = {
-  showAlert?: boolean;
-  style?: string;
-  title?: string;
-  message?: string;
-};
-
-type PromptBag = {
-  showPrompt?: boolean;
-  title?: string;
-  message?: string;
-};
-
+/** Strict complete host errorAlert; null/empty/missing field → error. */
 export function parseErrorAlertFromHost(
   raw: unknown,
-): { value: DataValidationErrorAlert | null; error?: string } {
-  if (raw == null) return { value: null };
+): { value: HostErrorAlertSnapshot | null; error?: string } {
+  if (raw == null) {
+    return { value: null, error: "errorAlert host value is null/undefined" };
+  }
   if (typeof raw !== "object" || Array.isArray(raw)) {
     return { value: null, error: "errorAlert host value is not an object" };
   }
-  const bag = raw as AlertBag;
-  const out: DataValidationErrorAlert = {};
-  if (bag.showAlert !== undefined) {
-    if (typeof bag.showAlert !== "boolean") {
-      return { value: null, error: "errorAlert.showAlert host readback is not boolean" };
-    }
-    out.showAlert = bag.showAlert;
+  const bag = raw as Record<string, unknown>;
+  if (typeof bag.showAlert !== "boolean") {
+    return { value: null, error: "errorAlert.showAlert host readback is not boolean" };
   }
-  if (bag.style !== undefined && bag.style !== null && bag.style !== "") {
-    const mapped = unmapAlertStyle(bag.style);
-    if (!mapped) {
-      return {
-        value: null,
-        error: `errorAlert.style host readback unknown: ${String(bag.style)}`,
-      };
-    }
-    out.style = mapped;
+  if (typeof bag.style !== "string") {
+    return { value: null, error: "errorAlert.style host readback is not string" };
   }
-  if (bag.title !== undefined && bag.title !== null) {
-    if (typeof bag.title !== "string") {
-      return { value: null, error: "errorAlert.title host readback is not string" };
-    }
-    out.title = bag.title;
+  const style = unmapAlertStyle(bag.style);
+  if (!style) {
+    return {
+      value: null,
+      error: `errorAlert.style host readback unknown: ${String(bag.style)}`,
+    };
   }
-  if (bag.message !== undefined && bag.message !== null) {
-    if (typeof bag.message !== "string") {
-      return { value: null, error: "errorAlert.message host readback is not string" };
-    }
-    out.message = bag.message;
+  if (typeof bag.title !== "string") {
+    return { value: null, error: "errorAlert.title host readback is not string" };
   }
-  return { value: out };
+  if (typeof bag.message !== "string") {
+    return { value: null, error: "errorAlert.message host readback is not string" };
+  }
+  return {
+    value: {
+      showAlert: bag.showAlert,
+      style,
+      title: bag.title,
+      message: bag.message,
+    },
+  };
 }
 
+/** Strict complete host prompt; null/empty/missing field → error. */
 export function parsePromptFromHost(
   raw: unknown,
-): { value: DataValidationPrompt | null; error?: string } {
-  if (raw == null) return { value: null };
+): { value: HostPromptSnapshot | null; error?: string } {
+  if (raw == null) {
+    return { value: null, error: "prompt host value is null/undefined" };
+  }
   if (typeof raw !== "object" || Array.isArray(raw)) {
     return { value: null, error: "prompt host value is not an object" };
   }
-  const bag = raw as PromptBag;
-  const out: DataValidationPrompt = {};
-  if (bag.showPrompt !== undefined) {
-    if (typeof bag.showPrompt !== "boolean") {
-      return { value: null, error: "prompt.showPrompt host readback is not boolean" };
-    }
-    out.showPrompt = bag.showPrompt;
+  const bag = raw as Record<string, unknown>;
+  if (typeof bag.showPrompt !== "boolean") {
+    return { value: null, error: "prompt.showPrompt host readback is not boolean" };
   }
-  if (bag.title !== undefined && bag.title !== null) {
-    if (typeof bag.title !== "string") {
-      return { value: null, error: "prompt.title host readback is not string" };
-    }
-    out.title = bag.title;
+  if (typeof bag.title !== "string") {
+    return { value: null, error: "prompt.title host readback is not string" };
   }
-  if (bag.message !== undefined && bag.message !== null) {
-    if (typeof bag.message !== "string") {
-      return { value: null, error: "prompt.message host readback is not string" };
-    }
-    out.message = bag.message;
+  if (typeof bag.message !== "string") {
+    return { value: null, error: "prompt.message host readback is not string" };
   }
-  return { value: out };
+  return {
+    value: {
+      showPrompt: bag.showPrompt,
+      title: bag.title,
+      message: bag.message,
+    },
+  };
 }
 
-/** Fail before any write if required members for requested fields are missing. */
-export function requireDvAlertMembers(
-  dv: ExcelDataValidation,
-  wantsErrorAlert: boolean,
-  wantsPrompt: boolean,
-): void {
+export type LoadedDvSurface = {
+  type: string | null;
+  rule: unknown;
+  ignoreBlanks: boolean;
+  errorAlert: HostErrorAlertSnapshot;
+  prompt: HostPromptSnapshot;
+};
+
+/**
+ * After load+sync only. Validates official surface; missing/null/bad → throw ordinary failed.
+ * Must not run before first load/sync (PropertyNotLoaded).
+ */
+export function assertLoadedDvSurface(dv: ExcelDataValidation): LoadedDvSurface {
   if (typeof dv.load !== "function") {
     throw new Error("dataValidation.load is missing");
   }
-  // Always need ignoreBlanks + rule writable surface (present on real Office.js DV).
+  let type: string | null;
+  let rule: unknown;
+  let ignoreBlanks: boolean;
   try {
-    // Accessors must exist; reading is fine even when unloaded for our fake/precheck.
-    void dv.ignoreBlanks;
-  } catch {
-    throw new Error("dataValidation.ignoreBlanks is missing");
+    type = dv.type as string | null;
+  } catch (err) {
+    throw new Error(
+      `dataValidation.type PropertyNotLoaded: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   try {
-    void dv.rule;
-  } catch {
-    throw new Error("dataValidation.rule is missing");
+    rule = dv.rule;
+  } catch (err) {
+    throw new Error(
+      `dataValidation.rule PropertyNotLoaded: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
-  if (wantsErrorAlert) {
-    if (!dv.errorAlert || typeof dv.errorAlert !== "object") {
-      throw new Error("dataValidation.errorAlert is missing");
-    }
-    const ea = dv.errorAlert as AlertBag & object;
-    for (const key of ["showAlert", "style", "title", "message"] as const) {
-      if (!(key in ea)) {
-        throw new Error(`dataValidation.errorAlert.${key} is missing`);
-      }
-    }
+  try {
+    ignoreBlanks = dv.ignoreBlanks;
+  } catch (err) {
+    throw new Error(
+      `dataValidation.ignoreBlanks PropertyNotLoaded: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
-  if (wantsPrompt) {
-    if (!dv.prompt || typeof dv.prompt !== "object") {
-      throw new Error("dataValidation.prompt is missing");
-    }
-    const p = dv.prompt as PromptBag & object;
-    for (const key of ["showPrompt", "title", "message"] as const) {
-      if (!(key in p)) {
-        throw new Error(`dataValidation.prompt.${key} is missing`);
-      }
-    }
+  if (typeof ignoreBlanks !== "boolean") {
+    throw new Error("dataValidation.ignoreBlanks host readback is not boolean");
   }
+  if (rule === null || typeof rule !== "object") {
+    throw new Error("dataValidation.rule host readback is not an object");
+  }
+
+  let rawError: unknown;
+  let rawPrompt: unknown;
+  try {
+    rawError = dv.errorAlert;
+  } catch (err) {
+    throw new Error(
+      `dataValidation.errorAlert PropertyNotLoaded: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  try {
+    rawPrompt = dv.prompt;
+  } catch (err) {
+    throw new Error(
+      `dataValidation.prompt PropertyNotLoaded: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  const ea = parseErrorAlertFromHost(rawError);
+  if (ea.error || !ea.value) {
+    throw new Error(ea.error ?? "dataValidation.errorAlert incomplete");
+  }
+  const pr = parsePromptFromHost(rawPrompt);
+  if (pr.error || !pr.value) {
+    throw new Error(pr.error ?? "dataValidation.prompt incomplete");
+  }
+  return {
+    type,
+    rule,
+    ignoreBlanks,
+    errorAlert: ea.value,
+    prompt: pr.value,
+  };
 }
 
-export function applyErrorAlert(
-  dv: ExcelDataValidation,
-  alert: DataValidationErrorAlert,
-): void {
-  if (!dv.errorAlert || typeof dv.errorAlert !== "object") {
-    throw new Error("dataValidation.errorAlert is missing");
-  }
-  const ea = dv.errorAlert;
-  if (alert.showAlert !== undefined) ea.showAlert = alert.showAlert;
-  if (alert.style !== undefined) ea.style = mapAlertStyleToHost(alert.style);
-  if (alert.title !== undefined) ea.title = alert.title;
-  if (alert.message !== undefined) ea.message = alert.message;
+/** Merge request partial onto loaded host snapshot → host write shape. */
+export function mergeErrorAlertForWrite(
+  host: HostErrorAlertSnapshot,
+  partial: DataValidationErrorAlert,
+): HostErrorAlertWrite {
+  const style = partial.style ?? host.style;
+  return {
+    showAlert: partial.showAlert ?? host.showAlert,
+    style: mapAlertStyleToHost(style),
+    title: partial.title ?? host.title,
+    message: partial.message ?? host.message,
+  };
 }
 
-export function applyPrompt(dv: ExcelDataValidation, prompt: DataValidationPrompt): void {
-  if (!dv.prompt || typeof dv.prompt !== "object") {
-    throw new Error("dataValidation.prompt is missing");
-  }
-  const p = dv.prompt;
-  if (prompt.showPrompt !== undefined) p.showPrompt = prompt.showPrompt;
-  if (prompt.title !== undefined) p.title = prompt.title;
-  if (prompt.message !== undefined) p.message = prompt.message;
+export function mergePromptForWrite(
+  host: HostPromptSnapshot,
+  partial: DataValidationPrompt,
+): HostPromptWrite {
+  return {
+    showPrompt: partial.showPrompt ?? host.showPrompt,
+    title: partial.title ?? host.title,
+    message: partial.message ?? host.message,
+  };
+}
+
+/** Whole-object assignment only (official scalar snapshot write). */
+export function assignErrorAlert(dv: ExcelDataValidation, value: HostErrorAlertWrite): void {
+  dv.errorAlert = {
+    showAlert: value.showAlert,
+    style: value.style,
+    title: value.title,
+    message: value.message,
+  };
+}
+
+export function assignPrompt(dv: ExcelDataValidation, value: HostPromptWrite): void {
+  dv.prompt = {
+    showPrompt: value.showPrompt,
+    title: value.title,
+    message: value.message,
+  };
 }
 
 function sameOptBool(a: boolean | undefined, b: boolean | undefined): boolean {

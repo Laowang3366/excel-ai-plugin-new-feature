@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项 Phase53.1：DataValidation errorAlert/prompt 按 Office.js ClientObject 合同预读 load+sync、整对象赋值与严格完整 snapshot；**未**真实侧载验证。
+
 - 独立 Excel 加载项 Phase53：`dataValidation.read/write` 支持 Office.js `errorAlert`/`prompt` 与 `allowBlank`↔`ignoreBlanks` 完整回读；WPS 对新元数据 typed unsupported；**未**真实侧载验证。
 
 - 独立 Excel 加载项 `chart.series.dataLabels` 合同收口：position 公开类型仅规范枚举；宿主 position 只接受官方 11 token（禁止模糊归一化）；1.8 路径写前预检全部成员；bubbleSizes 矩阵措辞与 dataLabels 对齐。

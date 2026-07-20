@@ -5,7 +5,7 @@
  * - ignoreBlanks is sync-gated with rule
  */
 import { makeConditionalFormatsApi } from "./officeJsValidationFakeCf";
-import { makeDvProxy } from "./officeJsValidationFakeDv";
+import { makeDvProxy, type DvWriteCounts } from "./officeJsValidationFakeDv";
 import {
   keyOf,
   seedContainsText,
@@ -28,6 +28,8 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
   const dvs = new Map<string, DvState>();
   let seq = 0;
   let syncCount = 0;
+  const writeCounts: DvWriteCounts = { rule: 0, ignoreBlanks: 0, errorAlert: 0, prompt: 0 };
+  const loadPropsLog: string[] = [];
 
   if (options?.seedContainsText) seedContainsText(cfs);
   if (options?.seedManyCf && options.seedManyCf > 0) seedManyCf(cfs, options.seedManyCf);
@@ -56,6 +58,10 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
         missingDvErrorAlert: options?.missingDvErrorAlert,
         missingDvPrompt: options?.missingDvPrompt,
         missingDvErrorAlertFields: options?.missingDvErrorAlertFields,
+        writeCounts,
+        recordLoadProps: (props) => {
+          loadPropsLog.push(props);
+        },
       });
       const conditionalFormats = makeConditionalFormatsApi({
         key,
@@ -214,6 +220,17 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
     getSyncCount: () => syncCount,
     resetSyncCount: () => {
       syncCount = 0;
+    },
+    getDvWriteCounts: () => ({ ...writeCounts }),
+    resetDvWriteCounts: () => {
+      writeCounts.rule = 0;
+      writeCounts.ignoreBlanks = 0;
+      writeCounts.errorAlert = 0;
+      writeCounts.prompt = 0;
+    },
+    getLoadPropsLog: () => [...loadPropsLog],
+    resetLoadPropsLog: () => {
+      loadPropsLog.length = 0;
     },
   };
 }

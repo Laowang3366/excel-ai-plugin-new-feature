@@ -240,7 +240,9 @@ export function requireDvErrorAlert(raw: unknown): DataValidationErrorAlert {
     throw new Error("errorAlert must be an object");
   }
   const o = raw as Record<string, unknown>;
-  for (const key of Object.keys(o)) {
+  const keys = Object.keys(o);
+  if (keys.length === 0) throw new Error("errorAlert must not be empty");
+  for (const key of keys) {
     if (!ERROR_ALERT_KEYS.has(key)) throw new Error(`unknown errorAlert field: ${key}`);
   }
   const out: DataValidationErrorAlert = {};
@@ -269,7 +271,9 @@ export function requireDvPrompt(raw: unknown): DataValidationPrompt {
     throw new Error("prompt must be an object");
   }
   const o = raw as Record<string, unknown>;
-  for (const key of Object.keys(o)) {
+  const keys = Object.keys(o);
+  if (keys.length === 0) throw new Error("prompt must not be empty");
+  for (const key of keys) {
     if (!PROMPT_KEYS.has(key)) throw new Error(`unknown prompt field: ${key}`);
   }
   const out: DataValidationPrompt = {};

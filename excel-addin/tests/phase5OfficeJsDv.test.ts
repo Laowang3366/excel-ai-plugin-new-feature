@@ -54,7 +54,8 @@ describe("phase5 Office.js data validation host paths", () => {
       expect(multi.data.listSourceKind).toBe("inline");
       expect(multi.data.rule?.listValues).toEqual(["A", "B"]);
     }
-    expect(fake.getSyncCount()).toBe(2);
+    // Phase53.1: pre-read sync + write sync + reload sync
+    expect(fake.getSyncCount()).toBe(3);
 
     // Anti false-green: single-item list write must succeed with inline readback.
     fake.resetSyncCount();
@@ -72,7 +73,7 @@ describe("phase5 Office.js data validation host paths", () => {
     expect(single.data.listSourceKind).toBe("inline");
     expect(single.data.rule?.listValues).toEqual(["x"]);
     expect(single.data.rule?.listValues).not.toEqual([]);
-    expect(fake.getSyncCount()).toBe(2);
+    expect(fake.getSyncCount()).toBe(3);
 
     fake.resetSyncCount();
     const ranged = await adapter2.writeDataValidation({
@@ -86,7 +87,8 @@ describe("phase5 Office.js data validation host paths", () => {
       expect(ranged.data.rule?.formula1).toMatch(/A1:A3/i);
       expect(ranged.data.rule?.listValues).toBeUndefined();
     }
-    expect(fake.getSyncCount()).toBe(3);
+    // pre-read + write + reload + Range address materialize sync
+    expect(fake.getSyncCount()).toBe(4);
   });
 
   it("round-trips allowBlank=false; fails host coercion and custom formula2", async () => {

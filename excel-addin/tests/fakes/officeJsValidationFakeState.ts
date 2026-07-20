@@ -230,6 +230,8 @@ export function seedInconsistentDv(dvs: Map<string, DvState>): void {
     type: "Inconsistent",
     ignoreBlanks: true,
     rule: {},
+    errorAlert: { showAlert: true, style: "Stop", title: "", message: "" },
+    prompt: { showPrompt: false, title: "", message: "" },
   });
 }
 

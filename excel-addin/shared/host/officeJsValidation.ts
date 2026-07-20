@@ -21,10 +21,12 @@ import {
   requireExcelApiForDv,
 } from "./officeJsValidationRequirements";
 import {
-  applyErrorAlert,
-  applyPrompt,
+  assertLoadedDvSurface,
+  assignErrorAlert,
+  assignPrompt,
   DV_FULL_LOAD_PROPS,
-  requireDvAlertMembers,
+  mergeErrorAlertForWrite,
+  mergePromptForWrite,
 } from "./officeJsValidationAlerts";
 import {
   applyCompareDv,
@@ -253,12 +255,32 @@ export async function officeJsWriteDataValidation(
   if (pre) return pre;
   return withExcel("dataValidation.write", async (context: ExcelRequestContext) => {
     const range = context.workbook.worksheets.getItem(input.sheetName).getRange(input.range);
-    range.load("address");
     const dv = range.dataValidation;
-    const wantsError = input.errorAlert !== undefined;
-    const wantsPrompt = input.prompt !== undefined;
-    // Member precheck before any write (zero partial side effects on missing members).
-    requireDvAlertMembers(dv, wantsError, wantsPrompt);
+    if (typeof dv.load !== "function") {
+      throw new Error("dataValidation.load is missing");
+    }
+
+    // A) Pre-read only — no business writes yet (ClientObject PropertyNotLoaded otherwise).
+    range.load("address");
+    dv.load(DV_FULL_LOAD_PROPS);
+    await context.sync();
+
+    // B) Validate complete official surface after first sync; zero write side effects if bad.
+    const loaded = assertLoadedDvSurface(dv);
+
+    // C) Plan ignoreBlanks + optional merged metadata from loaded host snapshot.
+    //    Rule payload validated/planned before any property assignment.
+    const plannedIgnore = input.rule.allowBlank !== false;
+    const plannedError =
+      input.errorAlert !== undefined
+        ? mergeErrorAlertForWrite(loaded.errorAlert, input.errorAlert)
+        : undefined;
+    const plannedPrompt =
+      input.prompt !== undefined
+        ? mergePromptForWrite(loaded.prompt, input.prompt)
+        : undefined;
+
+    // Pre-validate rule shape (throw before any write assignment).
     if (input.rule.type === "list") {
       if (input.rule.listValues && input.rule.listValues.length > 0) {
         if (input.rule.listValues.some((v) => v.includes(","))) {
@@ -270,29 +292,43 @@ export async function officeJsWriteDataValidation(
             `inline list source exceeds Excel ${MAX_INLINE_LIST_SOURCE_CHARS} character limit; use a range source`,
           );
         }
-        dv.rule = { list: { inCellDropDown: true, source } };
-      } else if (input.rule.formula1) {
-        const rangeSource = resolveListSourceRange(
-          context,
-          input.sheetName,
-          input.rule.formula1,
-        );
-        dv.rule = { list: { inCellDropDown: true, source: rangeSource } };
-      } else {
+      } else if (!input.rule.formula1) {
         throw new Error("list validation requires listValues or formula1 range source");
       }
     } else if (input.rule.type === "custom") {
       if (!input.rule.formula1) throw new Error("custom requires formula1");
-      dv.rule = { custom: { formula: input.rule.formula1 } };
+    } else if (!input.rule.operator || !input.rule.formula1) {
+      throw new Error(`${input.rule.type} requires operator and formula1`);
+    }
+
+    // D) Assign rule / ignoreBlanks / whole errorAlert / whole prompt, then write sync.
+    if (input.rule.type === "list") {
+      if (input.rule.listValues && input.rule.listValues.length > 0) {
+        dv.rule = {
+          list: { inCellDropDown: true, source: input.rule.listValues.join(",") },
+        };
+      } else {
+        const rangeSource = resolveListSourceRange(
+          context,
+          input.sheetName,
+          input.rule.formula1!,
+        );
+        dv.rule = { list: { inCellDropDown: true, source: rangeSource } };
+      }
+    } else if (input.rule.type === "custom") {
+      dv.rule = { custom: { formula: input.rule.formula1! } };
     } else {
       applyCompareDv(dv, input.rule);
     }
-    dv.ignoreBlanks = input.rule.allowBlank !== false;
-    if (input.errorAlert !== undefined) applyErrorAlert(dv, input.errorAlert);
-    if (input.prompt !== undefined) applyPrompt(dv, input.prompt);
+    dv.ignoreBlanks = plannedIgnore;
+    if (plannedError !== undefined) assignErrorAlert(dv, plannedError);
+    if (plannedPrompt !== undefined) assignPrompt(dv, plannedPrompt);
+
     await context.sync();
     dv.load(DV_FULL_LOAD_PROPS);
     await context.sync();
+    // Re-validate surface + parse for honest host snapshot.
+    assertLoadedDvSurface(dv);
     const parsed = await parseDvRule(dv, context);
     assertDvWriteMatches(
       input.rule,
