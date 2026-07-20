@@ -35,7 +35,7 @@ Evidence columns:
 | chart | series bubbleSizes update | implemented | **unsupported** | formatChart series bubble | Office.js `setBubbleSizes` (1.7) + `getDimensionDataSourceString("BubbleSizes")` (**ExcelApi 1.15**); same-sheet A1; bubble chart only; host source string readback; bubble type via create/update (Phase27); **unsupported**: formula/categoryFormula/array/cross-sheet/trendlines/bubbleScale/showBubbleSize/getDimensionValues-as-primary/PDF/path export |
 | chart | image get (Base64) | implemented | **unsupported** | formatChart export PNG path | Office.js `Chart.getImage` **ExcelApi 1.2** → memory Base64 only; optional width/height 1–4096; **unsupported**: path write/PDF/MIME claim/fittingMode |
 | range | image get (Base64 PNG) | implemented | **unsupported** | office.action snapshot range PNG | Office.js `Range.getImage` **ExcelApi 1.7** → memory Base64 only; host sheetName/address readback; **unsupported**: path write/PDF/MIME claim/width/height |
-| range | insert / delete / autofit | implemented | **unsupported** | row/column insert/delete + autofit | Office.js `Range.insert/delete` **ExcelApi 1.1**; `RangeFormat.autofitRows/autofitColumns` **ExcelApi 1.2** with rowHeight/columnWidth readback; WPS has no verified JSA contract |
+| range | insert / delete / autofit | implemented | **unsupported** | row/column insert/delete + autofit | Office.js `Range.insert/delete` **ExcelApi 1.1**; `RangeFormat.autofitRows` / `RangeFormat.autofitColumns` **ExcelApi 1.2** with rowHeight/columnWidth readback; WPS has no verified JSA contract |
 
 
 
