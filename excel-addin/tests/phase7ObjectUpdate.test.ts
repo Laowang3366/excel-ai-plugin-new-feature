@@ -5,6 +5,14 @@ import { ToolExecutor, TOOL_DEFINITIONS } from "../shared/tools";
 import { installObjectUpdateExcel } from "./fakes/officeJsObjectUpdateFake";
 import { MockHostAdapter } from "./mockHost";
 
+function installOfficeRequirements(
+  isSetSupported: (name: string, minVersion?: string) => boolean = () => true,
+): void {
+  (globalThis as unknown as { Office: unknown }).Office = {
+    context: { requirements: { isSetSupported } },
+  };
+}
+
 describe("phase7 object update", () => {
   it("registers table.update and chart.update", () => {
     const names = TOOL_DEFINITIONS.map((tool) => tool.name);
@@ -21,9 +29,11 @@ describe("phase7 object update", () => {
   describe("Office.js", () => {
     beforeEach(() => {
       installObjectUpdateExcel();
+      installOfficeRequirements();
     });
     afterEach(() => {
       delete (globalThis as { Excel?: unknown }).Excel;
+      delete (globalThis as { Office?: unknown }).Office;
     });
 
     it("updates table range/name/style/toggles and reads back", async () => {
@@ -62,7 +72,50 @@ describe("phase7 object update", () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.unsupported).toBe(false);
-        expect(result.reason).toMatch(/same worksheet/);
+        expect(result.reason).toMatch(/resizeAddress.*same worksheet.*table/);
+        expect(result.reason).not.toMatch(/sourceRange|chart/);
+      }
+    });
+
+    it("classifies unsupported table API sets before running the update", async () => {
+      for (const [input, version] of [
+        [{ resizeAddress: "A1:D5" }, "1.13"],
+        [{ showBandedRows: false }, "1.3"],
+      ] as const) {
+        installOfficeRequirements((_name, minVersion) => minVersion !== version);
+        const result = await new OfficeJsAdapter().updateTable({
+          sheetName: "Sheet1",
+          tableName: "T1",
+          ...input,
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.unsupported).toBe(true);
+          expect(result.reason).toContain(version);
+        }
+      }
+    });
+
+    it("keeps shallow table updates working without a higher API precheck", async () => {
+      delete (globalThis as { Office?: unknown }).Office;
+      const result = await new OfficeJsAdapter().updateTable({
+        sheetName: "Sheet1",
+        tableName: "T1",
+        style: "TableStyleLight1",
+      });
+      expect(result.ok).toBe(true);
+    });
+
+    it("returns an ordinary failure when the host rejects the resize geometry", async () => {
+      const result = await new OfficeJsAdapter().updateTable({
+        sheetName: "Sheet1",
+        tableName: "T1",
+        resizeAddress: "A2:D5",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.unsupported).toBe(false);
+        expect(result.reason).toMatch(/header row.*same row/);
       }
     });
 

@@ -1,5 +1,5 @@
 import { mapChartType, toChartTypeLabel } from "./officeJsChartTypes";
-import { normalizeSameSheetSourceRange } from "./officeJsChartSource";
+import { normalizeSameSheetA1Range } from "./officeJsChartSource";
 import { withExcel } from "./officeJsRuntime";
 import type {
   ChartInfo,
@@ -8,15 +8,63 @@ import type {
   TableInfo,
   TableUpdateInput,
 } from "./types";
+import { unsupported } from "./types";
+
+function requiredTableUpdateApi(input: TableUpdateInput): "1.3" | "1.13" | null {
+  if (input.resizeAddress != null) return "1.13";
+  if (
+    input.showFilterButton != null ||
+    input.showBandedRows != null ||
+    input.showBandedColumns != null
+  ) {
+    return "1.3";
+  }
+  return null;
+}
+
+function isExcelApiSupported(version: string): boolean {
+  const office = (globalThis as unknown as {
+    Office?: {
+      context?: {
+        requirements?: { isSetSupported?: (name: string, minVersion?: string) => boolean };
+      };
+    };
+  }).Office;
+  const isSetSupported = office?.context?.requirements?.isSetSupported;
+  if (typeof isSetSupported !== "function") return false;
+  try {
+    return isSetSupported.call(office!.context!.requirements, "ExcelApi", version);
+  } catch {
+    return false;
+  }
+}
 
 export async function officeJsUpdateTable(
   input: TableUpdateInput,
 ): Promise<HostResult<TableInfo>> {
+  const requiredApi = requiredTableUpdateApi(input);
+  if (requiredApi && !isExcelApiSupported(requiredApi)) {
+    return unsupported(
+      "table.update",
+      "office-js",
+      `ExcelApi ${requiredApi} is not supported in this host (Office.context.requirements.isSetSupported)`,
+      requiredApi === "1.13"
+        ? "Table.resize requires ExcelApi 1.13"
+        : "Table.showFilterButton/showBandedRows/showBandedColumns require ExcelApi 1.3",
+    );
+  }
   return withExcel("table.update", async (context) => {
     const sheet = context.workbook.worksheets.getItem(input.sheetName);
     const table = sheet.tables.getItem(input.tableName);
     if (input.resizeAddress != null) {
-      table.resize(normalizeSameSheetSourceRange(input.sheetName, input.resizeAddress));
+      table.resize(
+        normalizeSameSheetA1Range(
+          input.sheetName,
+          input.resizeAddress,
+          "resizeAddress",
+          "table",
+        ),
+      );
     }
     if (input.newName != null) table.name = input.newName;
     if (input.style != null) table.style = input.style;

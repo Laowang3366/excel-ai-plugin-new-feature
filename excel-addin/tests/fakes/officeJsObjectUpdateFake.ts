@@ -12,10 +12,7 @@ type TableState = {
   address: string;
 };
 
-type TableEntry = {
-  committed: TableState;
-  pending: Partial<TableState> | undefined;
-};
+type TableEntry = { committed: TableState; pending: Partial<TableState> | undefined };
 
 type ChartState = {
   name: string;
@@ -30,10 +27,7 @@ type ChartState = {
   height: number;
 };
 
-type ChartEntry = {
-  committed: ChartState;
-  pending: Partial<ChartState> | undefined;
-};
+type ChartEntry = { committed: ChartState; pending: Partial<ChartState> | undefined };
 
 export function installObjectUpdateExcel() {
   const tables = new Map<string, TableEntry>();
@@ -51,7 +45,6 @@ export function installObjectUpdateExcel() {
     },
     pending: undefined,
   });
-
   const charts = new Map<string, ChartEntry>();
   charts.set("C1", {
     committed: {
@@ -68,7 +61,6 @@ export function installObjectUpdateExcel() {
     },
     pending: undefined,
   });
-
   function makeTable(name: string) {
     const entry = tables.get(name);
     if (!entry) throw new Error(`missing table ${name}`);
@@ -127,6 +119,11 @@ export function installObjectUpdateExcel() {
         entry.pending = { ...entry.pending, style: v };
       },
       resize(next: string) {
+        const currentRow = /![A-Z]+(\d+)/i.exec(entry.committed.address)?.[1];
+        const nextRow = /^[A-Z]+(\d+)/i.exec(next)?.[1];
+        if (nextRow !== currentRow) {
+          throw new Error("Table.resize requires the header row to remain on the same row");
+        }
         entry.pending = {
           ...entry.pending,
           address: next.includes("!") ? next : `${entry.committed.sheetName}!${next}`,

@@ -94,7 +94,7 @@ Evidence columns:
 - Phase32: `sheet.pageLayout` adds default-page `headers`/`footers` left|center|right text (**ExcelApi 1.9** headersFooters.defaultForAllPages; "" clears; host readback; WPS unsupported)
 - Phase33: `sheet.pageLayout` adds manual `horizontalPageBreaks`/`verticalPageBreaks` + `clearPageBreaks` (**ExcelApi 1.9** Worksheet page break collections; bare A1; append not replace; [] no-op; WPS unsupported). **unsupported**: automatic page breaks, single-break delete tool, printArea/titles clear, fitToOnePage
 - Phase34: `range.image.get` (ExcelApi 1.7 Range.getImage Base64 PNG; memory only; no width/height/path/PDF/MIME; Office.js; WPS unsupported)
-- Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with write→sync→load→sync host readback; table filter rules/sort/highlight first-or-last column remain unsupported; WPS unsupported
+- Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with requirement-set precheck and write→sync→load→sync host readback; overlap/header-row geometry remains host-validated; table filter rules/sort/highlight first-or-last column remain unsupported; WPS unsupported
 
 ## Phase5 Office.js contract notes
 

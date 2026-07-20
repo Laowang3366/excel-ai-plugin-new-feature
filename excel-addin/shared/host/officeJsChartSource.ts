@@ -44,13 +44,15 @@ function requireLoadedBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
-/**
- * Same-sheet A1 only: bare range or matching Sheet!A1.
- * Rejects empty, cross-sheet, and non-A1-like addresses.
- */
-export function normalizeSameSheetSourceRange(sheetName: string, sourceRange: string): string {
-  const raw = sourceRange.trim();
-  if (raw === "") throw new Error("sourceRange must be non-empty");
+/** Same-sheet A1 only: bare range or matching Sheet!A1. */
+export function normalizeSameSheetA1Range(
+  sheetName: string,
+  value: string,
+  fieldName: string,
+  ownerName: string,
+): string {
+  const raw = value.trim();
+  if (raw === "") throw new Error(`${fieldName} must be non-empty`);
   let bare = raw;
   if (raw.includes("!")) {
     const bang = raw.lastIndexOf("!");
@@ -61,25 +63,29 @@ export function normalizeSameSheetSourceRange(sheetName: string, sourceRange: st
       .replace(/''/g, "'");
     bare = raw.slice(bang + 1).trim();
     if (sheetPart.toLowerCase() !== sheetName.toLowerCase()) {
-      throw new Error("sourceRange must be on the same worksheet as the chart");
+      throw new Error(`${fieldName} must be on the same worksheet as the ${ownerName}`);
     }
   }
   bare = bare.replace(/\$/g, "").trim();
-  if (bare === "") throw new Error("sourceRange must be non-empty");
+  if (bare === "") throw new Error(`${fieldName} must be non-empty`);
   // Single cell or single contiguous range only (no multi-area comma lists).
   if (bare.includes(",")) {
-    throw new Error("sourceRange multi-area is not supported");
+    throw new Error(`${fieldName} multi-area is not supported`);
   }
   if (!/^[A-Za-z]+\d+(:[A-Za-z]+\d+)?$/.test(bare)) {
-    throw new Error("sourceRange must be a same-sheet A1 address");
+    throw new Error(`${fieldName} must be a same-sheet A1 address`);
   }
   for (const part of bare.split(":")) {
     const rowMatch = /^[A-Za-z]+(\d+)$/.exec(part);
     if (!rowMatch || Number(rowMatch[1]) < 1) {
-      throw new Error("sourceRange row must be >= 1");
+      throw new Error(`${fieldName} row must be >= 1`);
     }
   }
   return bare.toUpperCase();
+}
+
+export function normalizeSameSheetSourceRange(sheetName: string, sourceRange: string): string {
+  return normalizeSameSheetA1Range(sheetName, sourceRange, "sourceRange", "chart");
 }
 
 function toSeriesInfo(item: ExcelChartSeries, index: number): ChartSeriesInfo {
