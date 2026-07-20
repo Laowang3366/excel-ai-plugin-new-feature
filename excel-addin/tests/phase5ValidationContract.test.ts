@@ -35,6 +35,15 @@ describe("phase5 validation contract (maps + sources)", () => {
     expect(classifyCfHostType("CellValue").kind).toBe("cellValue");
   });
 
+  it("single-token host list sources are inline (not null, not range)", () => {
+    for (const raw of ["Yes", "1", "x"]) {
+      const c = classifyListSource(raw);
+      expect(c.kind, raw).toBe("inline");
+      expect(c.listValues, raw).toEqual([raw]);
+      expect(c.lossy, raw).toBeFalsy();
+    }
+  });
+
   it("only lossless same-workbook A1 is kind=range; never for names/functions/external/3D", () => {
     const good = classifyListSource("=Sheet1!$A$1:$A$3");
     expect(good.kind).toBe("range");
@@ -50,16 +59,20 @@ describe("phase5 validation contract (maps + sources)", () => {
     expect(bangInline.kind).toBe("inline");
     expect(bangInline.listValues).toEqual(["Yes!", "No"]);
 
+    // A0 is not a valid A1 range row; under list classification it is a plain inline token.
+    expect(classifyListSource("A0").kind).toBe("inline");
+    expect(classifyListSource("A0").listValues).toEqual(["A0"]);
+    expect(classifyListSource("A00").kind).toBe("inline");
+    expect(classifyListSource("A00").listValues).toEqual(["A00"]);
+
     for (const bad of [
       "=MyList",
-      "=INDIRECT(\"A1\")",
+      '=INDIRECT("A1")',
       "=[Book.xlsx]Sheet1!A1",
       "=Sheet1:Sheet3!A1",
       "=Table1[Col]",
       "=Sheet1!A1,Sheet1!B1",
-      "Sheet 1!A1", // unquoted space is illegal
-      "A0",
-      "A00",
+      "Sheet 1!A1", // unquoted space is illegal range form
     ]) {
       const c = classifyListSource(bad);
       expect(c.kind, bad).toBeNull();

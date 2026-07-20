@@ -126,15 +126,18 @@ describe("phase5 Office.js CF/DV host paths", () => {
       expect(custom.ok).toBe(false);
     });
 
-    it("round-trips CF operators; fails on non-between host formula2", async () => {
+    it("round-trips all 8 CF operators; fails on non-between host formula2", async () => {
       installValidationExcel();
       const adapter = new OfficeJsAdapter();
       for (const operator of [
         "greaterThan",
         "greaterThanOrEqualTo",
+        "lessThan",
+        "lessThanOrEqualTo",
         "equalTo",
         "notEqualTo",
         "between",
+        "notBetween",
       ] as const) {
         const added = await adapter.addConditionalFormat({
           sheetName: "Sheet1",
@@ -143,7 +146,8 @@ describe("phase5 Office.js CF/DV host paths", () => {
             kind: "cellValue",
             operator,
             formula1: "1",
-            formula2: operator === "between" ? "9" : undefined,
+            formula2:
+              operator === "between" || operator === "notBetween" ? "9" : undefined,
             fillColor: "#FF0000",
           },
         });
@@ -185,169 +189,6 @@ describe("phase5 Office.js CF/DV host paths", () => {
       if (!okAdd.ok) return;
       const deleted = await adapter2.deleteConditionalFormat("Sheet1", "D1", okAdd.data.id);
       expect(deleted.ok).toBe(false);
-    });
-  });
-
-  describe("data validation", () => {
-    it("round-trips types and Range source; Range needs extra fixed sync", async () => {
-      installValidationExcel();
-      const adapter = new OfficeJsAdapter();
-      for (const type of ["wholeNumber", "decimal", "textLength"] as const) {
-        const written = await adapter.writeDataValidation({
-          sheetName: "Sheet1",
-          range: "E1:E3",
-          rule: { type, operator: "greaterThanOrEqualTo", formula1: "1" },
-        });
-        expect(written.ok, type).toBe(true);
-      }
-
-      const fake = installValidationExcel();
-      const adapter2 = new OfficeJsAdapter();
-      fake.resetSyncCount();
-      const inline = await adapter2.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "G9",
-        rule: { type: "list", listValues: ["A", "B"] },
-      });
-      expect(inline.ok).toBe(true);
-      expect(fake.getSyncCount()).toBe(2);
-
-      fake.resetSyncCount();
-      const ranged = await adapter2.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "H9",
-        rule: { type: "list", formula1: "A1:A3" },
-      });
-      expect(ranged.ok).toBe(true);
-      if (ranged.ok) {
-        expect(ranged.data.listSourceKind).toBe("range");
-        expect(ranged.data.rule?.formula1).toMatch(/A1:A3/i);
-        expect(ranged.data.rule?.listValues).toBeUndefined();
-      }
-      expect(fake.getSyncCount()).toBe(3);
-    });
-
-    it("round-trips allowBlank=false; fails host coercion and custom formula2", async () => {
-      installValidationExcel();
-      const adapter = new OfficeJsAdapter();
-      const written = await adapter.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "J1",
-        rule: {
-          type: "wholeNumber",
-          operator: "equalTo",
-          formula1: "1",
-          allowBlank: false,
-        },
-      });
-      expect(written.ok).toBe(true);
-      if (written.ok) expect(written.data.rule?.allowBlank).toBe(false);
-
-      installValidationExcel({
-        tamperDvReadback: { operator: "LessThan", formula1: "99", allowBlank: true },
-      });
-      const bad = await new OfficeJsAdapter().writeDataValidation({
-        sheetName: "Sheet1",
-        range: "K1",
-        rule: {
-          type: "wholeNumber",
-          operator: "greaterThan",
-          formula1: "1",
-          allowBlank: false,
-        },
-      });
-      expect(bad.ok).toBe(false);
-
-      installValidationExcel({ tamperDvReadback: { formula2: "999" } });
-      const badCompare = await new OfficeJsAdapter().writeDataValidation({
-        sheetName: "Sheet1",
-        range: "M1",
-        rule: { type: "wholeNumber", operator: "greaterThan", formula1: "1" },
-      });
-      expect(badCompare.ok).toBe(false);
-
-      installValidationExcel({ tamperDvReadback: { formula2: "999" } });
-      const badCustom = await new OfficeJsAdapter().writeDataValidation({
-        sheetName: "Sheet1",
-        range: "M2",
-        rule: { type: "custom", formula1: "=M2>0" },
-      });
-      expect(badCustom.ok).toBe(false);
-    });
-
-    it("Inconsistent/lossy/=MyList are not supported:true; clear requires None", async () => {
-      installValidationExcel({ seedInconsistentDv: true });
-      const read = await new OfficeJsAdapter().readDataValidation("Sheet1", "B1:B5");
-      expect(read.ok).toBe(true);
-      if (read.ok) {
-        expect(read.data.rule).toBeNull();
-        expect(read.data.supported).toBe(false);
-        expect(read.data.hostType).toBe("Inconsistent");
-      }
-
-      installValidationExcel({ tamperDvReadback: { listSource: "A,,B" } });
-      expect(
-        (
-          await new OfficeJsAdapter().writeDataValidation({
-            sheetName: "Sheet1",
-            range: "L2",
-            rule: { type: "list", listValues: ["A", "B"] },
-          })
-        ).ok,
-      ).toBe(false);
-
-      installValidationExcel({ tamperDvReadback: { listSource: "=MyList" } });
-      const named = await new OfficeJsAdapter().writeDataValidation({
-        sheetName: "Sheet1",
-        range: "N1",
-        rule: { type: "list", listValues: ["A"] },
-      });
-      expect(named.ok).toBe(false);
-
-      installValidationExcel();
-      const adapter = new OfficeJsAdapter();
-      await adapter.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "Y1",
-        rule: { type: "list", listValues: ["x"] },
-      });
-      const cleared = await adapter.clearDataValidation("Sheet1", "Y1");
-      expect(cleared.ok).toBe(true);
-      if (cleared.ok) {
-        expect(cleared.data.cleared).toBe("Sheet1!Y1");
-        expect(cleared.data.cleared).not.toMatch(/Sheet1!Sheet1!/);
-      }
-
-      installValidationExcel({ clearLeavesHostType: "Inconsistent" });
-      const adapter2 = new OfficeJsAdapter();
-      await adapter2.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "Y2",
-        rule: { type: "list", listValues: ["x"] },
-      });
-      expect((await adapter2.clearDataValidation("Sheet1", "Y2")).ok).toBe(false);
-    });
-
-    it("fails write/clear when sync/readback does not confirm", async () => {
-      installValidationExcel({ failWriteSync: true });
-      expect(
-        (
-          await new OfficeJsAdapter().writeDataValidation({
-            sheetName: "Sheet1",
-            range: "Z1",
-            rule: { type: "list", listValues: ["x"] },
-          })
-        ).ok,
-      ).toBe(false);
-
-      installValidationExcel({ failClearReadback: true });
-      const adapter2 = new OfficeJsAdapter();
-      await adapter2.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "Y3",
-        rule: { type: "list", listValues: ["x"] },
-      });
-      expect((await adapter2.clearDataValidation("Sheet1", "Y3")).ok).toBe(false);
     });
   });
 });

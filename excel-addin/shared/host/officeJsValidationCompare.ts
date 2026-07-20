@@ -131,10 +131,56 @@ export function tryNormalizeSimpleA1Ref(
 }
 
 /**
+ * True when source is formula-like / illegal range (not a plain inline list).
+ * Leading = always unsupported here (simple A1 already handled by caller).
+ */
+function isUnsupportedFormulaLikeListSource(raw: string): boolean {
+  if (raw.startsWith("=")) return true;
+  if (raw.includes("[") || raw.includes("]")) return true;
+  // 3D unquoted Sheet1:Sheet3!A1
+  if (!raw.startsWith("'") && /^.+:.+!/.test(raw)) return true;
+
+  if (!raw.includes("!")) return false;
+
+  // Multi-token: multi-area of A1/sheet!A1 forms → unsupported (not plain CSV values).
+  if (raw.includes(",")) {
+    const tokens = raw.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+    for (const token of tokens) {
+      if (tryParseSimpleA1Parts(token) != null) return true;
+      if (token.includes("!")) {
+        const after = token.slice(token.indexOf("!") + 1);
+        if (tryValidateA1Body(after) != null) return true;
+      }
+    }
+    return false; // e.g. Yes!,No
+  }
+
+  // Single token with ! that is not simple A1: failed sheet!A1 form → unsupported
+  // when the part after ! is empty or A1-like (Sheet 1!A1, Sheet! , etc.).
+  const after = raw.slice(raw.indexOf("!") + 1);
+  if (after.trim() === "" || tryValidateA1Body(after) != null) return true;
+  return false;
+}
+
+function parseInlineListSource(raw: string): ClassifiedListSource {
+  const unquoted = raw.replace(/^"(.*)"$/s, "$1");
+  const tokens = unquoted.split(",");
+  const hasEmptyToken = tokens.some((t) => t.trim() === "");
+  const listValues = tokens.map((s) => s.trim()).filter((s) => s.length > 0);
+  if (listValues.length === 0) {
+    return { kind: "inline", listValues: [], lossy: true, raw: unquoted };
+  }
+  if (hasEmptyToken) {
+    return { kind: "inline", listValues, lossy: true, raw: unquoted };
+  }
+  return { kind: "inline", listValues, raw: unquoted };
+}
+
+/**
  * Classify list source string from host readback.
- * - Lossless simple A1 → kind=range
- * - "Yes!,No" → inline
- * - =MyList / =INDIRECT / external / 3D / structured / multi-area → kind=null (never kind=range)
+ * 1) lossless simple A1 → kind=range
+ * 2) formula-like / illegal range → kind=null (never kind=range)
+ * 3) remaining non-empty strings → inline (single or multi token; with or without commas)
  */
 export function classifyListSource(source: string): ClassifiedListSource {
   const raw = source.trim();
@@ -146,29 +192,19 @@ export function classifyListSource(source: string): ClassifiedListSource {
     return { kind: "range", formula1: stripOneLeadingEquals(raw) };
   }
 
-  // Comma-separated tokens that are not a single range → try inline list.
-  // Includes "Yes!,No" (bang inside a token is not a sheet qualifier).
-  if (raw.includes(",") && !raw.startsWith("=")) {
-    const unquoted = raw.replace(/^"(.*)"$/s, "$1");
-    const tokens = unquoted.split(",");
-    const hasEmptyToken = tokens.some((t) => t.trim() === "");
-    const listValues = tokens.map((s) => s.trim()).filter((s) => s.length > 0);
-    if (hasEmptyToken) {
-      return { kind: "inline", listValues, lossy: true, raw: unquoted };
-    }
-    return { kind: "inline", listValues, raw: unquoted };
+  if (isUnsupportedFormulaLikeListSource(raw)) {
+    return {
+      kind: null,
+      formula1: raw,
+      lossy: true,
+      raw,
+      limitations: [
+        `list source is not a writable same-workbook A1 range (cannot Range-proxy): ${raw}`,
+      ],
+    };
   }
 
-  // Everything else that looked formula-like but is not writable A1.
-  return {
-    kind: null,
-    formula1: raw,
-    lossy: true,
-    raw,
-    limitations: [
-      `list source is not a writable same-workbook A1 range (cannot Range-proxy): ${raw}`,
-    ],
-  };
+  return parseInlineListSource(raw);
 }
 
 /**

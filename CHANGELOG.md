@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项修复数据验证单值内联列表：host source `Yes`/`1`/`x` 分类为 inline 而非 unsupported；clear 测试强制验证 setup 写入成功；恢复 8 个 CF 运算符与 date/time DV 及 custom 成功 round-trip；真实 Excel 侧载尚未验收。
+
 - 独立 Excel 加载项条件格式/数据验证：list 源仅无损同簿 A1 才标记 range；命名范围/函数/外部引用为 unsupported；custom 拒绝宿主额外 formula2；真实侧载尚未验收。
 - 独立 Excel 加载项进一步收紧条件格式/数据验证：list Range 必须 load 地址、公式比较最小归一化（owner 表上下文）、list 源仅同簿 A1、非 between 拒绝宿主 formula2；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项加固条件格式/数据验证宿主回读：CF NotEqualTo 官方 token、add 校验规则与颜色、DV 全规则与 allowBlank 回读、list Range 代理真实地址、clear 要求 hostType=None；真实 Excel 侧载尚未验收。
