@@ -63,6 +63,7 @@ export function makeDvProxy(
     missingDvErrorAlert?: boolean;
     missingDvPrompt?: boolean;
     missingDvErrorAlertFields?: boolean;
+    poisonSurface?: ValidationFakeOptions["poisonSurface"];
     writeCounts: DvWriteCounts;
     recordLoadProps: (props: string) => void;
   },
@@ -119,6 +120,9 @@ export function makeDvProxy(
   } = {
     get type() {
       if (!scalarLoaded) notLoaded("type");
+      if (options.poisonSurface && "type" in options.poisonSurface) {
+        return options.poisonSurface.type as string | null;
+      }
       return localType;
     },
     set type(v: string | null) {
@@ -126,6 +130,9 @@ export function makeDvProxy(
     },
     get ignoreBlanks() {
       if (!scalarLoaded) notLoaded("ignoreBlanks");
+      if (options.poisonSurface && "ignoreBlanks" in options.poisonSurface) {
+        return options.poisonSurface.ignoreBlanks as boolean;
+      }
       return localIgnoreBlanks;
     },
     set ignoreBlanks(v: boolean) {
@@ -135,6 +142,9 @@ export function makeDvProxy(
     },
     get rule() {
       if (!scalarLoaded) notLoaded("rule");
+      if (options.poisonSurface && "rule" in options.poisonSurface) {
+        return options.poisonSurface.rule as Record<string, unknown>;
+      }
       return localRule;
     },
     set rule(next: Record<string, unknown>) {

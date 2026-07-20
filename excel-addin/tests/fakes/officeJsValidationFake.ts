@@ -58,6 +58,7 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
         missingDvErrorAlert: options?.missingDvErrorAlert,
         missingDvPrompt: options?.missingDvPrompt,
         missingDvErrorAlertFields: options?.missingDvErrorAlertFields,
+        poisonSurface: options?.poisonSurface,
         writeCounts,
         recordLoadProps: (props) => {
           loadPropsLog.push(props);

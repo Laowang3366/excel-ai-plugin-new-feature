@@ -9,6 +9,7 @@
  * @see https://learn.microsoft.com/en-us/javascript/api/excel/excel.datavalidationalertstyle
  */
 import type { ExcelDataValidation } from "./officeJsExcelTypes";
+import { normalizeToken } from "./officeJsValidationMapping";
 import type {
   DataValidationAlertStyle,
   DataValidationErrorAlert,
@@ -153,8 +154,43 @@ export function parsePromptFromHost(
   };
 }
 
+
+/** Official Excel.DataValidationType host tokens (ExcelApi 1.8). */
+const OFFICIAL_DV_HOST_TYPES: Record<string, string> = {
+  none: "None",
+  wholenumber: "WholeNumber",
+  decimal: "Decimal",
+  list: "List",
+  date: "Date",
+  time: "Time",
+  textlength: "TextLength",
+  custom: "Custom",
+  inconsistent: "Inconsistent",
+  mixedcriteria: "MixedCriteria",
+};
+
+/**
+ * Runtime type must be an official DataValidationType token (case-insensitive, no fuzzy strip).
+ * null/undefined/number/unknown → ordinary failed.
+ */
+export function assertOfficialDvHostType(raw: unknown): string {
+  if (raw === null || raw === undefined) {
+    throw new Error("dataValidation.type host readback is null/undefined");
+  }
+  if (typeof raw !== "string") {
+    throw new Error(
+      `dataValidation.type host readback is not string (got ${typeof raw})`,
+    );
+  }
+  const canon = OFFICIAL_DV_HOST_TYPES[normalizeToken(raw)];
+  if (!canon) {
+    throw new Error(`dataValidation.type host readback unknown: ${raw}`);
+  }
+  return canon;
+}
+
 export type LoadedDvSurface = {
-  type: string | null;
+  type: string;
   rule: unknown;
   ignoreBlanks: boolean;
   errorAlert: HostErrorAlertSnapshot;
@@ -169,16 +205,17 @@ export function assertLoadedDvSurface(dv: ExcelDataValidation): LoadedDvSurface 
   if (typeof dv.load !== "function") {
     throw new Error("dataValidation.load is missing");
   }
-  let type: string | null;
+  let rawType: unknown;
   let rule: unknown;
   let ignoreBlanks: boolean;
   try {
-    type = dv.type as string | null;
+    rawType = dv.type;
   } catch (err) {
     throw new Error(
       `dataValidation.type PropertyNotLoaded: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
+  const type = assertOfficialDvHostType(rawType);
   try {
     rule = dv.rule;
   } catch (err) {

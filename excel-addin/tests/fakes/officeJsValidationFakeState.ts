@@ -62,6 +62,12 @@ export type ValidationFakeOptions = {
   missingDvPrompt?: boolean;
   /** Omit nested errorAlert.style etc. */
   missingDvErrorAlertFields?: boolean;
+  /** After load, override surface getters (bad type/ignoreBlanks/rule). */
+  poisonSurface?: {
+    type?: unknown;
+    ignoreBlanks?: unknown;
+    rule?: unknown;
+  };
   /** Tamper CF detail fields after commit (id/type preserved). */
   tamperCfReadback?: {
     operator?: string;

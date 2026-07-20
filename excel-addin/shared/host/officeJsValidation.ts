@@ -13,7 +13,6 @@ import { cfRuleFieldsMatch } from "./officeJsValidationCompare";
 import {
   classifyCfHostType,
   mapCfOperatorToHost,
-  MAX_INLINE_LIST_SOURCE_CHARS,
   unmapCfOperator,
 } from "./officeJsValidationMapping";
 import {
@@ -28,12 +27,11 @@ import {
   mergeErrorAlertForWrite,
   mergePromptForWrite,
 } from "./officeJsValidationAlerts";
+import { planDvRuleWrite } from "./officeJsValidationPlan";
 import {
-  applyCompareDv,
   assertDvCleared,
   assertDvWriteMatches,
   parseDvRule,
-  resolveListSourceRange,
   toDvInfo,
 } from "./officeJsValidationReadback";
 import type {
@@ -243,6 +241,7 @@ export async function officeJsReadDataValidation(
     range.load("address");
     range.dataValidation.load(DV_FULL_LOAD_PROPS);
     await context.sync();
+    assertLoadedDvSurface(range.dataValidation);
     const parsed = await parseDvRule(range.dataValidation, context);
     return toDvInfo(sheetName, range.address, parsed);
   });
@@ -268,8 +267,8 @@ export async function officeJsWriteDataValidation(
     // B) Validate complete official surface after first sync; zero write side effects if bad.
     const loaded = assertLoadedDvSurface(dv);
 
-    // C) Plan ignoreBlanks + optional merged metadata from loaded host snapshot.
-    //    Rule payload validated/planned before any property assignment.
+    // C) Plan ALL business payloads before any assignment (pure planner + merge).
+    const plannedRule = planDvRuleWrite(context, input.sheetName, input.rule);
     const plannedIgnore = input.rule.allowBlank !== false;
     const plannedError =
       input.errorAlert !== undefined
@@ -280,46 +279,8 @@ export async function officeJsWriteDataValidation(
         ? mergePromptForWrite(loaded.prompt, input.prompt)
         : undefined;
 
-    // Pre-validate rule shape (throw before any write assignment).
-    if (input.rule.type === "list") {
-      if (input.rule.listValues && input.rule.listValues.length > 0) {
-        if (input.rule.listValues.some((v) => v.includes(","))) {
-          throw new Error("listValues items must not contain commas; use a range source instead");
-        }
-        const source = input.rule.listValues.join(",");
-        if (source.length > MAX_INLINE_LIST_SOURCE_CHARS) {
-          throw new Error(
-            `inline list source exceeds Excel ${MAX_INLINE_LIST_SOURCE_CHARS} character limit; use a range source`,
-          );
-        }
-      } else if (!input.rule.formula1) {
-        throw new Error("list validation requires listValues or formula1 range source");
-      }
-    } else if (input.rule.type === "custom") {
-      if (!input.rule.formula1) throw new Error("custom requires formula1");
-    } else if (!input.rule.operator || !input.rule.formula1) {
-      throw new Error(`${input.rule.type} requires operator and formula1`);
-    }
-
-    // D) Assign rule / ignoreBlanks / whole errorAlert / whole prompt, then write sync.
-    if (input.rule.type === "list") {
-      if (input.rule.listValues && input.rule.listValues.length > 0) {
-        dv.rule = {
-          list: { inCellDropDown: true, source: input.rule.listValues.join(",") },
-        };
-      } else {
-        const rangeSource = resolveListSourceRange(
-          context,
-          input.sheetName,
-          input.rule.formula1!,
-        );
-        dv.rule = { list: { inCellDropDown: true, source: rangeSource } };
-      }
-    } else if (input.rule.type === "custom") {
-      dv.rule = { custom: { formula: input.rule.formula1! } };
-    } else {
-      applyCompareDv(dv, input.rule);
-    }
+    // D) Single assignment pass after full plan.
+    dv.rule = plannedRule;
     dv.ignoreBlanks = plannedIgnore;
     if (plannedError !== undefined) assignErrorAlert(dv, plannedError);
     if (plannedPrompt !== undefined) assignPrompt(dv, plannedPrompt);
@@ -354,6 +315,7 @@ export async function officeJsClearDataValidation(
     await context.sync();
     range.dataValidation.load(DV_FULL_LOAD_PROPS);
     await context.sync();
+    assertLoadedDvSurface(range.dataValidation);
     const parsed = await parseDvRule(range.dataValidation, context);
     assertDvCleared(parsed);
     // Range.address already includes Sheet!A1 — do not re-prefix sheetName.

@@ -230,18 +230,34 @@ export async function parseDvRule(
   };
 }
 
-export function applyCompareDv(dv: ExcelDataValidation, rule: DataValidationRule): void {
+/**
+ * Pure compare-rule builder (no host mutation). Prefer planDvRuleWrite for write path.
+ * Kept for unit tests / shared mapping of compare bags.
+ */
+export function buildCompareDvRule(
+  rule: DataValidationRule,
+): ExcelDataValidation["rule"] {
   const type = rule.type as Exclude<DataValidationType, "list" | "custom">;
   if (!COMPARE_DV_TYPES.includes(type)) throw new Error(`not a compare DV type: ${type}`);
   if (!rule.operator || !rule.formula1) throw new Error(`${type} requires operator and formula1`);
+  if (isBetweenOp(rule.operator)) {
+    if (rule.formula2 == null || String(rule.formula2).trim() === "") {
+      throw new Error(`${type} ${rule.operator} requires formula2`);
+    }
+  } else if (rule.formula2 !== undefined && rule.formula2 !== null) {
+    throw new Error(`${rule.operator} must not include formula2`);
+  }
   const bag = {
     formula1: rule.formula1,
     operator: mapDvOperatorToHost(rule.operator),
-    ...(isBetweenOp(rule.operator) && rule.formula2 != null
-      ? { formula2: rule.formula2 }
-      : {}),
+    ...(isBetweenOp(rule.operator) ? { formula2: rule.formula2 } : {}),
   };
-  dv.rule = { [type]: bag } as ExcelDataValidation["rule"];
+  return { [type]: bag } as ExcelDataValidation["rule"];
+}
+
+/** @deprecated Prefer planDvRuleWrite; mutates dv.rule only after pure build. */
+export function applyCompareDv(dv: ExcelDataValidation, rule: DataValidationRule): void {
+  dv.rule = buildCompareDvRule(rule);
 }
 
 export function assertDvWriteMatches(

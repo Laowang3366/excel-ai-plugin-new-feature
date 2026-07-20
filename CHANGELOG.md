@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项 Phase53.2：DataValidation 完整 surface 类型校验 + 纯 planDvRuleWrite 写前计划；**未**真实侧载验证。
+
 - 独立 Excel 加载项 Phase53.1：DataValidation errorAlert/prompt 按 Office.js ClientObject 合同预读 load+sync、整对象赋值与严格完整 snapshot；**未**真实侧载验证。
 
 - 独立 Excel 加载项 Phase53：`dataValidation.read/write` 支持 Office.js `errorAlert`/`prompt` 与 `allowBlank`↔`ignoreBlanks` 完整回读；WPS 对新元数据 typed unsupported；**未**真实侧载验证。
