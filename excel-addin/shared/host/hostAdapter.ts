@@ -73,6 +73,7 @@ import type {
   TableUnlistInfo,
   TableUpdateInput,
   WorkbookInspectInfo,
+  WorkbookSaveInfo,
 } from "./types";
 import type {
   TableFilterApplyInput,
@@ -225,6 +226,8 @@ export interface HostAdapter {
   inspectWorkbookObjects(
     input?: WorkbookObjectsInspectInput,
   ): Promise<HostResult<WorkbookObjectsInspectInfo>>;
+  /** Save the current workbook in place (no path/saveAs). */
+  saveWorkbook(): Promise<HostResult<WorkbookSaveInfo>>;
   listConditionalFormats(
     sheetName: string,
     range: string,

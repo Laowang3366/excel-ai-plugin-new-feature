@@ -6,7 +6,7 @@
   "description": "Independent Excel Office.js / WPS JSA add-in validation project",
   "scripts": {
     "dev": "vite",
-    "dev:http": "VITE_DEV_HTTP=1 vite",
+    "dev:http": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "build:wps": "tsc -p tsconfig.json --noEmit && vite build --base ./",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",

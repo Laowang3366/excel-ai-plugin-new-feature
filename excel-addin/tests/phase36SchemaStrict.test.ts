@@ -57,16 +57,16 @@ const FORMAT_TYPES: Record<(typeof FORMAT_KEYS)[number], string> = {
 };
 
 describe("phase36 model-visible tool schemas are closed", () => {
-  it("registers exactly 79 tools without name loss or duplicates", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(79);
+  it("registers exactly 80 tools without name loss or duplicates", () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(80);
     const names = TOOL_DEFINITIONS.map((d) => d.name);
-    expect(new Set(names).size).toBe(79);
+    expect(new Set(names).size).toBe(80);
     for (const name of LEGACY_STRICT_TOOLS) {
       expect(names).toContain(name);
     }
     // ToolName union remains usable for every definition
     const asToolNames = names as ToolName[];
-    expect(asToolNames).toHaveLength(79);
+    expect(asToolNames).toHaveLength(80);
   });
 
   it("every definition has object parameters with additionalProperties false", () => {

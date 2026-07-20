@@ -51,6 +51,7 @@ export const CORE_TOOL_ARGUMENT_ALLOWLIST = {
   "table.delete": ["sheetName", "tableName"],
   "workbook.inspect": [],
   "workbook.objects.inspect": ["maxItemsPerCategory", "sheetName"],
+  "workbook.save": [],
   "conditionalFormat.list": ["sheetName", "range"],
   "conditionalFormat.add": ["sheetName", "range", "rule"],
   "conditionalFormat.delete": ["sheetName", "range", "id"],

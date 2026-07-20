@@ -30,6 +30,7 @@ import {
   wpsWriteDataValidation,
 } from "./wpsJsaDataValidation";
 import { wpsInspectWorkbook } from "./wpsJsaInspect";
+import { wpsSaveWorkbook } from "./wpsJsaWorkbookSave";
 import { wpsCopySheet, wpsMoveSheet } from "./wpsJsaSheetOps";
 import { wpsReadRange } from "./wpsJsaRangeRead";
 import { wpsStructureSurface } from "./wpsJsaStructure";
@@ -354,6 +355,7 @@ export class WpsJsaAdapter implements HostAdapter {
       listSheets: () => this.listSheets(),
       listNamedRanges: (opts) => this.listNamedRanges(opts),
     });
+  saveWorkbook = wpsSaveWorkbook;
   listConditionalFormats = wpsListConditionalFormats;
   addConditionalFormat = wpsAddConditionalFormat;
   deleteConditionalFormat = wpsDeleteConditionalFormat;

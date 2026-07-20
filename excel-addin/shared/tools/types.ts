@@ -61,6 +61,7 @@ export type ToolName =
   | "range.image.get"
   | "workbook.inspect"
   | "workbook.objects.inspect"
+  | "workbook.save"
   | "conditionalFormat.list"
   | "conditionalFormat.add"
   | "conditionalFormat.delete"

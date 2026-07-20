@@ -348,6 +348,8 @@ export type {
 export interface ExcelRequestContext {
   workbook: {
     name: string;
+    /** ExcelApi 1.1 — queues save; requires context.sync(). No path/saveAs. */
+    save(): void;
     load(props: string): void;
     names: ExcelNamedItemCollection;
     worksheets: {

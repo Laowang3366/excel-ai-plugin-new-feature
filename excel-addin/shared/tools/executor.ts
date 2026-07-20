@@ -274,6 +274,8 @@ export class ToolExecutor {
               sheetName: optionalIdent(call.arguments, "sheetName"),
             }),
           );
+        case "workbook.save":
+          return fromHost(call.name, await this.host.saveWorkbook());
         case "conditionalFormat.list":
           return fromHost(
             call.name,

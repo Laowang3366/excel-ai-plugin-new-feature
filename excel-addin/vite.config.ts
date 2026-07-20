@@ -3,14 +3,15 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolveViteBase } from "./scripts/basePath.mjs";
 import { resolveDevHttpsOptions } from "./scripts/viteHttps.mjs";
+import { shouldUseViteDevHttp } from "./scripts/viteDevHttp.mjs";
 
 function officeDevHttpsPlugin(): Plugin {
   return {
     name: "office-dev-https",
     apply: "serve",
     async config() {
-      // Only when explicitly not disabled; default HTTPS for Office sideload.
-      if (process.env.VITE_DEV_HTTP === "1") {
+      // Default HTTPS for Office sideload; HTTP only when requested.
+      if (shouldUseViteDevHttp()) {
         return {};
       }
       try {

@@ -28,6 +28,7 @@ function minimalArgs(toolName: string): Record<string, unknown> {
     case "sheet.list":
     case "workbook.inspect":
     case "workbook.objects.inspect":
+    case "workbook.save":
       return {};
     case "range.read":
     case "range.clear":
@@ -86,7 +87,7 @@ function minimalArgs(toolName: string): Record<string, unknown> {
 
 describe("phase36 unknown legacy tool arguments", () => {
   it("core allowlist keys match TOOL_DEFINITIONS property keys exactly", () => {
-    expect(CORE_TOOLS).toHaveLength(26);
+    expect(CORE_TOOLS).toHaveLength(27);
     for (const name of CORE_TOOLS) {
       const allowed = [...CORE_TOOL_ARGUMENT_ALLOWLIST[name]].sort();
       expect(allowed, name).toEqual(schemaPropertyKeys(name));
@@ -98,7 +99,7 @@ describe("phase36 unknown legacy tool arguments", () => {
     expect(schemaPropertyKeys("chart.delete")).toEqual(["chartName", "sheetName"].sort());
   });
 
-  it("rejects __unknown on all 28 paths before missing-arg or host work", async () => {
+  it("rejects __unknown on all 29 paths before missing-arg or host work", async () => {
     const host = new MockHostAdapter();
     const spyStatus = vi.spyOn(host, "getStatus");
     const spyRead = vi.spyOn(host, "readRange");

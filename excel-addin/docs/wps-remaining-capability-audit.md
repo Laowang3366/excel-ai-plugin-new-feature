@@ -27,7 +27,8 @@ Load-item runtime continues to use **member probes** on assumed ET COM-shaped ob
 | `sheet.freeze.*` | Needs `ActiveWindow.FreezePanes` or sheet freeze panes; **not** in JSA bridge; only desktop `ExcelTemplatePrintActionService` COM | COM Worker freeze |
 | `sheet.display.*` | `ActiveWindow.DisplayGridlines` etc. desktop COM only | COM Worker display |
 | `sheet.pageLayout.*` | `PageSetup` desktop COM print path only | COM Worker PageSetup |
-| macros / PQ / Pivot / OpenXML / workbook open-create-save-switch | Product boundary | desktop |
+| macros / PQ / Pivot / OpenXML / workbook open-create-saveAs-switch | Product boundary | desktop |
+| workbook.save | **implemented*** via `ActiveWorkbook.Save` member-probe + bridge `main.js` Save | not path saveAs |
 
 **Decision this round:** **no new WPS feature implementation**. Forging freeze/display/pageLayout/table/chart would require guessing host members beyond bridge + existing probes.
 

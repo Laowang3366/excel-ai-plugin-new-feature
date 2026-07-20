@@ -302,6 +302,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "workbook.save",
+    description:
+      "保存当前宿主已打开的工作簿（原地 Save）。无路径参数；不支持 saveAs/打开/创建/切换工作簿。未命名新簿可能弹出宿主另存对话框或失败。Office.js ExcelApi 1.1；WPS 需 ActiveWorkbook.Save 成员。",
+    riskLevel: "moderate",
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+  },
   ...CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
   ...DATA_VALIDATION_TOOL_DEFINITIONS,
   ...CHART_TOOL_DEFINITIONS,

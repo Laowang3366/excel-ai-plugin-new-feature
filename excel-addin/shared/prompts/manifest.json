@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-20T06:47:20.653Z",
+  "generatedAt": "2026-07-20T12:06:13.577Z",
   "sourceRoot": "desktop/electron/agent/prompts/templates",
   "note": "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. OCR/Word/PPT scenarios excluded by design.",
   "files": [

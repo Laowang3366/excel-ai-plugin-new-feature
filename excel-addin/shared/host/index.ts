@@ -58,6 +58,7 @@ export {
   type TableUnlistInfo,
   type UnsupportedResult,
   type WorkbookInspectInfo,
+  type WorkbookSaveInfo,
 } from "./types";
 export type {
   ChartSeriesBy,

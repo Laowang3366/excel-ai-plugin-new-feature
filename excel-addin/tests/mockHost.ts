@@ -20,6 +20,7 @@ import type {
   TableUpdateInput,
   TableUnlistInfo,
   WorkbookInspectInfo,
+  WorkbookSaveInfo,
 } from "../shared/host/types";
 import type {
   TableFilterApplyInput,
@@ -1386,6 +1387,13 @@ export class MockHostAdapter implements HostAdapter {
       usedRangeAddress: this.usedRangeAddress,
       sheets: [...this.sheets],
     });
+  }
+
+  async saveWorkbook(): Promise<HostResult<WorkbookSaveInfo>> {
+    if (this.failCapability === "workbook.save") {
+      return fail("workbook.save", this.kind, "forced workbook save failure");
+    }
+    return ok({ workbookName: this.workbookName, saved: true });
   }
 
   /** Force a category status for workbook.objects.inspect tests. */

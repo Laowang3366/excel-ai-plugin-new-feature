@@ -35,7 +35,8 @@ npm run dev:http        # http://localhost:3000
 说明：
 
 - `npm run build` / `typecheck` / `test` **不**依赖本机已安装证书，也不交互安装。
-- 仅 `vite` serve/preview（`dev`/`preview`）在未设置 `VITE_DEV_HTTP=1` 时读取/生成 HTTPS 证书。
+- 仅 `vite` serve/preview（`dev`/`preview`）在未走 HTTP 模式时读取/生成 HTTPS 证书。
+- HTTP 模式：`npm run dev:http`（通过 `npm_lifecycle_event=dev:http` 判定，Windows cmd 可用），或任意环境设置 `VITE_DEV_HTTP=1`。
 - 服务器 Linux 上可以生成证书文件；**Windows 上的“信任 CA”必须在目标开发机执行**，本仓库不宣称已完成。
 
 ### Manifest 生成与校验

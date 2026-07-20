@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项新增 `workbook.save`：保存当前已打开工作簿（Office.js ExcelApi 1.1；WPS `ActiveWorkbook.Save` 成员探测）；无路径/saveAs/打开/创建/切换；真实 Excel/WPS 侧载尚未验收。
+- 开发脚本 `npm run dev:http` 改为跨平台（`npm_lifecycle_event` / `VITE_DEV_HTTP`），修复 Windows cmd.exe 无法解析 `VITE_DEV_HTTP=1 vite` 的问题。
 - 独立 Excel 加载项交付门禁：区分提示词/文档中的 desktop·Electron 文本说明与运行时 import/require；WPS/生产包扫描禁止 child_process/Electron/COM/.NET 运行时依赖；WPS 剩余能力审计见 docs（无凭猜测扩实现）。
 
 - 文档纠偏：Office.js `chart.source.update` 同表/跨表 A1 已实现（非 cross-sheet unsupported）；WPS JSA 开发指引默认 `https://localhost:3000`。

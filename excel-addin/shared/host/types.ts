@@ -126,6 +126,12 @@ export interface WorkbookInspectInfo {
   sheets: SheetInfo[];
 }
 
+/** Result of workbook.save (current workbook only; no path/saveAs). */
+export interface WorkbookSaveInfo {
+  workbookName: string;
+  saved: true;
+}
+
 /**
  * Writable CF kinds (add). List may also return kind "unsupported" for host types
  * that are recognized but not add-capable (DataBar, ColorScale, …).
