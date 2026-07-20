@@ -77,5 +77,5 @@ export interface ChartDataLabelsInfo {
   showBubbleSize?: boolean;
   showLegendKey?: boolean;
   separator?: string;
-  position?: ChartDataLabelPosition | string;
+  position?: ChartDataLabelPosition;
 }

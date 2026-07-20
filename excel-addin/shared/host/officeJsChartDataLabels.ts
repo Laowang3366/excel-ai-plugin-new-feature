@@ -58,11 +58,11 @@ function requireLoadedBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
+/** Accept only official 11 tokens (case-insensitive); no punctuation/space stripping. */
 function mapPositionFromHost(raw: unknown): ChartDataLabelPosition {
   if (typeof raw !== "string") {
     throw new Error("ChartDataLabels.position is not a loaded string");
   }
-  const key = raw.toLowerCase().replace(/[^a-z]/g, "");
   const table: Record<string, ChartDataLabelPosition> = {
     none: "none",
     center: "center",
@@ -76,11 +76,47 @@ function mapPositionFromHost(raw: unknown): ChartDataLabelPosition {
     bestfit: "bestFit",
     callout: "callout",
   };
-  const mapped = table[key];
+  const mapped = table[raw.toLowerCase()];
   if (!mapped) {
     throw new Error(`ChartDataLabels.position has unsupported host value: ${raw}`);
   }
   return mapped;
+}
+
+const LOAD_PROP_LIST = [
+  "showValue",
+  "showCategoryName",
+  "showSeriesName",
+  "numberFormat",
+  "showPercentage",
+  "showBubbleSize",
+  "showLegendKey",
+  "separator",
+  "position",
+] as const;
+
+function assertDataLabelsMembers(
+  series: ExcelChartSeries & { hasDataLabels?: boolean; dataLabels?: ExcelDataLabels },
+): ExcelDataLabels {
+  if (!("hasDataLabels" in series)) {
+    throw new Error("hasDataLabels missing on ChartSeries");
+  }
+  if (typeof series.load !== "function") {
+    throw new Error("ChartSeries.load is not available");
+  }
+  if (!("dataLabels" in series) || !series.dataLabels) {
+    throw new Error("dataLabels missing on ChartSeries");
+  }
+  const labels = series.dataLabels;
+  if (typeof labels.load !== "function") {
+    throw new Error("ChartDataLabels.load is not available");
+  }
+  for (const prop of LOAD_PROP_LIST) {
+    if (!(prop in labels)) {
+      throw new Error(`ChartDataLabels.${prop} is not available`);
+    }
+  }
+  return labels;
 }
 
 function touchesDataLabelsFields(input: ChartDataLabelsUpdateInput): boolean {
@@ -114,9 +150,6 @@ export function isExcelApiSupportedForDataLabels(version: "1.7" | "1.8"): boolea
     return false;
   }
 }
-
-const LOAD_PROPS =
-  "showValue,showCategoryName,showSeriesName,numberFormat,showPercentage,showBubbleSize,showLegendKey,separator,position";
 
 /**
  * Update series dataLabels/hasDataLabels.
@@ -157,14 +190,14 @@ export async function officeJsUpdateChartDataLabels(
       dataLabels?: ExcelDataLabels;
     };
 
-    if (input.enabled !== undefined) {
-      if (!("hasDataLabels" in series)) {
-        throw new Error("hasDataLabels missing on ChartSeries");
-      }
-      series.hasDataLabels = input.enabled;
-    }
-
     if (!needDataLabels) {
+      // ExcelApi 1.7 enabled-only: do not access series.dataLabels.
+      if (input.enabled !== undefined) {
+        if (!("hasDataLabels" in series)) {
+          throw new Error("hasDataLabels missing on ChartSeries");
+        }
+        series.hasDataLabels = input.enabled;
+      }
       await context.sync();
       sheet.load("name");
       chart.load("name");
@@ -178,10 +211,11 @@ export async function officeJsUpdateChartDataLabels(
       };
     }
 
-    if (!("dataLabels" in series) || !series.dataLabels) {
-      throw new Error("dataLabels missing on ChartSeries");
+    // Precheck all 1.8 runtime members before any field writes (including enabled).
+    const labels = assertDataLabelsMembers(series);
+    if (input.enabled !== undefined) {
+      series.hasDataLabels = input.enabled;
     }
-    const labels = series.dataLabels;
 
     if (input.showValue !== undefined) labels.showValue = input.showValue;
     if (input.showCategoryName !== undefined) labels.showCategoryName = input.showCategoryName;
@@ -199,7 +233,7 @@ export async function officeJsUpdateChartDataLabels(
     sheet.load("name");
     chart.load("name");
     series.load("hasDataLabels");
-    labels.load(LOAD_PROPS);
+    labels.load(LOAD_PROP_LIST.join(","));
     await context.sync();
 
     return {

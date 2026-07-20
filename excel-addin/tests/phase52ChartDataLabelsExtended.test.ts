@@ -151,42 +151,60 @@ describe("phase52 chart.series.dataLabels extended fields", () => {
       }
     });
 
-    it("1.8 true but extended members missing is ordinary failed", async () => {
+    it("1.8 true but extended members missing is ordinary failed with zero writes", async () => {
       delete (globalThis as { Excel?: unknown }).Excel;
       delete (globalThis as { Office?: unknown }).Office;
       fake = installChartDataLabelsExcel({ supportExtendedLabels: false });
-      const result = await new OfficeJsAdapter().updateChartDataLabels({
-        sheetName: "Sheet1",
-        chartName: "C1",
-        seriesIndex: 1,
-        showPercentage: true,
-      });
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.unsupported).not.toBe(true);
+      for (const input of [
+        { showPercentage: true as const },
+        { enabled: true as const, showPercentage: true as const },
+      ]) {
+        delete (globalThis as { Excel?: unknown }).Excel;
+        delete (globalThis as { Office?: unknown }).Office;
+        fake = installChartDataLabelsExcel({ supportExtendedLabels: false });
+        const result = await new OfficeJsAdapter().updateChartDataLabels({
+          sheetName: "Sheet1",
+          chartName: "C1",
+          seriesIndex: 1,
+          ...input,
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.unsupported).not.toBe(true);
+          expect(result.reason).toMatch(/showPercentage|not available/i);
+        }
+        const counts = fake.getWriteCallCounts();
+        expect(counts.dataLabelsWriteCalls).toBe(0);
+        expect(counts.hasDataLabelsWriteCalls).toBe(0);
       }
     });
 
-    it("bad position readback fails closed without echoing request", async () => {
+    it("bad/malformed position readback fails closed without echoing request", async () => {
       const adapter = new OfficeJsAdapter();
-      const ok = await adapter.updateChartDataLabels({
-        sheetName: "Sheet1",
-        chartName: "C1",
-        seriesIndex: 1,
-        position: "center",
-      });
-      expect(ok.ok).toBe(true);
-      fake.poisonCommitted(0, { position: "Invalid" });
-      const second = await adapter.updateChartDataLabels({
-        sheetName: "Sheet1",
-        chartName: "C1",
-        seriesIndex: 1,
-        showValue: true,
-      });
-      expect(second.ok).toBe(false);
-      if (!second.ok) {
-        expect(second.unsupported).not.toBe(true);
-        expect(second.reason).toMatch(/position|unsupported host value|Invalid/i);
+      for (const bad of ["Invalid", "Inside-End", "In side End"]) {
+        delete (globalThis as { Excel?: unknown }).Excel;
+        delete (globalThis as { Office?: unknown }).Office;
+        fake = installChartDataLabelsExcel();
+        const ok = await adapter.updateChartDataLabels({
+          sheetName: "Sheet1",
+          chartName: "C1",
+          seriesIndex: 1,
+          position: "center",
+        });
+        expect(ok.ok).toBe(true);
+        fake.poisonCommitted(0, { position: bad });
+        const second = await adapter.updateChartDataLabels({
+          sheetName: "Sheet1",
+          chartName: "C1",
+          seriesIndex: 1,
+          showValue: true,
+        });
+        expect(second.ok).toBe(false);
+        if (!second.ok) {
+          expect(second.unsupported).not.toBe(true);
+          expect(second.reason).toMatch(/position|unsupported host value/i);
+          expect(second.reason).not.toMatch(/center/i);
+        }
       }
     });
 
