@@ -133,9 +133,9 @@ export async function materializeListSource(
     };
   }
   const classified = classifyListSource(source);
-  if (classified.lossy) {
+  if (classified.kind == null || classified.lossy) {
     return {
-      kind: classified.kind,
+      kind: null,
       formula1: classified.formula1,
       listValues: classified.listValues,
       lossy: true,
@@ -220,7 +220,17 @@ export async function parseDvRule(
   }
 
   if (classified.type === "custom") {
-    const custom = raw.custom as { formula?: string } | undefined;
+    const custom = raw.custom as { formula?: string; formula2?: string | number } | undefined;
+    if (hostHasExtraFormula2(undefined, custom?.formula2)) {
+      return {
+        rule: null,
+        hostType: "Custom",
+        supported: false,
+        limitations: [
+          "custom DataValidation has unexpected non-empty formula2 from host",
+        ],
+      };
+    }
     const formula =
       custom?.formula != null && String(custom.formula).trim() !== ""
         ? String(custom.formula)

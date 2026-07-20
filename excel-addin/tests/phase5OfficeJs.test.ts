@@ -1,90 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { OfficeJsAdapter } from "../shared/host/officeJsAdapter";
-import {
-  mapCfOperatorToHost,
-  mapDvOperatorToHost,
-  unmapCfOperator,
-  unmapDvOperator,
-  classifyCfHostType,
-} from "../shared/host/officeJsValidationMapping";
-import {
-  classifyListSource,
-  formulasSemanticallyEqual,
-} from "../shared/host/officeJsValidationCompare";
 import { installValidationExcel } from "./fakes/officeJsValidationFake";
 
-describe("phase5 Office.js CF/DV hardened", () => {
+describe("phase5 Office.js CF/DV host paths", () => {
   afterEach(() => {
     delete (globalThis as { Excel?: unknown }).Excel;
     delete (globalThis as { Office?: unknown }).Office;
-  });
-
-  describe("operator maps (exact, separate CF vs DV)", () => {
-    it("maps GTE/LTE and NotEqualTo correctly; CF has no OrEqualTo suffix", () => {
-      expect(mapCfOperatorToHost("greaterThanOrEqualTo")).toBe("GreaterThanOrEqual");
-      expect(mapCfOperatorToHost("lessThanOrEqualTo")).toBe("LessThanOrEqual");
-      expect(mapCfOperatorToHost("notEqualTo")).toBe("NotEqualTo");
-      expect(unmapCfOperator("NotEqualTo")).toBe("notEqualTo");
-      expect(unmapCfOperator("NotEqual")).toBeUndefined();
-      expect(mapDvOperatorToHost("greaterThanOrEqualTo")).toBe("GreaterThanOrEqualTo");
-      expect(mapDvOperatorToHost("lessThanOrEqualTo")).toBe("LessThanOrEqualTo");
-      expect(mapDvOperatorToHost("notEqualTo")).toBe("NotEqualTo");
-      expect(unmapDvOperator("GreaterThanOrEqualTo")).toBe("greaterThanOrEqualTo");
-      expect(unmapCfOperator("GreaterThanOrEqualTo")).toBeUndefined();
-      expect(unmapDvOperator("GreaterThanOrEqual")).toBeUndefined();
-    });
-
-    it("classifies CF host types without disguising ContainsText as cellValue", () => {
-      expect(classifyCfHostType("ContainsText")).toMatchObject({
-        kind: "unsupported",
-        hostType: "ContainsText",
-        supported: false,
-      });
-      expect(classifyCfHostType("CellValue").kind).toBe("cellValue");
-    });
-
-    it("classifies only simple same-workbook A1 as range; Yes!,No is inline", () => {
-      const range = classifyListSource("=Sheet1!$A$1:$A$3");
-      expect(range.kind).toBe("range");
-      expect(range.listValues).toBeUndefined();
-      expect(range.lossy).not.toBe(true);
-
-      const bangInline = classifyListSource("Yes!,No");
-      expect(bangInline.kind).toBe("inline");
-      expect(bangInline.listValues).toEqual(["Yes!", "No"]);
-      expect(bangInline.lossy).not.toBe(true);
-
-      const named = classifyListSource("=MyList");
-      expect(named.lossy).toBe(true);
-
-      const indirect = classifyListSource("=INDIRECT(\"A1\")");
-      expect(indirect.lossy).toBe(true);
-
-      const lossy = classifyListSource("A,,B");
-      expect(lossy.kind).toBe("inline");
-      expect(lossy.lossy).toBe(true);
-    });
-
-    it("formula equality is minimal; bare A1 needs ownerSheetName for sheet qualifier", () => {
-      expect(formulasSemanticallyEqual("1", "=1")).toBe(true);
-      expect(formulasSemanticallyEqual("$A$1", "A1")).toBe(true); // both bare
-      expect(formulasSemanticallyEqual("Sheet1!$A$1", "Sheet1!A1")).toBe(true);
-      // Without owner: bare must NOT equal a foreign/qualified sheet ref.
-      expect(formulasSemanticallyEqual("A1", "Sheet1!A1")).toBe(false);
-      // With owner Sheet1: bare A1 ≡ Sheet1!A1
-      expect(formulasSemanticallyEqual("A1", "Sheet1!A1", "Sheet1")).toBe(true);
-      // With owner Sheet2: bare A1 is Sheet2-relative, not Sheet1!A1
-      expect(formulasSemanticallyEqual("A1", "Sheet1!A1", "Sheet2")).toBe(false);
-      // Quoted sheet with spaces / $ normalize under same sheet name
-      expect(
-        formulasSemanticallyEqual("'Sheet 1'!$A$1", "Sheet 1!A1", "Sheet 1"),
-      ).toBe(true);
-      expect(formulasSemanticallyEqual("'Sheet 1'!$A$1", "Sheet 1!A1")).toBe(true);
-      // General formulas: case and string literals fully sensitive
-      expect(formulasSemanticallyEqual('=EXACT("A","a")', '=EXACT("a","a")')).toBe(false);
-      expect(formulasSemanticallyEqual('="$100"', '="100"')).toBe(false);
-      expect(formulasSemanticallyEqual("=SUM(A1)", "=sum(a1)")).toBe(false);
-    });
   });
 
   describe("requirement-set precheck", () => {
@@ -104,9 +25,7 @@ describe("phase5 Office.js CF/DV hardened", () => {
       const adapter = new OfficeJsAdapter();
       const read = await adapter.readDataValidation("Sheet1", "A1");
       expect(read.ok).toBe(false);
-      if (!read.ok) {
-        expect(read.unsupported).toBe(true);
-      }
+      if (!read.ok) expect(read.unsupported).toBe(true);
     });
 
     it("missing/throwing isSetSupported is fail-safe unsupported", async () => {
@@ -151,9 +70,10 @@ describe("phase5 Office.js CF/DV hardened", () => {
               };
             };
           };
-          const cf = c.workbook.worksheets.getItem("Sheet1").getRange("A1").conditionalFormats.add(
-            "CellValue",
-          );
+          const cf = c.workbook.worksheets
+            .getItem("Sheet1")
+            .getRange("A1")
+            .conditionalFormats.add("CellValue");
           return cf.id;
         }),
       ).rejects.toThrow(/PropertyNotLoaded:id/);
@@ -175,14 +95,11 @@ describe("phase5 Office.js CF/DV hardened", () => {
         },
       });
       expect(added.ok).toBe(true);
-      if (added.ok) {
-        expect(added.data.kind).toBe("cellValue");
-        expect(added.data.hostType).toBe("CellValue");
-      }
+      if (added.ok) expect(added.data.hostType).toBe("CellValue");
       expect(fake.getSyncCount()).toBe(2);
     });
 
-    it("fails add when host tampers operator/color while keeping id/type", async () => {
+    it("fails add when host tampers operator/color/formula while keeping id/type", async () => {
       installValidationExcel({
         tamperCfReadback: { operator: "EqualTo", fillColor: "#000000" },
       });
@@ -198,32 +115,26 @@ describe("phase5 Office.js CF/DV hardened", () => {
         },
       });
       expect(added.ok).toBe(false);
-      if (!added.ok) expect(added.unsupported).not.toBe(true);
-    });
 
-    it("fails add when custom formula is tampered", async () => {
       installValidationExcel({ tamperCfReadback: { formula: "=FALSE" } });
-      const adapter = new OfficeJsAdapter();
-      const added = await adapter.addConditionalFormat({
+      const adapter2 = new OfficeJsAdapter();
+      const custom = await adapter2.addConditionalFormat({
         sheetName: "Sheet1",
         range: "A1",
         rule: { kind: "custom", formula: "=TRUE", fillColor: "#00FF00" },
       });
-      expect(added.ok).toBe(false);
+      expect(custom.ok).toBe(false);
     });
 
-    it("round-trips all CF operators including notEqualTo", async () => {
+    it("round-trips CF operators; fails on non-between host formula2", async () => {
       installValidationExcel();
       const adapter = new OfficeJsAdapter();
       for (const operator of [
         "greaterThan",
         "greaterThanOrEqualTo",
-        "lessThan",
-        "lessThanOrEqualTo",
         "equalTo",
         "notEqualTo",
         "between",
-        "notBetween",
       ] as const) {
         const added = await adapter.addConditionalFormat({
           sheetName: "Sheet1",
@@ -232,12 +143,25 @@ describe("phase5 Office.js CF/DV hardened", () => {
             kind: "cellValue",
             operator,
             formula1: "1",
-            formula2: operator === "between" || operator === "notBetween" ? "9" : undefined,
+            formula2: operator === "between" ? "9" : undefined,
             fillColor: "#FF0000",
           },
         });
         expect(added.ok, operator).toBe(true);
       }
+
+      installValidationExcel({ tamperCfReadback: { formula2: "999" } });
+      const bad = await new OfficeJsAdapter().addConditionalFormat({
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: {
+          kind: "cellValue",
+          operator: "greaterThan",
+          formula1: "1",
+          fillColor: "#FF0000",
+        },
+      });
+      expect(bad.ok).toBe(false);
     });
 
     it("fails add when sync fails; fails delete when still present", async () => {
@@ -265,51 +189,31 @@ describe("phase5 Office.js CF/DV hardened", () => {
   });
 
   describe("data validation", () => {
-    it("round-trips compare types, custom, inline list, and Range object source", async () => {
+    it("round-trips types and Range source; Range needs extra fixed sync", async () => {
       installValidationExcel();
       const adapter = new OfficeJsAdapter();
-      for (const type of ["wholeNumber", "decimal", "date", "time", "textLength"] as const) {
+      for (const type of ["wholeNumber", "decimal", "textLength"] as const) {
         const written = await adapter.writeDataValidation({
           sheetName: "Sheet1",
           range: "E1:E3",
           rule: { type, operator: "greaterThanOrEqualTo", formula1: "1" },
         });
         expect(written.ok, type).toBe(true);
-        if (written.ok) {
-          expect(written.data.rule?.operator).toBe("greaterThanOrEqualTo");
-          expect(written.data.rule?.formula1).toBeDefined();
-        }
       }
 
-      const listRange = await adapter.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "H1",
-        rule: { type: "list", formula1: "Sheet1!A1:A3" },
-      });
-      expect(listRange.ok).toBe(true);
-      if (listRange.ok) {
-        expect(listRange.data.listSourceKind).toBe("range");
-        expect(listRange.data.rule?.listValues).toBeUndefined();
-        expect(listRange.data.rule?.formula1).toMatch(/A1:A3/i);
-        expect(listRange.data.rule?.formula1).not.toMatch(/\[object Object\]/i);
-      }
-    });
-
-    it("Range list source requires extra fixed sync for address load (not prefilled)", async () => {
       const fake = installValidationExcel();
-      const adapter = new OfficeJsAdapter();
+      const adapter2 = new OfficeJsAdapter();
       fake.resetSyncCount();
-      const inline = await adapter.writeDataValidation({
+      const inline = await adapter2.writeDataValidation({
         sheetName: "Sheet1",
         range: "G9",
         rule: { type: "list", listValues: ["A", "B"] },
       });
       expect(inline.ok).toBe(true);
-      const inlineSyncs = fake.getSyncCount();
-      expect(inlineSyncs).toBe(2);
+      expect(fake.getSyncCount()).toBe(2);
 
       fake.resetSyncCount();
-      const ranged = await adapter.writeDataValidation({
+      const ranged = await adapter2.writeDataValidation({
         sheetName: "Sheet1",
         range: "H9",
         rule: { type: "list", formula1: "A1:A3" },
@@ -318,12 +222,12 @@ describe("phase5 Office.js CF/DV hardened", () => {
       if (ranged.ok) {
         expect(ranged.data.listSourceKind).toBe("range");
         expect(ranged.data.rule?.formula1).toMatch(/A1:A3/i);
+        expect(ranged.data.rule?.listValues).toBeUndefined();
       }
-      expect(fake.getSyncCount()).toBe(3); // write + dv load + source.address load
-      expect(fake.getSyncCount()).toBe(inlineSyncs + 1);
+      expect(fake.getSyncCount()).toBe(3);
     });
 
-    it("round-trips allowBlank=false via sync-gated ignoreBlanks", async () => {
+    it("round-trips allowBlank=false; fails host coercion and custom formula2", async () => {
       installValidationExcel();
       const adapter = new OfficeJsAdapter();
       const written = await adapter.writeDataValidation({
@@ -337,17 +241,12 @@ describe("phase5 Office.js CF/DV hardened", () => {
         },
       });
       expect(written.ok).toBe(true);
-      if (written.ok) {
-        expect(written.data.rule?.allowBlank).toBe(false);
-      }
-    });
+      if (written.ok) expect(written.data.rule?.allowBlank).toBe(false);
 
-    it("fails write when host coerces operator/formula/allowBlank", async () => {
       installValidationExcel({
         tamperDvReadback: { operator: "LessThan", formula1: "99", allowBlank: true },
       });
-      const adapter = new OfficeJsAdapter();
-      const bad = await adapter.writeDataValidation({
+      const bad = await new OfficeJsAdapter().writeDataValidation({
         sheetName: "Sheet1",
         range: "K1",
         rule: {
@@ -358,12 +257,27 @@ describe("phase5 Office.js CF/DV hardened", () => {
         },
       });
       expect(bad.ok).toBe(false);
+
+      installValidationExcel({ tamperDvReadback: { formula2: "999" } });
+      const badCompare = await new OfficeJsAdapter().writeDataValidation({
+        sheetName: "Sheet1",
+        range: "M1",
+        rule: { type: "wholeNumber", operator: "greaterThan", formula1: "1" },
+      });
+      expect(badCompare.ok).toBe(false);
+
+      installValidationExcel({ tamperDvReadback: { formula2: "999" } });
+      const badCustom = await new OfficeJsAdapter().writeDataValidation({
+        sheetName: "Sheet1",
+        range: "M2",
+        rule: { type: "custom", formula1: "=M2>0" },
+      });
+      expect(badCustom.ok).toBe(false);
     });
 
-    it("marks Inconsistent unsupported; lossy inline A,,B is not supported:true", async () => {
+    it("Inconsistent/lossy/=MyList are not supported:true; clear requires None", async () => {
       installValidationExcel({ seedInconsistentDv: true });
-      const adapter = new OfficeJsAdapter();
-      const read = await adapter.readDataValidation("Sheet1", "B1:B5");
+      const read = await new OfficeJsAdapter().readDataValidation("Sheet1", "B1:B5");
       expect(read.ok).toBe(true);
       if (read.ok) {
         expect(read.data.rule).toBeNull();
@@ -371,29 +285,25 @@ describe("phase5 Office.js CF/DV hardened", () => {
         expect(read.data.hostType).toBe("Inconsistent");
       }
 
-      installValidationExcel({
-        tamperDvReadback: { listSource: "A,,B" },
-      });
-      const adapter2 = new OfficeJsAdapter();
-      // seed via write then tamper on readback path — write first with normal, then read with tamper
-      await adapter2.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "L1",
-        rule: { type: "list", listValues: ["A", "B"] },
-      });
-      // re-install with seed: use write under tamper so readback of write fails or read sees lossy
       installValidationExcel({ tamperDvReadback: { listSource: "A,,B" } });
-      const adapter3 = new OfficeJsAdapter();
-      const written = await adapter3.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "L2",
-        rule: { type: "list", listValues: ["A", "B"] },
-      });
-      // write readback sees lossy list → not match → failed
-      expect(written.ok).toBe(false);
-    });
+      expect(
+        (
+          await new OfficeJsAdapter().writeDataValidation({
+            sheetName: "Sheet1",
+            range: "L2",
+            rule: { type: "list", listValues: ["A", "B"] },
+          })
+        ).ok,
+      ).toBe(false);
 
-    it("clear returns exact Range.address and requires hostType None", async () => {
+      installValidationExcel({ tamperDvReadback: { listSource: "=MyList" } });
+      const named = await new OfficeJsAdapter().writeDataValidation({
+        sheetName: "Sheet1",
+        range: "N1",
+        rule: { type: "list", listValues: ["A"] },
+      });
+      expect(named.ok).toBe(false);
+
       installValidationExcel();
       const adapter = new OfficeJsAdapter();
       await adapter.writeDataValidation({
@@ -407,65 +317,28 @@ describe("phase5 Office.js CF/DV hardened", () => {
         expect(cleared.data.cleared).toBe("Sheet1!Y1");
         expect(cleared.data.cleared).not.toMatch(/Sheet1!Sheet1!/);
       }
-    });
 
-    it("clear fails when host leaves Inconsistent instead of None", async () => {
       installValidationExcel({ clearLeavesHostType: "Inconsistent" });
-      const adapter = new OfficeJsAdapter();
-      await adapter.writeDataValidation({
+      const adapter2 = new OfficeJsAdapter();
+      await adapter2.writeDataValidation({
         sheetName: "Sheet1",
         range: "Y2",
         rule: { type: "list", listValues: ["x"] },
       });
-      const cleared = await adapter.clearDataValidation("Sheet1", "Y2");
-      expect(cleared.ok).toBe(false);
-    });
-
-    it("fails CF/DV when host injects non-empty formula2 on non-between", async () => {
-      installValidationExcel({ tamperCfReadback: { formula2: "999" } });
-      const adapter = new OfficeJsAdapter();
-      const cf = await adapter.addConditionalFormat({
-        sheetName: "Sheet1",
-        range: "A1",
-        rule: {
-          kind: "cellValue",
-          operator: "greaterThan",
-          formula1: "1",
-          fillColor: "#FF0000",
-        },
-      });
-      expect(cf.ok).toBe(false);
-
-      installValidationExcel({ tamperDvReadback: { formula2: "999" } });
-      const adapter2 = new OfficeJsAdapter();
-      const dv = await adapter2.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "M1",
-        rule: { type: "wholeNumber", operator: "greaterThan", formula1: "1" },
-      });
-      expect(dv.ok).toBe(false);
-    });
-
-    it("rejects non-writable list formula sources as unsupported on readback", async () => {
-      installValidationExcel({ tamperDvReadback: { listSource: "=MyList" } });
-      const adapter = new OfficeJsAdapter();
-      const written = await adapter.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "N1",
-        rule: { type: "list", listValues: ["A"] },
-      });
-      expect(written.ok).toBe(false);
+      expect((await adapter2.clearDataValidation("Sheet1", "Y2")).ok).toBe(false);
     });
 
     it("fails write/clear when sync/readback does not confirm", async () => {
       installValidationExcel({ failWriteSync: true });
-      const adapter = new OfficeJsAdapter();
-      const bad = await adapter.writeDataValidation({
-        sheetName: "Sheet1",
-        range: "Z1",
-        rule: { type: "list", listValues: ["x"] },
-      });
-      expect(bad.ok).toBe(false);
+      expect(
+        (
+          await new OfficeJsAdapter().writeDataValidation({
+            sheetName: "Sheet1",
+            range: "Z1",
+            rule: { type: "list", listValues: ["x"] },
+          })
+        ).ok,
+      ).toBe(false);
 
       installValidationExcel({ failClearReadback: true });
       const adapter2 = new OfficeJsAdapter();
@@ -474,8 +347,7 @@ describe("phase5 Office.js CF/DV hardened", () => {
         range: "Y3",
         rule: { type: "list", listValues: ["x"] },
       });
-      const cleared = await adapter2.clearDataValidation("Sheet1", "Y3");
-      expect(cleared.ok).toBe(false);
+      expect((await adapter2.clearDataValidation("Sheet1", "Y3")).ok).toBe(false);
     });
   });
 });

@@ -59,7 +59,7 @@ function requireLoadedBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
-function validateBareA1(bareRaw: string, fieldName: string): string {
+export function validateBareA1(bareRaw: string, fieldName: string): string {
   let bare = bareRaw.replace(/\$/g, "").trim();
   if (bare === "") throw new Error(`${fieldName} must be non-empty`);
   if (bare.includes(",")) {

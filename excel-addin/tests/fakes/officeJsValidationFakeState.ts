@@ -231,11 +231,21 @@ export function applyDvTamper(
   if (tamper.operator || tamper.formula1 || tamper.formula2 != null) {
     for (const key of Object.keys(next.rule)) {
       const bag = next.rule[key];
-      if (bag && typeof bag === "object" && "operator" in (bag as object)) {
-        const b = bag as { operator?: string; formula1?: string; formula2?: string };
-        if (tamper.operator) b.operator = tamper.operator;
-        if (tamper.formula1) b.formula1 = tamper.formula1;
-        if (tamper.formula2 != null) b.formula2 = tamper.formula2;
+      if (!bag || typeof bag !== "object") continue;
+      const b = bag as {
+        operator?: string;
+        formula1?: string;
+        formula?: string;
+        formula2?: string;
+      };
+      if (tamper.operator && "operator" in b) b.operator = tamper.operator;
+      if (tamper.formula1) {
+        if ("formula1" in b) b.formula1 = tamper.formula1;
+        if ("formula" in b && key === "custom") b.formula = tamper.formula1;
+      }
+      if (tamper.formula2 != null) {
+        // Inject on compare bags and custom (host may surface formula2 illegally).
+        b.formula2 = tamper.formula2;
       }
     }
   }

@@ -1,7 +1,8 @@
 /**
  * List-source classification + formula/rule equality for CF/DV readback.
- * Intentionally minimal normalization to avoid false-positive formula matches.
+ * Only lossless same-workbook single-area A1 is kind=range.
  */
+import { validateBareA1 } from "./officeJsChartSource";
 import { isBetweenOp, normalizeHexColor, unmapCfOperator } from "./officeJsValidationMapping";
 import type {
   ConditionalFormatRule,
@@ -10,18 +11,17 @@ import type {
 } from "./types";
 
 export type ClassifiedListSource = {
-  kind: DataValidationListSourceKind;
+  /** inline | range only when lossless; null = not a writable list source shape. */
+  kind: DataValidationListSourceKind | null;
   formula1?: string;
   listValues?: string[];
-  /** True when source cannot be losslessly written back as supported rule. */
   lossy?: boolean;
   raw?: string;
   limitations?: string[];
 };
 
-const SIMPLE_A1_BODY =
-  /^(?:'((?:[^']|'')+)'|([A-Za-z0-9_ ]+))!(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)$/;
-const SIMPLE_A1_BARE = /^(\$?[A-Za-z]+\$?\d+(?::\$?[A-Za-z]+\$?\d+)?)$/;
+/** Excel sheet name forbidden characters (also used in external/3D forms). */
+const SHEET_FORBIDDEN = /[\[\]:*?/\\]/;
 
 function stripOneLeadingEquals(raw: string): string {
   const s = raw.trim();
@@ -33,37 +33,87 @@ function normalizeSheetKey(sheet: string): string {
 }
 
 /**
- * Writable same-workbook single-area A1 / Sheet!A1(:B2) only.
- * Null for =MyList, =INDIRECT(...), "Yes!,No", multi-area, 3D, structured.
- * Returns { sheet: null for bare, a1 } with a1 uppercased and $ stripped.
+ * Parse quoted sheet name starting at body[0] === "'".
+ * Supports doubled apostrophe; sheet may contain spaces/commas/punctuation.
+ */
+function parseQuotedSheet(
+  body: string,
+): { sheet: string; rest: string } | null {
+  if (!body.startsWith("'")) return null;
+  let i = 1;
+  let name = "";
+  while (i < body.length) {
+    if (body[i] === "'" && body[i + 1] === "'") {
+      name += "'";
+      i += 2;
+      continue;
+    }
+    if (body[i] === "'") {
+      i += 1;
+      if (body[i] !== "!") return null;
+      if (name === "" || SHEET_FORBIDDEN.test(name) || name.includes(":")) return null;
+      return { sheet: name, rest: body.slice(i + 1) };
+    }
+    name += body[i];
+    i += 1;
+  }
+  return null;
+}
+
+/**
+ * Unquoted sheet identifier: Unicode letters/numbers/underscore/dot; no spaces.
+ * Conservative — never accepts spaces or formula operators.
+ */
+function isValidUnquotedSheet(name: string): boolean {
+  if (name === "" || name.includes(":")) return false;
+  if (SHEET_FORBIDDEN.test(name)) return false;
+  if (/\s/.test(name)) return false;
+  // Letters (any language), numbers, underscore, dot. Must start with letter/underscore.
+  return /^[\p{L}_][\p{L}\p{N}_.]*$/u.test(name);
+}
+
+function tryValidateA1Body(a1Raw: string): string | null {
+  try {
+    return validateBareA1(a1Raw, "listSource");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writable same-workbook single-area A1 / Sheet!A1 / 'Sheet'!A1 only.
+ * Null for named ranges, INDIRECT, external, 3D, structured, multi-area, A0, illegal sheets.
  */
 export function tryParseSimpleA1Parts(
   raw: string | number | null | undefined,
 ): { sheet: string | null; a1: string } | null {
   if (raw == null) return null;
   const body = stripOneLeadingEquals(String(raw));
-  if (body === "" || body.includes(",") || body.includes("[") || body.includes("]")) {
-    return null;
-  }
-  // Reject function calls / operators / string literals (not pure refs).
-  if (/[()"+\-*/^&<>]/.test(body)) return null;
+  if (body === "") return null;
 
   let sheet: string | null = null;
-  let a1: string | undefined;
-  const withSheet = SIMPLE_A1_BODY.exec(body);
-  if (withSheet) {
-    sheet = normalizeSheetKey(withSheet[1] ?? withSheet[2] ?? "");
-    a1 = withSheet[3];
-    if (!sheet || sheet.includes(":")) return null;
+  let a1Part: string;
+
+  if (body.startsWith("'")) {
+    const parsed = parseQuotedSheet(body);
+    if (!parsed) return null;
+    sheet = parsed.sheet;
+    a1Part = parsed.rest;
+  } else if (body.includes("!")) {
+    const bang = body.indexOf("!");
+    const sheetRaw = body.slice(0, bang);
+    a1Part = body.slice(bang + 1);
+    if (!isValidUnquotedSheet(sheetRaw)) return null;
+    sheet = sheetRaw;
   } else {
-    const bare = SIMPLE_A1_BARE.exec(body);
-    if (!bare) return null;
-    a1 = bare[1];
+    a1Part = body;
   }
-  if (!a1) return null;
-  const bareA1 = a1.replace(/\$/g, "").toUpperCase();
-  if (!/^[A-Z]+\d+(:[A-Z]+\d+)?$/.test(bareA1)) return null;
-  return { sheet, a1: bareA1 };
+
+  // A1 body only — no operators/commas left for multi-area after sheet split.
+  if (a1Part.includes(",") || a1Part.includes("!") || a1Part.includes("(")) return null;
+  const bare = tryValidateA1Body(a1Part);
+  if (!bare) return null;
+  return { sheet, a1: bare };
 }
 
 /** Stable key for simple A1; bare stays bare unless ownerSheetName is provided. */
@@ -73,19 +123,18 @@ export function tryNormalizeSimpleA1Ref(
 ): string | null {
   const parts = tryParseSimpleA1Parts(raw);
   if (!parts) return null;
-  if (parts.sheet != null) return `${parts.sheet}!${parts.a1}`;
+  if (parts.sheet != null) return `${normalizeSheetKey(parts.sheet)}!${parts.a1}`;
   if (ownerSheetName != null && ownerSheetName !== "") {
     return `${normalizeSheetKey(ownerSheetName)}!${parts.a1}`;
   }
-  // Bare without owner context — do not invent a sheet qualifier.
   return parts.a1;
 }
 
 /**
  * Classify list source string from host readback.
- * - Writable same-workbook A1 → kind=range
+ * - Lossless simple A1 → kind=range
  * - "Yes!,No" → inline
- * - =MyList / =INDIRECT(...) → lossy (supported:false upstream)
+ * - =MyList / =INDIRECT / external / 3D / structured / multi-area → kind=null (never kind=range)
  */
 export function classifyListSource(source: string): ClassifiedListSource {
   const raw = source.trim();
@@ -97,35 +146,35 @@ export function classifyListSource(source: string): ClassifiedListSource {
     return { kind: "range", formula1: stripOneLeadingEquals(raw) };
   }
 
-  // Non-simple leading-= or sheet-like single token → not a writable Range proxy.
-  if (raw.startsWith("=") || (!raw.includes(",") && raw.includes("!"))) {
-    return {
-      kind: "range",
-      formula1: raw,
-      lossy: true,
-      raw,
-      limitations: [
-        `list source is not a writable same-workbook A1 range (cannot Range-proxy): ${raw}`,
-      ],
-    };
+  // Comma-separated tokens that are not a single range → try inline list.
+  // Includes "Yes!,No" (bang inside a token is not a sheet qualifier).
+  if (raw.includes(",") && !raw.startsWith("=")) {
+    const unquoted = raw.replace(/^"(.*)"$/s, "$1");
+    const tokens = unquoted.split(",");
+    const hasEmptyToken = tokens.some((t) => t.trim() === "");
+    const listValues = tokens.map((s) => s.trim()).filter((s) => s.length > 0);
+    if (hasEmptyToken) {
+      return { kind: "inline", listValues, lossy: true, raw: unquoted };
+    }
+    return { kind: "inline", listValues, raw: unquoted };
   }
 
-  const unquoted = raw.replace(/^"(.*)"$/s, "$1");
-  const tokens = unquoted.split(",");
-  const hasEmptyToken = tokens.some((t) => t.trim() === "");
-  const listValues = tokens.map((s) => s.trim()).filter((s) => s.length > 0);
-  if (hasEmptyToken) {
-    return { kind: "inline", listValues, lossy: true, raw: unquoted };
-  }
-  return { kind: "inline", listValues, raw: unquoted };
+  // Everything else that looked formula-like but is not writable A1.
+  return {
+    kind: null,
+    formula1: raw,
+    lossy: true,
+    raw,
+    limitations: [
+      `list source is not a writable same-workbook A1 range (cannot Range-proxy): ${raw}`,
+    ],
+  };
 }
 
 /**
  * Minimal formula equality:
  * a) trim + optional single leading = (case-sensitive for non-A1 formulas)
- * b) simple A1 only: strip $ / normalize sheet quoting case;
- *    bare A1 equals Sheet!A1 ONLY when ownerSheetName is provided and sheet is owner.
- * Never lowercases whole formulas or strips $ inside string literals.
+ * b) simple A1 only with owner-scoped bare ≡ owner!A1
  */
 export function formulasSemanticallyEqual(
   a: string | number | null | undefined,
@@ -137,7 +186,7 @@ export function formulasSemanticallyEqual(
   if (sa === sb) return true;
   const ga = stripOneLeadingEquals(sa);
   const gb = stripOneLeadingEquals(sb);
-  if (ga === gb) return true; // "1" vs "=1" only; case-sensitive for EXACT/SUM etc.
+  if (ga === gb) return true;
 
   const na = tryNormalizeSimpleA1Ref(sa, ownerSheetName);
   const nb = tryNormalizeSimpleA1Ref(sb, ownerSheetName);
