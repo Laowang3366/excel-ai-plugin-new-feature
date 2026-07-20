@@ -6,8 +6,11 @@ import {
   unmapCfOperator,
   unmapDvOperator,
   classifyCfHostType,
-  classifyListSource,
 } from "../shared/host/officeJsValidationMapping";
+import {
+  classifyListSource,
+  formulasSemanticallyEqual,
+} from "../shared/host/officeJsValidationCompare";
 import { installValidationExcel } from "./fakes/officeJsValidationFake";
 
 describe("phase5 Office.js CF/DV hardened", () => {
@@ -40,13 +43,47 @@ describe("phase5 Office.js CF/DV hardened", () => {
       expect(classifyCfHostType("CellValue").kind).toBe("cellValue");
     });
 
-    it("does not split formula list sources; marks lossy inline A,,B", () => {
+    it("classifies only simple same-workbook A1 as range; Yes!,No is inline", () => {
       const range = classifyListSource("=Sheet1!$A$1:$A$3");
       expect(range.kind).toBe("range");
       expect(range.listValues).toBeUndefined();
+      expect(range.lossy).not.toBe(true);
+
+      const bangInline = classifyListSource("Yes!,No");
+      expect(bangInline.kind).toBe("inline");
+      expect(bangInline.listValues).toEqual(["Yes!", "No"]);
+      expect(bangInline.lossy).not.toBe(true);
+
+      const named = classifyListSource("=MyList");
+      expect(named.lossy).toBe(true);
+
+      const indirect = classifyListSource("=INDIRECT(\"A1\")");
+      expect(indirect.lossy).toBe(true);
+
       const lossy = classifyListSource("A,,B");
       expect(lossy.kind).toBe("inline");
       expect(lossy.lossy).toBe(true);
+    });
+
+    it("formula equality is minimal; bare A1 needs ownerSheetName for sheet qualifier", () => {
+      expect(formulasSemanticallyEqual("1", "=1")).toBe(true);
+      expect(formulasSemanticallyEqual("$A$1", "A1")).toBe(true); // both bare
+      expect(formulasSemanticallyEqual("Sheet1!$A$1", "Sheet1!A1")).toBe(true);
+      // Without owner: bare must NOT equal a foreign/qualified sheet ref.
+      expect(formulasSemanticallyEqual("A1", "Sheet1!A1")).toBe(false);
+      // With owner Sheet1: bare A1 ≡ Sheet1!A1
+      expect(formulasSemanticallyEqual("A1", "Sheet1!A1", "Sheet1")).toBe(true);
+      // With owner Sheet2: bare A1 is Sheet2-relative, not Sheet1!A1
+      expect(formulasSemanticallyEqual("A1", "Sheet1!A1", "Sheet2")).toBe(false);
+      // Quoted sheet with spaces / $ normalize under same sheet name
+      expect(
+        formulasSemanticallyEqual("'Sheet 1'!$A$1", "Sheet 1!A1", "Sheet 1"),
+      ).toBe(true);
+      expect(formulasSemanticallyEqual("'Sheet 1'!$A$1", "Sheet 1!A1")).toBe(true);
+      // General formulas: case and string literals fully sensitive
+      expect(formulasSemanticallyEqual('=EXACT("A","a")', '=EXACT("a","a")')).toBe(false);
+      expect(formulasSemanticallyEqual('="$100"', '="100"')).toBe(false);
+      expect(formulasSemanticallyEqual("=SUM(A1)", "=sum(a1)")).toBe(false);
     });
   });
 
@@ -258,6 +295,34 @@ describe("phase5 Office.js CF/DV hardened", () => {
       }
     });
 
+    it("Range list source requires extra fixed sync for address load (not prefilled)", async () => {
+      const fake = installValidationExcel();
+      const adapter = new OfficeJsAdapter();
+      fake.resetSyncCount();
+      const inline = await adapter.writeDataValidation({
+        sheetName: "Sheet1",
+        range: "G9",
+        rule: { type: "list", listValues: ["A", "B"] },
+      });
+      expect(inline.ok).toBe(true);
+      const inlineSyncs = fake.getSyncCount();
+      expect(inlineSyncs).toBe(2);
+
+      fake.resetSyncCount();
+      const ranged = await adapter.writeDataValidation({
+        sheetName: "Sheet1",
+        range: "H9",
+        rule: { type: "list", formula1: "A1:A3" },
+      });
+      expect(ranged.ok).toBe(true);
+      if (ranged.ok) {
+        expect(ranged.data.listSourceKind).toBe("range");
+        expect(ranged.data.rule?.formula1).toMatch(/A1:A3/i);
+      }
+      expect(fake.getSyncCount()).toBe(3); // write + dv load + source.address load
+      expect(fake.getSyncCount()).toBe(inlineSyncs + 1);
+    });
+
     it("round-trips allowBlank=false via sync-gated ignoreBlanks", async () => {
       installValidationExcel();
       const adapter = new OfficeJsAdapter();
@@ -354,6 +419,42 @@ describe("phase5 Office.js CF/DV hardened", () => {
       });
       const cleared = await adapter.clearDataValidation("Sheet1", "Y2");
       expect(cleared.ok).toBe(false);
+    });
+
+    it("fails CF/DV when host injects non-empty formula2 on non-between", async () => {
+      installValidationExcel({ tamperCfReadback: { formula2: "999" } });
+      const adapter = new OfficeJsAdapter();
+      const cf = await adapter.addConditionalFormat({
+        sheetName: "Sheet1",
+        range: "A1",
+        rule: {
+          kind: "cellValue",
+          operator: "greaterThan",
+          formula1: "1",
+          fillColor: "#FF0000",
+        },
+      });
+      expect(cf.ok).toBe(false);
+
+      installValidationExcel({ tamperDvReadback: { formula2: "999" } });
+      const adapter2 = new OfficeJsAdapter();
+      const dv = await adapter2.writeDataValidation({
+        sheetName: "Sheet1",
+        range: "M1",
+        rule: { type: "wholeNumber", operator: "greaterThan", formula1: "1" },
+      });
+      expect(dv.ok).toBe(false);
+    });
+
+    it("rejects non-writable list formula sources as unsupported on readback", async () => {
+      installValidationExcel({ tamperDvReadback: { listSource: "=MyList" } });
+      const adapter = new OfficeJsAdapter();
+      const written = await adapter.writeDataValidation({
+        sheetName: "Sheet1",
+        range: "N1",
+        rule: { type: "list", listValues: ["A"] },
+      });
+      expect(written.ok).toBe(false);
     });
 
     it("fails write/clear when sync/readback does not confirm", async () => {

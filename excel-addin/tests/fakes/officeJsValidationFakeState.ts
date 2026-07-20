@@ -45,6 +45,7 @@ export type ValidationFakeOptions = {
   tamperCfReadback?: {
     operator?: string;
     formula1?: string;
+    formula2?: string;
     formula?: string;
     fillColor?: string;
     fontColor?: string;
@@ -53,6 +54,7 @@ export type ValidationFakeOptions = {
   tamperDvReadback?: {
     operator?: string;
     formula1?: string;
+    formula2?: string;
     allowBlank?: boolean;
     listSource?: string;
   };
@@ -73,9 +75,12 @@ export function guessDvType(rule: Record<string, unknown>): string {
   return "None";
 }
 
+export type RangeAddressToken = { __rangeAddress: string };
+
 /**
  * Materialize DV rule for commit.
- * Range-like list.source is kept as object by default (real host readback).
+ * ClientObject Range → { __rangeAddress } token (never read .address here).
+ * On load, token is rehydrated to a load-gated ClientObject for the current context.
  */
 export function materializeRule(
   next: Record<string, unknown>,
@@ -85,17 +90,20 @@ export function materializeRule(
   for (const [k, v] of Object.entries(next)) {
     if (k === "list" && v && typeof v === "object") {
       const list = v as { inCellDropDown?: boolean; source?: unknown };
-      let source = list.source;
-      if (
-        !keepRangeObject &&
-        source &&
-        typeof source === "object" &&
-        source !== null &&
-        "address" in source
-      ) {
-        source = String((source as { address: string }).address);
+      let source: unknown = list.source;
+      if (source && typeof source === "object" && source !== null) {
+        const token = (source as { __rangeAddress?: string }).__rangeAddress;
+        if (typeof token === "string") {
+          source = keepRangeObject ? { __rangeAddress: token } : token;
+        } else if (typeof (source as { load?: unknown }).load === "function") {
+          // ClientObject: freeze via stamped __rangeAddress only (do not read .address).
+          const stamped = (source as { __rangeAddress?: string }).__rangeAddress;
+          if (typeof stamped !== "string") {
+            throw new Error("list Range source missing __rangeAddress stamp");
+          }
+          source = keepRangeObject ? { __rangeAddress: stamped } : stamped;
+        }
       }
-      // Keep Range object reference as-is when keepRangeObject.
       copy.list = { inCellDropDown: list.inCellDropDown, source };
     } else if (v && typeof v === "object") {
       copy[k] = JSON.parse(JSON.stringify(v));
@@ -104,6 +112,63 @@ export function materializeRule(
     }
   }
   return copy;
+}
+
+/** Build load-gated ClientObject Range for current context pending. */
+export function makeLoadGatedRange(
+  committedAddress: string,
+  pending: { loads: Array<() => void> },
+): { __rangeAddress: string; load: (props: string) => void; address: string } {
+  let loaded = false;
+  return {
+    __rangeAddress: committedAddress,
+    load(props: string) {
+      if (props.includes("address")) {
+        pending.loads.push(() => {
+          loaded = true;
+        });
+      }
+    },
+    get address() {
+      if (!loaded) throw new Error("PropertyNotLoaded:address");
+      return committedAddress;
+    },
+  };
+}
+
+export function rehydrateDvRule(
+  rule: Record<string, unknown>,
+  pending: { loads: Array<() => void> },
+  keepRangeObject: boolean,
+): Record<string, unknown> {
+  const list = rule.list;
+  if (!keepRangeObject || !list || typeof list !== "object") {
+    return rule;
+  }
+  const src = (list as { source?: unknown }).source;
+  if (src && typeof src === "object" && src !== null) {
+    const token = (src as { __rangeAddress?: string }).__rangeAddress;
+    if (typeof token === "string") {
+      return {
+        ...rule,
+        list: {
+          ...(list as object),
+          source: makeLoadGatedRange(token, pending),
+        },
+      };
+    }
+  }
+  if (typeof src === "string" && /!/.test(src)) {
+    // address string committed while keepRangeObject — still rehydrate as ClientObject
+    return {
+      ...rule,
+      list: {
+        ...(list as object),
+        source: makeLoadGatedRange(src, pending),
+      },
+    };
+  }
+  return rule;
 }
 
 export function seedContainsText(cfs: Map<string, CfState[]>): void {
@@ -163,13 +228,14 @@ export function applyDvTamper(
       tamper.allowBlank !== undefined ? tamper.allowBlank : state.ignoreBlanks,
     rule,
   };
-  if (tamper.operator || tamper.formula1) {
+  if (tamper.operator || tamper.formula1 || tamper.formula2 != null) {
     for (const key of Object.keys(next.rule)) {
       const bag = next.rule[key];
       if (bag && typeof bag === "object" && "operator" in (bag as object)) {
-        const b = bag as { operator?: string; formula1?: string };
+        const b = bag as { operator?: string; formula1?: string; formula2?: string };
         if (tamper.operator) b.operator = tamper.operator;
         if (tamper.formula1) b.formula1 = tamper.formula1;
+        if (tamper.formula2 != null) b.formula2 = tamper.formula2;
       }
     }
   }
@@ -189,6 +255,7 @@ export function applyCfTamper(
     next.cellRule = { ...next.cellRule };
     if (tamper.operator) next.cellRule.operator = tamper.operator;
     if (tamper.formula1) next.cellRule.formula1 = tamper.formula1;
+    if (tamper.formula2 != null) next.cellRule.formula2 = tamper.formula2;
   }
   if (tamper.formula != null) next.customFormula = tamper.formula;
   if (tamper.fillColor != null) {

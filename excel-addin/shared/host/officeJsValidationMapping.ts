@@ -6,10 +6,7 @@
 import type {
   CellValueOperator,
   ConditionalFormatListKind,
-  ConditionalFormatRule,
-  DataValidationListSourceKind,
   DataValidationOperator,
-  DataValidationRule,
   DataValidationType,
 } from "./types";
 
@@ -208,43 +205,6 @@ export function isBetweenOp(op: string | undefined): boolean {
   return op === "between" || op === "notBetween";
 }
 
-export type ClassifiedListSource = {
-  kind: DataValidationListSourceKind;
-  formula1?: string;
-  listValues?: string[];
-  /** True when inline source has empty tokens or cannot be round-tripped losslessly. */
-  lossy?: boolean;
-  raw?: string;
-};
-
-/**
- * Classify list source string from host readback.
- * Formula/range sources must not be split into listValues.
- * Inline "A,,B" is lossy — never silently drop empty tokens as supported writable.
- */
-export function classifyListSource(source: string): ClassifiedListSource {
-  const raw = source.trim();
-  if (raw === "") {
-    return { kind: "inline", listValues: [], lossy: true, raw };
-  }
-  if (
-    raw.startsWith("=") ||
-    raw.includes("!") ||
-    /^'?[^']+'?!/.test(raw) ||
-    /\$[A-Za-z]+\$\d+/.test(raw)
-  ) {
-    return { kind: "range", formula1: raw };
-  }
-  const unquoted = raw.replace(/^"(.*)"$/s, "$1");
-  const tokens = unquoted.split(",");
-  const hasEmptyToken = tokens.some((t) => t.trim() === "");
-  const listValues = tokens.map((s) => s.trim()).filter((s) => s.length > 0);
-  if (hasEmptyToken) {
-    return { kind: "inline", listValues, lossy: true, raw: unquoted };
-  }
-  return { kind: "inline", listValues, raw: unquoted };
-}
-
 /** #RRGGBB only; optional bare RRGGBB normalized. */
 export function normalizeHexColor(raw: unknown, field: string): string {
   if (typeof raw !== "string") throw new Error(`${field} must be a string (#RRGGBB)`);
@@ -260,94 +220,4 @@ export function optionalHexColor(raw: unknown, field: string): string | undefine
   if (raw === undefined || raw === null) return undefined;
   if (raw === "") throw new Error(`${field} must be #RRGGBB (empty string not allowed)`);
   return normalizeHexColor(raw, field);
-}
-
-/** Normalize formula/range text for host coercion-tolerant equality. */
-export function normalizeFormulaCompare(raw: string | number | null | undefined): string {
-  let s = String(raw ?? "").trim();
-  if (s.startsWith("=")) s = s.slice(1);
-  s = s.replace(/\$/g, "");
-  // Collapse sheet quoting: 'Sheet 1'!A1 ↔ Sheet 1!A1 for compare only.
-  s = s.replace(/^'([^']+)'!/i, "$1!");
-  return s.toLowerCase();
-}
-
-export function formulasSemanticallyEqual(
-  a: string | number | null | undefined,
-  b: string | number | null | undefined,
-): boolean {
-  return normalizeFormulaCompare(a) === normalizeFormulaCompare(b);
-}
-
-export function allowBlankEqual(
-  a: boolean | undefined,
-  b: boolean | undefined,
-): boolean {
-  return (a !== false) === (b !== false);
-}
-
-/** Full DV rule match after write (not type-only). */
-export function dvRulesMatch(
-  expected: DataValidationRule,
-  actual: DataValidationRule,
-  actualListKind?: DataValidationListSourceKind | null,
-): boolean {
-  if (expected.type !== actual.type) return false;
-  if (!allowBlankEqual(expected.allowBlank, actual.allowBlank)) return false;
-  if (expected.type === "list") {
-    if (expected.listValues && expected.listValues.length > 0) {
-      if (actualListKind != null && actualListKind !== "inline") return false;
-      const a = expected.listValues;
-      const b = actual.listValues ?? [];
-      return a.length === b.length && a.every((v, i) => v === b[i]);
-    }
-    if (expected.formula1) {
-      if (actualListKind != null && actualListKind !== "range") return false;
-      return formulasSemanticallyEqual(expected.formula1, actual.formula1);
-    }
-    return false;
-  }
-  if (expected.type === "custom") {
-    return formulasSemanticallyEqual(expected.formula1, actual.formula1);
-  }
-  if (expected.operator !== actual.operator) return false;
-  if (!formulasSemanticallyEqual(expected.formula1, actual.formula1)) return false;
-  if (isBetweenOp(expected.operator)) {
-    return formulasSemanticallyEqual(expected.formula2, actual.formula2);
-  }
-  return true;
-}
-
-/** CF cellValue/custom fields that must match host after add. */
-export function cfRuleFieldsMatch(
-  expected: ConditionalFormatRule,
-  host: {
-    operator?: string;
-    formula1?: string;
-    formula2?: string;
-    formula?: string;
-    fillColor?: string;
-    fontColor?: string;
-  },
-): boolean {
-  if (expected.kind === "cellValue") {
-    if (unmapCfOperator(host.operator) !== expected.operator) return false;
-    if (!formulasSemanticallyEqual(expected.formula1, host.formula1)) return false;
-    if (isBetweenOp(expected.operator)) {
-      if (!formulasSemanticallyEqual(expected.formula2, host.formula2)) return false;
-    }
-  } else if (!formulasSemanticallyEqual(expected.formula, host.formula)) {
-    return false;
-  }
-  if (expected.fillColor != null) {
-    if (normalizeHexColor(host.fillColor ?? "", "fillColor") !== expected.fillColor) {
-      return false;
-    }
-  }
-  if (expected.fontColor != null) {
-    if (normalizeHexColor(host.fontColor ?? "", "fontColor") !== expected.fontColor) {
-      return false;
-    }
-  }
-  return true;
 }

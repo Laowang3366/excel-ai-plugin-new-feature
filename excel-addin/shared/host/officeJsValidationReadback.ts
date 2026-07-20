@@ -5,10 +5,13 @@
 import { normalizeSameSheetA1Range, parseChartSourceRange } from "./officeJsChartSource";
 import type { ExcelDataValidation, ExcelRange, ExcelRequestContext } from "./officeJsRuntime";
 import {
-  classifyDvHostType,
   classifyListSource,
-  COMPARE_DV_TYPES,
   dvRulesMatch,
+  hostHasExtraFormula2,
+} from "./officeJsValidationCompare";
+import {
+  classifyDvHostType,
+  COMPARE_DV_TYPES,
   isBetweenOp,
   mapDvOperatorToHost,
   unmapDvOperator,
@@ -19,18 +22,29 @@ import type {
   DataValidationType,
 } from "./types";
 
-export type ExcelRangeLike = {
+export type ExcelClientObjectRange = {
+  load: (props: string) => void;
   address: string;
-  load?: (props: string) => void;
 };
 
-export function isRangeLike(value: unknown): value is ExcelRangeLike {
+export type ExcelPlainAddressRange = {
+  address: string;
+};
+
+/** Real Office.js Range proxy: has load(); do NOT read address before load+sync. */
+export function isClientObjectRange(value: unknown): value is ExcelClientObjectRange {
   return (
     typeof value === "object" &&
     value !== null &&
-    "address" in value &&
-    typeof (value as { address: unknown }).address === "string"
+    typeof (value as { load?: unknown }).load === "function"
   );
+}
+
+/** Already-materialized plain { address } (tests / non-ClientObject). */
+export function isPlainAddressRange(value: unknown): value is ExcelPlainAddressRange {
+  if (typeof value !== "object" || value === null) return false;
+  if (typeof (value as { load?: unknown }).load === "function") return false;
+  return typeof (value as { address?: unknown }).address === "string";
 }
 
 export function resolveListSourceRange(
@@ -75,16 +89,37 @@ export async function materializeListSource(
       limitations: ["list source is empty"],
     };
   }
-  if (isRangeLike(source)) {
-    if (!source.address) {
-      source.load?.("address");
-      await context.sync();
+  if (isClientObjectRange(source)) {
+    // Always load+sync before reading address (PropertyNotLoaded otherwise).
+    source.load("address");
+    await context.sync();
+    let address = "";
+    try {
+      address = String(source.address ?? "").trim();
+    } catch (err) {
+      return {
+        kind: null,
+        limitations: [
+          `list Range source address PropertyNotLoaded after load: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ],
+      };
     }
-    const address = String(source.address ?? "").trim();
     if (!address) {
       return {
         kind: null,
         limitations: ["list Range source address unavailable after load"],
+      };
+    }
+    return { kind: "range", formula1: address };
+  }
+  if (isPlainAddressRange(source)) {
+    const address = source.address.trim();
+    if (!address) {
+      return {
+        kind: null,
+        limitations: ["list Range source address empty"],
       };
     }
     return { kind: "range", formula1: address };
@@ -98,18 +133,19 @@ export async function materializeListSource(
     };
   }
   const classified = classifyListSource(source);
-  if (classified.kind === "range") {
-    return { kind: "range", formula1: classified.formula1 };
-  }
   if (classified.lossy) {
     return {
-      kind: "inline",
+      kind: classified.kind,
+      formula1: classified.formula1,
       listValues: classified.listValues,
       lossy: true,
-      limitations: [
-        `inline list source is lossy/unparseable (empty tokens or empty): ${classified.raw ?? source}`,
-      ],
+      limitations:
+        classified.limitations ??
+        [`list source is lossy/unparseable: ${classified.raw ?? source}`],
     };
+  }
+  if (classified.kind === "range") {
+    return { kind: "range", formula1: classified.formula1 };
   }
   return { kind: "inline", listValues: classified.listValues };
 }
@@ -240,6 +276,16 @@ export async function parseDvRule(
       supported: true,
     };
   }
+  if (hostHasExtraFormula2(operator, bag?.formula2)) {
+    return {
+      rule: null,
+      hostType: classified.hostType,
+      supported: false,
+      limitations: [
+        `${classified.hostType} ${operator} has unexpected non-empty formula2 from host`,
+      ],
+    };
+  }
   return {
     rule: { type: classified.type, operator, formula1, allowBlank },
     hostType: classified.hostType,
@@ -264,13 +310,14 @@ export function applyCompareDv(dv: ExcelDataValidation, rule: DataValidationRule
 export function assertDvWriteMatches(
   expected: DataValidationRule,
   parsed: Awaited<ReturnType<typeof parseDvRule>>,
+  ownerSheetName: string,
 ): void {
   if (!parsed.supported || !parsed.rule) {
     throw new Error(
       `data validation readback not supported after write: ${parsed.hostType}`,
     );
   }
-  if (!dvRulesMatch(expected, parsed.rule, parsed.listSourceKind)) {
+  if (!dvRulesMatch(expected, parsed.rule, parsed.listSourceKind, ownerSheetName)) {
     throw new Error(
       `data validation rule mismatch after write: expected ${JSON.stringify(expected)}, got ${JSON.stringify(parsed.rule)} listKind=${parsed.listSourceKind}`,
     );

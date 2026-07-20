@@ -69,28 +69,25 @@ export function installValidationExcel(options?: ValidationFakeOptions) {
         getTamper: () => options?.tamperCfReadback,
       });
 
+      let addressLoaded = false;
+      const committedAddress = `${sheetName}!${address}`;
+      addressValue = committedAddress;
       return {
+        __rangeAddress: committedAddress,
         get address() {
+          if (!addressLoaded) throw new Error("PropertyNotLoaded:address");
           return addressValue;
         },
         load(props: string) {
           if (props.includes("address")) {
             pending.loads.push(() => {
-              addressValue = `${sheetName}!${address}`;
+              addressValue = committedAddress;
+              addressLoaded = true;
             });
           }
         },
         conditionalFormats,
         dataValidation: dvProxy,
-        getRange(inner: string) {
-          const bare = inner.replace(/^.*!/, "");
-          return {
-            address: `${sheetName}!${bare}`,
-            load(_props?: string) {
-              /* address already populated for test Range-like sources */
-            },
-          };
-        },
       };
     }
 

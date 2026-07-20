@@ -6,6 +6,7 @@ import {
   applyDvTamper,
   guessDvType,
   materializeRule,
+  rehydrateDvRule,
   type CtxPending,
   type DvState,
   type ValidationFakeOptions,
@@ -94,8 +95,11 @@ export function makeDvProxy(
         const view = applyDvTamper(committed, options.getTamper());
         localType = view.type;
         localIgnoreBlanks = view.ignoreBlanks;
-        // Preserve Range object references when present.
-        localRule = view.rule;
+        localRule = rehydrateDvRule(
+          view.rule,
+          pending,
+          options.keepListSourceAsRangeObject,
+        );
       });
     },
     clear() {

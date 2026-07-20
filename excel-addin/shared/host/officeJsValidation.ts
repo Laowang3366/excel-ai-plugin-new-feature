@@ -9,9 +9,9 @@
  */
 import type { ExcelRequestContext } from "./officeJsRuntime";
 import { withExcel } from "./officeJsRuntime";
+import { cfRuleFieldsMatch } from "./officeJsValidationCompare";
 import {
   classifyCfHostType,
-  cfRuleFieldsMatch,
   mapCfOperatorToHost,
   MAX_INLINE_LIST_SOURCE_CHARS,
   unmapCfOperator,
@@ -186,7 +186,7 @@ export async function officeJsAddConditionalFormat(input: {
       );
     }
     const hostFields = readCfHostFields(cf);
-    if (!cfRuleFieldsMatch(input.rule, hostFields)) {
+    if (!cfRuleFieldsMatch(input.rule, hostFields, input.sheetName)) {
       throw new Error(
         `conditional format rule/color mismatch after add: host=${JSON.stringify(hostFields)}`,
       );
@@ -284,7 +284,7 @@ export async function officeJsWriteDataValidation(input: {
     dv.load("type,rule,ignoreBlanks");
     await context.sync();
     const parsed = await parseDvRule(dv, context);
-    assertDvWriteMatches(input.rule, parsed);
+    assertDvWriteMatches(input.rule, parsed, input.sheetName);
     return toDvInfo(input.sheetName, range.address, parsed);
   });
 }
