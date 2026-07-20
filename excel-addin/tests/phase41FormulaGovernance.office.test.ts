@@ -7,6 +7,8 @@ import {
 import { installFormulaGovernanceExcel } from "./fakes/officeJsFormulaGovernanceFake";
 import { writeTextMatrix } from "../shared/host/officeJsFormulaGovernanceBackup";
 import { withExcel } from "../shared/host/officeJsRuntime";
+import { collectFormulaCells } from "../shared/host/officeJsFormulaGovernanceCollect";
+import { GOVERNANCE_WRITE_CHUNK } from "../shared/host/officeJsFormulaGovernanceOps";
 
 describe("phase41 formula governance Office.js", () => {
   let fake: ReturnType<typeof installFormulaGovernanceExcel>;
@@ -203,4 +205,121 @@ describe("phase41 formula governance Office.js", () => {
       expect(inspect.data.skippedRows.length).toBeGreaterThanOrEqual(1);
     }
   });
+
+  it("restore fails closed when corrupt data row coexists with valid target backup", async () => {
+    const adapter = new OfficeJsAdapter();
+    await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "good-id",
+    });
+    const b = fake.backupSheet()!;
+    // corrupt data row (empty formula) alongside valid rows
+    b.values.push(["bad-id", "t", "Sheet1", "Z9", "not-formula", "", "", "", "", ""]);
+    const formulasBefore = fake.formulas().map((row) => [...row]);
+    const restore = await adapter.restoreFormulas({ backupId: "good-id" });
+    expect(restore.ok).toBe(false);
+    if (!restore.ok) expect(restore.reason).toMatch(/corrupt|skipped/i);
+    // zero write on data sheet
+    expect(fake.formulas()).toEqual(formulasBefore);
+    // inspect still reports skipped
+    const inspect = await adapter.inspectFormulaBackups();
+    expect(inspect.ok).toBe(true);
+    if (inspect.ok) expect(inspect.data.skippedRows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("batch spill probe keeps later spillAddress; inspect skips metadata and bounds syncs", async () => {
+    // Build many formula cells: first normal, one later is spill parent.
+    const formulas: string[][] = [];
+    const values: unknown[][] = [];
+    for (let r = 0; r < 20; r += 1) {
+      formulas.push([`=${r}+1`, r === 10 ? "=SEQUENCE(2)" : `=${r}+2`]);
+      values.push([r + 1, r === 10 ? 1 : r + 2]);
+    }
+    fake = installFormulaGovernanceExcel({
+      sheets: [{ name: "Sheet1", formulas, values }],
+      spillMap: { "Sheet1!B11": "B11:B12" }, // row 10 0-based -> B11
+      excelApi112: true,
+    });
+    const adapter = new OfficeJsAdapter();
+
+    fake.resetSyncCount();
+    const deps = await adapter.inspectFormulaDependencies({
+      scope: "sheet",
+      sheetName: "Sheet1",
+    });
+    expect(deps.ok).toBe(true);
+    const inspectSyncs = fake.syncCount();
+    // Inspect skips locked/spill; must stay near-constant (not ~2*N formula cells).
+    expect(inspectSyncs).toBeLessThan(8);
+
+    fake.resetSyncCount();
+    const meta = await withExcel("collect-meta", async (context) => {
+      const limitations: string[] = [];
+      const { cells } = await collectFormulaCells(
+        context,
+        { scope: "sheet", sheetName: "Sheet1" },
+        limitations,
+        { includeBackupMetadata: true },
+      );
+      return { cells, limitations, syncs: fake.syncCount() };
+    });
+    expect(meta.ok).toBe(true);
+    if (meta.ok) {
+      // 40 formula cells with per-cell sync would be 80+; batched metadata is one extra sync.
+      expect(meta.data.syncs).toBeLessThan(12);
+      const spillCell = meta.data.cells.find((c) => c.address === "B11");
+      expect((spillCell?.spillAddress ?? "").replace(/\$/g, "")).toMatch(/B11:B12/i);
+      // Non-spill first cell must not wipe spill probing for later cells
+      const first = meta.data.cells.find((c) => c.address === "A1");
+      expect(first?.spillAddress ?? "").toBe("");
+    }
+
+    fake.resetSyncCount();
+    const conv = await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "spill1",
+    });
+    expect(conv.ok).toBe(true);
+    // 40 formula cells: write+verify are O(chunks) not O(cells). Upper bound allows collect+backup overhead.
+    const convertSyncs = fake.syncCount();
+    const formulaCount = 40;
+    const maxChunkSyncs = Math.ceil(formulaCount / GOVERNANCE_WRITE_CHUNK) * 2; // write + verify
+    expect(convertSyncs).toBeLessThan(maxChunkSyncs + 25);
+    // Must stay far below per-cell 2-sync write/verify (would be >= 80 for 40 cells alone).
+    expect(convertSyncs).toBeLessThan(formulaCount);
+
+    const b = fake.backupSheet()!;
+    const flat = b.values.map((row) => row.map((c) => String(c ?? "")));
+    const spillHit = flat.some((row) => row[8] && /B11:B12/i.test(row[8]!));
+    expect(spillHit).toBe(true);
+  });
+
+  it("repair write/readback is chunk-bounded not per-cell sync", async () => {
+    const formulas: string[][] = [];
+    const values: unknown[][] = [];
+    for (let r = 0; r < 30; r += 1) {
+      formulas.push([`=1+#REF!`]);
+      values.push(["#REF!"]);
+    }
+    fake = installFormulaGovernanceExcel({
+      sheets: [{ name: "Sheet1", formulas, values }],
+    });
+    const adapter = new OfficeJsAdapter();
+    fake.resetSyncCount();
+    const result = await adapter.repairFormulaReferences({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      replacements: [{ find: "#REF!", replace: "Z99" }],
+    });
+    expect(result.ok).toBe(true);
+    const syncs = fake.syncCount();
+    const n = 30;
+    // write + verify chunks + collect/backup overhead; must not approach 2*n cell syncs.
+    expect(syncs).toBeLessThan(n);
+    expect(fake.formulas()[0]![0]).toBe("=1+Z99");
+    expect(fake.formulas()[29]![0]).toBe("=1+Z99");
+  });
+
 });

@@ -85,19 +85,6 @@ export function resolveRange(sheet: WpsSheet, rangeAddress?: string): WpsRangeEx
   return sheet.Range(bare(String(sheet.UsedRange.Address))) as WpsRangeExt;
 }
 
-/** Write Value2 as text so "=..." is not evaluated. */
-export function writeTextValue(range: WpsRangeExt, value: unknown): void {
-  try {
-    range.NumberFormat = "@";
-  } catch {
-    // best-effort; apostrophe still applied for formula-like strings
-  }
-  if (typeof value === "string") {
-    range.Value2 = encodeBackupLiteral(value);
-  } else {
-    range.Value2 = value;
-  }
-}
 
 export function writeTextMatrix(range: WpsRangeExt, matrix: unknown[][]): void {
   try {
@@ -130,12 +117,6 @@ export function ensureVeryHidden(sheet: WpsSheetExt): void {
   }
 }
 
-export function canRewriteBackupSheet(sheet: WpsSheetExt): boolean {
-  // Safe residue cleanup requires UsedRange.Clear (or equivalent) before shorter rewrite.
-  const used = sheet.UsedRange as (WpsRange & { Clear?: () => void }) | undefined;
-  return Boolean(used && typeof used.Clear === "function") || typeof sheet.Range === "function";
-  // Note: Range alone is not enough to clear residue — require Clear for removeAfterRestore.
-}
 
 export function canRemoveBackupRows(sheet: WpsSheetExt): boolean {
   const used = sheet.UsedRange as (WpsRange & { Clear?: () => void }) | undefined;
@@ -224,6 +205,41 @@ export function collectAll(
   };
 }
 
+export function probeSheetVisibilitySupport(workbook: WpsWorkbook): void {
+  const sheets = listSheets(workbook);
+  for (const sheet of sheets) {
+    if ("Visible" in sheet && sheet.Visible !== undefined) return;
+  }
+  if (sheets.length > 0) {
+    throw new Error("backup_sheet_visibility_unavailable: Visible member missing on worksheets");
+  }
+}
+
+export function tryDeleteSheet(workbook: WpsWorkbook, sheet: WpsSheetExt): boolean {
+  const del = (sheet as WpsSheetExt & { Delete?: () => void }).Delete;
+  if (typeof del === "function") {
+    try {
+      del.call(sheet);
+      return true;
+    } catch {
+      // fall through
+    }
+  }
+  // Best-effort: drop from collection if host exposes custom remove (tests).
+  const sheets = workbook.Worksheets as WpsWorkbook["Worksheets"] & {
+    Remove?: (s: WpsSheetExt) => void;
+  };
+  if (typeof sheets.Remove === "function") {
+    try {
+      sheets.Remove(sheet);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 export function findBackupSheet(
   workbook: WpsWorkbook,
   create: boolean,
@@ -243,6 +259,10 @@ export function findBackupSheet(
     }
   }
   if (!create) return { sheet: null, limitations };
+
+  // Precheck before Add so we never leave a visible orphan when Visible is missing.
+  probeSheetVisibilitySupport(workbook);
+
   const sheets = workbook.Worksheets;
   if (typeof sheets.Add !== "function") {
     throw new Error("Worksheets.Add unavailable for backup sheet");
@@ -250,18 +270,29 @@ export function findBackupSheet(
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
   const name = `${FORMULA_BACKUP_SHEET_PREFIX}${stamp}`.slice(0, 31);
   const sheet = sheets.Add() as WpsSheetExt;
-  // Hide BEFORE writing protocol content
-  ensureVeryHidden(sheet);
-  sheet.Name = name;
-  // Single rectangular write A1:J2 so UsedRange captures magic+headers together.
-  const boot = [
-    [FORMULA_BACKUP_MAGIC, "", "", "", "", "", "", "", "", ""],
-    [...FORMULA_BACKUP_HEADERS],
-  ];
-  writeTextMatrix(sheet.Range("A1:J2") as WpsRangeExt, boot);
-  ensureVeryHidden(sheet);
-  limitations.push(`created backup sheet ${name}`);
-  return { sheet, limitations };
+  try {
+    // Hide BEFORE writing protocol content
+    ensureVeryHidden(sheet);
+    sheet.Name = name;
+    // Single rectangular write A1:J2 so UsedRange captures magic+headers together.
+    const boot = [
+      [FORMULA_BACKUP_MAGIC, "", "", "", "", "", "", "", "", ""],
+      [...FORMULA_BACKUP_HEADERS],
+    ];
+    writeTextMatrix(sheet.Range("A1:J2") as WpsRangeExt, boot);
+    ensureVeryHidden(sheet);
+    limitations.push(`created backup sheet ${name}`);
+    return { sheet, limitations };
+  } catch (error) {
+    const deleted = tryDeleteSheet(workbook, sheet);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (!deleted) {
+      throw new Error(
+        `backup_sheet_cleanup_failed: could not delete orphan sheet after: ${msg}`,
+      );
+    }
+    throw error instanceof Error ? error : new Error(msg);
+  }
 }
 
 export function readBackupMatrix(sheet: WpsSheet): unknown[][] {

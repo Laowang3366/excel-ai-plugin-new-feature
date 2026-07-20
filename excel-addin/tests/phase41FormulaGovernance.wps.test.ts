@@ -186,6 +186,12 @@ function installWpsApp(opts?: {
 
   const dataCells = cells;
   const sheets: any[] = [makeSheet("Sheet1", dataCells)];
+  for (const s of sheets) {
+    s.Delete = () => {
+      const idx = sheets.indexOf(s);
+      if (idx >= 0) sheets.splice(idx, 1);
+    };
+  }
   const workbook: any = {
     Name: "Book1",
     ActiveSheet: sheets[0],
@@ -202,10 +208,18 @@ function installWpsApp(opts?: {
       Add: withAdd
         ? () => {
             const s = makeSheet(`_tmp${sheets.length}`);
+            s.Delete = () => {
+              const idx = sheets.indexOf(s);
+              if (idx >= 0) sheets.splice(idx, 1);
+            };
             sheets.push(s);
             return s;
           }
         : undefined,
+      Remove(s: any) {
+        const idx = sheets.indexOf(s);
+        if (idx >= 0) sheets.splice(idx, 1);
+      },
     },
   };
   const app = { ActiveWorkbook: workbook, Name: "WPS" };
@@ -246,6 +260,7 @@ describe("phase41 formula governance WPS", () => {
   it("fails closed when Visible missing (cannot hide backup; no formula mutation)", async () => {
     const env = installWpsApp({ withVisible: false });
     const before = env.cells.get("B1")!.formula;
+    const sheetCountBefore = env.sheets.length;
     const result = await new WpsJsaAdapter().repairFormulaReferences({
       scope: "sheet",
       sheetName: "Sheet1",
@@ -253,6 +268,11 @@ describe("phase41 formula governance WPS", () => {
     });
     expect(result.ok).toBe(false);
     expect(env.cells.get("B1")!.formula).toBe(before);
+    // Precheck prevents Add (or cleanup removes orphan) — sheet count unchanged.
+    expect(env.sheets.length).toBe(sheetCountBefore);
+    expect(env.sheets.some((s: any) => String(s.Name).startsWith("_WenggeFormulaBackup"))).toBe(
+      false,
+    );
   });
 
   it("repairs with backup text storage and hide verify", async () => {
@@ -325,4 +345,67 @@ describe("phase41 formula governance WPS", () => {
     expect(encodeBackupLiteral("=A1+1").startsWith("'=")).toBe(true);
     expect(FORMULA_BACKUP_MAGIC.startsWith("WENGGE")).toBe(true);
   });
+
+  it("corrupt data row makes restore fail-closed even with removeAfterRestore (not unsupported)", async () => {
+    const env = installWpsApp({ withClear: false });
+    const adapter = new WpsJsaAdapter();
+    const conv = await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "ok-row",
+    });
+    expect(conv.ok).toBe(true);
+    const backup = env.sheets.find((s: any) => String(s.Name).startsWith("_WenggeFormulaBackup"));
+    expect(backup).toBeTruthy();
+    // inject corrupt data row into grid
+    if (!backup._grid) backup._grid = [];
+    while (backup._grid.length < 4) backup._grid.push([]);
+    backup._grid[3] = ["bad", "t", "Sheet1", "Z9", "nope", "", "", "", "", ""];
+    // Also ensure UsedRange reads grid
+    const formulaBefore = env.cells.get("A1")!.formula;
+    const result = await adapter.restoreFormulas({
+      backupId: "ok-row",
+      removeAfterRestore: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.unsupported).not.toBe(true);
+      expect(result.reason).toMatch(/corrupt|skipped|magic|header/i);
+    }
+    // no restore writes
+    expect(env.cells.get("A1")!.formula).toBe(formulaBefore);
+  });
+
+  it("removeAfterRestore retains other backupIds", async () => {
+    const env = installWpsApp({ withClear: true });
+    const adapter = new WpsJsaAdapter();
+    const c1 = await adapter.convertFormulasToValues({
+      scope: "sheet",
+      sheetName: "Sheet1",
+      backupId: "keep-me",
+    });
+    expect(c1.ok).toBe(true);
+    // re-seed a formula for second backup
+    env.cells.set("A1", { formula: "=123", value: 123, numberFormat: "General" });
+    const c2 = await adapter.convertFormulasToValues({
+      scope: "target",
+      sheetName: "Sheet1",
+      range: "A1",
+      backupId: "drop-me",
+    });
+    expect(c2.ok).toBe(true);
+
+    const removed = await adapter.restoreFormulas({
+      backupId: "drop-me",
+      removeAfterRestore: true,
+    });
+    expect(removed.ok).toBe(true);
+    const inspect = await adapter.inspectFormulaBackups();
+    expect(inspect.ok).toBe(true);
+    if (inspect.ok) {
+      expect(inspect.data.backups.some((b) => b.backupId === "drop-me")).toBe(false);
+      expect(inspect.data.backups.some((b) => b.backupId === "keep-me")).toBe(true);
+    }
+  });
+
 });

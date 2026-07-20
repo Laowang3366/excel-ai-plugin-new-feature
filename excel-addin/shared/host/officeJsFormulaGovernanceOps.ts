@@ -1,5 +1,6 @@
 /**
  * Office.js formula governance: dependencies inspect, references repair, convertToValues.
+ * Write/readback paths batch queue + chunked sync (O(chunks), not O(cells)).
  */
 import {
   buildDependencyReport,
@@ -21,9 +22,13 @@ import {
   collectFormulaCells,
   requireGovernanceScope,
 } from "./officeJsFormulaGovernanceCollect";
+import type { ExcelRange, ExcelRequestContext } from "./officeJsRuntime";
 import { withExcel } from "./officeJsRuntime";
 import type { HostResult } from "./types";
 import { fail } from "./types";
+
+/** Max cells queued per context.sync for governance writes/readbacks. */
+export const GOVERNANCE_WRITE_CHUNK = 250;
 
 function isExcelApi12Supported(): boolean {
   if (typeof window === "undefined") return false;
@@ -41,6 +46,26 @@ function matchCell(cells: FormulaCellRecord[], cellId: string): FormulaCellRecor
   return cells.find((c) => `${c.sheetName}!${c.address}`.toLowerCase() === key);
 }
 
+function parseCellId(cellId: string): { sheetName: string; address: string } {
+  const bang = cellId.lastIndexOf("!");
+  return { sheetName: cellId.slice(0, bang), address: cellId.slice(bang + 1) };
+}
+
+/** Queue work in fixed-size chunks; one sync per chunk (not per cell). */
+export async function forEachChunkSync<T>(
+  context: ExcelRequestContext,
+  items: readonly T[],
+  chunkSize: number,
+  apply: (item: T, index: number) => void,
+): Promise<void> {
+  const size = Math.max(1, chunkSize);
+  for (let i = 0; i < items.length; i += size) {
+    const end = Math.min(i + size, items.length);
+    for (let j = i; j < end; j += 1) apply(items[j]!, j);
+    await context.sync();
+  }
+}
+
 export async function officeJsInspectFormulaDependencies(
   input: FormulaDependenciesInspectInput,
 ): Promise<HostResult<FormulaDependenciesInspectInfo>> {
@@ -54,7 +79,9 @@ export async function officeJsInspectFormulaDependencies(
   requireGovernanceScope(input.scope, input.sheetName, input.range);
   return withExcel("formula.dependencies.inspect", async (context) => {
     const limitations: string[] = [];
-    const { cells } = await collectFormulaCells(context, input, limitations);
+    const { cells } = await collectFormulaCells(context, input, limitations, {
+      includeBackupMetadata: false,
+    });
     const report = buildDependencyReport(cells);
     return {
       scope: input.scope,
@@ -81,7 +108,9 @@ export async function officeJsRepairFormulaReferences(
 
   return withExcel("formula.references.repair", async (context) => {
     const limitations: string[] = [];
-    const { cells, sourceRange } = await collectFormulaCells(context, input, limitations);
+    const { cells, sourceRange } = await collectFormulaCells(context, input, limitations, {
+      includeBackupMetadata: true,
+    });
     const plan = planFormulaRepairs(cells, input.replacements, {
       applyAllMappings: input.applyAllMappings === true,
     });
@@ -126,27 +155,27 @@ export async function officeJsRepairFormulaReferences(
       create: true,
     });
 
-    for (const repair of plan.repairs) {
-      const bang = repair.cell.lastIndexOf("!");
-      const sheetName = repair.cell.slice(0, bang);
-      const address = repair.cell.slice(bang + 1);
+    // Batch write formulas, then batch readback — O(chunks) syncs.
+    await forEachChunkSync(context, plan.repairs, GOVERNANCE_WRITE_CHUNK, (repair) => {
+      const { sheetName, address } = parseCellId(repair.cell);
       const sheet = context.workbook.worksheets.getItem(sheetName);
       const range = sheet.getRange(bareAddress(address));
       range.formulas = [[repair.after]];
-      await context.sync();
-    }
+    });
 
-    const readBack: Array<{ cell: string; formula: string }> = [];
-    for (const repair of plan.repairs) {
-      const bang = repair.cell.lastIndexOf("!");
-      const sheetName = repair.cell.slice(0, bang);
-      const address = repair.cell.slice(bang + 1);
+    const readTargets: Array<{ cell: string; range: ExcelRange }> = [];
+    await forEachChunkSync(context, plan.repairs, GOVERNANCE_WRITE_CHUNK, (repair) => {
+      const { sheetName, address } = parseCellId(repair.cell);
       const sheet = context.workbook.worksheets.getItem(sheetName);
       const range = sheet.getRange(bareAddress(address));
       range.load("formulas");
-      await context.sync();
-      readBack.push({ cell: repair.cell, formula: String(range.formulas?.[0]?.[0] ?? "") });
-    }
+      readTargets.push({ cell: repair.cell, range });
+    });
+
+    const readBack = readTargets.map((t) => ({
+      cell: t.cell,
+      formula: String(t.range.formulas?.[0]?.[0] ?? ""),
+    }));
     const validation = validateRepairedFormulas(readBack);
     if (!validation.ok) {
       throw Object.assign(new Error("formula_repair_incomplete: post-write #REF! remains"), {
@@ -199,7 +228,9 @@ export async function officeJsConvertFormulasToValues(
 
   return withExcel("formula.convertToValues", async (context) => {
     const limitations: string[] = [];
-    const { cells, sourceRange } = await collectFormulaCells(context, input, limitations);
+    const { cells, sourceRange } = await collectFormulaCells(context, input, limitations, {
+      includeBackupMetadata: true,
+    });
     const formulaCells = cells.filter((c) => c.formula.startsWith("="));
     const backupId = (input.backupId && input.backupId.trim()) || newBackupId();
 
@@ -219,25 +250,24 @@ export async function officeJsConvertFormulasToValues(
       create: true,
     });
 
-    let converted = 0;
-    for (const cell of formulaCells) {
+    // Use values collected with formulas (host calculated snapshot) — no per-cell re-load.
+    await forEachChunkSync(context, formulaCells, GOVERNANCE_WRITE_CHUNK, (cell) => {
       const sheet = context.workbook.worksheets.getItem(cell.sheetName);
       const range = sheet.getRange(bareAddress(cell.address));
-      range.load("values");
-      await context.sync();
-      const value = range.values?.[0]?.[0] ?? null;
-      range.values = [[value as string | number | boolean | null]];
-      await context.sync();
-      converted += 1;
-    }
+      range.values = [[(cell.value ?? null) as string | number | boolean | null]];
+    });
 
-    let stillFormula = 0;
-    for (const cell of formulaCells) {
+    const verifyRanges: Array<{ cell: FormulaCellRecord; range: ExcelRange }> = [];
+    await forEachChunkSync(context, formulaCells, GOVERNANCE_WRITE_CHUNK, (cell) => {
       const sheet = context.workbook.worksheets.getItem(cell.sheetName);
       const range = sheet.getRange(bareAddress(cell.address));
       range.load("formulas");
-      await context.sync();
-      if (String(range.formulas?.[0]?.[0] ?? "").startsWith("=")) stillFormula += 1;
+      verifyRanges.push({ cell, range });
+    });
+
+    let stillFormula = 0;
+    for (const item of verifyRanges) {
+      if (String(item.range.formulas?.[0]?.[0] ?? "").startsWith("=")) stillFormula += 1;
     }
     if (stillFormula > 0) {
       throw new Error(
@@ -248,7 +278,7 @@ export async function officeJsConvertFormulasToValues(
     return {
       scope: input.scope,
       backupId,
-      convertedFormulaCells: converted,
+      convertedFormulaCells: formulaCells.length,
       verified: true,
       limitations,
     };

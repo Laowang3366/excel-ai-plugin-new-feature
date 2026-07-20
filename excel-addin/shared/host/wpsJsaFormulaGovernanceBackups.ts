@@ -1,5 +1,6 @@
 /**
  * WPS formula backups inspect/restore (strict protocol + removeAfterRestore precheck).
+ * removeAfterRestore Clear check runs only after protocol/backupId validation and before any restore writes.
  */
 import {
   decodeBackupSheet,
@@ -83,15 +84,7 @@ export async function wpsRestoreFormulas(input: {
       return fail("formula.backups.restore", "wps-jsa", "formula_backup_not_found");
     }
 
-    if (input.removeAfterRestore === true && !canRemoveBackupRows(found.sheet)) {
-      return unsupported(
-        "formula.backups.restore",
-        "wps-jsa",
-        "removeAfterRestore requires UsedRange.Clear to safely rewrite backup sheet without residue",
-        "Assumed UsedRange.Clear before full protocol rewrite",
-      );
-    }
-
+    // Strict protocol first — corrupt/not-found must not surface as unsupported Clear.
     const matrix = readBackupMatrix(found.sheet);
     const strict = strictDecodeBackup(matrix);
     if (!strict.ok) {
@@ -100,6 +93,16 @@ export async function wpsRestoreFormulas(input: {
 
     const plan = planRestore(strict.rows, backupId);
     if ("error" in plan) return fail("formula.backups.restore", "wps-jsa", plan.error);
+
+    // Capability precheck after protocol+id validation, before any formula restore.
+    if (input.removeAfterRestore === true && !canRemoveBackupRows(found.sheet)) {
+      return unsupported(
+        "formula.backups.restore",
+        "wps-jsa",
+        "removeAfterRestore requires UsedRange.Clear to safely rewrite backup sheet without residue",
+        "Assumed UsedRange.Clear before full protocol rewrite",
+      );
+    }
 
     const restored: Array<{ cell: string; formula: string }> = [];
     const failed: Array<{ cell: string; error: string }> = [];
@@ -138,6 +141,9 @@ export async function wpsRestoreFormulas(input: {
 
     if (input.removeAfterRestore === true) {
       const remaining = strict.rows.filter((r) => r.backupId !== backupId);
+      const retainedIds = [
+        ...new Set(remaining.map((r) => r.backupId).filter((id) => id.length > 0)),
+      ];
       rewriteBackupSheet(found.sheet, remaining);
       const after = strictDecodeBackup(readBackupMatrix(found.sheet));
       if (!after.ok) {
@@ -153,6 +159,15 @@ export async function wpsRestoreFormulas(input: {
           "wps-jsa",
           "removeAfterRestore verify failed: backupId still present",
         );
+      }
+      for (const id of retainedIds) {
+        if (!after.rows.some((r) => r.backupId === id)) {
+          return fail(
+            "formula.backups.restore",
+            "wps-jsa",
+            `removeAfterRestore verify failed: lost backupId ${id}`,
+          );
+        }
       }
       limitations.push("removed restored backup rows (removeAfterRestore=true)");
     } else {

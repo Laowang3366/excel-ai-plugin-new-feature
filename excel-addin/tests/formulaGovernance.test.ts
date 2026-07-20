@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { strictDecodeBackup } from "../shared/host/officeJsFormulaGovernanceBackup";
 import {
   DEPENDENCY_LIMITATIONS,
   FORMULA_BACKUP_HEADERS,
@@ -299,5 +300,37 @@ describe("backup formula text literals", () => {
     expect(decoded.ok).toBe(true);
     expect(decoded.grid?.rows[0]?.formula).toBe(formula);
     expect(decoded.grid?.rows[0]?.formulaR1C1).toBe("=R[0]C[1]");
+  });
+});
+
+describe("strictDecodeBackup restore fail-closed", () => {
+  it("rejects any skipped data row even when magic/header and other rows are valid", () => {
+    const matrix = [
+      [FORMULA_BACKUP_MAGIC],
+      [...FORMULA_BACKUP_HEADERS],
+      [
+        "id1",
+        "t",
+        "Sheet1",
+        "A1",
+        "'=A2",
+        "",
+        "General",
+        "false",
+        "",
+        "sheet",
+      ],
+      ["bad", "t", "Sheet1", "Z9", "not-a-formula", "", "", "", "", ""],
+    ];
+    const strict = strictDecodeBackup(matrix);
+    expect(strict.ok).toBe(false);
+    if (!strict.ok) {
+      expect(strict.error).toMatch(/corrupt|skipped/i);
+      expect(strict.skipped.length).toBeGreaterThanOrEqual(1);
+    }
+    // inspect-oriented decode still returns partial rows
+    const decoded = decodeBackupSheet(matrix);
+    expect(decoded.grid?.rows.some((r) => r.backupId === "id1")).toBe(true);
+    expect(decoded.skipped.length).toBeGreaterThanOrEqual(1);
   });
 });

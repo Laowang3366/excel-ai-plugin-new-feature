@@ -227,7 +227,15 @@ export function strictDecodeBackup(matrix: unknown[][]): {
       skipped: decoded.skipped,
     };
   }
-  return { ok: true, rows: decoded.grid.rows, skipped: decoded.skipped };
+  // Restore fail-closed: any corrupt/incomplete data row aborts (inspect may still report skipped).
+  if (decoded.skipped.length > 0) {
+    return {
+      ok: false,
+      error: `formula_backup_corrupt: skipped data row(s) ${decoded.skipped.join(",")}`,
+      skipped: decoded.skipped,
+    };
+  }
+  return { ok: true, rows: decoded.grid.rows, skipped: [] };
 }
 
 

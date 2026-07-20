@@ -108,6 +108,8 @@ export interface ExcelRange {
   /** ExcelApi 1.1. */
   delete(shift: "Up" | "Left"): void;
   getSpillingToRange(): ExcelRange;
+  /** ExcelApi 1.12: null object when cell is not a spill parent. */
+  getSpillingToRangeOrNullObject(): ExcelRange;
   getSurroundingRegion(): ExcelRange;
   getCurrentArray(): ExcelRange;
   getCell(row: number, column: number): ExcelRange;

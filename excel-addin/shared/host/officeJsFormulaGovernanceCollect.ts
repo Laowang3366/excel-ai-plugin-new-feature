@@ -1,6 +1,6 @@
 /**
  * Collect formula-bearing cells for governance scopes (workbook/sheet/target).
- * Probes formulasR1C1 / FormulaR1C1 and spill address when available.
+ * Backup metadata (locked/spill/formulaR1C1) is batched — never per-cell sync.
  */
 import { absoluteA1FromOrigin } from "./a1Address";
 import {
@@ -10,6 +10,11 @@ import {
 } from "./formulaGovernanceTypes";
 import type { FormulaCellRecord } from "../formulaGovernance";
 import type { ExcelRange, ExcelRequestContext, ExcelWorksheet } from "./officeJsRuntime";
+
+export type CollectFormulaOptions = {
+  /** locked / spill / formulaR1C1 for workbook backup (repair/convert). Default false. */
+  includeBackupMetadata?: boolean;
+};
 
 export function requireGovernanceScope(
   scope: FormulaGovernanceScope,
@@ -69,6 +74,17 @@ function numberFormatAt(nf: string[][] | string | undefined, r: number, c: numbe
   return v == null ? "" : String(v);
 }
 
+function isExcelApiSupported(version: string): boolean {
+  if (typeof window === "undefined") return false;
+  const isSetSupported = window.Office?.context?.requirements?.isSetSupported;
+  if (typeof isSetSupported !== "function") return true;
+  try {
+    return Boolean(isSetSupported.call(window.Office?.context?.requirements, "ExcelApi", version));
+  } catch {
+    return false;
+  }
+}
+
 function tryLoadFormulasR1C1(range: ExcelRange): boolean {
   const r = range as ExcelRange & { formulasR1C1?: unknown; load: (p: string) => void };
   try {
@@ -79,19 +95,27 @@ function tryLoadFormulasR1C1(range: ExcelRange): boolean {
   }
 }
 
+type SpillProxy = ExcelRange & { isNullObject?: boolean };
+
 export async function collectFormulaCellsFromSheet(
   context: ExcelRequestContext,
   sheet: ExcelWorksheet,
   rangeAddress: string | undefined,
   limitations: string[],
+  options: CollectFormulaOptions = {},
 ): Promise<FormulaCellRecord[]> {
+  const includeMeta = options.includeBackupMetadata === true;
   sheet.load("name");
   const range = await resolveGovernanceRange(context, sheet, rangeAddress);
-  const loadR1C1 = tryLoadFormulasR1C1(range);
-  range.load("address,formulas,values,numberFormat,rowCount,columnCount");
+  const loadR1C1 = includeMeta ? tryLoadFormulasR1C1(range) : false;
+  range.load(
+    includeMeta
+      ? "address,formulas,values,numberFormat,rowCount,columnCount"
+      : "address,formulas,values,rowCount,columnCount",
+  );
   await context.sync();
 
-  if (!loadR1C1 && !limitations.some((l) => l.includes("formulaR1C1"))) {
+  if (includeMeta && !loadR1C1 && !limitations.some((l) => l.includes("formulaR1C1"))) {
     limitations.push("formulaR1C1 unavailable on Range (formulasR1C1 not loaded); stored empty");
   }
 
@@ -99,7 +123,7 @@ export async function collectFormulaCellsFromSheet(
   const origin = bareAddress(range.address || "A1");
   const formulas = Array.isArray(range.formulas) ? (range.formulas as unknown[][]) : [];
   const values = Array.isArray(range.values) ? (range.values as unknown[][]) : [];
-  const nf = range.numberFormat;
+  const nf = includeMeta ? range.numberFormat : undefined;
   const r1c1Matrix = loadR1C1
     ? ((range as ExcelRange & { formulasR1C1?: unknown[][] }).formulasR1C1 ?? [])
     : [];
@@ -120,75 +144,114 @@ export async function collectFormulaCellsFromSheet(
     capped = coords.slice(0, MAX_GOVERNANCE_FORMULA_CELLS);
   }
 
-  let spillProbed = false;
-  let spillUnavailable = false;
-  const records: FormulaCellRecord[] = [];
+  if (!includeMeta) {
+    return capped.map((coord) => {
+      const formulaRaw = formulas[coord.row]?.[coord.col];
+      const formula = isFormulaText(formulaRaw) ? formulaRaw : String(formulaRaw ?? "");
+      return {
+        sheetName,
+        address: absoluteA1FromOrigin(origin, coord.row, coord.col),
+        formula,
+        value: values[coord.row]?.[coord.col],
+        formulaR1C1: "",
+        numberFormat: "",
+        locked: undefined,
+        spillAddress: "",
+      };
+    });
+  }
+
+  // Backup metadata path: queue all cell loads, then a single sync.
+  type MetaPending = {
+    coord: { row: number; col: number };
+    cell: ExcelRange;
+    spill: SpillProxy | null;
+  };
+  const pending: MetaPending[] = [];
+  const spillApi =
+    isExcelApiSupported("1.12") &&
+    typeof (range as ExcelRange & { getSpillingToRangeOrNullObject?: () => ExcelRange })
+      .getSpillingToRangeOrNullObject === "function"
+      ? "nullObject"
+      : typeof range.getSpillingToRange === "function"
+        ? "legacy"
+        : "none";
+
+  if (spillApi === "none" && !limitations.some((l) => l.includes("spillAddress"))) {
+    limitations.push(
+      "spillAddress unavailable (getSpillingToRangeOrNullObject/getSpillingToRange missing); stored empty",
+    );
+  } else if (spillApi === "legacy" && !limitations.some((l) => l.includes("spillAddress"))) {
+    limitations.push(
+      "spillAddress using getSpillingToRange (prefer getSpillingToRangeOrNullObject on ExcelApi 1.12+)",
+    );
+  } else if (spillApi === "nullObject" && !limitations.some((l) => l.includes("spillAddress"))) {
+    limitations.push("spillAddress probed via getSpillingToRangeOrNullObject (ExcelApi 1.12+)");
+  }
 
   for (const coord of capped) {
-    const formulaRaw = formulas[coord.row]?.[coord.col];
-    const formula = isFormulaText(formulaRaw) ? formulaRaw : String(formulaRaw ?? "");
-    if (!isFormulaText(formula)) continue;
-    const address = absoluteA1FromOrigin(origin, coord.row, coord.col);
     const cell = range.getCell(coord.row, coord.col);
-    cell.load("address,formulas,values,numberFormat");
+    cell.load("address");
     try {
       if (cell.format?.protection) cell.format.protection.load("locked");
     } catch {
-      // optional
+      // optional locked
     }
+    let spill: SpillProxy | null = null;
+    if (spillApi === "nullObject") {
+      const ext = cell as ExcelRange & { getSpillingToRangeOrNullObject?: () => ExcelRange };
+      spill = ext.getSpillingToRangeOrNullObject!() as SpillProxy;
+      spill.load("address,isNullObject");
+    } else if (spillApi === "legacy") {
+      try {
+        spill = cell.getSpillingToRange() as SpillProxy;
+        spill.load("address,isNullObject");
+      } catch {
+        spill = null;
+      }
+    }
+    pending.push({ coord, cell, spill });
+  }
+
+  if (pending.length > 0) {
     await context.sync();
+  }
+
+  const records: FormulaCellRecord[] = [];
+  for (const item of pending) {
+    const formulaRaw = formulas[item.coord.row]?.[item.coord.col];
+    const formula = isFormulaText(formulaRaw) ? formulaRaw : String(formulaRaw ?? "");
+    if (!isFormulaText(formula)) continue;
 
     let locked: boolean | undefined;
     try {
-      locked = cell.format?.protection?.locked === true;
+      locked = item.cell.format?.protection?.locked === true;
     } catch {
       locked = undefined;
     }
 
     let formulaR1C1 = "";
-    const r1 = r1c1Matrix[coord.row]?.[coord.col];
-    if (typeof r1 === "string" && r1.startsWith("=")) {
-      formulaR1C1 = r1;
-    }
+    const r1 = r1c1Matrix[item.coord.row]?.[item.coord.col];
+    if (typeof r1 === "string" && r1.startsWith("=")) formulaR1C1 = r1;
 
     let spillAddress = "";
-    if (!spillUnavailable) {
-      try {
-        const spilling = cell.getSpillingToRange?.();
-        if (spilling) {
-          spilling.load("address,isNullObject");
-          await context.sync();
-          spillProbed = true;
-          const nullObj = (spilling as ExcelRange & { isNullObject?: boolean }).isNullObject;
-          if (nullObj !== true && typeof spilling.address === "string") {
-            spillAddress = bareAddress(spilling.address);
-          }
-        } else {
-          spillUnavailable = true;
-        }
-      } catch {
-        spillUnavailable = true;
+    if (item.spill) {
+      const nullObj = item.spill.isNullObject === true;
+      if (!nullObj && typeof item.spill.address === "string" && item.spill.address) {
+        spillAddress = bareAddress(item.spill.address);
       }
     }
 
     records.push({
       sheetName,
-      address,
+      address: absoluteA1FromOrigin(origin, item.coord.row, item.coord.col),
       formula,
-      value: values[coord.row]?.[coord.col],
+      value: values[item.coord.row]?.[item.coord.col],
       formulaR1C1,
-      numberFormat: numberFormatAt(nf as string[][] | string, coord.row, coord.col),
+      numberFormat: numberFormatAt(nf as string[][] | string, item.coord.row, item.coord.col),
       locked,
       spillAddress,
     });
-  }
-
-  if (spillUnavailable && !limitations.some((l) => l.includes("spillAddress"))) {
-    limitations.push(
-      "spillAddress unavailable (getSpillingToRange missing or failed); stored empty",
-    );
-  } else if (spillProbed && !limitations.some((l) => l.includes("spillAddress probed"))) {
-    limitations.push("spillAddress probed via getSpillingToRange when host supports it");
   }
 
   return records;
@@ -202,6 +265,7 @@ export async function collectFormulaCells(
     range?: string;
   },
   limitations: string[],
+  options: CollectFormulaOptions = {},
 ): Promise<{ cells: FormulaCellRecord[]; sourceRange: string }> {
   requireGovernanceScope(input.scope, input.sheetName, input.range);
   const cells: FormulaCellRecord[] = [];
@@ -215,7 +279,9 @@ export async function collectFormulaCells(
       ws.load("name");
       await context.sync();
       if (isBackupSheetName(ws.name)) continue;
-      cells.push(...(await collectFormulaCellsFromSheet(context, ws, undefined, limitations)));
+      cells.push(
+        ...(await collectFormulaCellsFromSheet(context, ws, undefined, limitations, options)),
+      );
     }
   } else {
     const sheet = context.workbook.worksheets.getItem(input.sheetName!);
@@ -226,6 +292,7 @@ export async function collectFormulaCells(
         sheet,
         input.scope === "target" ? input.range : undefined,
         limitations,
+        options,
       )),
     );
   }

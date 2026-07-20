@@ -14,11 +14,17 @@ type SheetState = {
 export function installFormulaGovernanceExcel(options?: {
   sheets?: Array<{ name: string; formulas: string[][]; values?: unknown[][] }>;
   excelApi12?: boolean;
+  excelApi112?: boolean;
+  /** Map "Sheet!A1" or "A1" -> spill range address like "A1:A3". */
+  spillMap?: Record<string, string>;
   /** When false, worksheet.visibility assignment is ignored / not VeryHidden. */
   supportVeryHidden?: boolean;
 }) {
   const excelApi12 = options?.excelApi12 !== false;
+  const excelApi112 = options?.excelApi112 !== false;
+  const spillMap = options?.spillMap ?? {};
   const supportVeryHidden = options?.supportVeryHidden !== false;
+  let syncCount = 0;
   const sheetList: SheetState[] = (options?.sheets ?? [
     {
       name: "Sheet1",
@@ -70,6 +76,10 @@ export function installFormulaGovernanceExcel(options?: {
       n = Math.floor((n - 1) / 26);
     }
     return `${label}${r + 1}`;
+  }
+
+  function resolveSpill(sheetName: string, a1: string): string | null {
+    return spillMap[`${sheetName}!${a1}`] ?? spillMap[a1] ?? null;
   }
 
   function ensureSize(sheet: SheetState, r: number, c: number) {
@@ -256,8 +266,25 @@ export function installFormulaGovernanceExcel(options?: {
         return makeRange(sheet, toA1(box.r0 + row, box.c0 + col));
       },
       getSpillingToRange() {
-        // no spill in default fake
-        const empty = makeRange(sheet, toA1(box.r0, box.c0));
+        const key = toA1(box.r0, box.c0);
+        const target = resolveSpill(sheet.name, key);
+        if (target) {
+          const r = makeRange(sheet, target);
+          (r as { isNullObject: boolean }).isNullObject = false;
+          return r;
+        }
+        // Legacy path: non-spill throws (real hosts may reject) — prefer OrNullObject.
+        throw new Error("Cell is not a spill parent");
+      },
+      getSpillingToRangeOrNullObject() {
+        const key = toA1(box.r0, box.c0);
+        const target = resolveSpill(sheet.name, key);
+        if (target) {
+          const r = makeRange(sheet, target);
+          (r as { isNullObject: boolean }).isNullObject = false;
+          return r;
+        }
+        const empty = makeRange(sheet, key);
         (empty as { isNullObject: boolean }).isNullObject = true;
         return empty;
       },
@@ -351,6 +378,7 @@ export function installFormulaGovernanceExcel(options?: {
     const context = {
       workbook: { worksheets, load() {} },
       async sync() {
+        syncCount += 1;
         for (const r of allRanges) r.commit();
       },
     };
@@ -365,6 +393,7 @@ export function installFormulaGovernanceExcel(options?: {
       requirements: {
         isSetSupported(set: string, version: string) {
           if (set === "ExcelApi" && version === "1.2") return excelApi12;
+          if (set === "ExcelApi" && version === "1.12") return excelApi112;
           return true;
         },
       },
@@ -377,5 +406,9 @@ export function installFormulaGovernanceExcel(options?: {
     formulas: (name = "Sheet1") => findSheet(name).formulas,
     values: (name = "Sheet1") => findSheet(name).values,
     backupSheet: () => sheetList.find((s) => s.name.startsWith("_WenggeFormulaBackup")) ?? null,
+    syncCount: () => syncCount,
+    resetSyncCount: () => {
+      syncCount = 0;
+    },
   };
 }
