@@ -119,31 +119,44 @@ function toInfo(
   };
 }
 
-function assertMatches(info: ChartSeriesMarkersInfo, input: ChartSeriesMarkersUpdateInput): void {
-  if (input.markerStyle !== undefined && info.markerStyle !== input.markerStyle) {
+/**
+ * Compare requested fields to host readback.
+ * Colors are compared after #RRGGBB normalization so direct adapter calls
+ * with lowercase/unprefixed hex do not false-fail (executor also normalizes).
+ */
+function assertMatches(
+  info: ChartSeriesMarkersInfo,
+  expected: {
+    markerStyle?: ChartMarkerStyle;
+    markerSize?: number;
+    markerBackgroundColor?: string;
+    markerForegroundColor?: string;
+  },
+): void {
+  if (expected.markerStyle !== undefined && info.markerStyle !== expected.markerStyle) {
     throw new Error(
-      `markerStyle readback mismatch: expected ${input.markerStyle}, got ${info.markerStyle}`,
+      `markerStyle readback mismatch: expected ${expected.markerStyle}, got ${info.markerStyle}`,
     );
   }
-  if (input.markerSize !== undefined && info.markerSize !== input.markerSize) {
+  if (expected.markerSize !== undefined && info.markerSize !== expected.markerSize) {
     throw new Error(
-      `markerSize readback mismatch: expected ${input.markerSize}, got ${info.markerSize}`,
+      `markerSize readback mismatch: expected ${expected.markerSize}, got ${info.markerSize}`,
     );
   }
   if (
-    input.markerBackgroundColor !== undefined &&
-    info.markerBackgroundColor !== input.markerBackgroundColor
+    expected.markerBackgroundColor !== undefined &&
+    info.markerBackgroundColor !== expected.markerBackgroundColor
   ) {
     throw new Error(
-      `markerBackgroundColor readback mismatch: expected ${input.markerBackgroundColor}, got ${info.markerBackgroundColor}`,
+      `markerBackgroundColor readback mismatch: expected ${expected.markerBackgroundColor}, got ${info.markerBackgroundColor}`,
     );
   }
   if (
-    input.markerForegroundColor !== undefined &&
-    info.markerForegroundColor !== input.markerForegroundColor
+    expected.markerForegroundColor !== undefined &&
+    info.markerForegroundColor !== expected.markerForegroundColor
   ) {
     throw new Error(
-      `markerForegroundColor readback mismatch: expected ${input.markerForegroundColor}, got ${info.markerForegroundColor}`,
+      `markerForegroundColor readback mismatch: expected ${expected.markerForegroundColor}, got ${info.markerForegroundColor}`,
     );
   }
 }
@@ -173,13 +186,22 @@ export async function officeJsUpdateChartSeriesMarkers(
     };
     const chart = sheet.charts.getItem(input.chartName);
     const series = chart.series.getItemAt(input.seriesIndex - 1);
+    // Normalize colors at host layer so adapter-direct and executor paths share contract.
+    const markerBackgroundColor =
+      input.markerBackgroundColor !== undefined
+        ? normalizeMarkerColor(input.markerBackgroundColor, "markerBackgroundColor")
+        : undefined;
+    const markerForegroundColor =
+      input.markerForegroundColor !== undefined
+        ? normalizeMarkerColor(input.markerForegroundColor, "markerForegroundColor")
+        : undefined;
     if (input.markerStyle !== undefined) series.markerStyle = STYLE_TO_HOST[input.markerStyle];
     if (input.markerSize !== undefined) series.markerSize = input.markerSize;
-    if (input.markerBackgroundColor !== undefined) {
-      series.markerBackgroundColor = input.markerBackgroundColor;
+    if (markerBackgroundColor !== undefined) {
+      series.markerBackgroundColor = markerBackgroundColor;
     }
-    if (input.markerForegroundColor !== undefined) {
-      series.markerForegroundColor = input.markerForegroundColor;
+    if (markerForegroundColor !== undefined) {
+      series.markerForegroundColor = markerForegroundColor;
     }
     await context.sync();
     chart.load("name");
@@ -187,7 +209,12 @@ export async function officeJsUpdateChartSeriesMarkers(
     await context.sync();
     const chartName = requireLoadedString(chart.name, "Chart.name");
     const info = toInfo(series, input.sheetName, chartName, input.seriesIndex);
-    assertMatches(info, input);
+    assertMatches(info, {
+      markerStyle: input.markerStyle,
+      markerSize: input.markerSize,
+      markerBackgroundColor,
+      markerForegroundColor,
+    });
     return info;
   });
 }

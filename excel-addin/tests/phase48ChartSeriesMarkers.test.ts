@@ -56,6 +56,72 @@ describe("phase48 chart series markers", () => {
       expect(fake.getCommitted(1)?.markerSize).toBe(9);
     });
 
+
+    it("normalizes lowercase and bare hex colors on direct adapter path", async () => {
+      const result = await new OfficeJsAdapter().updateChartSeriesMarkers({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        markerBackgroundColor: "#ff00aa",
+        markerForegroundColor: "00bbcc",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.markerBackgroundColor).toBe("#FF00AA");
+        expect(result.data.markerForegroundColor).toBe("#00BBCC");
+      }
+      expect(fake.getCommitted(0)?.markerBackgroundColor).toBe("#FF00AA");
+      expect(fake.getCommitted(0)?.markerForegroundColor).toBe("#00BBCC");
+    });
+
+    it("accepts picture markerStyle and maps host Picture readback", async () => {
+      const result = await new OfficeJsAdapter().updateChartSeriesMarkers({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        markerStyle: "picture",
+        markerSize: 20,
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.markerStyle).toBe("picture");
+        expect(result.data.markerSize).toBe(20);
+      }
+      expect(fake.getCommitted(0)?.markerStyle).toBe("Picture");
+    });
+
+    it("tolerates host color case/alpha form on readback after normalized write", async () => {
+      // Write upper-normalized colors, then host returns lowercase/no-hash until load snapshot —
+      // poison committed after write-sync would break same-run; use coerce by writing then
+      // re-read path via second update that only sets size while colors remain mixed case.
+      const first = await new OfficeJsAdapter().updateChartSeriesMarkers({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        markerBackgroundColor: "#AABBCC",
+        markerForegroundColor: "#112233",
+      });
+      expect(first.ok).toBe(true);
+      // Host may store mixed case; poison to lowercase without # to simulate Office readback shapes.
+      fake.poison(0, {
+        markerBackgroundColor: "aabbcc",
+        markerForegroundColor: "#112233",
+      });
+      const second = await new OfficeJsAdapter().updateChartSeriesMarkers({
+        sheetName: "Sheet1",
+        chartName: "C1",
+        seriesIndex: 1,
+        markerSize: 14,
+      });
+      // size-only update must succeed; color fields still load/normalize for result snapshot
+      expect(second.ok).toBe(true);
+      if (second.ok) {
+        expect(second.data.markerSize).toBe(14);
+        expect(second.data.markerBackgroundColor).toBe("#AABBCC");
+        expect(second.data.markerForegroundColor).toBe("#112233");
+      }
+    });
+
     it("fails closed when host coerces style after write", async () => {
       fake.coerceStyleAfterWrite("Circle");
       const result = await new OfficeJsAdapter().updateChartSeriesMarkers({
