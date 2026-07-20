@@ -1,21 +1,18 @@
 /**
  * Transactional WPS JSA install (install-time Node CLI only).
+ * Consumes shared planWpsJsaInstall; --dry-run never mutates AppData.
  */
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createWpsPackage } from "./package-wps-jsa.mjs";
 import {
-  hashMapToObject,
   packageDigest,
   validateWpsPackageDir,
 } from "./wpsJsaInstallValidate.mjs";
 import {
-  emptyPublish,
-  upsertOwnPlugin,
   writePublishXmlAtomic,
   restorePublishBytes,
+  upsertOwnPlugin,
+  emptyPublish,
 } from "./wpsJsaInstallPublish.mjs";
 import {
   writeStateAtomic,
@@ -23,25 +20,25 @@ import {
   hashAddonTree,
 } from "./wpsJsaInstallState.mjs";
 import {
+  formatDryRunResult,
+  planWpsJsaInstall,
+  resolveAndValidatePackage,
+} from "./wpsJsaInstallPlan.mjs";
+import {
   assertInside,
   assertRealDirectory,
-  assertRealFile,
   ensureJsaddonsDir,
   listActiveTempNames,
   lstatIfPresent,
   preflightExistingSurface,
   preflightOwnPrefixedEntries,
   prevAddonDir,
-  resolveAppDataRoot,
-  resolveJsaddonsLayout,
   safeRenameInside,
   safeRmInside,
   stagingDir,
 } from "./wpsJsaInstallPaths.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME } from "./wpsJsaPackage.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const defaultRoot = path.resolve(__dirname, "..");
+import { hashMapToObject } from "./wpsJsaInstallValidate.mjs";
 
 function copyDirReal(src, dest, destRoot) {
   assertRealDirectory(src, "copy source");
@@ -68,7 +65,6 @@ function copyDirReal(src, dest, destRoot) {
   }
 }
 
-/** Exact key set + hash re-verify of staged addon tree. */
 function verifyStagedAddonExact(stageAddonDir, packageValidation) {
   const expected = new Map(
     [...packageValidation.hashes.entries()].filter(([k]) =>
@@ -100,7 +96,9 @@ function snapshotBytesIfPresent(filePath, label) {
 
 function compoundError(primary, rollbackErrors) {
   if (!rollbackErrors.length) return primary;
-  const detail = rollbackErrors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ");
+  const detail = rollbackErrors
+    .map((e) => (e instanceof Error ? e.message : String(e)))
+    .join("; ");
   const err = new Error(
     `${primary instanceof Error ? primary.message : String(primary)} | rollback incomplete: ${detail}`,
   );
@@ -118,39 +116,32 @@ function compoundError(primary, rollbackErrors) {
  *   skipBuild?: boolean,
  *   platform?: string,
  *   env?: NodeJS.ProcessEnv,
+ *   dryRun?: boolean,
  *   failAfter?: string|null,
  *   afterValidate?: (packageDir: string) => void,
+ *   createWpsPackage?: Function,
  * }} opts
  */
 export function installWpsJsa(opts = {}) {
-  const warnings = [];
-  let packageDir = opts.packageDir ? path.resolve(opts.packageDir) : null;
-  let built = false;
-
-  if (!packageDir) {
-    const summary = createWpsPackage({
-      rootDir: opts.rootDir || defaultRoot,
-      gitSha: opts.gitSha || undefined,
-      skipBuild: opts.skipBuild === true,
-    });
-    packageDir = summary.distDir;
-    built = true;
+  if (opts.dryRun === true) {
+    const plan = planWpsJsaInstall(opts);
+    return formatDryRunResult(plan);
   }
 
-  let validated = validateWpsPackageDir(packageDir);
-  if (typeof opts.afterValidate === "function") {
-    opts.afterValidate(packageDir);
-  }
-  // Re-validate after optional seam so package TOCTOU fails before appData mutation.
-  validated = validateWpsPackageDir(packageDir);
-
-  const appData = resolveAppDataRoot({
-    appData: opts.appData,
-    platform: opts.platform,
-    env: opts.env,
+  // Shared package resolution + plan (read-only AppData inspection)
+  const packageResolution = resolveAndValidatePackage(opts);
+  const plan = planWpsJsaInstall({
+    ...opts,
+    packageResolution,
   });
-  const layout = resolveJsaddonsLayout(appData);
+
+  const warnings = [...plan.warnings];
+  const layout = plan.layout;
+  const appData = plan.appData;
+
+  // Mutations begin: ensure dirs then TOCTOU revalidate package + re-preflight
   ensureJsaddonsDir(layout.jsaddons, layout.appData);
+  const validated = validateWpsPackageDir(packageResolution.packageDir);
   preflightExistingSurface(layout);
   preflightOwnPrefixedEntries(layout.jsaddons);
 
@@ -159,6 +150,7 @@ export function installWpsJsa(opts = {}) {
   const hadOldAddon = Boolean(lstatIfPresent(layout.addonDir));
   if (hadOldAddon) assertRealDirectory(layout.addonDir, "existing addon");
 
+  // Re-plan publish merge from live bytes after TOCTOU
   let currentPublish = emptyPublish();
   if (oldPublish.existed) currentPublish = oldPublish.bytes;
   const merged = upsertOwnPlugin(currentPublish);
@@ -168,7 +160,6 @@ export function installWpsJsa(opts = {}) {
   const stageAddon = path.join(stageRoot, WPS_ADDON_DIRECTORY);
   let prevDir = null;
   let swapped = false;
-  let publishCommitted = false;
   const failAfter = opts.failAfter || null;
 
   function runFail(name) {
@@ -228,8 +219,6 @@ export function installWpsJsa(opts = {}) {
 
   try {
     copyDirReal(validated.addonDir, stageAddon, layout.jsaddons);
-    // Re-validate after copy against original validated hashes (exact set)
-    // and re-read staged tree so post-validate package extras fail.
     verifyStagedAddonExact(stageAddon, validated);
 
     if (hadOldAddon) {
@@ -243,7 +232,7 @@ export function installWpsJsa(opts = {}) {
     try {
       if (lstatIfPresent(stageRoot)) safeRmInside(layout.jsaddons, stageRoot);
     } catch {
-      /* best effort empty stage root */
+      /* best effort */
     }
     runFail("addon-swap");
 
@@ -252,7 +241,6 @@ export function installWpsJsa(opts = {}) {
       failAfterCommit: () => runFail("publish-write-after"),
       collectRotateWarning: (msg) => warnings.push(`publish backup rotate: ${msg}`),
     });
-    publishCommitted = true;
 
     const addonHashes = new Map(
       [...validated.hashes.entries()].filter(([k]) =>
@@ -270,7 +258,7 @@ export function installWpsJsa(opts = {}) {
       packageDigest: packageDigest(validated.hashes),
       fileHashes: hashMapToObject(addonHashes),
       restartRequired: true,
-      builtPackage: built,
+      builtPackage: packageResolution.built,
     };
 
     writeStateAtomic(layout.jsaddons, layout.stateFile, state, {
@@ -278,7 +266,6 @@ export function installWpsJsa(opts = {}) {
       failAfterCommit: () => runFail("state-write-after"),
     });
 
-    // success: cleanup previous addon backup
     if (prevDir && lstatIfPresent(prevDir)) {
       try {
         safeRmInside(layout.jsaddons, prevDir);
@@ -295,6 +282,7 @@ export function installWpsJsa(opts = {}) {
     return {
       ok: true,
       action: "install",
+      dryRun: false,
       installed: true,
       addonDirectory: WPS_ADDON_DIRECTORY,
       packageVersion: state.packageVersion,
@@ -305,9 +293,17 @@ export function installWpsJsa(opts = {}) {
       restartRequired: true,
       message:
         "Installed. Fully quit and restart WPS before loading the add-in. This tool does not start or stop WPS.",
-      warnings,
-      packageDir,
+      warnings: [...new Set(warnings)],
+      packageDir: packageResolution.packageDir,
       activeTemps: listActiveTempNames(layout.jsaddons),
+      // plan consistency fields (actual)
+      wouldCreateJsaddons: plan.wouldCreateJsaddons,
+      wouldReplaceAddon: plan.wouldReplaceAddon,
+      wouldCreatePublish: plan.wouldCreatePublish,
+      wouldUpdatePublish: plan.wouldUpdatePublish,
+      wouldWriteState: true,
+      existingOwnEntry: plan.existingOwnEntry,
+      preservedPluginNames: plan.preservedPluginNames,
     };
   } catch (error) {
     if (error && error.rollbackErrors) throw error;

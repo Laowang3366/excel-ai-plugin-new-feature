@@ -146,11 +146,15 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 npm run manifest:wps:check
 npm run package:wps -- --git-sha 0123456789abcdef
 
-# 推荐：构建并安装（Windows 默认 %APPDATA%；非 Windows 必须显式 --app-data）
-npm run wps:install -- --git-sha 0123456789abcdef --app-data /path/to/AppData/Roaming
+# 推荐：先打包，再只读预演（保证 AppData/jsaddons 零写入；可对真实 %APPDATA% 安全检查）
+npm run package:wps -- --git-sha 0123456789abcdef
+npm run wps:install -- --package-dir ./dist --app-data /path/to/AppData/Roaming --dry-run
 
-# 仅安装已有包（不重建）
+# 确认计划后真实安装（Windows 默认 %APPDATA%；非 Windows 必须显式 --app-data）
 npm run wps:install -- --package-dir ./dist --app-data /path/to/AppData/Roaming
+
+# 无 --package-dir 时会先重建项目 dist/ 再安装（dry-run 亦可能写 dist，但不写 AppData）
+npm run wps:install -- --git-sha 0123456789abcdef --app-data /path/to/AppData/Roaming
 
 npm run wps:status -- --app-data /path/to/AppData/Roaming
 npm run wps:uninstall -- --app-data /path/to/AppData/Roaming

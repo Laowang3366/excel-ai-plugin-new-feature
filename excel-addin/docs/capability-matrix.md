@@ -180,9 +180,10 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | Windows 信任开发 CA | **未在本仓库验收** | 需在开发机执行 `certs:install` |
 | Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
 | WPS 正式本地 jsaddons 包生成 | **可生成** | `npm run package:wps`；布局对齐桌面 bridge 的 publish/url 合同；**真实 WPS 侧载尚未验收** |
-| WPS JSA 可重复安装 CLI | **已提供** | `npm run wps:install|status|uninstall`；安全合并 `publish.xml`、原子 addon swap、包哈希校验；**真实 WPS 侧载仍未验收** |
+| WPS JSA 可重复安装 CLI | **已提供** | `npm run wps:install|status|uninstall`；`--dry-run` 只读预演（AppData 零写入）；安全合并 `publish.xml`、原子 addon swap、包哈希校验；**真实 WPS 侧载仍未验收** |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase57: WPS install `--dry-run` shared plan, AppData zero-write preview.
 - Phase56.2: WPS install CLI true uninstall transaction + honest multi-package install rollback + CLI exit codes.
 - Phase56.1: WPS install CLI hardened (raw SHA path, tokenizer, true rollback, honest status hashes).
 - Phase56: install-time WPS JSA CLI (`wps:install`/`status`/`uninstall`) for repeatable jsaddons merge; tools still 98; **not** real WPS sideload verified.

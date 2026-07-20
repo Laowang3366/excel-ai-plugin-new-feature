@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -6,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  statSync,
   rmSync,
   symlinkSync,
   utimesSync,
@@ -524,5 +526,211 @@ describe("package validate", () => {
   it("accepts built package", () => {
     const { packageDir } = buildPackage("v");
     expect(validateWpsPackageDir(packageDir).buildInfo.target).toBe("wps-jsa");
+  });
+});
+
+describe("Phase57 dry-run zero AppData writes", () => {
+  function snapshotTree(rootDir: string): { entries: string[]; files: Record<string, { size: number; mtimeMs: number; sha: string }> } {
+    const entries: string[] = [];
+    const files: Record<string, { size: number; mtimeMs: number; sha: string }> = {};
+    if (!existsSync(rootDir)) return { entries, files };
+    const walk = (dir: string, rel = "") => {
+      for (const name of readdirSync(dir).sort()) {
+        const abs = path.join(dir, name);
+        const r = rel ? `${rel}/${name}` : name;
+        entries.push(r);
+        const st = statSync(abs);
+        if (st.isDirectory()) walk(abs, r);
+        else if (st.isFile()) {
+          files[r] = {
+            size: st.size,
+            mtimeMs: st.mtimeMs,
+            sha: createHash("sha256").update(readFileSync(abs)).digest("hex"),
+          };
+        }
+      }
+    };
+    walk(rootDir);
+    return { entries, files };
+  }
+
+  it("absent appData: succeeds and path still missing", () => {
+    const { packageDir } = buildPackage("dry-absent");
+    const appData = path.join(makeTempRoot("parent-"), "no-appdata-yet");
+    expect(existsSync(appData)).toBe(false);
+    const r = installWpsJsa({
+      packageDir,
+      appData,
+      platform: "linux",
+      dryRun: true,
+      createWpsPackage: () => {
+        throw new Error("createWpsPackage must not run with packageDir");
+      },
+    });
+    expect(r.dryRun).toBe(true);
+    expect(r.wouldCreateJsaddons).toBe(true);
+    expect(r.wouldCreatePublish).toBe(true);
+    if (!("wouldWriteState" in r) || !("wouldInstall" in r)) {
+      throw new Error("expected dry-run plan fields");
+    }
+    expect(r.wouldWriteState).toBe(true);
+    expect(r.wouldInstall).toBe(true);
+    expect(existsSync(appData)).toBe(false);
+  });
+
+  it("empty existing appData/jsaddons: bytes+mtime+entries unchanged", () => {
+    const { packageDir } = buildPackage("dry-empty");
+    const appData = makeTempRoot("app-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(js, { recursive: true });
+    const before = snapshotTree(appData);
+    const r = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(r.dryRun).toBe(true);
+    expect(r.wouldCreateJsaddons).toBe(false);
+    expect(r.wouldCreatePublish).toBe(true);
+    expect(snapshotTree(appData)).toEqual(before);
+  });
+
+  it("real host fixture preserved; bytes/mtime unchanged", () => {
+    const { packageDir } = buildPackage("dry-host");
+    const appData = makeTempRoot("app-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(path.join(js, "ExcelAIWps_0.1.30"), { recursive: true });
+    writeFileSync(
+      path.join(js, "publish.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<jsplugins>
+  <jsplugin name="ExcelAIWps" enable="enable_dev" url="file://" type="et" version="0.1.30" />
+</jsplugins>
+`,
+    );
+    writeFileSync(path.join(js, "publish.xml.bak.2020"), "LEGACY");
+    writeFileSync(path.join(js, "ExcelAIWps_0.1.30/keep.txt"), "k");
+    const before = snapshotTree(appData);
+    const r = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(r.preservedPluginNames).toContain("ExcelAIWps");
+    expect(r.warnings.some((w: string) => /ExcelAIWps/i.test(w))).toBe(true);
+    expect(r.wouldUpdatePublish).toBe(true);
+    expect(r.existingOwnEntry).toBe(false);
+    expect(snapshotTree(appData)).toEqual(before);
+  });
+
+  it("already installed current: no backup/temp/state mutation", () => {
+    const { packageDir } = buildPackage("dry-cur");
+    const appData = makeTempRoot("app-");
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const js = jsaddonsOf(appData);
+    const statePath = path.join(js, "wengge-excel-ai-addin-install-state.json");
+    const stateBefore = readFileSync(statePath, "utf8");
+    const before = snapshotTree(appData);
+    const r = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(r.existingOwnEntry).toBe(true);
+    expect(r.wouldReplaceAddon).toBe(true);
+    expect(r.wouldUpdatePublish).toBe(false);
+    expect(snapshotTree(appData)).toEqual(before);
+    expect(readFileSync(statePath, "utf8")).toBe(stateBefore);
+    expect(activeTemps(appData)).toEqual([]);
+  });
+
+  it("own attrs drift: wouldUpdatePublish true, no write", () => {
+    const { packageDir } = buildPackage("dry-drift");
+    const appData = makeTempRoot("app-");
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const js = jsaddonsOf(appData);
+    writeFileSync(
+      path.join(js, "publish.xml"),
+      `<?xml version="1.0" encoding="UTF-8"?>
+<jsplugins>
+  <jsplugin name="${WPS_ADDON_NAME}" type="et" url="${WPS_PUBLISH_URL}" enable="enable_dev" />
+</jsplugins>
+`,
+    );
+    const before = snapshotTree(appData);
+    const r = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(r.wouldUpdatePublish).toBe(true);
+    expect(snapshotTree(appData)).toEqual(before);
+  });
+
+  it("malformed publish / DOCTYPE fail closed with zero tree change", () => {
+    const { packageDir } = buildPackage("dry-bad");
+    const appData = makeTempRoot("app-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(js, { recursive: true });
+    writeFileSync(
+      path.join(js, "publish.xml"),
+      `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY y "z">]><jsplugins></jsplugins>`,
+    );
+    const before = snapshotTree(appData);
+    expect(() =>
+      installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true }),
+    ).toThrow(/DOCTYPE|ENTITY/i);
+    expect(snapshotTree(appData)).toEqual(before);
+  });
+
+  it("package-dir dry-run never calls createWpsPackage", () => {
+    const { packageDir } = buildPackage("dry-nobuild");
+    const appData = makeTempRoot("app-");
+    let called = 0;
+    installWpsJsa({
+      packageDir,
+      appData,
+      platform: "linux",
+      dryRun: true,
+      createWpsPackage: () => {
+        called += 1;
+        throw new Error("build");
+      },
+    });
+    expect(called).toBe(0);
+  });
+
+  it("plan fields match subsequent real install surface", () => {
+    const { packageDir } = buildPackage("plan-real");
+    const appData = makeTempRoot("app-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(js, { recursive: true });
+    writeFileSync(
+      path.join(js, "publish.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<jsplugins>
+  <jsplugin name="ExcelAIWps" enable="enable_dev" url="file://" type="et" version="0.1.30" />
+</jsplugins>
+`,
+    );
+    const plan = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    expect(plan.preservedPluginNames).toEqual(["ExcelAIWps"]);
+    expect(plan.wouldCreateJsaddons).toBe(false);
+    expect(plan.wouldReplaceAddon).toBe(false);
+    const real = installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(real.ok).toBe(true);
+    expect(real.preservedPluginNames).toEqual(plan.preservedPluginNames);
+    const st = statusWpsJsa({ appData, platform: "linux" });
+    expect(st.current).toBe(true);
+    const names = parseJspluginsDocument(
+      readFileSync(path.join(js, "publish.xml"), "utf8"),
+    ).plugins.map((p) => (p.attrs as Record<string, string>).name);
+    expect(names).toContain("ExcelAIWps");
+    expect(names).toContain(WPS_ADDON_NAME);
+  });
+
+  it("CLI: dry-run exit 0 JSON; status/uninstall --dry-run exit 1", () => {
+    const { packageDir } = buildPackage("cli-dry");
+    const appData = makeTempRoot("app-");
+    const node = process.execPath;
+    const installCli = path.join(root, "scripts/wps-jsa-install.mjs");
+    const statusCli = path.join(root, "scripts/wps-jsa-status.mjs");
+    const uninstallCli = path.join(root, "scripts/wps-jsa-uninstall.mjs");
+    const dry = spawnSync(
+      node,
+      [installCli, "--package-dir", packageDir, "--app-data", appData, "--dry-run"],
+      { encoding: "utf8" },
+    );
+    expect(dry.status).toBe(0);
+    const json = JSON.parse(dry.stdout);
+    expect(json.dryRun).toBe(true);
+    expect(json.wouldInstall).toBe(true);
+    expect(existsSync(jsaddonsOf(appData))).toBe(false);
+    expect(spawnSync(node, [statusCli, "--dry-run"], { encoding: "utf8" }).status).toBe(1);
+    expect(spawnSync(node, [uninstallCli, "--dry-run"], { encoding: "utf8" }).status).toBe(1);
   });
 });

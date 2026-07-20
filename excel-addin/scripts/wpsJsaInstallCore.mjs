@@ -21,3 +21,8 @@ export {
   rotateOwnPublishBackups,
   resolveAppDataRoot,
 } from "./wpsJsaInstallPaths.mjs";
+export {
+  planWpsJsaInstall,
+  formatDryRunResult,
+  resolveAndValidatePackage,
+} from "./wpsJsaInstallPlan.mjs";

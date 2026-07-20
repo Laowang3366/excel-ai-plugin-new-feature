@@ -16,21 +16,27 @@ function takeValue(argv, i, flag) {
 
 /**
  * @param {string[]} argv
- * @param {{ allowGitSha?: boolean, allowPackageDir?: boolean }} flags
+ * @param {{ allowGitSha?: boolean, allowPackageDir?: boolean, allowDryRun?: boolean }} flags
  */
 export function parseWpsInstallCliArgs(argv, flags = {}) {
   const allowGitSha = flags.allowGitSha === true;
   const allowPackageDir = flags.allowPackageDir === true;
+  const allowDryRun = flags.allowDryRun === true;
   const out = {
     gitSha: null,
     packageDir: null,
     appData: null,
     help: false,
+    dryRun: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "-h" || a === "--help") {
       out.help = true;
+      continue;
+    }
+    if (allowDryRun && a === "--dry-run") {
+      out.dryRun = true;
       continue;
     }
     if (a === "--app-data") {
