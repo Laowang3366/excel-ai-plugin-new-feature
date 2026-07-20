@@ -34,6 +34,8 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "sheet.pageLayout.get",
   "shape.list",
   "pivot.list",
+  "slicer.list",
+  "slicer.filter.get",
 ] as const;
 
 export type ChatReadOnlyToolName = (typeof CHAT_READONLY_TOOL_ALLOWLIST)[number];

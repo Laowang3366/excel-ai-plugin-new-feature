@@ -120,6 +120,20 @@ import { buildPivotFieldPlan } from "../shared/host/officeJsPivotFields";
 import { parsePivotDestination } from "../shared/host/officeJsPivotDestination";
 import { validateBareA1 } from "../shared/host/officeJsChartSource";
 import { PIVOT_DEFAULT_SHEET } from "../shared/host/pivotTypes";
+import type {
+  SlicerCreateInfo,
+  SlicerCreateInput,
+  SlicerDeleteInfo,
+  SlicerDeleteInput,
+  SlicerFilterApplyInput,
+  SlicerFilterClearInput,
+  SlicerFilterGetInput,
+  SlicerFilterInfo,
+  SlicerInfo,
+  SlicerListInfo,
+  SlicerListInput,
+  SlicerUpdateInput,
+} from "../shared/host/slicerTypes";
 
 function key(sheet: string, address: string): string {
   return `${sheet}!${address.toUpperCase()}`;
@@ -550,6 +564,7 @@ export class MockHostAdapter implements HostAdapter {
   formulaBackupRows: FormulaBackupRow[] = [];
   formulaBackupSheetName: string | null = null;
   private pivots: PivotTableInfo[] = [];
+  private slicers: Array<SlicerInfo & { items: Array<{ key: string; name: string; isSelected: boolean; hasData: boolean }> }> = [];
   formulaProtectionSheets = new Map<
     string,
     {
@@ -2132,4 +2147,155 @@ export class MockHostAdapter implements HostAdapter {
     }
     return ok(result);
   }
+
+  async listSlicers(input: SlicerListInput = {}): Promise<HostResult<SlicerListInfo>> {
+    let list = this.slicers.map(({ items: _i, ...s }) => ({ ...s }));
+    if (input.sheetName) list = list.filter((s) => s.sheetName === input.sheetName);
+    list.sort((a, b) => {
+      const sheet = a.sheetName.localeCompare(b.sheetName);
+      return sheet !== 0 ? sheet : a.name.localeCompare(b.name);
+    });
+    return ok({
+      slicers: list,
+      limitations: [
+        "mock host slicer inventory",
+        "Stable Excel.Slicer has no sourceName/sourceType/sourceField readback",
+      ],
+    });
+  }
+
+  async createSlicer(input: SlicerCreateInput): Promise<HostResult<SlicerCreateInfo>> {
+    if (input.advancedIntent !== "interactive-pivot") {
+      return fail("slicer.create", this.kind, "advancedIntent must be interactive-pivot");
+    }
+    if (!this.sheets.some((s) => s.name === input.destinationSheet)) {
+      return fail("slicer.create", this.kind, `destination sheet not found: ${input.destinationSheet}`);
+    }
+    if (input.sourceType === "pivotTable") {
+      if (!this.pivots.some((p) => p.name === input.sourceName)) {
+        return fail("slicer.create", this.kind, `pivot not found: ${input.sourceName}`);
+      }
+    } else if (input.sourceType === "table") {
+      if (!this.tables.some((t) => t.name === input.sourceName)) {
+        return fail("slicer.create", this.kind, `table not found: ${input.sourceName}`);
+      }
+    } else {
+      return fail("slicer.create", this.kind, "sourceType must be table or pivotTable");
+    }
+    const name = input.name?.trim() || `Slicer_${this.slicers.length + 1}`;
+    if (this.slicers.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+      return fail("slicer.create", this.kind, `slicer already exists: ${name}`);
+    }
+    const info: SlicerInfo & {
+      items: Array<{ key: string; name: string; isSelected: boolean; hasData: boolean }>;
+    } = {
+      name,
+      id: `mock-slicer-${this.slicers.length + 1}`,
+      caption: input.caption ?? name,
+      sheetName: input.destinationSheet,
+      top: input.top ?? 0,
+      left: input.left ?? 0,
+      width: input.width ?? 100,
+      height: input.height ?? 150,
+      sortBy: input.sortBy ?? "dataSourceOrder",
+      style: input.style ?? "SlicerStyleLight1",
+      isFilterCleared: true,
+      limitations: [
+        "Stable Excel.Slicer has no source readback; requestedSource is create input only",
+      ],
+      items: [
+        { key: "A", name: "A", isSelected: true, hasData: true },
+        { key: "B", name: "B", isSelected: true, hasData: true },
+        { key: "C", name: "C", isSelected: true, hasData: true },
+      ],
+    };
+    this.slicers.push(info);
+    const { items: _items, ...snapshot } = info;
+    return ok({
+      ...snapshot,
+      requestedSource: {
+        sourceType: input.sourceType,
+        sourceName: input.sourceName,
+        sourceField: input.sourceField,
+      },
+      verification: {
+        ok: true,
+        objectExists: true,
+        nameMatches: true,
+        checks: [{ name: "mock", ok: true }],
+      },
+    });
+  }
+
+  async updateSlicer(input: SlicerUpdateInput): Promise<HostResult<SlicerInfo>> {
+    const fields = ["newName", "caption", "top", "left", "width", "height", "style", "sortBy"] as const;
+    if (!fields.some((f) => input[f] !== undefined)) {
+      return fail("slicer.update", this.kind, "empty update: provide at least one writable field");
+    }
+    const slicer = this.slicers.find((s) => s.name === input.name);
+    if (!slicer) return fail("slicer.update", this.kind, `slicer not found: ${input.name}`);
+    if (input.newName !== undefined) slicer.name = input.newName;
+    if (input.caption !== undefined) slicer.caption = input.caption;
+    if (input.top !== undefined) slicer.top = input.top;
+    if (input.left !== undefined) slicer.left = input.left;
+    if (input.width !== undefined) slicer.width = input.width;
+    if (input.height !== undefined) slicer.height = input.height;
+    if (input.style !== undefined) slicer.style = input.style;
+    if (input.sortBy !== undefined) slicer.sortBy = input.sortBy;
+    const { items: _i, ...snap } = slicer;
+    return ok({ ...snap });
+  }
+
+  async deleteSlicer(input: SlicerDeleteInput): Promise<HostResult<SlicerDeleteInfo>> {
+    const idx = this.slicers.findIndex((s) => s.name === input.name);
+    if (idx < 0) return fail("slicer.delete", this.kind, `slicer not found: ${input.name}`);
+    const deleted = this.slicers[idx]!.name;
+    this.slicers.splice(idx, 1);
+    return ok({ deleted });
+  }
+
+  private filterInfoFrom(
+    slicer: (typeof this.slicers)[number],
+  ): SlicerFilterInfo {
+    const selectedKeys = slicer.items.filter((i) => i.isSelected).map((i) => i.key);
+    return {
+      name: slicer.name,
+      isFilterCleared: slicer.isFilterCleared,
+      selectedKeys,
+      items: slicer.items.map((i) => ({ ...i })),
+      itemCount: slicer.items.length,
+      truncated: false,
+      verified: true,
+      limitations: ["selectItems([]) selects all (official)"],
+    };
+  }
+
+  async getSlicerFilter(input: SlicerFilterGetInput): Promise<HostResult<SlicerFilterInfo>> {
+    const slicer = this.slicers.find((s) => s.name === input.name);
+    if (!slicer) return fail("slicer.filter.get", this.kind, `slicer not found: ${input.name}`);
+    return ok(this.filterInfoFrom(slicer));
+  }
+
+  async applySlicerFilter(input: SlicerFilterApplyInput): Promise<HostResult<SlicerFilterInfo>> {
+    const slicer = this.slicers.find((s) => s.name === input.name);
+    if (!slicer) return fail("slicer.filter.apply", this.kind, `slicer not found: ${input.name}`);
+    if (input.keys.length === 0) {
+      for (const item of slicer.items) item.isSelected = true;
+      slicer.isFilterCleared = true;
+    } else {
+      const set = new Set(input.keys);
+      for (const item of slicer.items) item.isSelected = set.has(item.key);
+      slicer.isFilterCleared = false;
+    }
+    return ok(this.filterInfoFrom(slicer));
+  }
+
+  async clearSlicerFilter(input: SlicerFilterClearInput): Promise<HostResult<SlicerFilterInfo>> {
+    const slicer = this.slicers.find((s) => s.name === input.name);
+    if (!slicer) return fail("slicer.filter.clear", this.kind, `slicer not found: ${input.name}`);
+    for (const item of slicer.items) item.isSelected = true;
+    slicer.isFilterCleared = true;
+    return ok(this.filterInfoFrom(slicer));
+  }
+
 }

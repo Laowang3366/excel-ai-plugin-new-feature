@@ -97,7 +97,14 @@ export type ToolName =
   | "shape.update"
   | "pivot.list"
   | "pivot.create"
-  | "pivot.refresh";
+  | "pivot.refresh"
+  | "slicer.list"
+  | "slicer.create"
+  | "slicer.update"
+  | "slicer.delete"
+  | "slicer.filter.get"
+  | "slicer.filter.apply"
+  | "slicer.filter.clear";
 
 export type RiskLevel = "safe" | "moderate" | "dangerous";
 

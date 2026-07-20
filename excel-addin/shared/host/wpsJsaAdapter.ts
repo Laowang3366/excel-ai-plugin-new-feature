@@ -36,6 +36,7 @@ import {
   wpsListPivots,
   wpsRefreshPivots,
 } from "./wpsJsaPivotUnsupported";
+import { WpsJsaSlicerSupport } from "./wpsJsaSlicerUnsupported";
 import { wpsCopySheet, wpsMoveSheet } from "./wpsJsaSheetOps";
 import { wpsReadRange } from "./wpsJsaRangeRead";
 import { wpsStructureSurface } from "./wpsJsaStructure";
@@ -61,7 +62,7 @@ import type {
 } from "./types";
 import { ok, unsupported } from "./types";
 /** Core WPS JSA adapter: status/selection/range/formula/sheet + unsupported phase3 caps. */
-export class WpsJsaAdapter implements HostAdapter {
+export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
   readonly kind = "wps-jsa" as const;
 
   getRuntimeCapabilities() {

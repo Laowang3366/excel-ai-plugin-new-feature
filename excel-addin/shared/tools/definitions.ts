@@ -31,6 +31,7 @@ import {
   DATA_VALIDATION_TOOL_DEFINITIONS,
 } from "./validationDefinitions";
 import { PIVOT_TOOL_DEFINITIONS } from "./pivotDefinitions";
+import { SLICER_TOOL_DEFINITIONS } from "./slicerDefinitions";
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
@@ -343,4 +344,5 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...FORMULA_PROTECTION_TOOL_DEFINITIONS,
   ...FORMULA_GOVERNANCE_TOOL_DEFINITIONS,
   ...PIVOT_TOOL_DEFINITIONS,
+  ...SLICER_TOOL_DEFINITIONS,
 ];

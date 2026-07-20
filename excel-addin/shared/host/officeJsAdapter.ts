@@ -5,6 +5,7 @@ import {
   officeJsListPivots,
   officeJsRefreshPivots,
 } from "./officeJsPivot";
+import { officeJsSlicerMethods } from "./officeJsSlicerFacade";
 import {
   getExcelRun,
   getOfficeJsRuntimeCapabilities,
@@ -354,4 +355,11 @@ export class OfficeJsAdapter implements HostAdapter {
   listPivots = officeJsListPivots;
   createPivot = officeJsCreatePivot;
   refreshPivots = officeJsRefreshPivots;
+  listSlicers = officeJsSlicerMethods.listSlicers;
+  createSlicer = officeJsSlicerMethods.createSlicer;
+  updateSlicer = officeJsSlicerMethods.updateSlicer;
+  deleteSlicer = officeJsSlicerMethods.deleteSlicer;
+  getSlicerFilter = officeJsSlicerMethods.getSlicerFilter;
+  applySlicerFilter = officeJsSlicerMethods.applySlicerFilter;
+  clearSlicerFilter = officeJsSlicerMethods.clearSlicerFilter;
 }

@@ -91,3 +91,21 @@ export type {
   ChartSeriesAxisGroupInfo,
   ChartSeriesAxisGroupUpdateInput,
 } from "./chartSeriesAxisGroupTypes";
+
+export type {
+  SlicerCreateInfo,
+  SlicerCreateInput,
+  SlicerDeleteInfo,
+  SlicerDeleteInput,
+  SlicerFilterApplyInput,
+  SlicerFilterClearInput,
+  SlicerFilterGetInput,
+  SlicerFilterInfo,
+  SlicerInfo,
+  SlicerListInfo,
+  SlicerListInput,
+  SlicerSortBy,
+  SlicerSourceType,
+  SlicerUpdateInput,
+} from "./slicerTypes";
+export type { SlicerHostMethods } from "./slicerHostMethods";

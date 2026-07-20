@@ -295,7 +295,7 @@ describe("phase47 chart series trendlines", () => {
       expect(names).toContain("chart.series.trendlines.add");
       expect(names).toContain("chart.series.trendlines.update");
       expect(names).toContain("chart.series.trendlines.delete");
-      expect(TOOL_DEFINITIONS).toHaveLength(89);
+      expect(TOOL_DEFINITIONS).toHaveLength(96);
       expect(listChatReadOnlyTools().map((d) => d.name)).toContain(
         "chart.series.trendlines.list",
       );

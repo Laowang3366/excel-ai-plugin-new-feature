@@ -250,11 +250,11 @@ describe("phase49 chart series trendline format", () => {
       }
     });
 
-    it("registers tool and keeps total count 89", () => {
+    it("registers tool and keeps total count 96", () => {
       expect(TOOL_DEFINITIONS.map((t) => t.name)).toContain(
         "chart.series.trendlines.format.update",
       );
-      expect(TOOL_DEFINITIONS).toHaveLength(89);
+      expect(TOOL_DEFINITIONS).toHaveLength(96);
       const def = TOOL_DEFINITIONS.find(
         (t) => t.name === "chart.series.trendlines.format.update",
       );

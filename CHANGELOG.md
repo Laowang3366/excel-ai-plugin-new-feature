@@ -4,6 +4,10 @@
 
 ## 未发布
 
+### Excel 加载项
+
+- 新增 Office.js 切片器工具（`slicer.list` / `slicer.create` / `slicer.update` / `slicer.delete` / `slicer.filter.get|apply|clear`，ExcelApi 1.10 稳定子集）；创建需 `advancedIntent=interactive-pivot`，支持 Table/PivotTable 源；宿主无法回读来源字段时返回 `requestedSource` 与 limitations；`selectItems([])` 表示全选。WPS 仍为 typed unsupported。**尚未真实 Excel/WPS 侧载验收。**
+
 - 独立 Excel 加载项 Phase53.3：DataValidation type/operator/alertStyle 宿主枚举回读改为仅大小写不敏感的精确匹配（enum exact readback）；**未**真实侧载验证。
 
 - 独立 Excel 加载项 Phase53.2：DataValidation 完整 surface 类型校验 + 纯 planDvRuleWrite 写前计划；**未**真实侧载验证。

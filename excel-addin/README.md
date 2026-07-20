@@ -72,7 +72,7 @@ VITE_BASE=excel-addin npm run build
 | 路径 | 职责 |
 |------|------|
 | `shared/host` | HostAdapter、Office.js / WPS JSA 适配 |
-| `shared/tools` | Phase 1–36 工具合同与执行（写后回读可显式开启；**schema 默认 `additionalProperties:false`，拒绝未知字段**） |
+| `shared/tools` | 模型可见工具合同与执行（随 registry 扩展；写后回读可显式开启；**schema 默认 `additionalProperties:false`，拒绝未知字段**） |
 | `shared/provider` | 供应商模板 CRUD / active / apiFormat；三协议 stream provider + factory |
 | `shared/agent` / `shared/agentChat` | 离线 AgentLoop、聊天控制器、审批 gate（非 alwaysAllow） |
 | `shared/prompts` | 同步生成的提示词与 manifest |
