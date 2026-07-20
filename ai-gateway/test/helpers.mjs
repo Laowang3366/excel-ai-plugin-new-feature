@@ -28,7 +28,7 @@ export function startFakeUpstream(opts = {}) {
     });
 
     if (opts.hang) {
-      // never respond
+      // never respond (no headers)
       return;
     }
     if (opts.delayMs) {
@@ -44,6 +44,14 @@ export function startFakeUpstream(opts = {}) {
       ...(opts.headers || {}),
     };
     res.writeHead(status, headers);
+
+    if (opts.hangAfterHeaders) {
+      // headers sent, body never completes
+      if (opts.hangAfterHeadersWrite) {
+        res.write(opts.hangAfterHeadersWrite);
+      }
+      return;
+    }
 
     if (opts.streamChunks) {
       for (const chunk of opts.streamChunks) {

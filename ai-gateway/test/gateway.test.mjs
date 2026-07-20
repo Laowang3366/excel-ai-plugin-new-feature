@@ -310,6 +310,121 @@ describe("ai-gateway http", () => {
     }
   });
 
+
+  it("total timeout covers slow response body after headers", async () => {
+    const up = await startFakeUpstream({ hangAfterHeaders: true, hangAfterHeadersWrite: "partial" });
+    const gw = await startGateway({
+      upstreamPort: up.port,
+      env: {
+        AI_GATEWAY_CONNECT_TIMEOUT_MS: "100",
+        AI_GATEWAY_TOTAL_TIMEOUT_MS: "150",
+      },
+    });
+    try {
+      const started = Date.now();
+      let sawHeaders = false;
+      let closed = false;
+      const http = await import("node:http");
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("body total timeout wait")), 3000);
+        const req = http.request(
+          {
+            hostname: "127.0.0.1",
+            port: gw.port,
+            path: "/api/ai/v1/fake/models",
+            method: "GET",
+          },
+          (res) => {
+            sawHeaders = true;
+            // headers should arrive (200 from upstream) before total timeout kills stream
+            assert.equal(res.statusCode, 200);
+            res.on("data", () => {});
+            res.on("close", () => {
+              closed = true;
+              clearTimeout(timer);
+              resolve();
+            });
+            res.on("end", () => {
+              closed = true;
+              clearTimeout(timer);
+              resolve();
+            });
+          },
+        );
+        req.on("error", () => {
+          closed = true;
+          clearTimeout(timer);
+          resolve();
+        });
+        req.end();
+      });
+      assert.equal(sawHeaders, true);
+      assert.equal(closed, true);
+      assert.ok(Date.now() - started < 2500);
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
+  it("drain wait wakes on client abort and releases concurrency", async () => {
+    // Upstream sends one huge chunk so gateway hits backpressure (needs drain).
+    const huge = "x".repeat(1024 * 256);
+    const up = await startFakeUpstream({
+      headers: { "content-type": "application/octet-stream" },
+      streamChunks: [huge, huge, huge, huge],
+    });
+    const gw = await startGateway({
+      upstreamPort: up.port,
+      env: {
+        AI_GATEWAY_MAX_CONCURRENT: "1",
+        AI_GATEWAY_RATE_LIMIT_MAX: "1000",
+        AI_GATEWAY_CONNECT_TIMEOUT_MS: "2000",
+        AI_GATEWAY_TOTAL_TIMEOUT_MS: "5000",
+      },
+    });
+    try {
+      const http = await import("node:http");
+      // Start a slow consumer that will abort mid-stream
+      const first = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("first request hung")), 3000);
+        const req = http.request(
+          {
+            hostname: "127.0.0.1",
+            port: gw.port,
+            path: "/api/ai/v1/fake/chat/completions",
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "content-length": 2,
+            },
+          },
+          (res) => {
+            // pause reading to encourage buffer fill, then abort
+            setTimeout(() => {
+              req.destroy();
+              clearTimeout(timer);
+              resolve(res.statusCode);
+            }, 30);
+          },
+        );
+        req.on("error", () => {
+          clearTimeout(timer);
+          resolve("aborted");
+        });
+        req.write("{}");
+        req.end();
+      });
+      await first;
+      // Concurrency slot must be free for a subsequent request.
+      const second = await request(`${gw.base}/api/ai/v1/fake/models`);
+      assert.equal(second.status, 200);
+    } finally {
+      await gw.close();
+      await up.close();
+    }
+  });
+
   it("uses x-api-key auth type", async () => {
     const up = await startFakeUpstream();
     const gw = await startGateway({

@@ -68,10 +68,29 @@ describe("config", () => {
     );
   });
 
+  it("rejects query in baseUrl", () => {
+    assert.throws(
+      () =>
+        assertSafeBaseUrl("https://api.openai.com/v1?x=1", {
+          allowLocalUpstreams: false,
+          id: "x",
+        }),
+      /query/,
+    );
+  });
+
   it("rejects private https host by default", () => {
     assert.throws(
       () =>
         assertSafeBaseUrl("https://127.0.0.1/v1", {
+          allowLocalUpstreams: false,
+          id: "x",
+        }),
+      /private|local/,
+    );
+    assert.throws(
+      () =>
+        assertSafeBaseUrl("https://10.0.0.5/v1", {
           allowLocalUpstreams: false,
           id: "x",
         }),
@@ -90,18 +109,59 @@ describe("config", () => {
     );
   });
 
-  it("allows loopback http when local flag set", () => {
-    const url = assertSafeBaseUrl("http://127.0.0.1:9/v1/", {
-      allowLocalUpstreams: true,
-      id: "x",
-    });
-    assert.equal(url, "http://127.0.0.1:9/v1");
+  it("allows loopback http/https when local flag set", () => {
+    assert.equal(
+      assertSafeBaseUrl("http://127.0.0.1:9/v1/", {
+        allowLocalUpstreams: true,
+        id: "x",
+      }),
+      "http://127.0.0.1:9/v1",
+    );
+    assert.equal(
+      assertSafeBaseUrl("https://localhost/v1", {
+        allowLocalUpstreams: true,
+        id: "x",
+      }),
+      "https://localhost/v1",
+    );
   });
 
-  it("rejects non-loopback http even with local flag", () => {
+  it("rejects non-loopback even with local flag including private LAN", () => {
     assert.throws(
       () =>
         assertSafeBaseUrl("http://example.com/v1", {
+          allowLocalUpstreams: true,
+          id: "x",
+        }),
+      /loopback/,
+    );
+    assert.throws(
+      () =>
+        assertSafeBaseUrl("https://10.1.2.3/v1", {
+          allowLocalUpstreams: true,
+          id: "x",
+        }),
+      /loopback/,
+    );
+    assert.throws(
+      () =>
+        assertSafeBaseUrl("https://192.168.1.1/v1", {
+          allowLocalUpstreams: true,
+          id: "x",
+        }),
+      /loopback/,
+    );
+    assert.throws(
+      () =>
+        assertSafeBaseUrl("https://172.16.0.1/v1", {
+          allowLocalUpstreams: true,
+          id: "x",
+        }),
+      /loopback/,
+    );
+    assert.throws(
+      () =>
+        assertSafeBaseUrl("https://169.254.1.1/v1", {
           allowLocalUpstreams: true,
           id: "x",
         }),

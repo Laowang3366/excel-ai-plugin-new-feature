@@ -15,7 +15,8 @@
 | `POST` | `/api/ai/v1/:upstreamId/messages` | Anthropic Messages |
 
 - `upstreamId` **只能**来自环境变量 `AI_GATEWAY_UPSTREAMS_JSON` 的键；客户端**不能**传任意 `baseUrl` / URL。
-- 上游 URL 在启动时校验：绝对 `https`（测试可用 loopback `http`）、禁止 credentials / fragment、默认拒绝私网目标。
+- 上游 URL 在启动时校验：绝对 `https`（测试可用 loopback `http`/`https`）、禁止 credentials / fragment / query、默认拒绝私网目标；`AI_GATEWAY_ALLOW_LOCAL_UPSTREAMS=1` **仅**放行 loopback，不放行 10/172.16/192.168/169.254 等 LAN。
+- 总超时覆盖响应头后的完整 body 流；连接超时仅覆盖建连到响应头；客户端断开可中止上游 body 与 `drain` 等待。
 - 固定拼接：`{baseUrl}/{models|chat/completions|responses|messages}`。
 
 ## 安全行为
