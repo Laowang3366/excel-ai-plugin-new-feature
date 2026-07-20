@@ -6,7 +6,9 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   renameSync,
+  lstatSync,
   statSync,
   rmSync,
   symlinkSync,
@@ -101,6 +103,41 @@ function buildPackage(marker = "default"): { packageDir: string; marker: string 
 
 function jsaddonsOf(appData: string) {
   return path.join(appData, "kingsoft/wps/jsaddons");
+}
+
+function snapshotTree(rootDir: string): {
+  entries: string[];
+  files: Record<string, { size: number; mtimeMs: number; sha: string }>;
+} {
+  const entries: string[] = [];
+  const files: Record<string, { size: number; mtimeMs: number; sha: string }> = {};
+  if (!existsSync(rootDir)) return { entries, files };
+  const walk = (dir: string, rel = "") => {
+    for (const name of readdirSync(dir).sort()) {
+      const abs = path.join(dir, name);
+      const r = rel ? `${rel}/${name}` : name;
+      entries.push(r);
+      const st = lstatSync(abs);
+      if (st.isSymbolicLink()) {
+        files[r] = {
+          size: 0,
+          mtimeMs: st.mtimeMs,
+          sha: `symlink:${readlinkSync(abs)}`,
+        };
+        continue;
+      }
+      if (st.isDirectory()) walk(abs, r);
+      else if (st.isFile()) {
+        files[r] = {
+          size: st.size,
+          mtimeMs: st.mtimeMs,
+          sha: createHash("sha256").update(readFileSync(abs)).digest("hex"),
+        };
+      }
+    }
+  };
+  walk(rootDir);
+  return { entries, files };
 }
 
 function addonMarker(appData: string) {
@@ -732,5 +769,97 @@ describe("Phase57 dry-run zero AppData writes", () => {
     expect(existsSync(jsaddonsOf(appData))).toBe(false);
     expect(spawnSync(node, [statusCli, "--dry-run"], { encoding: "utf8" }).status).toBe(1);
     expect(spawnSync(node, [uninstallCli, "--dry-run"], { encoding: "utf8" }).status).toBe(1);
+  });
+});
+
+
+describe("Phase57.1 plan ancestry + public name projection", () => {
+  it("dry-run fails closed when appData root is a symlink (no tree writes)", () => {
+    const { packageDir } = buildPackage("anc-root");
+    const base = makeTempRoot("anc-");
+    const real = path.join(base, "real-appdata");
+    const link = path.join(base, "link-appdata");
+    mkdirSync(real, { recursive: true });
+    try {
+      symlinkSync(real, link);
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String((error as { code?: string }).code) : "";
+      if (code === "EPERM" || code === "ENOTSUP") return;
+      throw error;
+    }
+    const before = snapshotTree(base);
+    expect(() =>
+      installWpsJsa({ packageDir, appData: link, platform: "linux", dryRun: true }),
+    ).toThrow(/symlink|junction|directory/i);
+    expect(snapshotTree(base)).toEqual(before);
+  });
+
+  it("dry-run fails when intermediate kingsoft is non-directory; matches real install", () => {
+    const { packageDir } = buildPackage("anc-file");
+    const appData = makeTempRoot("ancf-");
+    writeFileSync(path.join(appData, "kingsoft"), "not-a-dir");
+    const before = snapshotTree(appData);
+    expect(() =>
+      installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true }),
+    ).toThrow(/non-directory|symlink|directory/i);
+    expect(() =>
+      installWpsJsa({ packageDir, appData, platform: "linux" }),
+    ).toThrow(/non-directory|symlink|directory/i);
+    expect(snapshotTree(appData)).toEqual(before);
+  });
+
+  it("dry-run fails on dangling intermediate symlink with zero writes", () => {
+    const { packageDir } = buildPackage("anc-dang");
+    const appData = makeTempRoot("ancd-");
+    mkdirSync(path.join(appData, "kingsoft"), { recursive: true });
+    try {
+      symlinkSync(path.join(appData, "missing-target"), path.join(appData, "kingsoft", "wps"));
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String((error as { code?: string }).code) : "";
+      if (code === "EPERM" || code === "ENOTSUP") return;
+      throw error;
+    }
+    const before = snapshotTree(appData);
+    expect(() =>
+      installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true }),
+    ).toThrow(/symlink|junction/i);
+    expect(snapshotTree(appData)).toEqual(before);
+  });
+
+  it("unsafe foreign plugin name is preserved in publish merge but not in dry-run JSON", () => {
+    const { packageDir } = buildPackage("name-secret");
+    const appData = makeTempRoot("sec-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(js, { recursive: true });
+    // Attribute parser rejects <>; use long control-char name without <>.
+    const evilName = `Evil\tPlugin_SECRETTOKEN_do_not_echo_${"x".repeat(80)}`;
+    writeFileSync(
+      path.join(js, "publish.xml"),
+      `<?xml version="1.0" encoding="utf-8"?>
+<jsplugins>
+  <jsplugin name="ExcelAIWps" enable="enable_dev" url="file://" type="et" version="0.1.30" />
+  <jsplugin name="${evilName}" enable="enable_dev" url="file://" type="et" />
+</jsplugins>
+`,
+    );
+    const before = readFileSync(path.join(js, "publish.xml"), "utf8");
+    const dry = installWpsJsa({ packageDir, appData, platform: "linux", dryRun: true });
+    const encoded = JSON.stringify(dry);
+    expect(encoded).not.toContain("SECRETTOKEN");
+    expect(encoded).not.toContain("api_key_");
+    expect(encoded).not.toContain(evilName);
+    expect(dry.preservedPluginNames).toContain("ExcelAIWps");
+    expect(dry.preservedPluginNames).toContain("(unsafe-plugin-name)");
+    expect(dry.warnings.every((w: string) => !w.includes("SECRETTOKEN"))).toBe(true);
+    // dry-run zero write
+    expect(readFileSync(path.join(js, "publish.xml"), "utf8")).toBe(before);
+
+    const real = installWpsJsa({ packageDir, appData, platform: "linux" });
+    const pub = readFileSync(path.join(js, "publish.xml"), "utf8");
+    expect(pub).toContain(evilName);
+    expect(pub).toContain("ExcelAIWps");
+    expect(pub).toContain(WPS_ADDON_NAME);
+    expect(JSON.stringify(real)).not.toContain("SECRETTOKEN");
+    expect(real.preservedPluginNames).toContain("(unsafe-plugin-name)");
   });
 });

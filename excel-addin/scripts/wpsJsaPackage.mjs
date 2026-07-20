@@ -74,6 +74,10 @@ export function validateWpsRibbon(xml) {
   if (!xml.includes('xmlns="http://schemas.microsoft.com/office/2006/01/customui"')) {
     errors.push("missing Office customUI namespace");
   }
+  const onLoad = attribute(xml, "customUI", "onLoad");
+  if (onLoad !== "WenggeExcelAiOnLoad") {
+    errors.push("customUI onLoad must be WenggeExcelAiOnLoad");
+  }
   const tab = {
     id: attribute(xml, "tab", "id"),
     visible: attribute(xml, "tab", "getVisible"),
@@ -85,11 +89,51 @@ export function validateWpsRibbon(xml) {
   if (attribute(xml, "group", "id") !== "wenggeExcelAiGroup") {
     errors.push("missing WPS ribbon group");
   }
-  if (attribute(xml, "button", "id") !== "wenggeExcelAiOpenButton") {
-    errors.push("missing WPS ribbon open button");
+
+  const buttonTags = xml.match(/<button\b[^>]*>/gi) ?? [];
+  const expectedButtons = [
+    {
+      id: "wenggeExcelAiOpenChatButton",
+      onAction: "WenggeExcelAiOpenChat",
+      image: "assets/icon-32.png",
+    },
+    {
+      id: "wenggeExcelAiOpenProvidersButton",
+      onAction: "WenggeExcelAiOpenProviders",
+      image: "assets/icon-32.png",
+    },
+    {
+      id: "wenggeExcelAiOpenHostButton",
+      onAction: "WenggeExcelAiOpenHost",
+      image: "assets/icon-16.png",
+    },
+  ];
+  for (const expected of expectedButtons) {
+    const tag = buttonTags.find((item) =>
+      new RegExp(`\\bid\\s*=\\s*"${expected.id}"`, "i").test(item),
+    );
+    if (!tag) {
+      errors.push(`missing WPS ribbon button ${expected.id}`);
+      continue;
+    }
+    const action = tag.match(/\bonAction\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    if (action !== expected.onAction) {
+      errors.push(`ribbon button ${expected.id} onAction mismatch`);
+    }
+    const image = tag.match(/\bimage\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    if (image !== expected.image) {
+      errors.push(`ribbon button ${expected.id} image must be ${expected.image}`);
+    }
+    if (!image || /^https?:/i.test(image) || image.includes("..") || image.startsWith("/")) {
+      errors.push(`ribbon button ${expected.id} image must be a package-relative asset`);
+    }
   }
-  if (attribute(xml, "button", "onAction") !== "WenggeExcelAiOpenTaskPane") {
-    errors.push("ribbon onAction callback mismatch");
+  const remoteUrls = xml.match(/https?:\/\/[^"'\s>]+/gi) ?? [];
+  for (const url of remoteUrls) {
+    if (!/^https?:\/\/schemas\.microsoft\.com\//i.test(url)) {
+      errors.push("remote URLs are forbidden in ribbon.xml");
+      break;
+    }
   }
   return { ok: errors.length === 0, errors };
 }
@@ -98,15 +142,41 @@ export function validateWpsEntryScript(source) {
   const errors = [];
   const text = String(source);
   for (const callback of [
+    "WenggeExcelAiOnLoad",
     "WenggeExcelAiTabVisible",
-    "WenggeExcelAiOpenTaskPane",
+    "WenggeExcelAiOpenChat",
+    "WenggeExcelAiOpenProviders",
+    "WenggeExcelAiOpenHost",
   ]) {
     if (!new RegExp(`window\\.${callback}\\s*=\\s*function\\s*\\(`).test(text)) {
       errors.push(`missing global callback ${callback}`);
     }
   }
+  if (!/CreateTaskPane/.test(text)) {
+    errors.push("WPS entry must call CreateTaskPane");
+  }
+  if (!/GetTaskPane/.test(text)) {
+    errors.push("WPS entry must support GetTaskPane reuse");
+  }
+  if (!/PluginStorage/.test(text)) {
+    errors.push("WPS entry must use PluginStorage for pane id reuse");
+  }
   if (/\beval\s*\(|\bnew\s+Function\s*\(/.test(text)) {
     errors.push("dynamic code execution is forbidden in WPS entry");
+  }
+  if (
+    /\brequire\s*\(|\bimport\s*\(|from\s+["']electron["']|node:child_process|child_process|\bprocess\.\w+/.test(
+      text,
+    )
+  ) {
+    errors.push("Node/Electron/process APIs are forbidden in WPS entry");
+  }
+  if (/https?:\/\/(?!appsforoffice\.microsoft\.com)/i.test(text) && /https?:\/\/[a-z0-9.-]+\//i.test(text)) {
+    // Allow comments? Prefer fail if hard-coded remote task pane hosts appear as string literals.
+    const remoteLiterals = text.match(/["']https?:\/\/[^"']+["']/gi) ?? [];
+    if (remoteLiterals.some((item) => !/appsforoffice\.microsoft\.com/i.test(item))) {
+      errors.push("hard-coded remote URLs are forbidden in WPS entry");
+    }
   }
   return { ok: errors.length === 0, errors };
 }

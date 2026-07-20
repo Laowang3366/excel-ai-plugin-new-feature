@@ -28,6 +28,7 @@ import {
   restorePublishBytes,
   writePublishXmlAtomic,
 } from "./wpsJsaInstallPublish.mjs";
+import { projectPublicWarnings } from "./wpsJsaInstallPublicNames.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME } from "./wpsJsaPackage.mjs";
 
 function compoundError(primary, rollbackErrors) {
@@ -66,7 +67,7 @@ export function uninstallWpsJsa(opts = {}) {
       action: "uninstall",
       removed: false,
       message: "jsaddons not present; nothing to uninstall",
-      warnings,
+      warnings: projectPublicWarnings(warnings),
       restartRequired: true,
     };
   }
@@ -111,7 +112,7 @@ export function uninstallWpsJsa(opts = {}) {
       action: "uninstall",
       removed: false,
       message: "Nothing of this add-in is installed; foreign plugins left untouched",
-      warnings,
+      warnings: projectPublicWarnings(warnings),
       restartRequired: true,
       publishXml: layout.publishXml,
       addonDir: layout.addonDir,
@@ -235,7 +236,7 @@ export function uninstallWpsJsa(opts = {}) {
       removed: true,
       message:
         "Own add-in entry/directory/state removed. Fully restart WPS if it was running. Foreign plugins and legacy dirs were left untouched.",
-      warnings,
+      warnings: projectPublicWarnings(warnings),
       restartRequired: true,
       publishXml: layout.publishXml,
       addonDir: layout.addonDir,

@@ -4,7 +4,7 @@
 
 > **交付状态**：代码与单测可验证；**尚未**在真实 Windows Microsoft Excel / WPS 完成侧载验收。
 >
-> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。Phase56：WPS JSA `wps:install`/`status`/`uninstall` 可重复安装 CLI（install-time only；**真实侧载未验收**）。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
+> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。Phase56：WPS JSA `wps:install`/`status`/`uninstall` 可重复安装 CLI（install-time only）。Phase58：Ribbon→CreateTaskPane 任务窗格与 page 深链（**真实点击验收仍待本机重装/重启**；`isload:true` ≠ 功能全通过）。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
 
 ## 命令
 
@@ -152,6 +152,10 @@ npm run wps:install -- --package-dir ./dist --app-data /path/to/AppData/Roaming 
 
 # 确认计划后真实安装（Windows 默认 %APPDATA%；非 Windows 必须显式 --app-data）
 npm run wps:install -- --package-dir ./dist --app-data /path/to/AppData/Roaming
+
+安装并**完整退出/重启 WPS** 后，功能区「文格 AI」提供「打开助手 / 模型配置 / 宿主状态」。
+任务窗格 URL 从本地 index 派生（`?page=chat|providers|host`），不会写死外网域名。
+本仓库 CI/服务器**不得**把 authaddin isload=true 或 status current 等同于真实 UI 已通过。
 
 # 无 --package-dir 时会先重建项目 dist/ 再安装（dry-run 亦可能写 dist，但不写 AppData）
 npm run wps:install -- --git-sha 0123456789abcdef --app-data /path/to/AppData/Roaming

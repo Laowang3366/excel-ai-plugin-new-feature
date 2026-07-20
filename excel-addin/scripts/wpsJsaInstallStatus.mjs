@@ -12,6 +12,7 @@ import {
   ownPluginMatchesContract,
   parseJspluginsDocument,
 } from "./wpsJsaInstallPublish.mjs";
+import { projectPublicWarnings } from "./wpsJsaInstallPublicNames.mjs";
 import { hashAddonTree, readStateFile } from "./wpsJsaInstallState.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME, WPS_ENTRY_SCRIPT } from "./wpsJsaPackage.mjs";
 
@@ -46,6 +47,7 @@ export function statusWpsJsa(opts = {}) {
 
   if (!fs.existsSync(layout.jsaddons)) {
     result.drift.push("jsaddons-missing");
+    result.warnings = projectPublicWarnings(warnings);
     return result;
   }
   try {
@@ -53,6 +55,7 @@ export function statusWpsJsa(opts = {}) {
   } catch (error) {
     result.drift.push("jsaddons-path-error");
     warnings.push(error instanceof Error ? error.message : String(error));
+    result.warnings = projectPublicWarnings(warnings);
     return result;
   }
 
@@ -147,5 +150,6 @@ export function statusWpsJsa(opts = {}) {
   } else {
     result.message = "Not installed";
   }
+  result.warnings = projectPublicWarnings(warnings);
   return result;
 }

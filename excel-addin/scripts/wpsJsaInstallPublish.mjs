@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { WPS_ADDON_NAME, WPS_PUBLISH_URL } from "./wpsJsaPackage.mjs";
+import { projectLegacyPluginWarning } from "./wpsJsaInstallPublicNames.mjs";
 import {
   assertInside,
   assertOwnPublishBackupSurface,
@@ -168,7 +169,7 @@ export function parseJspluginsDocument(xml) {
   }
   for (const n of names) {
     if (n && n !== WPS_ADDON_NAME && /excelaiwps|excel-ai-wps|wenggeexcel/i.test(n)) {
-      warnings.push(`legacy or third-party plugin present: ${n}`);
+      warnings.push(projectLegacyPluginWarning(n));
     }
   }
   return { plugins, warnings };

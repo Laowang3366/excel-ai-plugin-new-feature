@@ -20,11 +20,16 @@ import { ChatPanel } from "./components/ChatPanel";
 import { HostStatusPanel } from "./components/HostStatusPanel";
 import { ProviderSettingsPanel } from "./components/ProviderSettingsPanel";
 import { ToolDemoPanel } from "./components/ToolDemoPanel";
+import { resolveInitialTabFromSearch, type AppTab } from "./resolveInitialTab";
 
-type Tab = "chat" | "host" | "tools" | "providers";
+type Tab = AppTab;
 
 export function App() {
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>(() =>
+    resolveInitialTabFromSearch(
+      typeof window !== "undefined" ? window.location.search : "",
+    ),
+  );
   const [hostKind, setHostKind] = useState<HostKind>("unknown");
   const [adapter, setAdapter] = useState<HostAdapter | null>(null);
   const providerStore = useMemo(

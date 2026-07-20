@@ -18,6 +18,7 @@ import {
   upsertOwnPlugin,
 } from "./wpsJsaInstallPublish.mjs";
 import {
+  assertAncestryReal,
   listActiveTempNames,
   lstatIfPresent,
   preflightExistingSurface,
@@ -26,6 +27,10 @@ import {
   resolveJsaddonsLayout,
 } from "./wpsJsaInstallPaths.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME } from "./wpsJsaPackage.mjs";
+import {
+  projectPublicPluginNames,
+  projectPublicWarnings,
+} from "./wpsJsaInstallPublicNames.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(__dirname, "..");
@@ -102,6 +107,11 @@ export function planWpsJsaInstall(opts = {}) {
   });
   const layout = resolveJsaddonsLayout(appData);
 
+  // Read-only ancestry preflight on every branch (no mkdir).
+  // Fully absent appData is allowed; existing appData/kingsoft/wps ancestors
+  // that are symlink/junction/non-directory fail closed so dry-run matches install.
+  assertAncestryReal(layout.jsaddons, layout.appData);
+
   const jsaddonsSt = lstatIfPresent(layout.jsaddons);
   let wouldCreateJsaddons = false;
   /** @type {string[]} */
@@ -172,9 +182,9 @@ export function planWpsJsaInstall(opts = {}) {
     currentPublish = currentPublishBytes;
     const parsed = parseJspluginsDocument(currentPublish);
     warnings.push(...parsed.warnings);
-    preservedPluginNames = parsed.plugins
-      .map((p) => p.attrs.name)
-      .filter((n) => n && n !== WPS_ADDON_NAME);
+    preservedPluginNames = projectPublicPluginNames(
+      parsed.plugins.map((p) => p.attrs.name).filter((n) => n && n !== WPS_ADDON_NAME),
+    );
     const own = parsed.plugins.filter((p) => p.attrs.name === WPS_ADDON_NAME);
     existingOwnEntry = own.length === 1;
     if (own.length > 1) {
@@ -233,7 +243,7 @@ function buildPlanResult(ctx) {
     validated: ctx.validated,
     layout: ctx.layout,
     appData: ctx.appData,
-    warnings: [...new Set(ctx.warnings)],
+    warnings: projectPublicWarnings(ctx.warnings || []),
     mergedXml: ctx.mergedXml,
     wouldCreateJsaddons: ctx.wouldCreateJsaddons,
     wouldCreatePublish: ctx.wouldCreatePublish,
@@ -280,9 +290,9 @@ export function formatDryRunResult(plan) {
     wouldUpdatePublish: plan.wouldUpdatePublish,
     wouldWriteState: true,
     existingOwnEntry: plan.existingOwnEntry,
-    preservedPluginNames: plan.preservedPluginNames,
+    preservedPluginNames: projectPublicPluginNames(plan.preservedPluginNames || []),
     activeTemps: plan.activeTemps,
-    warnings: plan.warnings,
+    warnings: projectPublicWarnings(plan.warnings || []),
     restartRequired: true,
     message:
       "Dry run only; no AppData/jsaddons files changed. Install may still rewrite publish.xml atomically and always writes state even when wouldUpdatePublish=false (entry attrs already match). Fully restart WPS after a real install. This tool does not start or stop WPS.",

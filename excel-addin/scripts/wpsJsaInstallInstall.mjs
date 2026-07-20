@@ -25,6 +25,10 @@ import {
   resolveAndValidatePackage,
 } from "./wpsJsaInstallPlan.mjs";
 import {
+  projectPublicPluginNames,
+  projectPublicWarnings,
+} from "./wpsJsaInstallPublicNames.mjs";
+import {
   assertInside,
   assertRealDirectory,
   ensureJsaddonsDir,
@@ -293,7 +297,7 @@ export function installWpsJsa(opts = {}) {
       restartRequired: true,
       message:
         "Installed. Fully quit and restart WPS before loading the add-in. This tool does not start or stop WPS.",
-      warnings: [...new Set(warnings)],
+      warnings: projectPublicWarnings(warnings),
       packageDir: packageResolution.packageDir,
       activeTemps: listActiveTempNames(layout.jsaddons),
       // plan consistency fields (actual)
@@ -303,7 +307,7 @@ export function installWpsJsa(opts = {}) {
       wouldUpdatePublish: plan.wouldUpdatePublish,
       wouldWriteState: true,
       existingOwnEntry: plan.existingOwnEntry,
-      preservedPluginNames: plan.preservedPluginNames,
+      preservedPluginNames: projectPublicPluginNames(plan.preservedPluginNames || []),
     };
   } catch (error) {
     if (error && error.rollbackErrors) throw error;

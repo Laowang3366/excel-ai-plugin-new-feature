@@ -1,14 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui">
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="WenggeExcelAiOnLoad">
   <ribbon startFromScratch="false">
     <tabs>
       <tab id="wenggeExcelAiTab" label="文格 AI" getVisible="WenggeExcelAiTabVisible">
         <group id="wenggeExcelAiGroup" label="文格 AI">
           <button
-            id="wenggeExcelAiOpenButton"
-            label="打开任务窗格"
+            id="wenggeExcelAiOpenChatButton"
+            label="打开助手"
             size="large"
-            onAction="WenggeExcelAiOpenTaskPane" />
+            image="assets/icon-32.png"
+            onAction="WenggeExcelAiOpenChat" />
+          <button
+            id="wenggeExcelAiOpenProvidersButton"
+            label="模型配置"
+            size="large"
+            image="assets/icon-32.png"
+            onAction="WenggeExcelAiOpenProviders" />
+          <button
+            id="wenggeExcelAiOpenHostButton"
+            label="宿主状态"
+            size="normal"
+            image="assets/icon-16.png"
+            onAction="WenggeExcelAiOpenHost" />
         </group>
       </tab>
     </tabs>
