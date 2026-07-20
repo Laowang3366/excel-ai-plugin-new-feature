@@ -1,7 +1,8 @@
 /**
  * Destination planning: dedicated Pivots sheet + next free address (desktop parity).
+ * Desktop NextPivotDestinationAddress: A1 or A{lastBottom + 3} (1-based bottom of TableRange2).
  */
-import { parseA1Cell, toA1 } from "./a1Address";
+import { parseA1Cell } from "./a1Address";
 import { validateBareA1 } from "./officeJsChartSource";
 import type { ExcelRange, ExcelRequestContextWithPivot, ExcelWorksheetWithPivot } from "./officeJsPivotTypes";
 import { PIVOT_DEFAULT_SHEET } from "./pivotTypes";
@@ -53,6 +54,15 @@ export function parsePivotDestination(destination: string | undefined | null): P
   return { useDedicatedSheet: false, sheetName, address };
 }
 
+/**
+ * Pure desktop-aligned placement: lastBottom is 1-based inclusive bottom row of existing pivots.
+ * Desktop: lastRow == 0 ? "A1" : $"A{lastRow + 3}".
+ */
+export function computeNextPivotAddress(lastBottom1Based: number): string {
+  if (!Number.isFinite(lastBottom1Based) || lastBottom1Based <= 0) return "A1";
+  return `A${Math.floor(lastBottom1Based) + 3}`;
+}
+
 export async function ensurePivotSheet(
   context: ExcelRequestContextWithPivot,
 ): Promise<ExcelWorksheetWithPivot> {
@@ -72,7 +82,7 @@ export async function ensurePivotSheet(
 }
 
 /**
- * Next free top-left under existing pivots on the sheet (A1 or A{lastBottom+3}).
+ * Next free top-left under existing pivots on the sheet (desktop lastBottom+3).
  * Uses PivotLayout.getRange() (ExcelApi 1.8).
  */
 export async function nextPivotDestinationAddress(
@@ -85,14 +95,13 @@ export async function nextPivotDestinationAddress(
   const items = pivots.items ?? [];
   if (items.length === 0) return "A1";
 
-  let lastRow = 0;
   for (const pivot of items) {
     const range = pivot.layout.getRange();
     range.load("address,rowCount,rowIndex");
-    // Prefer rowIndex+rowCount when available; fall back to parsing address.
   }
   await context.sync();
 
+  let lastBottom = 0;
   for (const pivot of items) {
     const range = pivot.layout.getRange() as ExcelRange & {
       address?: string;
@@ -100,8 +109,9 @@ export async function nextPivotDestinationAddress(
       rowIndex?: number;
     };
     if (typeof range.rowIndex === "number" && typeof range.rowCount === "number") {
-      const bottom = range.rowIndex + range.rowCount; // 0-based end exclusive → 1-based bottom = rowIndex+rowCount
-      lastRow = Math.max(lastRow, bottom);
+      // Excel.Range.rowIndex is 0-based; 1-based bottom = rowIndex + rowCount
+      const bottom = range.rowIndex + range.rowCount;
+      lastBottom = Math.max(lastBottom, bottom);
       continue;
     }
     const address = String(range.address ?? "");
@@ -109,9 +119,9 @@ export async function nextPivotDestinationAddress(
     const parts = bare.split(":");
     const end = parts[parts.length - 1] ?? bare;
     const cell = parseA1Cell(end);
-    if (cell) lastRow = Math.max(lastRow, cell.row + 1);
+    if (cell) lastBottom = Math.max(lastBottom, cell.row + 1);
   }
-  return lastRow === 0 ? "A1" : toA1(lastRow + 2, 0); // lastRow is 1-based bottom; +2 → +3 from 1-based inclusive
+  return computeNextPivotAddress(lastBottom);
 }
 
 export function formatSheetA1(sheetName: string, bareA1: string): string {

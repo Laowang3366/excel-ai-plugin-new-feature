@@ -12,6 +12,8 @@ import {
 
 export type InstallPivotExcelOptions = {
   excelApi18?: boolean;
+  /** When false, isSetSupported('ExcelApi','1.3') is false. Default true. */
+  excelApi13?: boolean;
   missingIsSetSupported?: boolean;
   isSetSupportedThrows?: boolean;
   hierarchyNames?: string[];
@@ -25,6 +27,7 @@ export type InstallPivotExcelOptions = {
 
 export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
   const excelApi18 = options.excelApi18 !== false;
+  const excelApi13 = options.excelApi13 !== false;
   const hierarchyNames = options.hierarchyNames ?? ["Region", "Product", "Sales"];
   const sheetNames = options.sheets ?? ["Sheet1"];
   const strictLoad = options.strictLoad !== false;
@@ -261,14 +264,13 @@ export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
           op.pivot.filter.push(op.field);
         }
         if (op.axis === "data" && op.data) {
-          const existing = op.pivot.data.find((d) => d.name === (op.data as { name?: string }).name);
-          if (existing) {
-            existing.summarizeBy = op.data.summarizeBy;
-            existing.caption = op.data.caption;
-          } else if (op.data) {
-            const d = op.data as { name: string; summarizeBy: string; caption: string };
-            op.pivot.data.push({ name: d.name, summarizeBy: d.summarizeBy, caption: d.caption });
-          }
+          // Desktop allows multiple data aggregates on the same source field.
+          const d = op.data as { name: string; summarizeBy: string; caption: string };
+          op.pivot.data.push({
+            name: d.name,
+            summarizeBy: d.summarizeBy,
+            caption: d.caption,
+          });
         }
       } else if (op.kind === "refresh") {
         refreshCalls += 1;
@@ -349,7 +351,9 @@ export function installPivotExcel(options: InstallPivotExcelOptions = {}) {
           isSetSupported: (name: string, version?: string) => {
             if (name !== "ExcelApi") return false;
             if (version === "1.8") return excelApi18;
-            return true;
+            if (version === "1.3") return excelApi13;
+            // Higher/other sets not claimed for pivot
+            return false;
           },
         },
       },

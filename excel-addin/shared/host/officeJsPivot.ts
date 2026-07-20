@@ -62,8 +62,23 @@ function buildVerification(
     message: destinationAddress ?? "(empty)",
   });
 
+  const totalFields =
+    rowFieldCount + columnFieldCount + filterFieldCount + dataFieldCount;
+  const hasFields = totalFields > 0;
+  checks.push({
+    name: "hasFields",
+    ok: hasFields,
+    message: String(totalFields),
+  });
+
   const okAll =
-    nameMatches && rowOk && colOk && filterOk && dataOk && destinationReadable;
+    nameMatches &&
+    rowOk &&
+    colOk &&
+    filterOk &&
+    dataOk &&
+    destinationReadable &&
+    hasFields;
   return {
     ok: okAll,
     objectExists: true,

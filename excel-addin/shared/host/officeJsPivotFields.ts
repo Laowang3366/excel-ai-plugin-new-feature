@@ -72,16 +72,25 @@ function normalizeOne(spec: PivotFieldSpec, axis: string, allowFunction: boolean
   }
   let caption: string | undefined;
   if (Object.prototype.hasOwnProperty.call(bag, "caption")) {
+    if (!allowFunction) {
+      throw new Error(`${axis} does not accept caption (only dataFields)`);
+    }
     if (typeof bag.caption !== "string") throw new Error("caption must be a string");
     caption = bag.caption;
   }
   return { name, function: fn, caption };
 }
 
+/**
+ * Normalize an axis.
+ * - row/column/filter: unique field names (one orientation each)
+ * - dataFields: same source field may appear multiple times (desktop AddDataField multi-agg)
+ */
 function normalizeAxis(
   specs: PivotFieldSpec[] | undefined,
   axis: string,
   allowFunction: boolean,
+  uniqueNames: boolean,
 ): PivotNormalizedField[] {
   if (specs == null) return [];
   if (!Array.isArray(specs)) throw new Error(`${axis} must be an array`);
@@ -92,20 +101,22 @@ function normalizeAxis(
   const seen = new Set<string>();
   for (const spec of specs) {
     const field = normalizeOne(spec, axis, allowFunction);
-    const key = field.name.toLowerCase();
-    if (seen.has(key)) throw new Error(`duplicate field in ${axis}: ${field.name}`);
-    seen.add(key);
+    if (uniqueNames) {
+      const key = field.name.toLowerCase();
+      if (seen.has(key)) throw new Error(`duplicate field in ${axis}: ${field.name}`);
+      seen.add(key);
+    }
     out.push(field);
   }
   return out;
 }
 
-/** Parse and validate field arrays; reject axis conflicts (row/column/filter). */
+/** Parse and validate field arrays; reject axis conflicts and empty layout. */
 export function buildPivotFieldPlan(input: PivotCreateInput): PivotFieldPlan {
-  const rowFields = normalizeAxis(input.rowFields, "rowFields", false);
-  const columnFields = normalizeAxis(input.columnFields, "columnFields", false);
-  const filterFields = normalizeAxis(input.filterFields, "filterFields", false);
-  const dataFields = normalizeAxis(input.dataFields, "dataFields", true).map((f) => ({
+  const rowFields = normalizeAxis(input.rowFields, "rowFields", false, true);
+  const columnFields = normalizeAxis(input.columnFields, "columnFields", false, true);
+  const filterFields = normalizeAxis(input.filterFields, "filterFields", false, true);
+  const dataFields = normalizeAxis(input.dataFields, "dataFields", true, false).map((f) => ({
     ...f,
     function: f.function ?? "sum",
     caption: f.caption ?? `汇总项: ${f.name}`,
@@ -126,6 +137,15 @@ export function buildPivotFieldPlan(input: PivotCreateInput): PivotFieldPlan {
       orientation.set(key, axis);
     }
   }
+
+  const total =
+    rowFields.length + columnFields.length + filterFields.length + dataFields.length;
+  if (total === 0) {
+    throw new Error(
+      "pivot create requires at least one field in rowFields|columnFields|filterFields|dataFields",
+    );
+  }
+
   return { rowFields, columnFields, filterFields, dataFields };
 }
 

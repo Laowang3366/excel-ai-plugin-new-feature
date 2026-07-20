@@ -29,7 +29,7 @@ export const PIVOT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "pivot.list",
     description:
-      "列出当前工作簿（或指定工作表）的数据透视表：name/sheet/source|destination（可得时）/row|column|filter|data hierarchy 摘要。Office.js ExcelApi 1.8；无法可靠取得的字段写入 limitations，不伪造。WPS typed unsupported。",
+      "列出当前工作簿（或指定工作表）的数据透视表：name/sheet/source|destination（可得时）/row|column|filter|data hierarchy 摘要。Office.js ExcelApi 1.8（hierarchy 摘要）；无法可靠取得的字段写入 limitations，不伪造。WPS typed unsupported。",
     riskLevel: "safe",
     parameters: {
       type: "object",
@@ -43,7 +43,7 @@ export const PIVOT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "pivot.create",
     description:
-      "在当前工作簿创建数据透视表。必填 sourceSheetName+sourceAddress（同簿单区域 A1）；可选 name、destination（空→Pivots 表自动位置 A1 或现有透视下方）、rowFields/columnFields/filterFields/dataFields（≤64；字符串或 {name,function?,caption?}，function 仅 dataFields：sum|count|average|max|min）。必填 advancedIntent=interactive-pivot。写后 sync 回读校验名称与 hierarchy 数量。拒绝外部/3D/多区域/结构化源；refreshConnections 不适用。Office.js ExcelApi 1.8；WPS unsupported；无切片器。",
+      "在当前工作簿创建数据透视表。必填 sourceSheetName+sourceAddress（同簿单区域 A1）；可选 name、destination（空→Pivots 表自动位置 A1 或现有透视下方）、rowFields/columnFields/filterFields/dataFields（≤64；字符串或 {name,function?,caption?}，function 仅 dataFields：sum|count|average|max|min）。必填 advancedIntent=interactive-pivot；至少一个 row/column/filter/data 字段；function/caption 仅 dataFields；dataFields 允许同名字段多聚合。写后 sync 回读校验。空 destination 或省略→Pivots 表 A1/现有透视 lastBottom+3。拒绝外部/3D/多区域/结构化源。Office.js ExcelApi 1.8；WPS unsupported；无切片器。",
     riskLevel: "moderate",
     parameters: {
       type: "object",
@@ -52,7 +52,7 @@ export const PIVOT_TOOL_DEFINITIONS: ToolDefinition[] = [
         sourceSheetName: { type: "string", minLength: 1 },
         sourceAddress: { type: "string", minLength: 1 },
         name: { type: "string", minLength: 1 },
-        destination: { type: "string", minLength: 1 },
+        destination: { type: "string" },
         rowFields: PIVOT_FIELDS,
         columnFields: PIVOT_FIELDS,
         filterFields: PIVOT_FIELDS,
@@ -65,7 +65,7 @@ export const PIVOT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "pivot.refresh",
     description:
-      "刷新当前工作簿透视表：省略 sheetName/name 刷新全部；可按 sheet 或 name 精确刷新。写后回读确认对象仍在。refreshConnections=true 拒绝（无 Office.js Workbook.RefreshAll 合同）。必填 advancedIntent=interactive-pivot。Office.js ExcelApi 1.8；WPS unsupported。",
+      "刷新当前工作簿透视表：省略 sheetName/name 刷新全部；可按 sheet 或 name 精确刷新。写后回读确认对象仍在。refreshConnections=true 拒绝（桌面 Workbook.RefreshAll 无可靠 Office.js 等价，非桌面对等）。必填 advancedIntent=interactive-pivot。Office.js ExcelApi 1.3（PivotTable.refresh）；WPS unsupported。",
     riskLevel: "moderate",
     parameters: {
       type: "object",

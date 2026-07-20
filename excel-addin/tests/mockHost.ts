@@ -1773,7 +1773,7 @@ export class MockHostAdapter implements HostAdapter {
       return fail(
         "pivot.refresh",
         this.kind,
-        "refreshConnections is not supported: Office.js has no proven Workbook.RefreshAll equivalent",
+        "refreshConnections is not supported on the add-in: desktop Workbook.RefreshAll has no proven Office.js equivalent (not desktop parity)",
       );
     }
     let targets = [...this.pivots];

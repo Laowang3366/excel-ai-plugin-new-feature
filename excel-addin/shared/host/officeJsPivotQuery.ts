@@ -1,5 +1,5 @@
 /**
- * Office.js pivot.list + pivot.refresh (ExcelApi 1.8).
+ * Office.js pivot.list (ExcelApi 1.8) + pivot.refresh (ExcelApi 1.3).
  */
 import { queueLoadPivotHierarchies, pivotToInfo, withPivotExcel } from "./officeJsPivotShared";
 import type {
@@ -78,8 +78,8 @@ export async function officeJsRefreshPivots(
     return fail(
       "pivot.refresh",
       "office-js",
-      "refreshConnections is not supported: Office.js has no proven Workbook.RefreshAll equivalent",
-      "Only PivotTable.refresh / PivotTableCollection.refreshAll are implemented",
+      "refreshConnections is not supported on the add-in: desktop Workbook.RefreshAll has no proven Office.js equivalent (not desktop parity)",
+      "Only PivotTable.refresh is implemented; external connections are not refreshed",
     );
   }
 
@@ -163,5 +163,5 @@ export async function officeJsRefreshPivots(
       refreshed: true,
     }));
     return { refreshed, count: refreshed.length };
-  });
+  }, "1.3");
 }

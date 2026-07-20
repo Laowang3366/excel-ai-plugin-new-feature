@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- 独立 Excel 加载项透视表复审：执行层拒绝非 dataFields 的 function/caption；禁止零字段创建；refresh 门禁 ExcelApi 1.3、list/create 仍 1.8；`refreshConnections` 明确非桌面对等拒绝；默认 Pivots 落点对齐桌面 lastBottom+3；dataFields 允许多聚合同名字段；真实侧载尚未验收。
 - 独立 Excel 加载项新增透视表生命周期：`pivot.list`/`pivot.create`/`pivot.refresh`（Office.js ExcelApi 1.8；空 destination→Pivots 表；写后 hierarchy 回读；`refreshConnections`/切片器 unsupported；WPS typed unsupported；真实 Excel 侧载尚未验收）。
 - 独立 Excel 加载项页面布局补齐桌面打印对等：`printArea`/`printTitleRows|Columns`（别名 `repeatRows|Columns`）写后回读；`fitToOnePageWide|Tall` 映射为 fitToPages=1；打印区域/标题 **clear** 仍无官方 Office.js 合同故拒绝空串；WPS pageLayout 仍 unsupported；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项新增 `workbook.save`：保存当前已打开工作簿（Office.js ExcelApi 1.1；WPS `ActiveWorkbook.Save` 成员探测）；无路径/saveAs/打开/创建/切换；真实 Excel/WPS 侧载尚未验收。

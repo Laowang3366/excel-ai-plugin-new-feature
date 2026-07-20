@@ -1,12 +1,15 @@
 /**
- * Shared Office.js pivot runner + read helpers (ExcelApi 1.8).
+ * Shared Office.js pivot runner + read helpers.
  */
 import {
   queueLoadPivotHierarchies,
   readDataHierarchySummaries,
   readHierarchyNames,
 } from "./officeJsPivotFields";
-import { requireExcelApi18ForPivot } from "./officeJsPivotRequirements";
+import {
+  requireExcelApiForPivot,
+  type PivotExcelApiVersion,
+} from "./officeJsPivotRequirements";
 import type { ExcelPivotTable, ExcelRequestContextWithPivot } from "./officeJsPivotTypes";
 import type { PivotTableInfo } from "./pivotTypes";
 import { getExcelRun } from "./officeJsRuntime";
@@ -16,8 +19,9 @@ import { fail, ok, unsupported } from "./types";
 export async function withPivotExcel<T>(
   capability: string,
   fn: (context: ExcelRequestContextWithPivot) => Promise<T>,
+  version: PivotExcelApiVersion = "1.8",
 ): Promise<HostResult<T>> {
-  const gate = requireExcelApi18ForPivot(capability);
+  const gate = requireExcelApiForPivot(capability, version);
   if (gate) return gate as HostResult<T>;
   const run = getExcelRun();
   if (!run) {
@@ -29,7 +33,11 @@ export async function withPivotExcel<T>(
     );
   }
   try {
-    return ok(await run(fn as unknown as (ctx: import("./officeJsExcelTypes").ExcelRequestContext) => Promise<T>));
+    return ok(
+      await run(
+        fn as unknown as (ctx: import("./officeJsExcelTypes").ExcelRequestContext) => Promise<T>,
+      ),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return fail(capability, "office-js", message);

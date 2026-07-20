@@ -45,13 +45,34 @@ function requireNonEmptyString(args: Record<string, unknown>, key: string): stri
   return value.trim();
 }
 
+/**
+ * Optional non-empty: missing/null → omit; explicit "" or whitespace → error.
+ * Use for sheetName/name filters where empty is invalid, not "default".
+ */
 function optionalNonEmptyString(args: Record<string, unknown>, key: string): string | undefined {
-  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] == null || args[key] === "") {
+  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] == null) {
     return undefined;
   }
   if (typeof args[key] !== "string") throw new Error(`Invalid string argument: ${key}`);
   const trimmed = (args[key] as string).trim();
   if (trimmed === "") throw new Error(`${key} must be non-empty`);
+  return trimmed;
+}
+
+/**
+ * destination only: missing/null/"" → undefined (default Pivots auto placement).
+ * Non-string → error; pure whitespace (non-empty property) → error.
+ */
+function optionalDestination(args: Record<string, unknown>): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(args, "destination") || args.destination == null) {
+    return undefined;
+  }
+  if (args.destination === "") return undefined;
+  if (typeof args.destination !== "string") {
+    throw new Error("Invalid string argument: destination");
+  }
+  const trimmed = args.destination.trim();
+  if (trimmed === "") throw new Error("destination must be non-empty when provided");
   return trimmed;
 }
 
@@ -61,10 +82,14 @@ function optionalBoolean(args: Record<string, unknown>, key: string): boolean | 
   return args[key] as boolean;
 }
 
+/**
+ * Parse field specs. function/caption only legal on dataFields (enforced here before Host).
+ */
 function parseFieldSpecs(value: unknown, axis: string): PivotFieldSpec[] | undefined {
   if (value == null) return undefined;
   if (!Array.isArray(value)) throw new Error(`${axis} must be an array`);
   if (value.length > 64) throw new Error(`${axis} supports at most 64 fields`);
+  const allowFunctionCaption = axis === "dataFields";
   return value.map((item, index) => {
     if (typeof item === "string") {
       if (item.trim() === "") throw new Error(`${axis}[${index}] must be non-empty`);
@@ -82,8 +107,13 @@ function parseFieldSpecs(value: unknown, axis: string): PivotFieldSpec[] | undef
     if (typeof bag.name !== "string" || bag.name.trim() === "") {
       throw new Error(`${axis}[${index}].name must be non-empty`);
     }
+    const hasFunction = Object.prototype.hasOwnProperty.call(bag, "function");
+    const hasCaption = Object.prototype.hasOwnProperty.call(bag, "caption");
+    if (!allowFunctionCaption && (hasFunction || hasCaption)) {
+      throw new Error(`${axis} does not accept function/caption (only dataFields)`);
+    }
     const out: PivotFieldSpec = { name: bag.name.trim() };
-    if (Object.prototype.hasOwnProperty.call(bag, "function")) {
+    if (hasFunction) {
       if (typeof bag.function !== "string") throw new Error("function must be a string");
       const fn = bag.function.trim().toLowerCase();
       if (!["sum", "count", "average", "max", "min"].includes(fn)) {
@@ -91,7 +121,7 @@ function parseFieldSpecs(value: unknown, axis: string): PivotFieldSpec[] | undef
       }
       (out as { function?: string }).function = fn;
     }
-    if (Object.prototype.hasOwnProperty.call(bag, "caption")) {
+    if (hasCaption) {
       if (typeof bag.caption !== "string") throw new Error("caption must be a string");
       (out as { caption?: string }).caption = bag.caption;
     }
@@ -120,7 +150,7 @@ export async function executePivotTool(
       };
       const name = optionalNonEmptyString(call.arguments, "name");
       if (name) input.name = name;
-      const destination = optionalNonEmptyString(call.arguments, "destination");
+      const destination = optionalDestination(call.arguments);
       if (destination) input.destination = destination;
       const rowFields = parseFieldSpecs(call.arguments.rowFields, "rowFields");
       if (rowFields) input.rowFields = rowFields;
