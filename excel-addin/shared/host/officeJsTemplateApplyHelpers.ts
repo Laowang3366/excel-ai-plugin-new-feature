@@ -2,10 +2,10 @@
 import type { ExcelRange, ExcelRequestContext, ExcelWorksheet } from "./officeJsExcelTypes";
 import type { WorkbookTemplateApplyInput } from "./workbookTemplateTypes";
 import {
-  normalizeRangeAddressForCompare,
   requireBoolean,
   requireNonEmptyString,
   requireNonNegativeInt,
+  requireParseableA1Range,
   requirePositiveInt,
 } from "./officeJsTemplateReadback";
 
@@ -106,8 +106,7 @@ export function verifyFreezeReadback(
   }
   const freezeRowCount = requireNonNegativeInt(loc.rowCount, "freeze.rowCount");
   requireNonNegativeInt(loc.columnCount, "freeze.columnCount");
-  const addr = requireNonEmptyString(loc.address, "freeze.address");
-  normalizeRangeAddressForCompare(addr);
+  requireParseableA1Range(loc.address, "freeze.address");
   if (freezeRowCount !== freezeRows) {
     throw new Error(`freeze rowCount readback mismatch: ${freezeRowCount} !== ${freezeRows}`);
   }

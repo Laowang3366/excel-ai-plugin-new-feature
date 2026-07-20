@@ -169,18 +169,64 @@ export function normalizeRangeAddressForCompare(address: string): string {
   return bare.replace(/\$/g, "").toUpperCase();
 }
 
-/** null or non-negative integer (fit page counts). */
+/** Strict A1 cell: letters + row >= 1 (rejects A0 / garbage). */
+function parseStrictA1Cell(cell: string): { row: number; col: number } {
+  const bare = cell.replace(/\$/g, "").trim();
+  const match = /^([A-Za-z]+)([1-9]\d*)$/.exec(bare);
+  if (!match) {
+    throw new Error(`not a parseable A1 cell: ${cell}`);
+  }
+  const letters = match[1]!.toUpperCase();
+  let col = 0;
+  for (let i = 0; i < letters.length; i += 1) {
+    col = col * 26 + (letters.charCodeAt(i) - 64);
+  }
+  if (col < 1) throw new Error(`not a parseable A1 cell: ${cell}`);
+  return { row: Number(match[2]), col };
+}
+
+/**
+ * Quote-aware sheet!A1 or A1:B2 range; rejects garbage, A0, multi-area, missing endpoints.
+ */
+export function requireParseableA1Range(address: unknown, field: string): string {
+  if (typeof address !== "string" || address.trim() === "") {
+    throw new Error(`${field} is not a non-empty address string`);
+  }
+  const { bare } = splitSheetQualifiedAddress(address);
+  if (bare.includes(",")) {
+    throw new Error(`${field} multi-area address is not supported`);
+  }
+  const parts = bare.split(":");
+  if (parts.length > 2) {
+    throw new Error(`${field} is not a single cell or A1:B2 range`);
+  }
+  for (const part of parts) {
+    if (!part || part.trim() === "") {
+      throw new Error(`${field} has empty range endpoint`);
+    }
+    parseStrictA1Cell(part);
+  }
+  return bare.replace(/\$/g, "").toUpperCase();
+}
+
+/** null or non-negative integer (fit page counts). undefined is not null. */
 export function nullableNonNegativeInt(value: unknown, field: string): number | null {
   if (value === null) return null;
+  if (value === undefined) {
+    throw new Error(`${field} is undefined/missing`);
+  }
   return requireNonNegativeInt(value, field);
 }
 
 /**
  * Orientation host token: Portrait|Landscape only (case-insensitive exact; no strip).
- * null = unavailable.
+ * Only explicit null = unavailable; undefined fails.
  */
 export function nullableOrientation(value: unknown, field: string): "portrait" | "landscape" | null {
   if (value === null) return null;
+  if (value === undefined) {
+    throw new Error(`${field} is undefined/missing`);
+  }
   if (typeof value !== "string") {
     throw new Error(`${field} is not a string or null`);
   }
@@ -190,18 +236,24 @@ export function nullableOrientation(value: unknown, field: string): "portrait" |
   throw new Error(`${field} is not a portrait/landscape host token`);
 }
 
-/** null or non-empty paper size string (no coercion). */
+/** null or non-empty paper size string (no coercion). undefined fails. */
 export function nullablePaperSizeToken(value: unknown, field: string): string | null {
   if (value === null) return null;
+  if (value === undefined) {
+    throw new Error(`${field} is undefined/missing`);
+  }
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${field} is not a non-empty string or null`);
   }
   return value;
 }
 
-/** null or string (header/footer text may be empty string). */
+/** null or string (header/footer may be empty string). undefined fails. */
 export function nullableStringAllowEmpty(value: unknown, field: string): string | null {
   if (value === null) return null;
+  if (value === undefined) {
+    throw new Error(`${field} is undefined/missing`);
+  }
   if (typeof value !== "string") {
     throw new Error(`${field} is not a string or null`);
   }

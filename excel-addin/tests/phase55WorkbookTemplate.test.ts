@@ -4,6 +4,7 @@ import { OfficeJsAdapter } from "../shared/host/officeJsAdapter";
 import {
   normalizeRangeAddressForCompare,
   requireHexColor,
+  requireParseableA1Range,
   splitSheetQualifiedAddress,
 } from "../shared/host/officeJsTemplateReadback";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
@@ -81,6 +82,13 @@ describe("phase55 workbook.template", () => {
       const a = splitSheetQualifiedAddress("'A!B'!$A$1:$C$2");
       expect(a.sheet).toBe("A!B");
       expect(normalizeRangeAddressForCompare("'Sheet 2'!$B$2:$D$4")).toBe("B2:D4");
+    });
+
+    it("requireParseableA1Range rejects garbage and accepts quoted ranges", () => {
+      expect(() => requireParseableA1Range("garbage", "f")).toThrow(/parseable|A1/i);
+      expect(() => requireParseableA1Range("A0", "f")).toThrow(/parseable|A1/i);
+      expect(requireParseableA1Range("'A!B'!$A$1:$C$2", "f")).toBe("A1:C2");
+      expect(requireParseableA1Range("Sheet1!A1", "f")).toBe("A1");
     });
   });
 
@@ -235,6 +243,37 @@ describe("phase55 workbook.template", () => {
       }
     });
 
+    it("freeze address must be parseable A1; garbage/A0 fail; quoted sheet ok", async () => {
+      const adapter = new OfficeJsAdapter();
+      for (const addr of ["garbage", "A0", "A1:", ":B2", "1A", "A1:B0"]) {
+        gates = installTemplateExcel();
+        gates.setPoison("Sheet1", { freezeAddress: addr });
+        const result = await adapter.applyWorkbookTemplate(APPLY_DEFAULT);
+        expect(result.ok, JSON.stringify({ addr, result })).toBe(false);
+        if (!result.ok) {
+          expect(result.unsupported).not.toBe(true);
+          expect(result.reason).toMatch(/freeze\.address|parseable|A1|endpoint/i);
+        }
+      }
+
+      // non-null freeze with quoted sheet name containing ! succeeds
+      gates = installTemplateExcel({
+        extraSheets: [{ name: "A!B", usedAddress: "A1:C2", rows: 2, cols: 3 }],
+        activeSheet: "A!B",
+      });
+      gates.setPoison("A!B", { freezeAddress: "'A!B'!$A$1:$A$1" });
+      const ok = await adapter.applyWorkbookTemplate({
+        ...APPLY_DEFAULT,
+        sheetNames: ["A!B"],
+        allSheets: true,
+        freezeRows: 1,
+      });
+      expect(ok.ok).toBe(true);
+      if (ok.ok) {
+        expect(ok.data.appliedSheets[0]!.readback.freezeRowCount).toBe(1);
+      }
+    });
+
     it("post-write address/rowCount/columnCount mismatch fails after writes", async () => {
       const adapter = new OfficeJsAdapter();
       for (const poison of [{ address: "Sheet1!Z9:Z10" }, { rowCount: 99 }, { columnCount: 77 }]) {
@@ -378,27 +417,75 @@ describe("phase55 workbook.template", () => {
 
     it("print scalar poisons ordinary fail", async () => {
       const adapter = new OfficeJsAdapter();
-      const printPoisons = [
+      const printPoisons: Array<Record<string, unknown>> = [
         { printOrientation: "Port rait" },
         { printOrientation: 1 },
         { printOrientation: "Landscape-Extra" },
+        { printOrientation: undefined }, // explicit undefined, not null
         { printPaperSize: "" },
         { printPaperSize: 4 },
+        { printPaperSize: undefined },
         { printFitWide: -1 },
         { printFitWide: 1.5 },
         { printFitWide: "1" },
+        { printFitWide: undefined },
         { printFitTall: NaN },
+        { printFitTall: undefined },
+        { printFitWideMissing: true },
+        { printFitTallMissing: true },
+        { printZoom: undefined },
+        { printZoom: 1 },
         { printAreaIsNull: "false" },
         { printAreaIsNull: false, printAreaAddress: 9 },
         { printHeader: 1 },
+        { printHeader: undefined },
         { printFooter: true },
-      ] as const;
+        { printFooter: undefined },
+      ];
       for (const poison of printPoisons) {
         gates = installTemplateExcel();
         gates.setPoison("Sheet1", poison as never);
         const result = await adapter.captureWorkbookTemplate();
         expect(result.ok, JSON.stringify({ poison, result })).toBe(false);
-        if (!result.ok) expect(result.unsupported).not.toBe(true);
+        if (!result.ok) {
+          expect(result.unsupported).not.toBe(true);
+          expect(result.reason).toMatch(
+            /undefined|missing|not a|portrait|landscape|#RRGGBB|boolean|finite|integer|string|zoom/i,
+          );
+        }
+      }
+    });
+
+    it("missing defaultForAllPages.load fails capture (no false success)", async () => {
+      gates = installTemplateExcel({ missingDefaultHeaderFooterLoad: true });
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.captureWorkbookTemplate();
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.unsupported).not.toBe(true);
+        expect(result.reason).toMatch(/load is missing/i);
+      }
+    });
+
+    it("explicit null print fields succeed as unavailable", async () => {
+      gates = installTemplateExcel();
+      gates.setPoison("Sheet1", {
+        printOrientation: null,
+        printPaperSize: null,
+        printFitWide: null,
+        printFitTall: null,
+        printHeader: null,
+        printFooter: null,
+      });
+      const adapter = new OfficeJsAdapter();
+      const result = await adapter.captureWorkbookTemplate();
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const s1 = result.data.template.sheets.find((s) => s.name === "Sheet1")!;
+        expect(s1.print.orientation).toBeNull();
+        expect(s1.print.paperSize).toBeNull();
+        expect(s1.print.fitToPagesWide).toBeNull();
+        expect(s1.print.header).toBeNull();
       }
     });
 

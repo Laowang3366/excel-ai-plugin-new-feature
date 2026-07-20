@@ -47,6 +47,9 @@ type Poison = Partial<{
   printPaperSize: unknown;
   printFitWide: unknown;
   printFitTall: unknown;
+  printFitWideMissing: true;
+  printFitTallMissing: true;
+  printZoom: unknown; // null | undefined | object override
   printAreaIsNull: unknown;
   printAreaAddress: unknown;
   printHeader: unknown;
@@ -104,6 +107,7 @@ export function installTemplateExcel(options?: {
   missingFontLoad?: boolean;
   missingFill?: boolean;
   missingFillLoad?: boolean;
+  missingDefaultHeaderFooterLoad?: boolean;
   sheetCount?: number;
   activeSheet?: string;
   extraSheets?: Array<{
@@ -679,21 +683,34 @@ export function installTemplateExcel(options?: {
           },
         });
 
-        const def = {
+        const def: any = {
           get centerHeader() {
             hfTrack.ensure("centerHeader", "centerHeader");
-            if (sheet.poison?.printHeader !== undefined) return sheet.poison.printHeader;
+            if (
+              sheet.poison &&
+              Object.prototype.hasOwnProperty.call(sheet.poison, "printHeader")
+            ) {
+              return sheet.poison.printHeader;
+            }
             return "";
           },
           get centerFooter() {
             hfTrack.ensure("centerFooter", "centerFooter");
-            if (sheet.poison?.printFooter !== undefined) return sheet.poison.printFooter;
+            if (
+              sheet.poison &&
+              Object.prototype.hasOwnProperty.call(sheet.poison, "printFooter")
+            ) {
+              return sheet.poison.printFooter;
+            }
             return "";
           },
           load(props?: string) {
             hfTrack.markLoad(props ?? "centerHeader,centerFooter");
           },
         };
+        if (options?.missingDefaultHeaderFooterLoad) {
+          delete def.load;
+        }
 
         return {
           load(props?: string) {
@@ -701,26 +718,51 @@ export function installTemplateExcel(options?: {
           },
           get orientation() {
             layoutTrack.ensure("orientation", "layout.orientation");
-            if (sheet.poison?.printOrientation !== undefined) return sheet.poison.printOrientation;
+            if (
+              sheet.poison &&
+              Object.prototype.hasOwnProperty.call(sheet.poison, "printOrientation")
+            ) {
+              return sheet.poison.printOrientation;
+            }
             return "Portrait";
           },
           get paperSize() {
             layoutTrack.ensure("paperSize", "layout.paperSize");
-            if (sheet.poison?.printPaperSize !== undefined) return sheet.poison.printPaperSize;
+            if (
+              sheet.poison &&
+              Object.prototype.hasOwnProperty.call(sheet.poison, "printPaperSize")
+            ) {
+              return sheet.poison.printPaperSize;
+            }
             return "A4";
           },
           get zoom() {
             layoutTrack.ensure("zoom", "layout.zoom");
-            return {
-              get horizontalFitToPages() {
-                if (sheet.poison?.printFitWide !== undefined) return sheet.poison.printFitWide;
-                return null;
-              },
-              get verticalFitToPages() {
-                if (sheet.poison?.printFitTall !== undefined) return sheet.poison.printFitTall;
-                return null;
-              },
-            };
+            if (sheet.poison && Object.prototype.hasOwnProperty.call(sheet.poison, "printZoom")) {
+              return sheet.poison.printZoom;
+            }
+            const zoomObj: Record<string, unknown> = {};
+            if (sheet.poison?.printFitWideMissing) {
+              // omit horizontalFitToPages key
+            } else if (
+              sheet.poison &&
+              Object.prototype.hasOwnProperty.call(sheet.poison, "printFitWide")
+            ) {
+              zoomObj.horizontalFitToPages = sheet.poison.printFitWide;
+            } else {
+              zoomObj.horizontalFitToPages = null;
+            }
+            if (sheet.poison?.printFitTallMissing) {
+              // omit verticalFitToPages key
+            } else if (
+              sheet.poison &&
+              Object.prototype.hasOwnProperty.call(sheet.poison, "printFitTall")
+            ) {
+              zoomObj.verticalFitToPages = sheet.poison.printFitTall;
+            } else {
+              zoomObj.verticalFitToPages = null;
+            }
+            return zoomObj;
           },
           get headersFooters() {
             return { defaultForAllPages: def };

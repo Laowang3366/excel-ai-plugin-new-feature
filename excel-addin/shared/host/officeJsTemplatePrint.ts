@@ -63,9 +63,10 @@ function requireDefaultHeaders(layout: ExcelPageLayout): {
     throw new Error("PageLayout.headersFooters.defaultForAllPages is missing");
   }
   const def = hf.defaultForAllPages;
-  if (typeof def.load === "function") {
-    def.load("centerHeader,centerFooter");
+  if (typeof def.load !== "function") {
+    throw new Error("PageLayout.headersFooters.defaultForAllPages.load is missing");
   }
+  def.load("centerHeader,centerFooter");
   return {
     centerHeader: def,
     centerFooter: def,
@@ -115,27 +116,51 @@ function parseNullAddress(range: NullRange, field: string): string | null {
   return normalizeRangeAddressForCompare(addr);
 }
 
-function readFit(zoom: unknown, key: "horizontalFitToPages" | "verticalFitToPages", field: string): number | null {
+/**
+ * Fit page count: only explicit null or non-negative integer.
+ * Missing key / undefined → ordinary failure (never coerced to null).
+ */
+function readFit(
+  zoom: unknown,
+  key: "horizontalFitToPages" | "verticalFitToPages",
+  field: string,
+): number | null {
   if (zoom === null) return null;
-  if (zoom == null || typeof zoom !== "object") {
+  if (typeof zoom !== "object") {
     throw new Error(`${field} zoom is not a loaded object or null`);
   }
+  if (!Object.prototype.hasOwnProperty.call(zoom, key)) {
+    throw new Error(`${field} is missing on zoom object`);
+  }
   const raw = (zoom as Record<string, unknown>)[key];
-  return nullableNonNegativeInt(raw === undefined ? null : raw, field);
+  if (raw === undefined) {
+    throw new Error(`${field} is undefined`);
+  }
+  return nullableNonNegativeInt(raw, field);
 }
 
-/** Parse after shared sync — strict scalars, no String/Boolean/Number coercion. */
+function readLayoutScalar(layout: ExcelPageLayout, key: "orientation" | "paperSize" | "zoom", field: string): unknown {
+  const value = (layout as unknown as Record<string, unknown>)[key];
+  if (value === undefined) {
+    throw new Error(`${field} is undefined/missing after load`);
+  }
+  return value;
+}
+
+/** Parse after shared sync — strict scalars; only explicit null = unavailable. */
 export function parseTemplatePrintSnapshot(
   bundle: TemplatePrintLoadBundle,
 ): WorkbookTemplatePrintSnapshot {
-  const layout = bundle.layout as ExcelPageLayout & {
-    orientation?: unknown;
-    paperSize?: unknown;
-    zoom?: unknown;
-  };
-  const orientation = nullableOrientation(layout.orientation ?? null, "print.orientation");
-  const paperSize = nullablePaperSizeToken(layout.paperSize ?? null, "print.paperSize");
-  const zoom = layout.zoom;
+  const layout = bundle.layout;
+  const orientation = nullableOrientation(
+    readLayoutScalar(layout, "orientation", "print.orientation"),
+    "print.orientation",
+  );
+  const paperSize = nullablePaperSizeToken(
+    readLayoutScalar(layout, "paperSize", "print.paperSize"),
+    "print.paperSize",
+  );
+  const zoom = readLayoutScalar(layout, "zoom", "print.zoom");
   const fitToPagesWide = readFit(zoom, "horizontalFitToPages", "print.fitToPagesWide");
   const fitToPagesTall = readFit(zoom, "verticalFitToPages", "print.fitToPagesTall");
   return {
