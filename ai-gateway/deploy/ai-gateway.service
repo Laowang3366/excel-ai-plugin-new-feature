@@ -1,0 +1,30 @@
+[Unit]
+Description=Wengge same-origin AI gateway
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ai-gateway
+Group=ai-gateway
+WorkingDirectory=/opt/wengge/ai-gateway
+EnvironmentFile=-/etc/wengge/ai-gateway.env
+ExecStart=/usr/bin/node src/index.mjs
+Restart=on-failure
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
