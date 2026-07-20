@@ -88,6 +88,16 @@ import type {
   FormulaProtectionManageInfo,
   FormulaProtectionManageInput,
 } from "./formulaProtectionTypes";
+import type {
+  FormulaBackupsInspectInfo,
+  FormulaBackupsRestoreInfo,
+  FormulaConvertToValuesInfo,
+  FormulaConvertToValuesInput,
+  FormulaDependenciesInspectInfo,
+  FormulaDependenciesInspectInput,
+  FormulaReferencesRepairInfo,
+  FormulaReferencesRepairInput,
+} from "./formulaGovernanceTypes";
 
 /** Host capability surface implemented by Office.js / WPS / Mock adapters. */
 export interface HostAdapter {
@@ -154,6 +164,20 @@ export interface HostAdapter {
   manageFormulaProtection(
     input: FormulaProtectionManageInput,
   ): Promise<HostResult<FormulaProtectionManageInfo>>;
+  inspectFormulaDependencies(
+    input: FormulaDependenciesInspectInput,
+  ): Promise<HostResult<FormulaDependenciesInspectInfo>>;
+  repairFormulaReferences(
+    input: FormulaReferencesRepairInput,
+  ): Promise<HostResult<FormulaReferencesRepairInfo>>;
+  convertFormulasToValues(
+    input: FormulaConvertToValuesInput,
+  ): Promise<HostResult<FormulaConvertToValuesInfo>>;
+  inspectFormulaBackups(): Promise<HostResult<FormulaBackupsInspectInfo>>;
+  restoreFormulas(input: {
+    backupId: string;
+    removeAfterRestore?: boolean;
+  }): Promise<HostResult<FormulaBackupsRestoreInfo>>;
 
   listCharts(sheetName?: string): Promise<HostResult<ChartInfo[]>>;
   createChart(input: {

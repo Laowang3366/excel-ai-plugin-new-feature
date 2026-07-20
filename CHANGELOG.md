@@ -1,5 +1,11 @@
 # 更新日志
 
+## Unreleased
+
+### Excel 加载项
+- 接入公式治理工具：`formula.dependencies.inspect`、`formula.references.repair`、`formula.convertToValues`、`formula.backups.inspect`、`formula.backups.restore`（纯核心 + Office.js/WPS；备份协议 WENGGE_FORMULA_BACKUP_V1；真实侧载未验收）
+
+
 这里只记录用户能够直接感知的功能与体验变化。代码重构、内部实现调整、测试数量和工程优化不进入更新日志。
 
 ## 未发布

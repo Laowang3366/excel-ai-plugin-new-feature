@@ -22,6 +22,7 @@ import { TABLE_UNLIST_TOOL_DEFINITIONS } from "./tableUnlistDefinitions";
 import { TABLE_FILTER_TOOL_DEFINITIONS } from "./tableFilterDefinitions";
 import { TABLE_SORT_TOOL_DEFINITIONS } from "./tableSortDefinitions";
 import { FORMULA_PROTECTION_TOOL_DEFINITIONS } from "./formulaProtectionDefinitions";
+import { FORMULA_GOVERNANCE_TOOL_DEFINITIONS } from "./formulaGovernanceDefinitions";
 import {
   CONDITIONAL_FORMAT_TOOL_DEFINITIONS,
   DATA_VALIDATION_TOOL_DEFINITIONS,
@@ -311,4 +312,5 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   ...TABLE_FILTER_TOOL_DEFINITIONS,
   ...TABLE_SORT_TOOL_DEFINITIONS,
   ...FORMULA_PROTECTION_TOOL_DEFINITIONS,
+  ...FORMULA_GOVERNANCE_TOOL_DEFINITIONS,
 ];

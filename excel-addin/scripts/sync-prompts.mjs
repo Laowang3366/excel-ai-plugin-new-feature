@@ -15,6 +15,7 @@ const sourceRoot = path.join(
   "templates",
 );
 const outDir = path.join(root, "shared", "prompts", "generated");
+const templatesDir = path.join(root, "shared", "prompts", "templates");
 const manifestPath = path.join(root, "shared", "prompts", "manifest.json");
 
 /** Excel-related prompt sources only (no OCR/Word/PPT-only extras). */
@@ -52,19 +53,28 @@ function main() {
       .relative(repoRoot, sourcePath)
       .split(path.sep)
       .join("/");
+    const overlayPath = path.join(templatesDir, relative);
+    let mode = "desktop-identical";
+    try {
+      statSync(overlayPath);
+      mode = "addin-adapted";
+    } catch {
+      // no overlay
+    }
     entries.push({
       id: relative.replace(/\\/g, "/"),
       sourcePath: sourceRel,
       generatedPath: `shared/prompts/generated/${relative.replace(/\\/g, "/")}`,
       sha256: sha256(content),
       bytes: content.byteLength,
+      mode,
     });
   }
 
   const manifest = {
     generatedAt: new Date().toISOString(),
     sourceRoot: "desktop/electron/agent/prompts/templates",
-    note: "Synced Excel-related prompts only; OCR/Word/PPT scenarios excluded by design.",
+    note: "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. OCR/Word/PPT scenarios excluded by design.",
     files: entries,
   };
 

@@ -28,6 +28,13 @@ import { wpsInspectWorkbook } from "./wpsJsaInspect";
 import { wpsCopySheet, wpsMoveSheet } from "./wpsJsaSheetOps";
 import { wpsReadRange } from "./wpsJsaRangeRead";
 import { wpsStructureSurface } from "./wpsJsaStructure";
+import {
+  wpsConvertFormulasToValues,
+  wpsInspectFormulaBackups,
+  wpsInspectFormulaDependencies,
+  wpsRepairFormulaReferences,
+  wpsRestoreFormulas,
+} from "./wpsJsaFormulaGovernance";
 import type {
   CellValue,
   FormulaContextData,
@@ -307,6 +314,11 @@ export class WpsJsaAdapter implements HostAdapter {
   updateTable = wpsStructureSurface.updateTable;
   inspectFormulaProtection = wpsStructureSurface.inspectFormulaProtection;
   manageFormulaProtection = wpsStructureSurface.manageFormulaProtection;
+  inspectFormulaDependencies = wpsInspectFormulaDependencies;
+  repairFormulaReferences = wpsRepairFormulaReferences;
+  convertFormulasToValues = wpsConvertFormulasToValues;
+  inspectFormulaBackups = wpsInspectFormulaBackups;
+  restoreFormulas = wpsRestoreFormulas;
   getTableFilter = wpsStructureSurface.getTableFilter;
   applyTableFilter = wpsStructureSurface.applyTableFilter;
   clearTableFilter = wpsStructureSurface.clearTableFilter;

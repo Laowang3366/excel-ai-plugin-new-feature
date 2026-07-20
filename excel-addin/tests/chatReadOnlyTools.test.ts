@@ -18,6 +18,8 @@ describe("chat readonly allowlist", () => {
       "formula.read",
       "formula.context",
       "formula.protection.inspect",
+      "formula.dependencies.inspect",
+      "formula.backups.inspect",
       "sheet.list",
       "table.list",
       "chart.list",

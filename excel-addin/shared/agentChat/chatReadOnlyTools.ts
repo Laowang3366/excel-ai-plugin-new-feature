@@ -13,6 +13,8 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "formula.read",
   "formula.context",
   "formula.protection.inspect",
+  "formula.dependencies.inspect",
+  "formula.backups.inspect",
   "sheet.list",
   "table.list",
   "chart.list",

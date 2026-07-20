@@ -38,3 +38,12 @@
 - 写入后必须回读实际 spill，检查输出行列、表头/排序、完整或局部样例、空值/零/重复/无匹配边界，以及 `#SPILL!/#VALUE!/#N/A/#REF!/#NAME?`。写入成功不等于结果正确。
 - 失败时依次检查溢出阻塞、数组尺寸、数据类型、匹配键、索引边界和环境兼容性，只修正出错阶段后重新回读；不要无分析地轮换案例公式或整体推倒重写。
 - 最终回复只报告写入位置、采用的关键方法和回读结论；用户未要求时不要重复整份公式、原始数据、完整推导或验收流水账，也不要以“还有遗漏吗”之类问题收尾。
+
+
+### 公式治理（依赖 / 修复 / 备份）
+
+- 依赖检查用 `formula.dependencies.inspect`（scope=workbook|sheet|target）。报告为**文本解析**依赖图，含 `limitations`（如 text-parse-only、no-excel-engine-circularReference）；不得声称 Excel 计算引擎级循环引用分析。
+- 引用修复用 `formula.references.repair`：仅显式 `replacements` mapping，禁止猜测；若修复后仍含 `#REF!` 会 `formula_repair_incomplete` 且**不写入**。修改前写入隐藏备份表 `WENGGE_FORMULA_BACKUP_V1`。
+- 公式转值用 `formula.convertToValues`：必须先持久备份再写值；禁止无备份。
+- 备份查看/恢复用 `formula.backups.inspect` / `formula.backups.restore`（按 backupId；默认不删除备份）。
+- 公式单元格锁定用 `formula.protection.inspect` / `formula.protection.manage`（与治理备份表无关）。

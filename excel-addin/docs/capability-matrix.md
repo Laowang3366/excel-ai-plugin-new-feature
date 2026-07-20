@@ -15,6 +15,10 @@ Evidence columns:
 | formula | formula.read / formula.write | implemented | implemented* | formula tools | writeFormulas primitive |
 | formula | formula.context | implemented | implemented* | `formula.context` | Desktop shape `{sheetName,address,formulas[]}`; range optional → UsedRange |
 | formula | protection inspect/manage | implemented | **unsupported** | `inspectFormulaProtection` / `manageFormulaProtection` | Office.js `Range.formulas` + `Range.format.protection.locked` **ExcelApi 1.2**; lock/unlock **formula cells only** (not whole-sheet fake); scope workbook\|sheet\|target; lock defaults unlockInputs=true (target range only) + protectSheet=true; password request-memory only, never in result; write-back verify; WPS typed unsupported; **not** real Excel sideload verified |
+| formula | dependencies.inspect | implemented | implemented* | `inspectFormulaDependencies` | Pure-core text-parse graph via `shared/formulaGovernance`; scope workbook\|sheet\|target; always reports limitations (no engine circular refs); *WPS member-probe Formula/UsedRange; **not** real sideload verified |
+| formula | references.repair | implemented | implemented* | `repairFormulaReferences` | Explicit mapping only; plan-first — still `#REF!` → `formula_repair_incomplete` without write; hidden `_WenggeFormulaBackup*` + `WENGGE_FORMULA_BACKUP_V1` before write; post-write verify; *WPS needs Worksheets.Add; **not** real sideload verified |
+| formula | convertToValues | implemented | implemented* | `convertFormulasToValues` | Mandatory persistent backup then replace formulas with calculated values; createBackup=false rejected; *WPS member-probe; **not** real sideload verified |
+| formula | backups.inspect / restore | implemented | implemented* | `inspectFormulaBackups` / `restoreFormulas` | Magic/header check; skip corrupt rows; restore by backupId with write-back verify; default retain backup (removeAfterRestore optional); *WPS member-probe; **not** real sideload verified |
 | sheet | list/add/rename/delete | implemented | implemented* | `sheet.operation` | |
 | sheet | sheet.operation copy | implemented | **unsupported** | `sheet.operation` copy | Office.js `Worksheet.copy` |
 | sheet | sheet.operation move | implemented | **unsupported** | `sheet.operation` move | Public position **1-based**; Office.js converts to 0-based |
@@ -100,6 +104,7 @@ Evidence columns:
 - Phase34: `range.image.get` (ExcelApi 1.7 Range.getImage Base64 PNG; memory only; no width/height/path/PDF/MIME; Office.js; WPS unsupported)
 - Phase38: `range.insert` / `range.delete` (ExcelApi 1.1, shift down|right/up|left) and `range.autofit` (ExcelApi 1.2, rows|columns|both with dimension readback); Office.js only, WPS typed unsupported
 - Phase37: `table.update` adds `resizeAddress` (same-sheet single-area A1; ExcelApi 1.13) and `showBandedRows`/`showBandedColumns` (ExcelApi 1.3), with requirement-set precheck and write→sync→load→sync host readback; overlap/header-row geometry remains host-validated; WPS unsupported
+- Phase41: formula governance tools wired to pure core — `formula.dependencies.inspect` (safe), `formula.references.repair` / `formula.convertToValues` / `formula.backups.restore` (dangerous), `formula.backups.inspect` (safe); plan-first repair; mandatory backup for convert; WPS member-probe paths; **not** real sideload verified
 - Phase40: `formula.protection.inspect` (safe) + `formula.protection.manage` (dangerous): ExcelApi 1.2 locked on formula cells only; scope workbook|sheet|target; unlockInputs range-limited; protectSheet optional; password request-memory only; post-write verify; WPS unsupported; **not** real Excel sideload verified
 - Phase39: `table.update` adds `showFirstColumn`/`showLastColumn` (**ExcelApi 1.3**); new tools `table.filter.get|apply|clear` (AutoFilter apply/clear **1.2**, enabled **1.9**) and `table.sort.get|apply|clear` (**ExcelApi 1.2**); 1-based columnIndex; filterOn values|custom|top/bottom items/percent; sort fields≤3 value-only; color/icon/dynamic filter & color sort remain typed unsupported; WPS typed unsupported; **not** real Excel sideload verified
 
@@ -110,9 +115,9 @@ Evidence columns:
 - list → `rule.list.{source,inCellDropDown}`; wholeNumber → `rule.wholeNumber.{operator,formula1,formula2}`.
 - Tool schema rejects unimplemented `showError`/`errorMessage` (errorAlert not wired).
 
-## Formula pure core (not full tool governance)
+## Formula governance (wired tools + pure core)
 
-`shared/formulaGovernance/` is a pure address/dependency/repair library used for tests and future wiring. **Callable host tools today** for formula safety are only `formula.protection.inspect` / `formula.protection.manage`. Stage-A pure core is **not** the complete formula governance product surface.
+`shared/formulaGovernance/` is the pure address/dependency/repair/backup library. **Callable tools**: `formula.dependencies.inspect`, `formula.references.repair`, `formula.convertToValues`, `formula.backups.inspect`, `formula.backups.restore`, plus `formula.protection.inspect` / `formula.protection.manage`. Backup protocol `WENGGE_FORMULA_BACKUP_V1` on hidden `_WenggeFormulaBackup*` sheets. Dependency analysis is text-parse only (not Excel calc engine). **Not** real Excel/WPS sideload verified.
 
 ## Assumptions (WPS)
 

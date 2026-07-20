@@ -33,6 +33,7 @@ import { executeTableUnlistTool } from "./tableUnlistExecutor";
 import { executeTableFilterTool } from "./tableFilterExecutor";
 import { executeTableSortTool } from "./tableSortExecutor";
 import { executeFormulaProtectionTool } from "./formulaProtectionExecutor";
+import { executeFormulaGovernanceTool } from "./formulaGovernanceExecutor";
 import { writeFormulaWithVerify, writeRangeWithVerify } from "./writeWithVerify";
 
 function fail(tool: ToolName, error: string, detail?: unknown): ToolFailure {
@@ -351,6 +352,8 @@ export class ToolExecutor {
           if (tableSort) return tableSort;
           const formulaProtection = await executeFormulaProtectionTool(this.host, call);
           if (formulaProtection) return formulaProtection;
+          const formulaGovernance = await executeFormulaGovernanceTool(this.host, call);
+          if (formulaGovernance) return formulaGovernance;
           return fail(call.name, `Unknown tool: ${String((call as ToolCall).name)}`);
         }
       }

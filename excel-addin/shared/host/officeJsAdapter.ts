@@ -32,6 +32,15 @@ import {
   officeJsManageFormulaProtection,
 } from "./officeJsFormulaProtection";
 import {
+  officeJsConvertFormulasToValues,
+  officeJsInspectFormulaDependencies,
+  officeJsRepairFormulaReferences,
+} from "./officeJsFormulaGovernanceOps";
+import {
+  officeJsInspectFormulaBackups,
+  officeJsRestoreFormulas,
+} from "./officeJsFormulaGovernanceBackups";
+import {
   officeJsGetFormulaContext,
   officeJsReadRange,
 } from "./officeJsRangeExpand";
@@ -270,6 +279,11 @@ export class OfficeJsAdapter implements HostAdapter {
   clearTableSort = officeJsClearTableSort;
   inspectFormulaProtection = officeJsInspectFormulaProtection;
   manageFormulaProtection = officeJsManageFormulaProtection;
+  inspectFormulaDependencies = officeJsInspectFormulaDependencies;
+  repairFormulaReferences = officeJsRepairFormulaReferences;
+  convertFormulasToValues = officeJsConvertFormulasToValues;
+  inspectFormulaBackups = officeJsInspectFormulaBackups;
+  restoreFormulas = officeJsRestoreFormulas;
   listCharts = officeJsListCharts;
   createChart = officeJsCreateChart;
   deleteChart = officeJsDeleteChart;

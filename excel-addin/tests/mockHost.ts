@@ -40,6 +40,25 @@ import type {
   FormulaProtectionManageInput,
 } from "../shared/host/formulaProtectionTypes";
 import type {
+  FormulaBackupsInspectInfo,
+  FormulaConvertToValuesInfo,
+  FormulaConvertToValuesInput,
+  FormulaDependenciesInspectInfo,
+  FormulaDependenciesInspectInput,
+  FormulaReferencesRepairInfo,
+  FormulaReferencesRepairInput,
+} from "../shared/host/formulaGovernanceTypes";
+import {
+  buildDependencyReport,
+  createBackupRows,
+  planFormulaRepairs,
+  planRestore,
+  summarizeBackups,
+  validateRepairedFormulas,
+  type FormulaBackupRow,
+  type FormulaCellRecord,
+} from "../shared/formulaGovernance";
+import type {
   ChartSeriesAddInput,
   ChartSeriesAddResult,
   ChartSeriesDeleteResult,
@@ -496,6 +515,8 @@ export class MockHostAdapter implements HostAdapter {
 
 
   /** sheetName -> { formulas[r][c], locked[r][c], protected } for formula protection tests */
+  formulaBackupRows: FormulaBackupRow[] = [];
+  formulaBackupSheetName: string | null = null;
   formulaProtectionSheets = new Map<
     string,
     {
@@ -622,6 +643,296 @@ export class MockHostAdapter implements HostAdapter {
         input.command === "lock" && unlockInputs
           ? ["unlockInputs: unlocked all cells in target range before locking formula cells (inputs outside range unchanged)"]
           : [],
+    });
+  }
+
+
+  private collectMockFormulaCells(input: {
+    scope: "workbook" | "sheet" | "target";
+    sheetName?: string;
+    range?: string;
+  }): FormulaCellRecord[] {
+    if (input.scope !== "workbook" && !input.sheetName) {
+      throw new Error("sheetName is required for scope sheet|target");
+    }
+    if (input.scope === "target" && !input.range) {
+      throw new Error("range is required for scope=target");
+    }
+    const out: FormulaCellRecord[] = [];
+    for (const [k, cell] of this.cells.entries()) {
+      const bang = k.lastIndexOf("!");
+      const sheet = k.slice(0, bang);
+      const address = k.slice(bang + 1);
+      if (input.scope !== "workbook" && sheet !== input.sheetName) continue;
+      if (input.scope === "target") {
+        // simple: exact key match or address equals range
+        const bare = (input.range ?? "").toUpperCase();
+        if (address.toUpperCase() !== bare && k.toUpperCase() !== `${sheet}!${bare}`.toUpperCase()) {
+          // also allow multi-cell stored under range key: scan formulas matrix
+        }
+      }
+      for (let r = 0; r < cell.formulas.length; r++) {
+        for (let c = 0; c < (cell.formulas[r]?.length ?? 0); c++) {
+          const formula = cell.formulas[r]![c] ?? "";
+          if (!formula.startsWith("=")) continue;
+          // For multi-cell blocks, invent A1 offset from origin when address is single or range
+          let cellAddr = address;
+          if (address.includes(":") || cell.formulas.length > 1 || (cell.formulas[0]?.length ?? 0) > 1) {
+            // Use absoluteA1-like: only handle origin as top-left single letter+number
+            const origin = address.split(":")[0]!;
+            const m = /^([A-Z]+)(\d+)$/i.exec(origin.replace(/\$/g, ""));
+            if (m) {
+              let col = 0;
+              const letters = m[1]!.toUpperCase();
+              for (let i = 0; i < letters.length; i++) col = col * 26 + (letters.charCodeAt(i) - 64);
+              col = col - 1 + c;
+              const row = Number(m[2]) - 1 + r;
+              let n = col + 1;
+              let label = "";
+              while (n > 0) {
+                const rem = (n - 1) % 26;
+                label = String.fromCharCode(65 + rem) + label;
+                n = Math.floor((n - 1) / 26);
+              }
+              cellAddr = `${label}${row + 1}`;
+            }
+          }
+          if (input.scope === "target" && input.range && !input.range.includes(":")) {
+            if (cellAddr.toUpperCase() !== input.range.toUpperCase() && address.toUpperCase() !== input.range.toUpperCase()) {
+              // keep cells from the keyed range if key matches
+              if (k.toUpperCase() !== `${sheet}!${input.range}`.toUpperCase()) continue;
+            }
+          }
+          out.push({
+            sheetName: sheet,
+            address: cellAddr,
+            formula,
+            value: cell.values[r]?.[c] ?? null,
+            formulaR1C1: "",
+            numberFormat: "",
+            locked: false,
+            spillAddress: "",
+          });
+        }
+      }
+    }
+    // Also pull from formulaProtectionSheets formulas (tests often seed there)
+    if (out.length === 0) {
+      const names =
+        input.scope === "workbook"
+          ? [...this.formulaProtectionSheets.keys()]
+          : [input.sheetName ?? "Sheet1"];
+      for (const name of names) {
+        const state = this.formulaProtectionSheets.get(name);
+        if (!state) continue;
+        for (let r = 0; r < state.formulas.length; r++) {
+          for (let c = 0; c < (state.formulas[r]?.length ?? 0); c++) {
+            const formula = state.formulas[r]![c] ?? "";
+            if (!formula.startsWith("=")) continue;
+            // A1 from r,c assuming A1 origin
+            let n = c + 1;
+            let label = "";
+            while (n > 0) {
+              const rem = (n - 1) % 26;
+              label = String.fromCharCode(65 + rem) + label;
+              n = Math.floor((n - 1) / 26);
+            }
+            const addr = `${label}${r + 1}`;
+            out.push({
+              sheetName: name,
+              address: addr,
+              formula,
+              value: null,
+              formulaR1C1: "",
+              numberFormat: "",
+              locked: state.locked[r]?.[c] === true,
+              spillAddress: "",
+            });
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  private setMockFormula(sheetName: string, address: string, formula: string, value: CellValue = null) {
+    this.cells.set(key(sheetName, address), {
+      values: [[value]],
+      formulas: [[formula]],
+    });
+  }
+
+  async inspectFormulaDependencies(
+    input: FormulaDependenciesInspectInput,
+  ): Promise<HostResult<FormulaDependenciesInspectInfo>> {
+    const cells = this.collectMockFormulaCells(input);
+    const report = buildDependencyReport(cells);
+    return ok({
+      scope: input.scope,
+      report,
+      limitations: [...report.limitations],
+    });
+  }
+
+  async repairFormulaReferences(
+    input: FormulaReferencesRepairInput,
+  ): Promise<HostResult<FormulaReferencesRepairInfo>> {
+    const cells = this.collectMockFormulaCells(input);
+    const plan = planFormulaRepairs(cells, input.replacements, {
+      applyAllMappings: input.applyAllMappings === true,
+    });
+    if (!plan.complete) {
+      return {
+        ok: false,
+        unsupported: false,
+        capability: "formula.references.repair",
+        host: this.kind,
+        reason: "formula_repair_incomplete",
+        evidence: JSON.stringify({
+          repairs: plan.repairs,
+          unresolved: plan.unresolved,
+        }),
+      };
+    }
+    if (plan.repairs.length === 0) {
+      return ok({
+        scope: input.scope,
+        backupId: "",
+        repairs: [],
+        unresolved: [],
+        repairedCount: 0,
+        unresolvedCount: 0,
+        verified: true,
+        limitations: ["no matching formula cells to repair"],
+      });
+    }
+    const backupId = `mock${Date.now().toString(16)}`;
+    const backupCells = plan.repairs
+      .map((r) => cells.find((c) => `${c.sheetName}!${c.address}`.toLowerCase() === r.cell.toLowerCase()))
+      .filter((c): c is FormulaCellRecord => Boolean(c));
+    this.formulaBackupRows.push(
+      ...createBackupRows(backupCells, { backupId, sourceRange: input.range ?? input.scope }),
+    );
+    this.formulaBackupSheetName = this.formulaBackupSheetName ?? "_WenggeFormulaBackupMock";
+    for (const repair of plan.repairs) {
+      const bang = repair.cell.lastIndexOf("!");
+      this.setMockFormula(repair.cell.slice(0, bang), repair.cell.slice(bang + 1), repair.after);
+    }
+    const readBack = plan.repairs.map((r) => {
+      const bang = r.cell.lastIndexOf("!");
+      const hit = this.cells.get(key(r.cell.slice(0, bang), r.cell.slice(bang + 1)));
+      return { cell: r.cell, formula: hit?.formulas[0]?.[0] ?? "" };
+    });
+    const validation = validateRepairedFormulas(readBack);
+    if (!validation.ok) {
+      return {
+        ok: false,
+        unsupported: false,
+        capability: "formula.references.repair",
+        host: this.kind,
+        reason: "formula_repair_incomplete",
+        evidence: JSON.stringify(validation),
+      };
+    }
+    return ok({
+      scope: input.scope,
+      backupId,
+      repairs: plan.repairs,
+      unresolved: [],
+      repairedCount: plan.repairedCount,
+      unresolvedCount: 0,
+      verified: true,
+      limitations: [],
+    });
+  }
+
+  async convertFormulasToValues(
+    input: FormulaConvertToValuesInput,
+  ): Promise<HostResult<FormulaConvertToValuesInfo>> {
+    if (input.createBackup === false) {
+      return {
+        ok: false,
+        unsupported: false,
+        capability: "formula.convertToValues",
+        host: this.kind,
+        reason: "createBackup=false is not allowed; persistent workbook backup is required",
+      };
+    }
+    const cells = this.collectMockFormulaCells(input).filter((c) => c.formula.startsWith("="));
+    const backupId = input.backupId?.trim() || `mock${Date.now().toString(16)}`;
+    if (cells.length === 0) {
+      return ok({
+        scope: input.scope,
+        backupId,
+        convertedFormulaCells: 0,
+        verified: true,
+        limitations: ["no formula cells in scope"],
+      });
+    }
+    this.formulaBackupRows.push(
+      ...createBackupRows(cells, { backupId, sourceRange: input.range ?? input.scope }),
+    );
+    this.formulaBackupSheetName = this.formulaBackupSheetName ?? "_WenggeFormulaBackupMock";
+    for (const cell of cells) {
+      const val = (cell.value as CellValue) ?? null;
+      this.cells.set(key(cell.sheetName, cell.address), {
+        values: [[val]],
+        formulas: [[""]],
+      });
+    }
+    return ok({
+      scope: input.scope,
+      backupId,
+      convertedFormulaCells: cells.length,
+      verified: true,
+      limitations: [],
+    });
+  }
+
+  async inspectFormulaBackups(): Promise<HostResult<FormulaBackupsInspectInfo>> {
+    const backups = summarizeBackups(this.formulaBackupRows);
+    return ok({
+      backups,
+      backupCount: backups.length,
+      backupSheetName: this.formulaBackupSheetName,
+      skippedRows: [],
+      limitations: this.formulaBackupRows.length ? [] : ["no backup sheet"],
+    });
+  }
+
+  async restoreFormulas(input: {
+    backupId: string;
+    removeAfterRestore?: boolean;
+  }): Promise<HostResult<import("../shared/host/formulaGovernanceTypes").FormulaBackupsRestoreInfo>> {
+    const plan = planRestore(this.formulaBackupRows, input.backupId);
+    if ("error" in plan) {
+      return {
+        ok: false,
+        unsupported: false,
+        capability: "formula.backups.restore",
+        host: this.kind,
+        reason: plan.error,
+      };
+    }
+    const restored: Array<{ cell: string; formula: string }> = [];
+    for (const item of plan.items) {
+      this.setMockFormula(item.sheet, item.address, item.formula);
+      restored.push({ cell: `${item.sheet}!${item.address}`, formula: item.formula });
+    }
+    if (input.removeAfterRestore === true) {
+      this.formulaBackupRows = this.formulaBackupRows.filter((r) => r.backupId !== input.backupId);
+    }
+    return ok({
+      backupId: input.backupId,
+      restored,
+      restoredCount: restored.length,
+      failed: [],
+      verified: true,
+      limitations: [
+        input.removeAfterRestore
+          ? "removed restored backup rows (removeAfterRestore=true)"
+          : "backup rows retained (removeAfterRestore default false)",
+      ],
     });
   }
 
