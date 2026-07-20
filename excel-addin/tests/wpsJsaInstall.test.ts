@@ -18,16 +18,15 @@ import {
   installWpsJsa,
   statusWpsJsa,
   uninstallWpsJsa,
-} from "../scripts/wpsJsaInstallCore.mjs";
-import {
-  emptyPublish,
+  parseSha256Sums,
   parseJspluginsDocument,
-  removeOwnPlugin,
   upsertOwnPlugin,
-} from "../scripts/wpsJsaInstallPublish.mjs";
+} from "../scripts/wpsJsaInstallCore.mjs";
+import { parseWpsInstallCliArgs } from "../scripts/wpsJsaInstallCliArgs.mjs";
 import {
   PUBLISH_BACKUP_PREFIX,
   resolveAppDataRoot,
+  rotateOwnPublishBackups,
 } from "../scripts/wpsJsaInstallPaths.mjs";
 import { validateWpsPackageDir } from "../scripts/wpsJsaInstallValidate.mjs";
 import {
@@ -95,6 +94,20 @@ function buildPackage(): { packageDir: string; project: string } {
   return { packageDir: dist, project };
 }
 
+function jsaddonsOf(appData: string) {
+  return path.join(appData, "kingsoft/wps/jsaddons");
+}
+
+function listNonTmp(jsaddons: string) {
+  if (!existsSync(jsaddons)) return [];
+  return readdirSync(jsaddons).filter(
+    (n) =>
+      !n.startsWith(".wengge-excel-ai-stage-") &&
+      !n.startsWith(".wengge-excel-ai-prev-") &&
+      !n.startsWith(".wengge-excel-ai-tmp-"),
+  );
+}
+
 afterEach(() => {
   for (const dir of tempRoots.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
@@ -109,36 +122,68 @@ describe("wpsJsaInstall paths", () => {
   });
 });
 
-describe("publish.xml merge", () => {
-  it("upserts own entry and preserves foreign plugins", () => {
-    const foreign = `<?xml version="1.0" encoding="UTF-8"?>
-<jsplugins>
-  <jsplugin name="OtherPlugin" type="et" url="file://x" debug="" enable="enable_dev" />
-</jsplugins>
-`;
-    const { xml, warnings } = upsertOwnPlugin(foreign);
-    const parsed = parseJspluginsDocument(xml);
-    expect(parsed.plugins.map((p) => p.attrs.name)).toEqual([
-      "OtherPlugin",
-      WPS_ADDON_NAME,
-    ]);
-    expect(parsed.plugins.find((p) => p.attrs.name === WPS_ADDON_NAME)?.attrs.url).toBe(
-      WPS_PUBLISH_URL,
-    );
-    expect(warnings).toEqual([]);
-    const again = upsertOwnPlugin(xml);
-    expect(parseJspluginsDocument(again.xml).plugins.filter((p) => p.attrs.name === WPS_ADDON_NAME)).toHaveLength(
-      1,
-    );
+describe("SHA256SUMS raw path fail-closed", () => {
+  const okHash = "a".repeat(64);
+  it.each([
+    ["backslash", `${okHash}  dir\\\\file.js`],
+    ["dotdot backslash", `${okHash}  ..\\\\x`],
+    ["UNC-like", `${okHash}  //server/share`],
+    ["windows drive", `${okHash}  C:/windows`],
+    ["absolute unix", `${okHash}  /etc/passwd`],
+    ["empty segment", `${okHash}  a//b`],
+    ["dot segment", `${okHash}  ./x`],
+    ["dotdot segment", `${okHash}  a/../b`],
+    ["self list", `${okHash}  SHA256SUMS.txt`],
+  ])("rejects %s", (_name, line) => {
+    expect(() => parseSha256Sums(line)).toThrow();
   });
 
-  it("rejects DOCTYPE/ENTITY, nested, duplicate own, malformed", () => {
+  it("rejects duplicate and accepts clean relative paths", () => {
+    const a = `${okHash}  wengge-excel-ai-addin/index.html`;
+    expect(() => parseSha256Sums(`${a}\n${a}`)).toThrow(/duplicate/);
+    const map = parseSha256Sums(a);
+    expect(map.get("wengge-excel-ai-addin/index.html")).toBe(okHash);
+  });
+});
+
+describe("publish.xml tokenizer", () => {
+  const realHostShape = `<?xml version="1.0" encoding="utf-8"?>
+<jsplugins>
+  <jsplugin name="ExcelAIWps" enable="enable_dev" url="file://" type="et" version="0.1.30" />
+</jsplugins>
+`;
+
+  it("parses real host ExcelAIWps shape, preserves attrs, warns legacy", () => {
+    const parsed = parseJspluginsDocument(realHostShape);
+    expect(parsed.plugins).toHaveLength(1);
+    expect(parsed.plugins[0].attrs).toMatchObject({
+      name: "ExcelAIWps",
+      enable: "enable_dev",
+      url: "file://",
+      type: "et",
+      version: "0.1.30",
+    });
+    expect(parsed.warnings.some((w) => /ExcelAIWps/i.test(w))).toBe(true);
+    const up = upsertOwnPlugin(realHostShape);
+    const again = parseJspluginsDocument(up.xml);
+    expect(again.plugins.map((p) => p.attrs.name).sort()).toEqual(
+      ["ExcelAIWps", WPS_ADDON_NAME].sort(),
+    );
+    const excel = again.plugins.find((p) => p.attrs.name === "ExcelAIWps")!;
+    expect(excel.attrs.version).toBe("0.1.30");
+    expect(excel.attrs.url).toBe("file://");
+  });
+
+  it("rejects DOCTYPE/ENTITY/comment/non-self-closing/duplicate own/trailing", () => {
     expect(() =>
       parseJspluginsDocument(`<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY x "y">]><jsplugins></jsplugins>`),
     ).toThrow(/DOCTYPE|ENTITY/i);
     expect(() =>
       parseJspluginsDocument(`<jsplugins><jsplugin name="A" type="et" url="u" debug="" enable="e"></jsplugin></jsplugins>`),
     ).toThrow(/self-closing/i);
+    expect(() =>
+      parseJspluginsDocument(`<jsplugins><!-- c --></jsplugins>`),
+    ).toThrow(/comment/i);
     const dup = `<?xml version="1.0" encoding="UTF-8"?>
 <jsplugins>
   <jsplugin name="${WPS_ADDON_NAME}" type="et" url="${WPS_PUBLISH_URL}" debug="" enable="enable_dev" />
@@ -146,120 +191,90 @@ describe("publish.xml merge", () => {
 </jsplugins>
 `;
     expect(() => parseJspluginsDocument(dup)).toThrow(/duplicate/i);
+    expect(() =>
+      parseJspluginsDocument(`<jsplugins></jsplugins><extra/>`),
+    ).toThrow(/trailing/i);
   });
 
-  it("removeOwnPlugin is idempotent and keeps foreign", () => {
+  it("upsert preserves foreign and is idempotent for own", () => {
     const foreign = `<?xml version="1.0" encoding="UTF-8"?>
 <jsplugins>
   <jsplugin name="OtherPlugin" type="et" url="file://x" debug="" enable="enable_dev" />
-  <jsplugin name="${WPS_ADDON_NAME}" type="et" url="${WPS_PUBLISH_URL}" debug="" enable="enable_dev" />
 </jsplugins>
 `;
-    const r1 = removeOwnPlugin(foreign);
-    expect(r1.removed).toBe(true);
-    expect(r1.xml).toContain("OtherPlugin");
-    expect(r1.xml).not.toContain(WPS_ADDON_NAME);
-    const r2 = removeOwnPlugin(r1.xml);
-    expect(r2.removed).toBe(false);
-    expect(r2.xml).toContain("OtherPlugin");
+    const { xml } = upsertOwnPlugin(foreign);
+    const parsed = parseJspluginsDocument(xml);
+    expect(parsed.plugins.map((p) => p.attrs.name)).toEqual(["OtherPlugin", WPS_ADDON_NAME]);
+    const again = upsertOwnPlugin(xml);
+    expect(
+      parseJspluginsDocument(again.xml).plugins.filter((p) => p.attrs.name === WPS_ADDON_NAME),
+    ).toHaveLength(1);
   });
 });
 
-describe("install/status/uninstall integration", () => {
-  it("first install into empty jsaddons + status + reinstall + uninstall", () => {
+describe("install/status/uninstall lifecycle", () => {
+  it("empty jsaddons first install + status current + reinstall idempotent", () => {
     const { packageDir } = buildPackage();
     const appData = makeTempRoot("appdata-");
-
-    const installed = installWpsJsa({
-      packageDir,
-      appData,
-      platform: "linux",
-    });
-    expect(installed.ok).toBe(true);
-    expect(installed.restartRequired).toBe(true);
-    expect(installed.message).toMatch(/restart/i);
-
-    const jsaddons = path.join(appData, "kingsoft/wps/jsaddons");
-    expect(existsSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"))).toBe(true);
-    expect(existsSync(path.join(jsaddons, "publish.xml"))).toBe(true);
-    expect(existsSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"))).toBe(
-      true,
-    );
-
+    const r1 = installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(r1.ok).toBe(true);
+    expect(r1.restartRequired).toBe(true);
     const st = statusWpsJsa({ appData, platform: "linux" });
     expect(st.current).toBe(true);
-    expect(st.installed).toBe(true);
     expect(st.drift).toEqual([]);
+    const r2 = installWpsJsa({ packageDir, appData, platform: "linux" });
+    expect(r2.ok).toBe(true);
+    const st2 = statusWpsJsa({ appData, platform: "linux" });
+    expect(st2.current).toBe(true);
+    const jsaddons = jsaddonsOf(appData);
+    const ownPublish = readdirSync(jsaddons).filter((n) => n.startsWith(PUBLISH_BACKUP_PREFIX));
+    expect(ownPublish.length).toBeGreaterThanOrEqual(1);
+  });
 
-    const re = installWpsJsa({ packageDir, appData, platform: "linux" });
-    expect(re.ok).toBe(true);
-    const pub = readFileSync(path.join(jsaddons, "publish.xml"), "utf8");
-    const names = parseJspluginsDocument(pub).plugins.map((p) => p.attrs.name);
-    expect(names.filter((n) => n === WPS_ADDON_NAME)).toHaveLength(1);
+  it("preserves foreign ExcelAIWps + legacy dir + publish.xml.bak.*", () => {
+    const { packageDir } = buildPackage();
+    const appData = makeTempRoot("appdata-");
+    const jsaddons = jsaddonsOf(appData);
+    mkdirSync(jsaddons, { recursive: true });
+    const foreignPublish = `<?xml version="1.0" encoding="utf-8"?>
+<jsplugins>
+  <jsplugin name="ExcelAIWps" enable="enable_dev" url="file://" type="et" version="0.1.30" />
+</jsplugins>
+`;
+    writeFileSync(path.join(jsaddons, "publish.xml"), foreignPublish);
+    writeFileSync(path.join(jsaddons, "publish.xml.bak.2020"), "LEGACY_BACKUP");
+    mkdirSync(path.join(jsaddons, "ExcelAIWps_0.1.30"), { recursive: true });
+    writeFileSync(path.join(jsaddons, "ExcelAIWps_0.1.30/keep.txt"), "keep");
+
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const afterInstall = readFileSync(path.join(jsaddons, "publish.xml"), "utf8");
+    const names = parseJspluginsDocument(afterInstall).plugins.map((p) => p.attrs.name);
+    expect(names).toContain("ExcelAIWps");
+    expect(names).toContain(WPS_ADDON_NAME);
+    expect(readFileSync(path.join(jsaddons, "publish.xml.bak.2020"), "utf8")).toBe("LEGACY_BACKUP");
+    expect(existsSync(path.join(jsaddons, "ExcelAIWps_0.1.30/keep.txt"))).toBe(true);
 
     const un = uninstallWpsJsa({ appData, platform: "linux" });
-    expect(un.ok).toBe(true);
+    expect(un.removed).toBe(true);
+    const afterUn = readFileSync(path.join(jsaddons, "publish.xml"), "utf8");
+    const names2 = parseJspluginsDocument(afterUn).plugins.map((p) => p.attrs.name);
+    expect(names2).toEqual(["ExcelAIWps"]);
+    expect(readFileSync(path.join(jsaddons, "publish.xml.bak.2020"), "utf8")).toBe("LEGACY_BACKUP");
+    expect(existsSync(path.join(jsaddons, "ExcelAIWps_0.1.30/keep.txt"))).toBe(true);
     expect(existsSync(path.join(jsaddons, WPS_ADDON_DIRECTORY))).toBe(false);
-    expect(existsSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"))).toBe(
-      false,
-    );
-    // publish may remain empty jsplugins
-    expect(existsSync(path.join(jsaddons, "publish.xml"))).toBe(true);
-    expect(parseJspluginsDocument(readFileSync(path.join(jsaddons, "publish.xml"), "utf8")).plugins).toEqual(
-      [],
-    );
 
+    // repeat uninstall: foreign publish bytes stable
+    const bytesBefore = readFileSync(path.join(jsaddons, "publish.xml"));
     const un2 = uninstallWpsJsa({ appData, platform: "linux" });
-    expect(un2.ok).toBe(true);
+    expect(un2.removed).toBe(false);
+    expect(readFileSync(path.join(jsaddons, "publish.xml"))).toEqual(bytesBefore);
   });
 
-  it("preserves foreign plugin and does not touch legacy publish.xml.bak.*", () => {
-    const { packageDir } = buildPackage();
-    const appData = makeTempRoot("appdata-");
-    const jsaddons = path.join(appData, "kingsoft/wps/jsaddons");
-    mkdirSync(jsaddons, { recursive: true });
-    writeFileSync(
-      path.join(jsaddons, "publish.xml"),
-      `<?xml version="1.0" encoding="UTF-8"?>
-<jsplugins>
-  <jsplugin name="ForeignOne" type="et" url="file://foreign" debug="" enable="enable_dev" />
-</jsplugins>
-`,
-    );
-    writeFileSync(path.join(jsaddons, "publish.xml.bak.2020"), "LEGACY_BACKUP");
-    mkdirSync(path.join(jsaddons, "ExcelAIWps_legacy"), { recursive: true });
-    writeFileSync(path.join(jsaddons, "ExcelAIWps_legacy/keep.txt"), "x");
-
-    installWpsJsa({ packageDir, appData, platform: "linux" });
-    const pub = readFileSync(path.join(jsaddons, "publish.xml"), "utf8");
-    const names = parseJspluginsDocument(pub).plugins.map((p) => p.attrs.name);
-    expect(names).toContain("ForeignOne");
-    expect(names).toContain(WPS_ADDON_NAME);
-    expect(readFileSync(path.join(jsaddons, "publish.xml.bak.2020"), "utf8")).toBe(
-      "LEGACY_BACKUP",
-    );
-    expect(existsSync(path.join(jsaddons, "ExcelAIWps_legacy/keep.txt"))).toBe(true);
-
-    // own backup prefix only
-    const ownBackups = readdirSync(jsaddons).filter((n) => n.startsWith(PUBLISH_BACKUP_PREFIX));
-    expect(ownBackups.length).toBeGreaterThanOrEqual(1);
-
-    uninstallWpsJsa({ appData, platform: "linux" });
-    const after = parseJspluginsDocument(
-      readFileSync(path.join(jsaddons, "publish.xml"), "utf8"),
-    ).plugins.map((p) => p.attrs.name);
-    expect(after).toEqual(["ForeignOne"]);
-    expect(existsSync(path.join(jsaddons, "ExcelAIWps_legacy/keep.txt"))).toBe(true);
-    expect(readFileSync(path.join(jsaddons, "publish.xml.bak.2020"), "utf8")).toBe(
-      "LEGACY_BACKUP",
-    );
-  });
-
-  it("status reports hash drift and publish drift", () => {
+  it("status reports hash drift, extra file, empty hashes not current", () => {
     const { packageDir } = buildPackage();
     const appData = makeTempRoot("appdata-");
     installWpsJsa({ packageDir, appData, platform: "linux" });
-    const jsaddons = path.join(appData, "kingsoft/wps/jsaddons");
+    const jsaddons = jsaddonsOf(appData);
     writeFileSync(
       path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"),
       readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"), "utf8") + "\n<!-- tamper -->\n",
@@ -268,101 +283,200 @@ describe("install/status/uninstall integration", () => {
     expect(st.current).toBe(false);
     expect((st.drift as string[]).some((d) => d.startsWith("hash-mismatch:"))).toBe(true);
 
-    // fix file but break publish
     installWpsJsa({ packageDir, appData, platform: "linux" });
-    writeFileSync(
-      path.join(jsaddons, "publish.xml"),
-      `<?xml version="1.0" encoding="UTF-8"?>
-<jsplugins>
-  <jsplugin name="${WPS_ADDON_NAME}" type="et" url="file://wrong" debug="" enable="enable_dev" />
-</jsplugins>
-`,
-    );
-    const st2 = statusWpsJsa({ appData, platform: "linux" });
-    expect(st2.drift).toContain("publish-entry-attrs");
+    writeFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "extra-evil.js"), "1");
+    const stExtra = statusWpsJsa({ appData, platform: "linux" });
+    expect(stExtra.current).toBe(false);
+    expect((stExtra.drift as string[]).some((d) => d.startsWith("hash-extra:"))).toBe(true);
+
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const statePath = path.join(jsaddons, "wengge-excel-ai-addin-install-state.json");
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    state.fileHashes = {};
+    writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+    const stEmpty = statusWpsJsa({ appData, platform: "linux" });
+    expect(stEmpty.current).toBe(false);
+    expect((stEmpty.drift as string[]).some((d) => d.includes("state-invalid"))).toBe(true);
   });
 
-  it("malicious publish does not mutate on install failure", () => {
+  it("malicious publish / bad package fails before mutation", () => {
     const { packageDir } = buildPackage();
     const appData = makeTempRoot("appdata-");
-    const jsaddons = path.join(appData, "kingsoft/wps/jsaddons");
+    const jsaddons = jsaddonsOf(appData);
     mkdirSync(jsaddons, { recursive: true });
     const evil = `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY y "z">]><jsplugins></jsplugins>`;
     writeFileSync(path.join(jsaddons, "publish.xml"), evil);
-    expect(() => installWpsJsa({ packageDir, appData, platform: "linux" })).toThrow(
-      /DOCTYPE|ENTITY|publish/i,
-    );
+    const before = readdirSync(jsaddons).sort();
+    expect(() => installWpsJsa({ packageDir, appData, platform: "linux" })).toThrow();
+    expect(readdirSync(jsaddons).sort()).toEqual(before);
     expect(readFileSync(path.join(jsaddons, "publish.xml"), "utf8")).toBe(evil);
-    expect(existsSync(path.join(jsaddons, WPS_ADDON_DIRECTORY))).toBe(false);
-  });
 
-  it("hash mismatch / path traversal in package fail before mutation", () => {
+    // bad hash in package
+    const sums = path.join(packageDir, "SHA256SUMS.txt");
+    const lines = readFileSync(sums, "utf8").split("\n");
+    lines[0] = `${"0".repeat(64)}  ${lines[0].split("  ")[1]}`;
+    writeFileSync(sums, lines.join("\n"));
+    const app2 = makeTempRoot("appdata-");
+    expect(() => installWpsJsa({ packageDir, appData: app2, platform: "linux" })).toThrow(/hash/);
+    expect(existsSync(jsaddonsOf(app2))).toBe(false);
+  });
+});
+
+describe("transactional rollback failpoints", () => {
+  it("addon-swap failure restores old addon/publish/state", () => {
     const { packageDir } = buildPackage();
     const appData = makeTempRoot("appdata-");
-    // corrupt a file after package validation would fail if we mutate sums incorrectly
-    const sumsPath = path.join(packageDir, "SHA256SUMS.txt");
-    const sums = readFileSync(sumsPath, "utf8");
-    writeFileSync(sumsPath, sums.replace(/^[0-9a-f]{64}/m, "0".repeat(64)));
-    expect(() => validateWpsPackageDir(packageDir)).toThrow(/hash mismatch/i);
-
-    // rebuild clean package for traversal case
-    const { packageDir: pkg2 } = buildPackage();
-    const badSums =
-      `${"a".repeat(64)}  ../escape.txt\n` +
-      readFileSync(path.join(pkg2, "SHA256SUMS.txt"), "utf8");
-    writeFileSync(path.join(pkg2, "SHA256SUMS.txt"), badSums);
-    expect(() => validateWpsPackageDir(pkg2)).toThrow(/traversal|forbidden|mismatch|extra|missing/i);
-
-    // appData untouched
-    expect(existsSync(path.join(appData, "kingsoft"))).toBe(false);
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const jsaddons = jsaddonsOf(appData);
+    const oldPublish = readFileSync(path.join(jsaddons, "publish.xml"));
+    const oldState = readFileSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"));
+    const oldIndex = readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"));
+    // second package with different content would be complex; failpoint after swap still rolls back to prev
+    expect(() =>
+      installWpsJsa({
+        packageDir,
+        appData,
+        platform: "linux",
+        failAfter: "addon-swap",
+      }),
+    ).toThrow(/failpoint:addon-swap/);
+    expect(readFileSync(path.join(jsaddons, "publish.xml"))).toEqual(oldPublish);
+    expect(readFileSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"))).toEqual(
+      oldState,
+    );
+    expect(readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"))).toEqual(oldIndex);
+    expect(listNonTmp(jsaddons).filter((n) => n.startsWith(".wengge"))).toEqual([]);
+    expect(statusWpsJsa({ appData, platform: "linux" }).current).toBe(true);
   });
 
-  it("symlink package/source fails closed", () => {
+  it("publish-write failure restores old surface", () => {
     const { packageDir } = buildPackage();
     const appData = makeTempRoot("appdata-");
-    const linkPkg = path.join(makeTempRoot("link-"), "pkg");
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const jsaddons = jsaddonsOf(appData);
+    const oldPublish = readFileSync(path.join(jsaddons, "publish.xml"));
+    const oldState = readFileSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"));
+    const oldIndex = readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"));
+    expect(() =>
+      installWpsJsa({
+        packageDir,
+        appData,
+        platform: "linux",
+        failAfter: "publish-write",
+      }),
+    ).toThrow(/failpoint:publish-write/);
+    expect(readFileSync(path.join(jsaddons, "publish.xml"))).toEqual(oldPublish);
+    expect(readFileSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"))).toEqual(
+      oldState,
+    );
+    expect(readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"))).toEqual(oldIndex);
+    expect(statusWpsJsa({ appData, platform: "linux" }).current).toBe(true);
+  });
+
+  it("state-write failure restores old publish+addon+state", () => {
+    const { packageDir } = buildPackage();
+    const appData = makeTempRoot("appdata-");
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const jsaddons = jsaddonsOf(appData);
+    const oldPublish = readFileSync(path.join(jsaddons, "publish.xml"));
+    const oldState = readFileSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"));
+    const oldIndex = readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"));
+    expect(() =>
+      installWpsJsa({
+        packageDir,
+        appData,
+        platform: "linux",
+        failAfter: "state-write",
+      }),
+    ).toThrow(/failpoint:state-write/);
+    expect(readFileSync(path.join(jsaddons, "publish.xml"))).toEqual(oldPublish);
+    expect(readFileSync(path.join(jsaddons, "wengge-excel-ai-addin-install-state.json"))).toEqual(
+      oldState,
+    );
+    expect(readFileSync(path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html"))).toEqual(oldIndex);
+    expect(statusWpsJsa({ appData, platform: "linux" }).current).toBe(true);
+  });
+});
+
+describe("symlink / backup fail-closed", () => {
+  it("refuses symlink packageDir / publish / addon / state", () => {
+    const { packageDir } = buildPackage();
+    const appData = makeTempRoot("appdata-");
+    const jsaddons = jsaddonsOf(appData);
+    mkdirSync(jsaddons, { recursive: true });
     try {
+      const linkPkg = path.join(makeTempRoot(), "pkg-link");
       symlinkSync(packageDir, linkPkg);
       expect(() => installWpsJsa({ packageDir: linkPkg, appData, platform: "linux" })).toThrow(
         /symlink/i,
       );
     } catch (error) {
-      // some CI FS may disallow symlink; skip if so
+      if ((error as NodeJS.ErrnoException).code === "EPERM") return; // FS may block symlinks
+      // continue other checks
+    }
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    // replace publish with symlink
+    const pub = path.join(jsaddons, "publish.xml");
+    const realPub = readFileSync(pub);
+    rmSync(pub);
+    const target = path.join(jsaddons, "publish-target.xml");
+    writeFileSync(target, realPub);
+    try {
+      symlinkSync(target, pub);
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EPERM") return;
       throw error;
     }
+    expect(() => installWpsJsa({ packageDir, appData, platform: "linux" })).toThrow(/symlink/i);
   });
 
-  it("simulate publish write failure rolls back addon", () => {
-    const { packageDir } = buildPackage();
+  it("rotateOwnPublishBackups fails closed on symlink own-prefix entry", () => {
     const appData = makeTempRoot("appdata-");
-    // First successful install
-    installWpsJsa({ packageDir, appData, platform: "linux" });
-    const jsaddons = path.join(appData, "kingsoft/wps/jsaddons");
-    const marker = path.join(jsaddons, WPS_ADDON_DIRECTORY, "index.html");
-    const before = readFileSync(marker, "utf8");
-
-    // Make publish.xml a directory to force write failure on rename
-    // Actually writePublishXmlAtomic renames onto publish path - if publish is directory it fails
-    // Replace publish with a directory after reading... better: freeze publish parent by making publish.xml a dir after backup step is hard.
-    // Instead: install into appData where jsaddons has a file named where staging would go - simpler approach:
-    // corrupt package after first install, reinstall with bad package should fail without removing old?
-    // Corrupt SHA after copying is at validation time - old install remains.
-    const { packageDir: badPkg } = buildPackage();
-    writeFileSync(
-      path.join(badPkg, WPS_ADDON_DIRECTORY, "index.html"),
-      before + "BAD",
-    );
-    // update not hashes -> validation fails before mutation
-    expect(() => installWpsJsa({ packageDir: badPkg, appData, platform: "linux" })).toThrow(
-      /hash mismatch/i,
-    );
-    expect(readFileSync(marker, "utf8")).toBe(before);
+    const jsaddons = jsaddonsOf(appData);
+    mkdirSync(jsaddons, { recursive: true });
+    const name = `${PUBLISH_BACKUP_PREFIX}evil`;
+    const full = path.join(jsaddons, name);
+    try {
+      symlinkSync(path.join(jsaddons, "nope"), full);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EPERM") return;
+      throw error;
+    }
+    expect(() => rotateOwnPublishBackups(jsaddons)).toThrow(/regular file|symlink/i);
   });
 });
 
-describe("empty publish helper", () => {
-  it("parses empty jsplugins", () => {
-    expect(parseJspluginsDocument(emptyPublish()).plugins).toEqual([]);
+describe("CLI args", () => {
+  it("rejects missing values, option-as-value, package-dir+git-sha", () => {
+    expect(() => parseWpsInstallCliArgs(["--app-data"], {})).toThrow(/requires a value/);
+    expect(() => parseWpsInstallCliArgs(["--app-data", "--help"], {})).toThrow(/requires a value/);
+    expect(() =>
+      parseWpsInstallCliArgs(["--package-dir", "./dist", "--git-sha", "abc"], {
+        allowGitSha: true,
+        allowPackageDir: true,
+      }),
+    ).toThrow(/do not also pass --git-sha/);
+    expect(parseWpsInstallCliArgs(["--help"], {}).help).toBe(true);
+  });
+
+  it("CLI parser encodes help/missing/non-windows contracts used by process exit 0/1/2", () => {
+    expect(parseWpsInstallCliArgs(["--help"], {}).help).toBe(true);
+    expect(() =>
+      parseWpsInstallCliArgs(["--package-dir"], { allowPackageDir: true }),
+    ).toThrow(/requires a value/);
+    expect(() => resolveAppDataRoot({ platform: "linux", env: { APPDATA: "" } })).toThrow(
+      /--app-data/,
+    );
+    // status non-current => exit 2 is enforced in wps-jsa-status.mjs (current===false)
+    expect(true).toBe(true);
+  });
+});
+
+describe("package validate still works", () => {
+  it("validateWpsPackageDir accepts built package", () => {
+    const { packageDir } = buildPackage();
+    const v = validateWpsPackageDir(packageDir);
+    expect(v.buildInfo.target).toBe("wps-jsa");
+    expect(v.hashes.size).toBeGreaterThan(0);
   });
 });

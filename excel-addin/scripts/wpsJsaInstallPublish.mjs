@@ -1,19 +1,18 @@
 /**
- * Safe publish.xml merge for a single WenggeExcelAiAddin jsplugin entry.
- * Fail closed on DOCTYPE/ENTITY, multi-root, nested plugins, duplicates.
+ * Restricted deterministic publish.xml tokenizer/parser for jsaddons.
+ * Accepts: optional XML declaration + bare <jsplugins> + self-closing <jsplugin .../> only.
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  WPS_ADDON_NAME,
-  WPS_PUBLISH_URL,
-} from "./wpsJsaPackage.mjs";
+import { WPS_ADDON_NAME, WPS_PUBLISH_URL } from "./wpsJsaPackage.mjs";
 import {
   assertInside,
   assertRealFile,
+  exclusiveTempFile,
   ownPublishBackupPath,
   rotateOwnPublishBackups,
   safeRenameInside,
+  TMP_PREFIX,
 } from "./wpsJsaInstallPaths.mjs";
 
 const XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>';
@@ -27,8 +26,72 @@ export function renderOwnJsplugin() {
     enable="enable_dev" />`;
 }
 
-function normalizeNewlines(text) {
-  return String(text).replace(/\r\n/g, "\n");
+export function emptyPublish() {
+  return `${XML_DECL}\n<jsplugins>\n</jsplugins>\n`;
+}
+
+function skipWs(text, i) {
+  while (i < text.length && /[ \t\r\n]/.test(text[i])) i += 1;
+  return i;
+}
+
+function parseXmlDeclaration(text, i) {
+  i = skipWs(text, i);
+  if (!text.startsWith("<?xml", i)) return i;
+  const end = text.indexOf("?>", i);
+  if (end < 0) throw new Error("unterminated XML declaration");
+  const decl = text.slice(i, end + 2);
+  if (/<!DOCTYPE|<!ENTITY|<!--|<\[CDATA\[|<\?[^x]/i.test(decl.slice(5))) {
+    throw new Error("unsafe content in XML declaration");
+  }
+  // only allow version/encoding style declaration
+  if (!/^<\?xml\s+version\s*=\s*(["'])1\.0\1(?:\s+encoding\s*=\s*(["'])[^"']+\2)?\s*\?>$/i.test(decl)) {
+    // tolerate encoding=utf-8 casing as real host files
+    if (!/^<\?xml\b[^?]*\?>$/i.test(decl) || /<!|\[|\]/.test(decl)) {
+      throw new Error("invalid XML declaration");
+    }
+  }
+  return end + 2;
+}
+
+/**
+ * Parse attributes from inside a jsplugin open segment (without <jsplugin and />).
+ * @returns {Record<string,string>}
+ */
+export function parseAttributes(attrText) {
+  const attrs = {};
+  let i = 0;
+  const s = attrText;
+  while (true) {
+    i = skipWs(s, i);
+    if (i >= s.length) break;
+    const nameMatch = /^([A-Za-z_][\w:.-]*)/.exec(s.slice(i));
+    if (!nameMatch) throw new Error(`invalid attribute near: ${s.slice(i, i + 20)}`);
+    const name = nameMatch[1];
+    i += name.length;
+    i = skipWs(s, i);
+    if (s[i] !== "=") throw new Error(`attribute ${name} missing =`);
+    i += 1;
+    i = skipWs(s, i);
+    const q = s[i];
+    if (q !== '"' && q !== "'") throw new Error(`attribute ${name} value must be quoted`);
+    i += 1;
+    let value = "";
+    while (i < s.length && s[i] !== q) {
+      if (s[i] === "<" || s[i] === ">") {
+        throw new Error(`unsafe character in attribute ${name}`);
+      }
+      value += s[i];
+      i += 1;
+    }
+    if (i >= s.length) throw new Error(`unterminated attribute value for ${name}`);
+    i += 1; // closing quote
+    if (Object.prototype.hasOwnProperty.call(attrs, name)) {
+      throw new Error(`duplicate attribute: ${name}`);
+    }
+    attrs[name] = value;
+  }
+  return attrs;
 }
 
 /**
@@ -36,146 +99,140 @@ function normalizeNewlines(text) {
  */
 export function parseJspluginsDocument(xml) {
   const warnings = [];
-  const text = normalizeNewlines(xml).trim();
-  if (!text) throw new Error("publish.xml is empty");
-  if (/<!DOCTYPE|<!ENTITY/i.test(text)) {
+  const text = String(xml).replace(/\r\n/g, "\n");
+  if (text.trim() === "") throw new Error("publish.xml is empty");
+  if (/<!DOCTYPE/i.test(text) || /<!ENTITY/i.test(text)) {
     throw new Error("publish.xml must not contain DOCTYPE/ENTITY");
   }
-  if ((text.match(/<jsplugins\b/gi) || []).length !== 1) {
-    throw new Error("publish.xml must have exactly one jsplugins root");
+  if (/<!--/.test(text) || /<!\[CDATA\[/i.test(text)) {
+    throw new Error("publish.xml comments/CDATA are not supported");
   }
-  if ((text.match(/<\/jsplugins>/gi) || []).length !== 1) {
-    throw new Error("publish.xml missing closing jsplugins");
+  // reject processing instructions other than leading xml decl
+  let i = 0;
+  i = parseXmlDeclaration(text, i);
+  i = skipWs(text, i);
+  if (!text.startsWith("<jsplugins", i)) {
+    throw new Error("publish.xml must start with jsplugins root");
   }
-  // Reject nested roots / trailing junk
-  const rootMatch = text.match(
-    /^(?:\s*<\?xml\b[^?]*\?>\s*)?<jsplugins\b[^>]*>([\s\S]*)<\/jsplugins>\s*$/i,
-  );
-  if (!rootMatch) {
-    throw new Error("publish.xml root structure is not a single jsplugins document");
+  const openEnd = text.indexOf(">", i);
+  if (openEnd < 0) throw new Error("unterminated jsplugins open tag");
+  const openTag = text.slice(i, openEnd + 1);
+  if (openTag.includes("/>")) {
+    throw new Error("jsplugins root must not be self-closing empty without body form mismatch");
   }
-  if (/\b[^>]*\b/i.test(rootMatch[0].match(/<jsplugins\b[^>]*>/i)?.[0] ?? "") === false) {
-    // no-op; attributes on root are ignored if present but we reject non-empty attrs for safety
-  }
-  const rootOpen = text.match(/<jsplugins\b([^>]*)>/i)?.[1] ?? "";
-  if (rootOpen.trim() !== "") {
+  // <jsplugins> only — no attributes
+  if (!/^<jsplugins\s*>$/i.test(openTag)) {
     throw new Error("publish.xml jsplugins root must not have attributes");
   }
-
-  let inner = rootMatch[1];
-  // Reject open-close plugin pairs or nested tags other than self-closing jsplugin
-  if (/<jsplugin\b[^>]*>[\s\S]*?<\/jsplugin>/i.test(inner)) {
-    throw new Error("publish.xml jsplugin must be self-closing");
-  }
-  if (/<(?!jsplugin\b)[a-zA-Z!]/.test(inner.replace(/<!--[\s\S]*?-->/g, ""))) {
-    // comments not allowed either for simplicity
-    throw new Error("publish.xml contains non-jsplugin markup");
-  }
-  if (inner.includes("<!--")) {
-    throw new Error("publish.xml comments are not supported");
-  }
+  i = openEnd + 1;
 
   const plugins = [];
-  const re = /^\s*(<jsplugin\b[\s\S]*?\/>)\s*/;
-  while (inner.trim() !== "") {
-    const m = inner.match(re);
-    if (!m) {
-      throw new Error("publish.xml has malformed jsplugin entry or unsafe content");
+  while (true) {
+    i = skipWs(text, i);
+    if (text.startsWith("</jsplugins>", i)) {
+      i += "</jsplugins>".length;
+      break;
     }
-    const raw = m[1];
-    const attrs = parsePluginAttributes(raw);
-    plugins.push({ raw, attrs });
-    inner = inner.slice(m[0].length);
+    if (i >= text.length) throw new Error("publish.xml missing closing jsplugins");
+    if (!text.startsWith("<jsplugin", i)) {
+      throw new Error("publish.xml contains non-jsplugin markup");
+    }
+    // find end of this tag — must be self-closing />
+    let j = i + "<jsplugin".length;
+    let inQuote = null;
+    while (j < text.length) {
+      const ch = text[j];
+      if (inQuote) {
+        if (ch === inQuote) inQuote = null;
+        j += 1;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        inQuote = ch;
+        j += 1;
+        continue;
+      }
+      if (ch === "<") {
+        throw new Error("nested markup inside jsplugin is forbidden");
+      }
+      if (ch === ">") {
+        // check self-closing
+        const tag = text.slice(i, j + 1);
+        if (!/\/\s*>$/.test(tag)) {
+          throw new Error("publish.xml jsplugin must be self-closing");
+        }
+        const inner = tag.replace(/^<jsplugin/i, "").replace(/\/\s*>$/, "");
+        const attrs = parseAttributes(inner);
+        if (!attrs.name) throw new Error("jsplugin missing name attribute");
+        plugins.push({ raw: tag, attrs });
+        j += 1;
+        i = j;
+        break;
+      }
+      j += 1;
+    }
+    if (j >= text.length && !text.slice(i).includes(">")) {
+      throw new Error("unterminated jsplugin tag");
+    }
+  }
+
+  i = skipWs(text, i);
+  if (i !== text.length) {
+    throw new Error("publish.xml has trailing content after jsplugins");
   }
 
   const names = plugins.map((p) => p.attrs.name);
-  const own = names.filter((n) => n === WPS_ADDON_NAME);
-  if (own.length > 1) {
+  const ownCount = names.filter((n) => n === WPS_ADDON_NAME).length;
+  if (ownCount > 1) {
     throw new Error("publish.xml contains duplicate WenggeExcelAiAddin entries");
   }
-  // legacy conflict warning only
   for (const n of names) {
     if (n && n !== WPS_ADDON_NAME && /excelaiwps|excel-ai-wps|wenggeexcel/i.test(n)) {
-      warnings.push(`possible legacy/conflicting plugin entry preserved: ${n}`);
+      warnings.push(`legacy or third-party plugin present: ${n}`);
     }
   }
+
   return { plugins, warnings };
 }
 
-function parsePluginAttributes(rawTag) {
-  const inner = rawTag.replace(/^<jsplugin\b/i, "").replace(/\/>$/, "");
-  // Only name="value" pairs and whitespace
-  if (/[^a-zA-Z0-9_="\s.]/.test(inner.replace(/="[^"]*"/g, ""))) {
-    // allow more in values; check structure via regex extract
-  }
-  const attrs = {};
-  const re = /([A-Za-z_][\w-]*)\s*=\s*"([^"]*)"/g;
-  let m;
-  let consumed = "";
-  const matches = [];
-  while ((m = re.exec(inner))) {
-    matches.push(m);
-    if (Object.prototype.hasOwnProperty.call(attrs, m[1])) {
-      throw new Error(`duplicate attribute ${m[1]} on jsplugin`);
-    }
-    attrs[m[1]] = m[2];
-  }
-  // Ensure the tag body is only whitespace + attr pairs
-  let rest = inner;
-  for (const match of matches) {
-    const idx = rest.indexOf(match[0]);
-    if (idx < 0) throw new Error("jsplugin attribute parse failed");
-    const before = rest.slice(0, idx);
-    if (before.trim() !== "") {
-      throw new Error("jsplugin has unsafe non-attribute content");
-    }
-    rest = rest.slice(idx + match[0].length);
-  }
-  if (rest.trim() !== "") {
-    throw new Error("jsplugin has trailing unsafe content");
-  }
-  if (!attrs.name) throw new Error("jsplugin missing name attribute");
-  return attrs;
+function renderDocument(plugins) {
+  const body = plugins
+    .map((p) => {
+      if (p.attrs.name === WPS_ADDON_NAME) return renderOwnJsplugin();
+      // preserve foreign raw tag (trim and re-indent)
+      const raw = p.raw.trim();
+      return `  ${raw}`;
+    })
+    .join("\n");
+  return `${XML_DECL}\n<jsplugins>\n${body ? `${body}\n` : ""}</jsplugins>\n`;
 }
 
-export function renderJspluginsDocument(plugins) {
-  const body = plugins.map((p) => p.raw).join("\n");
-  return `${XML_DECL}\n<jsplugins>\n${body}\n</jsplugins>\n`;
-}
-
-/**
- * Upsert own plugin; preserve foreign raw entries order.
- */
 export function upsertOwnPlugin(xml) {
-  const { plugins, warnings } = parseJspluginsDocument(xml || emptyPublish());
-  const ownRaw = renderOwnJsplugin();
-  const own = { raw: ownRaw, attrs: parsePluginAttributes(ownRaw.trim()) };
-  const next = [];
-  let replaced = false;
-  for (const p of plugins) {
-    if (p.attrs.name === WPS_ADDON_NAME) {
-      next.push(own);
-      replaced = true;
-    } else {
-      next.push(p);
-    }
-  }
-  if (!replaced) next.push(own);
-  return { xml: renderJspluginsDocument(next), warnings, plugins: next };
+  const parsed = parseJspluginsDocument(xml);
+  const warnings = [...parsed.warnings];
+  const others = parsed.plugins.filter((p) => p.attrs.name !== WPS_ADDON_NAME);
+  const next = [
+    ...others,
+    {
+      raw: renderOwnJsplugin().trim(),
+      attrs: {
+        name: WPS_ADDON_NAME,
+        type: "et",
+        url: WPS_PUBLISH_URL,
+        debug: "",
+        enable: "enable_dev",
+      },
+    },
+  ];
+  return { xml: renderDocument(next), warnings, plugins: next };
 }
 
 export function removeOwnPlugin(xml) {
-  if (!xml || String(xml).trim() === "") {
-    return { xml: emptyPublish(), warnings: [], removed: false };
-  }
-  const { plugins, warnings } = parseJspluginsDocument(xml);
-  const next = plugins.filter((p) => p.attrs.name !== WPS_ADDON_NAME);
-  const removed = next.length !== plugins.length;
-  return { xml: renderJspluginsDocument(next), warnings, removed };
-}
-
-export function emptyPublish() {
-  return `${XML_DECL}\n<jsplugins>\n</jsplugins>\n`;
+  const parsed = parseJspluginsDocument(xml);
+  const warnings = [...parsed.warnings];
+  const next = parsed.plugins.filter((p) => p.attrs.name !== WPS_ADDON_NAME);
+  const removed = parsed.plugins.length !== next.length;
+  return { xml: renderDocument(next), warnings, removed, plugins: next };
 }
 
 export function ownPluginMatchesContract(attrs) {
@@ -183,29 +240,43 @@ export function ownPluginMatchesContract(attrs) {
     attrs?.name === WPS_ADDON_NAME &&
     attrs?.type === "et" &&
     attrs?.url === WPS_PUBLISH_URL &&
-    attrs?.debug === "" &&
-    attrs?.enable === "enable_dev"
+    attrs?.enable === "enable_dev" &&
+    (attrs?.debug === "" || attrs?.debug == null)
   );
 }
 
 /**
- * Atomic write with own-prefix backup of previous publish.xml.
+ * Atomic publish write with own-prefix backup of previous content.
+ * @returns {{ backedUp: string|null, previousBytes: string|null, previousExisted: boolean }}
  */
-export function writePublishXmlAtomic(jsaddons, publishPath, newXml) {
+export function writePublishXmlAtomic(jsaddons, publishPath, newXml, opts = {}) {
   assertInside(jsaddons, publishPath, "publish.xml");
-  const tmp = path.join(jsaddons, `publish.xml.wengge-excel-ai.tmp.${Date.now()}`);
-  assertInside(jsaddons, tmp, "publish tmp");
+  if (path.basename(publishPath) !== "publish.xml") {
+    throw new Error("publish path basename must be publish.xml");
+  }
 
+  let previousBytes = null;
+  let previousExisted = false;
   let backedUp = null;
+
   if (fs.existsSync(publishPath)) {
     assertRealFile(publishPath, "publish.xml");
+    previousExisted = true;
+    previousBytes = fs.readFileSync(publishPath, "utf8");
     backedUp = ownPublishBackupPath(jsaddons);
-    assertInside(jsaddons, backedUp, "publish backup");
-    fs.copyFileSync(publishPath, backedUp);
+    fs.writeFileSync(backedUp, previousBytes, "utf8");
+    const bfd = fs.openSync(backedUp, "r+");
+    try {
+      fs.fsyncSync(bfd);
+    } finally {
+      fs.closeSync(bfd);
+    }
     rotateOwnPublishBackups(jsaddons);
   }
 
+  const tmp = exclusiveTempFile(jsaddons, `${TMP_PREFIX}publish-`);
   try {
+    if (typeof opts.failBeforeWrite === "function") opts.failBeforeWrite();
     fs.writeFileSync(tmp, newXml, "utf8");
     const fd = fs.openSync(tmp, "r+");
     try {
@@ -213,18 +284,46 @@ export function writePublishXmlAtomic(jsaddons, publishPath, newXml) {
     } finally {
       fs.closeSync(fd);
     }
-    // atomic replace
-    fs.renameSync(tmp, publishPath);
+    if (typeof opts.failBeforeRename === "function") opts.failBeforeRename();
+    // replace: if publish exists, rename aside then put new (or overwrite via rename on POSIX)
+    if (fs.existsSync(publishPath)) {
+      // On POSIX rename over file replaces atomically
+      fs.renameSync(tmp, publishPath);
+    } else {
+      fs.renameSync(tmp, publishPath);
+    }
+    if (typeof opts.failAfterCommit === "function") opts.failAfterCommit();
   } catch (error) {
     try {
       if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
     } catch {
       /* ignore */
     }
-    if (backedUp && fs.existsSync(backedUp) && !fs.existsSync(publishPath)) {
-      fs.copyFileSync(backedUp, publishPath);
+    // restore previous if we may have damaged
+    if (previousExisted && previousBytes != null && backedUp && fs.existsSync(backedUp)) {
+      try {
+        if (!fs.existsSync(publishPath) || fs.readFileSync(publishPath, "utf8") !== previousBytes) {
+          fs.writeFileSync(publishPath, previousBytes, "utf8");
+        }
+      } catch {
+        /* best effort; caller may also restore */
+      }
     }
     throw error;
   }
-  return { backedUp };
+  return { backedUp, previousBytes, previousExisted };
+}
+
+/** Restore publish.xml bytes or delete if it did not exist. */
+export function restorePublishBytes(jsaddons, publishPath, previousBytes, previousExisted) {
+  assertInside(jsaddons, publishPath, "publish.xml");
+  if (!previousExisted) {
+    if (fs.existsSync(publishPath)) {
+      const st = fs.lstatSync(publishPath);
+      if (st.isSymbolicLink()) throw new Error("cannot restore over symlink publish");
+      fs.unlinkSync(publishPath);
+    }
+    return;
+  }
+  fs.writeFileSync(publishPath, previousBytes, "utf8");
 }

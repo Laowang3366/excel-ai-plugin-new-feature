@@ -183,5 +183,6 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | WPS JSA 可重复安装 CLI | **已提供** | `npm run wps:install|status|uninstall`；安全合并 `publish.xml`、原子 addon swap、包哈希校验；**真实 WPS 侧载仍未验收** |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase56.1: WPS install CLI hardened (raw SHA path, tokenizer, true rollback, honest status hashes).
 - Phase56: install-time WPS JSA CLI (`wps:install`/`status`/`uninstall`) for repeatable jsaddons merge; tools still 98; **not** real WPS sideload verified.
 - Phase55/55.1/55.2/55.3: `workbook.template.apply` (ExcelApi 1.8 desktop applyWorkbookTemplate parity; plan/readback + pre-write surface + no bulk text) + `workbook.template.capture` (ExcelApi 1.9 single Excel.run batch sync≤8 shallow capture/print subset); WPS unsupported; **not** real Excel/WPS sideload verified.

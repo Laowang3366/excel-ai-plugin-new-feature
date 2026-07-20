@@ -38,6 +38,7 @@ function readRegularBuffer(filePath) {
 
 /**
  * Parse SHA256SUMS.txt: "<hex>  <relpath>" (two spaces).
+ * Reject backslash on the *raw* path token before any normalization.
  * @returns {Map<string, string>} rel -> hash
  */
 export function parseSha256Sums(text) {
@@ -51,23 +52,33 @@ export function parseSha256Sums(text) {
       throw new Error(`invalid SHA256SUMS line ${i + 1}: ${line}`);
     }
     const hash = m[1];
-    const rel = m[2].replace(/\\/g, "/");
-    if (path.isAbsolute(rel) || rel.startsWith("/") || /^[A-Za-z]:/.test(rel)) {
-      throw new Error(`absolute path forbidden in SHA256SUMS: ${rel}`);
+    const rawPath = m[2];
+    // Fail closed on raw path token — never rewrite \ before checks.
+    if (rawPath.includes("\\")) {
+      throw new Error(`backslash path forbidden in SHA256SUMS: ${rawPath}`);
     }
-    if (rel.includes("\\")) {
-      throw new Error(`backslash path forbidden in SHA256SUMS: ${rel}`);
+    if (rawPath.includes("\0")) {
+      throw new Error(`NUL forbidden in SHA256SUMS path: ${rawPath}`);
     }
-    if (rel.split("/").some((s) => s === "" || s === "." || s === "..")) {
-      throw new Error(`path traversal forbidden in SHA256SUMS: ${rel}`);
+    if (
+      path.isAbsolute(rawPath) ||
+      rawPath.startsWith("/") ||
+      /^[A-Za-z]:/.test(rawPath) ||
+      rawPath.startsWith("//") ||
+      rawPath.startsWith("\\\\")
+    ) {
+      throw new Error(`absolute path forbidden in SHA256SUMS: ${rawPath}`);
     }
-    if (rel === "SHA256SUMS.txt") {
+    if (rawPath.split("/").some((s) => s === "" || s === "." || s === "..")) {
+      throw new Error(`path traversal forbidden in SHA256SUMS: ${rawPath}`);
+    }
+    if (rawPath === "SHA256SUMS.txt") {
       throw new Error("SHA256SUMS must not list itself");
     }
-    if (map.has(rel)) {
-      throw new Error(`duplicate SHA256SUMS entry: ${rel}`);
+    if (map.has(rawPath)) {
+      throw new Error(`duplicate SHA256SUMS entry: ${rawPath}`);
     }
-    map.set(rel, hash);
+    map.set(rawPath, hash);
   }
   if (map.size === 0) throw new Error("SHA256SUMS is empty");
   return map;
@@ -79,22 +90,15 @@ function sha256File(absPath) {
 
 /**
  * @param {string} packageDir
- * @returns {{
- *   packageDir: string,
- *   buildInfo: object,
- *   hashes: Map<string, string>,
- *   files: string[],
- *   addonDir: string,
- * }}
  */
 export function validateWpsPackageDir(packageDir) {
-  const root = assertRealDirectory(path.resolve(packageDir), "packageDir");
-  assertAncestryReal(root, root);
+  const rootDir = assertRealDirectory(path.resolve(packageDir), "packageDir");
+  assertAncestryReal(rootDir, rootDir);
 
-  const buildInfoPath = path.join(root, "BUILD_INFO.json");
-  const sumsPath = path.join(root, "SHA256SUMS.txt");
-  const publishPath = path.join(root, "publish.xml");
-  const addonDir = path.join(root, WPS_ADDON_DIRECTORY);
+  const buildInfoPath = path.join(rootDir, "BUILD_INFO.json");
+  const sumsPath = path.join(rootDir, "SHA256SUMS.txt");
+  const publishPath = path.join(rootDir, "publish.xml");
+  const addonDir = path.join(rootDir, WPS_ADDON_DIRECTORY);
 
   assertRealFile(buildInfoPath, "BUILD_INFO.json");
   assertRealFile(sumsPath, "SHA256SUMS.txt");
@@ -126,7 +130,7 @@ export function validateWpsPackageDir(packageDir) {
   buildInfo = { ...buildInfo, gitSha };
 
   const hashes = parseSha256Sums(readRegularFile(sumsPath));
-  const files = listFilesRecursiveStrict(root).sort();
+  const files = listFilesRecursiveStrict(rootDir).sort();
   assertNoSensitiveDistPaths(files);
 
   const required = [
@@ -139,11 +143,7 @@ export function validateWpsPackageDir(packageDir) {
   ];
   for (const rel of required) {
     if (!files.includes(rel)) throw new Error(`package missing required file: ${rel}`);
-    if (rel !== "BUILD_INFO.json" && !hashes.has(rel) && rel !== "SHA256SUMS.txt") {
-      // BUILD_INFO is hashed in package sums
-    }
   }
-  // SHA256SUMS lists all package files except itself
   const hashedExpected = files.filter((f) => f !== "SHA256SUMS.txt");
   for (const rel of hashedExpected) {
     if (!hashes.has(rel)) throw new Error(`SHA256SUMS missing entry: ${rel}`);
@@ -155,7 +155,7 @@ export function validateWpsPackageDir(packageDir) {
   }
 
   for (const [rel, expected] of hashes) {
-    const abs = path.join(root, ...rel.split("/"));
+    const abs = path.join(rootDir, ...rel.split("/"));
     assertRealFile(abs, rel);
     const actual = sha256File(abs);
     if (actual !== expected) {
@@ -163,7 +163,6 @@ export function validateWpsPackageDir(packageDir) {
     }
   }
 
-  // Re-validate addon manifests from package (do not trust BUILD_INFO alone)
   const source = {
     sourceDir: addonDir,
     manifestXml: readRegularFile(path.join(addonDir, "manifest.xml")),
@@ -185,12 +184,12 @@ export function validateWpsPackageDir(packageDir) {
     .filter((r) => /\.(js|mjs|cjs|html|css|json|xml|md|txt)$/i.test(r))
     .map((rel) => ({
       relativePath: rel,
-      content: readRegularFile(path.join(root, ...rel.split("/"))),
+      content: readRegularFile(path.join(rootDir, ...rel.split("/"))),
     }));
   assertNoRuntimeDesktopDepsInPackageFiles(textArtifacts);
 
   return {
-    packageDir: root,
+    packageDir: rootDir,
     buildInfo,
     hashes,
     files: hashedExpected,
@@ -210,5 +209,26 @@ export function packageDigest(hashes) {
   const rows = [...hashes.entries()]
     .sort((a, b) => (a[0] < b[0] ? -1 : 1))
     .map(([rel, hash]) => `${hash}  ${rel}`);
-  return createHash("sha256").update(rows.join("\n") + "\n").digest("hex");
+  return createHash("sha256").update(`${rows.join("\n")}\n`).digest("hex");
+}
+
+/** Validate a single state hash key for addon files. */
+export function assertSafeAddonHashKey(rel) {
+  if (typeof rel !== "string" || rel === "") {
+    throw new Error("hash key must be non-empty string");
+  }
+  if (rel.includes("\\")) {
+    throw new Error(`backslash forbidden in hash key: ${rel}`);
+  }
+  if (path.isAbsolute(rel) || rel.startsWith("/") || /^[A-Za-z]:/.test(rel)) {
+    throw new Error(`absolute hash key forbidden: ${rel}`);
+  }
+  if (!rel.startsWith(`${WPS_ADDON_DIRECTORY}/`)) {
+    throw new Error(`hash key must be under ${WPS_ADDON_DIRECTORY}/: ${rel}`);
+  }
+  const sub = rel.slice(WPS_ADDON_DIRECTORY.length + 1);
+  if (sub.split("/").some((s) => s === "" || s === "." || s === "..")) {
+    throw new Error(`unsafe hash key segments: ${rel}`);
+  }
+  return rel;
 }

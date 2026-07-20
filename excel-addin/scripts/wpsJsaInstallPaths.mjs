@@ -1,7 +1,7 @@
 /**
- * Path safety for WPS JSA install-time CLI (not task-pane runtime).
- * Fail closed on symlinks/junctions/reparse points and path escape.
+ * Safe path resolution for WPS JSA install-time CLI (Node only).
  */
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +12,7 @@ export const STATE_FILE_NAME = "wengge-excel-ai-addin-install-state.json";
 export const PUBLISH_BACKUP_PREFIX = "publish.xml.wengge-excel-ai.bak.";
 export const STAGING_PREFIX = ".wengge-excel-ai-stage-";
 export const PREV_PREFIX = ".wengge-excel-ai-prev-";
+export const TMP_PREFIX = ".wengge-excel-ai-tmp-";
 export const MAX_OWN_PUBLISH_BACKUPS = 10;
 
 export function isWindowsPlatform(platform = process.platform) {
@@ -19,38 +20,32 @@ export function isWindowsPlatform(platform = process.platform) {
 }
 
 /**
- * Resolve AppData root. Non-Windows requires explicit appData.
  * @param {{ appData?: string|null, platform?: string, env?: NodeJS.ProcessEnv }} opts
  */
 export function resolveAppDataRoot(opts = {}) {
-  const platform = opts.platform ?? process.platform;
-  const env = opts.env ?? process.env;
+  const platform = opts.platform || process.platform;
   if (opts.appData != null && String(opts.appData).trim() !== "") {
     return path.resolve(String(opts.appData));
   }
   if (!isWindowsPlatform(platform)) {
     throw new Error(
-      "wps install/status/uninstall requires --app-data on non-Windows hosts (refusing default user AppData)",
+      "Non-Windows hosts require explicit --app-data (refusing default AppData path)",
     );
   }
+  const env = opts.env || process.env;
   const appData = env.APPDATA;
   if (!appData || String(appData).trim() === "") {
-    throw new Error("APPDATA is not set; cannot resolve WPS jsaddons location");
+    throw new Error("APPDATA is not set; pass --app-data explicitly");
   }
   return path.resolve(String(appData));
 }
 
 export function assertRealDirectory(absPath, label = "path") {
   const resolved = path.resolve(absPath);
-  let st;
-  try {
-    st = fs.lstatSync(resolved);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      throw new Error(`${label} does not exist: ${resolved}`);
-    }
-    throw error;
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`${label} does not exist: ${resolved}`);
   }
+  const st = fs.lstatSync(resolved);
   if (st.isSymbolicLink()) {
     throw new Error(`${label} must not be a symlink/junction: ${resolved}`);
   }
@@ -62,15 +57,10 @@ export function assertRealDirectory(absPath, label = "path") {
 
 export function assertRealFile(absPath, label = "path") {
   const resolved = path.resolve(absPath);
-  let st;
-  try {
-    st = fs.lstatSync(resolved);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      throw new Error(`${label} does not exist: ${resolved}`);
-    }
-    throw error;
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`${label} does not exist: ${resolved}`);
   }
+  const st = fs.lstatSync(resolved);
   if (st.isSymbolicLink()) {
     throw new Error(`${label} must not be a symlink/junction: ${resolved}`);
   }
@@ -80,7 +70,7 @@ export function assertRealFile(absPath, label = "path") {
   return resolved;
 }
 
-/** Ensure every existing path component under root is a real directory (no symlinks). */
+/** Every existing path component under stopAt must be real (no symlink). */
 export function assertAncestryReal(absPath, stopAt) {
   const target = path.resolve(absPath);
   const root = path.resolve(stopAt);
@@ -116,15 +106,6 @@ export function assertInside(parent, child, label = "path") {
   return c;
 }
 
-/**
- * @returns {{
- *   appData: string,
- *   jsaddons: string,
- *   addonDir: string,
- *   publishXml: string,
- *   stateFile: string,
- * }}
- */
 export function resolveJsaddonsLayout(appDataRoot) {
   const appData = path.resolve(appDataRoot);
   const jsaddons = path.join(appData, JSADDONS_REL);
@@ -145,7 +126,6 @@ export function ensureJsaddonsDir(jsaddons, appData) {
     assertAncestryReal(jsaddons, appData);
     return;
   }
-  // create kingsoft/wps/jsaddons chain without following links
   const segments = path.relative(appData, jsaddons).split(path.sep);
   let current = appData;
   if (!fs.existsSync(appData)) {
@@ -164,20 +144,53 @@ export function ensureJsaddonsDir(jsaddons, appData) {
 }
 
 export function randomToken() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return randomBytes(12).toString("hex");
+}
+
+/** Exclusive create of empty regular file inside jsaddons; returns absolute path. */
+export function exclusiveTempFile(jsaddons, prefix = TMP_PREFIX) {
+  assertRealDirectory(jsaddons, "jsaddons");
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const full = path.join(jsaddons, `${prefix}${randomToken()}`);
+    assertInside(jsaddons, full, "temp");
+    try {
+      const fd = fs.openSync(full, "wx", 0o600);
+      fs.closeSync(fd);
+      return full;
+    } catch (error) {
+      if (error && error.code === "EEXIST") continue;
+      throw error;
+    }
+  }
+  throw new Error("unable to allocate exclusive temp file in jsaddons");
+}
+
+export function exclusiveTempDir(jsaddons, prefix = STAGING_PREFIX) {
+  assertRealDirectory(jsaddons, "jsaddons");
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const full = path.join(jsaddons, `${prefix}${randomToken()}`);
+    assertInside(jsaddons, full, "temp dir");
+    try {
+      fs.mkdirSync(full);
+      return full;
+    } catch (error) {
+      if (error && error.code === "EEXIST") continue;
+      throw error;
+    }
+  }
+  throw new Error("unable to allocate exclusive temp directory in jsaddons");
 }
 
 export function stagingDir(jsaddons) {
-  return path.join(jsaddons, `${STAGING_PREFIX}${randomToken()}`);
+  return exclusiveTempDir(jsaddons, STAGING_PREFIX);
 }
 
 export function prevAddonDir(jsaddons) {
-  return path.join(jsaddons, `${PREV_PREFIX}${randomToken()}`);
+  return exclusiveTempDir(jsaddons, PREV_PREFIX);
 }
 
 export function ownPublishBackupPath(jsaddons) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return path.join(jsaddons, `${PUBLISH_BACKUP_PREFIX}${stamp}`);
+  return exclusiveTempFile(jsaddons, PUBLISH_BACKUP_PREFIX);
 }
 
 /** Rotate only our backup prefix; never touch publish.xml.bak.* */
@@ -185,11 +198,24 @@ export function rotateOwnPublishBackups(jsaddons) {
   assertRealDirectory(jsaddons, "jsaddons");
   const entries = fs
     .readdirSync(jsaddons, { withFileTypes: true })
-    .filter((e) => e.isFile() && e.name.startsWith(PUBLISH_BACKUP_PREFIX))
+    .filter((e) => e.name.startsWith(PUBLISH_BACKUP_PREFIX))
     .map((e) => e.name)
     .sort();
-  while (entries.length > MAX_OWN_PUBLISH_BACKUPS) {
-    const name = entries.shift();
+  // fail closed on non-regular/symlink own-prefix entries
+  for (const name of entries) {
+    const full = path.join(jsaddons, name);
+    assertInside(jsaddons, full, "backup");
+    const st = fs.lstatSync(full);
+    if (st.isSymbolicLink() || !st.isFile()) {
+      throw new Error(`own publish backup is not a regular file: ${full}`);
+    }
+  }
+  const files = entries.filter((name) => {
+    const full = path.join(jsaddons, name);
+    return fs.lstatSync(full).isFile() && !fs.lstatSync(full).isSymbolicLink();
+  });
+  while (files.length > MAX_OWN_PUBLISH_BACKUPS) {
+    const name = files.shift();
     const full = path.join(jsaddons, name);
     assertInside(jsaddons, full, "backup");
     const st = fs.lstatSync(full);
@@ -213,18 +239,49 @@ export function safeRmInside(parent, target) {
   if (st.isSymbolicLink()) {
     throw new Error(`refusing to remove symlink: ${t}`);
   }
-  // re-check ancestry
   assertAncestryReal(path.dirname(t), p);
+  // re-check not jsaddons root
+  if (t === p) throw new Error("refusing to remove jsaddons root");
   fs.rmSync(t, { recursive: true, force: false });
 }
 
 export function safeRenameInside(parent, from, to) {
   assertInside(parent, from, "rename from");
   assertInside(parent, to, "rename to");
+  if (!fs.existsSync(from)) {
+    throw new Error(`rename source missing: ${from}`);
+  }
+  const st = fs.lstatSync(from);
+  if (st.isSymbolicLink()) {
+    throw new Error(`refusing to rename symlink: ${from}`);
+  }
   if (fs.existsSync(to)) {
     throw new Error(`rename destination already exists: ${to}`);
   }
   fs.renameSync(from, to);
+}
+
+/** Preflight existing install surface before mutation. */
+export function preflightExistingSurface(layout) {
+  const { jsaddons, addonDir, publishXml, stateFile } = layout;
+  assertRealDirectory(jsaddons, "jsaddons");
+  for (const [p, label, kind] of [
+    [publishXml, "publish.xml", "file"],
+    [stateFile, "state", "file"],
+    [addonDir, "addonDir", "dir"],
+  ]) {
+    if (!fs.existsSync(p)) continue;
+    const st = fs.lstatSync(p);
+    if (st.isSymbolicLink()) {
+      throw new Error(`${label} must not be a symlink/junction: ${p}`);
+    }
+    if (kind === "file" && !st.isFile()) {
+      throw new Error(`${label} must be a regular file: ${p}`);
+    }
+    if (kind === "dir" && !st.isDirectory()) {
+      throw new Error(`${label} must be a real directory: ${p}`);
+    }
+  }
 }
 
 export function tmpdir() {

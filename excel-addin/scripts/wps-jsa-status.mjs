@@ -3,6 +3,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { statusWpsJsa } from "./wpsJsaInstallCore.mjs";
+import { parseWpsInstallCliArgs } from "./wpsJsaInstallCliArgs.mjs";
 
 function usage(code = 1) {
   console.error(`Usage:
@@ -11,21 +12,10 @@ function usage(code = 1) {
   process.exit(code);
 }
 
-function parseArgs(argv) {
-  const out = { appData: null, help: false };
-  for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    if (a === "--app-data") out.appData = argv[++i] ?? null;
-    else if (a === "-h" || a === "--help") out.help = true;
-    else throw new Error(`Unknown arg: ${a}`);
-  }
-  return out;
-}
-
 function main() {
   let args;
   try {
-    args = parseArgs(process.argv.slice(2));
+    args = parseWpsInstallCliArgs(process.argv.slice(2), {});
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     usage(1);
