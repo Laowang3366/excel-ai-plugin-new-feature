@@ -1,18 +1,26 @@
 /**
- * Transactional uninstall of own WPS JSA entry only.
+ * Transactional uninstall: rename addon+state aside, update publish, then cleanup.
+ * State/addon never permanently deleted before commit point.
  */
 import fs from "node:fs";
 import path from "node:path";
 import {
+  assertInside,
   assertRealDirectory,
   assertRealFile,
+  listActiveTempNames,
+  lstatIfPresent,
   preflightExistingSurface,
+  preflightOwnPrefixedEntries,
+  PREV_PREFIX,
   resolveAppDataRoot,
   resolveJsaddonsLayout,
+  reserveExclusiveDirPath,
+  reserveExclusivePath,
+  safeRenameInside,
   safeRmInside,
-  exclusiveTempDir,
-  PREV_PREFIX,
   STATE_FILE_NAME,
+  TMP_PREFIX,
 } from "./wpsJsaInstallPaths.mjs";
 import {
   parseJspluginsDocument,
@@ -20,15 +28,27 @@ import {
   restorePublishBytes,
   writePublishXmlAtomic,
 } from "./wpsJsaInstallPublish.mjs";
-import { restoreStateBytes } from "./wpsJsaInstallState.mjs";
 import { WPS_ADDON_DIRECTORY, WPS_ADDON_NAME } from "./wpsJsaPackage.mjs";
+
+function compoundError(primary, rollbackErrors) {
+  if (!rollbackErrors.length) return primary;
+  const detail = rollbackErrors
+    .map((e) => (e instanceof Error ? e.message : String(e)))
+    .join("; ");
+  const err = new Error(
+    `${primary instanceof Error ? primary.message : String(primary)} | rollback incomplete: ${detail}`,
+  );
+  err.cause = primary;
+  err.rollbackErrors = rollbackErrors;
+  return err;
+}
 
 /**
  * @param {{
  *   appData?: string|null,
  *   platform?: string,
  *   env?: NodeJS.ProcessEnv,
- *   failAfter?: 'publish'|'addon'|'state'|null,
+ *   failAfter?: 'publish-before'|'publish-after'|'addon-move'|'state-move'|'state'|null,
  * }} opts
  */
 export function uninstallWpsJsa(opts = {}) {
@@ -40,7 +60,7 @@ export function uninstallWpsJsa(opts = {}) {
   });
   const layout = resolveJsaddonsLayout(appData);
 
-  if (!fs.existsSync(layout.jsaddons)) {
+  if (!lstatIfPresent(layout.jsaddons)) {
     return {
       ok: true,
       action: "uninstall",
@@ -52,11 +72,12 @@ export function uninstallWpsJsa(opts = {}) {
   }
   assertRealDirectory(layout.jsaddons, "jsaddons");
   preflightExistingSurface(layout);
+  preflightOwnPrefixedEntries(layout.jsaddons);
 
-  const hasPublish = fs.existsSync(layout.publishXml);
+  const pubSt = lstatIfPresent(layout.publishXml);
   let ownInPublish = false;
   let publishBytes = null;
-  if (hasPublish) {
+  if (pubSt) {
     assertRealFile(layout.publishXml, "publish.xml");
     publishBytes = fs.readFileSync(layout.publishXml, "utf8");
     const parsed = parseJspluginsDocument(publishBytes);
@@ -64,26 +85,27 @@ export function uninstallWpsJsa(opts = {}) {
     ownInPublish = parsed.plugins.some((p) => p.attrs.name === WPS_ADDON_NAME);
   }
 
-  const hasAddon =
-    fs.existsSync(layout.addonDir) &&
-    (() => {
-      assertRealDirectory(layout.addonDir, "addonDir");
-      if (path.basename(layout.addonDir) !== WPS_ADDON_DIRECTORY) {
-        throw new Error("refusing to remove unexpected addon directory name");
-      }
-      return true;
-    })();
+  const addonSt = lstatIfPresent(layout.addonDir);
+  let hasAddon = false;
+  if (addonSt) {
+    assertRealDirectory(layout.addonDir, "addonDir");
+    if (path.basename(layout.addonDir) !== WPS_ADDON_DIRECTORY) {
+      throw new Error("refusing to remove unexpected addon directory name");
+    }
+    hasAddon = true;
+  }
 
-  const hasState = fs.existsSync(layout.stateFile);
-  if (hasState) {
+  const stateSt = lstatIfPresent(layout.stateFile);
+  let hasState = false;
+  if (stateSt) {
     assertRealFile(layout.stateFile, "state");
     if (path.basename(layout.stateFile) !== STATE_FILE_NAME) {
       throw new Error("state basename mismatch");
     }
+    hasState = true;
   }
 
   if (!ownInPublish && !hasAddon && !hasState) {
-    // Do not rewrite publish even if whitespace differs
     return {
       ok: true,
       action: "uninstall",
@@ -98,64 +120,113 @@ export function uninstallWpsJsa(opts = {}) {
 
   const failAfter = opts.failAfter || null;
   let publishChanged = false;
-  let addonMovedTo = null;
-  let stateRemoved = false;
-  const oldStateBytes = hasState ? fs.readFileSync(layout.stateFile, "utf8") : null;
+  let addonBackup = null;
+  let stateBackup = null;
+  let committed = false;
 
-  function rollback() {
+  function rollback(primary) {
+    const rbErrors = [];
     try {
       if (publishChanged) {
-        restorePublishBytes(layout.jsaddons, layout.publishXml, publishBytes, hasPublish);
+        restorePublishBytes(
+          layout.jsaddons,
+          layout.publishXml,
+          publishBytes,
+          Boolean(pubSt),
+        );
       }
-    } catch {
-      /* best effort */
+    } catch (e) {
+      rbErrors.push(e);
     }
     try {
-      if (addonMovedTo && fs.existsSync(addonMovedTo) && !fs.existsSync(layout.addonDir)) {
-        fs.renameSync(addonMovedTo, layout.addonDir);
+      if (addonBackup && lstatIfPresent(addonBackup) && !lstatIfPresent(layout.addonDir)) {
+        safeRenameInside(layout.jsaddons, addonBackup, layout.addonDir);
+        addonBackup = null;
       }
-    } catch {
-      /* best effort */
+    } catch (e) {
+      rbErrors.push(e);
     }
     try {
-      if (stateRemoved && oldStateBytes != null) {
-        restoreStateBytes(layout.jsaddons, layout.stateFile, oldStateBytes, true);
+      if (stateBackup && lstatIfPresent(stateBackup) && !lstatIfPresent(layout.stateFile)) {
+        safeRenameInside(layout.jsaddons, stateBackup, layout.stateFile);
+        stateBackup = null;
       }
-    } catch {
-      /* best effort */
+    } catch (e) {
+      rbErrors.push(e);
     }
+    throw compoundError(primary, rbErrors);
   }
 
   try {
+    // 1) Move addon aside (recoverable until commit)
+    if (hasAddon) {
+      const dest = reserveExclusiveDirPath(layout.jsaddons, PREV_PREFIX);
+      safeRenameInside(layout.jsaddons, layout.addonDir, dest);
+      addonBackup = dest;
+      if (failAfter === "addon-move") throw new Error("failpoint:addon-move");
+    }
+
+    // 2) Move state aside (recoverable) — never permanent delete before commit
+    if (hasState) {
+      const dest = reserveExclusivePath(layout.jsaddons, `${TMP_PREFIX}state-bak-`);
+      safeRenameInside(layout.jsaddons, layout.stateFile, dest);
+      stateBackup = dest;
+      if (failAfter === "state-move" || failAfter === "state") {
+        throw new Error(failAfter === "state" ? "failpoint:state" : "failpoint:state-move");
+      }
+    }
+
+    // 3) Publish update
     if (ownInPublish) {
       const removed = removeOwnPlugin(publishBytes);
       warnings.push(...removed.warnings);
-      if (!removed.removed) {
-        throw new Error("internal: expected own plugin removal");
-      }
+      if (!removed.removed) throw new Error("internal: expected own plugin removal");
+      if (failAfter === "publish-before") throw new Error("failpoint:publish-before");
+      // Mark before write so post-commit failpoints still restore.
+      publishChanged = true;
       writePublishXmlAtomic(layout.jsaddons, layout.publishXml, removed.xml, {
         failBeforeRename: () => {
-          if (failAfter === "publish") throw new Error("failpoint:publish");
+          if (failAfter === "publish-before") throw new Error("failpoint:publish-before");
         },
+        failAfterCommit: () => {
+          if (failAfter === "publish-after") throw new Error("failpoint:publish-after");
+        },
+        collectRotateWarning: (msg) => warnings.push(`publish backup rotate: ${msg}`),
       });
-      publishChanged = true;
     }
 
-    if (hasAddon) {
-      // move aside then delete for recoverability mid-flight
-      const trash = exclusiveTempDir(layout.jsaddons, PREV_PREFIX);
-      fs.rmdirSync(trash);
-      fs.renameSync(layout.addonDir, trash);
-      addonMovedTo = trash;
-      if (failAfter === "addon") throw new Error("failpoint:addon");
-      safeRmInside(layout.jsaddons, trash);
-      addonMovedTo = null;
-    }
+    // COMMIT POINT
+    committed = true;
 
-    if (hasState) {
-      if (failAfter === "state") throw new Error("failpoint:state");
-      fs.unlinkSync(layout.stateFile);
-      stateRemoved = true;
+    // 4) Best-effort cleanup of recoverable backups
+    if (addonBackup && lstatIfPresent(addonBackup)) {
+      try {
+        safeRmInside(layout.jsaddons, addonBackup);
+        addonBackup = null;
+      } catch (error) {
+        warnings.push(
+          `uninstall committed but addon backup cleanup failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    if (stateBackup && lstatIfPresent(stateBackup)) {
+      try {
+        const st = lstatIfPresent(stateBackup);
+        if (!st || st.isSymbolicLink() || !st.isFile()) {
+          throw new Error(`state backup not a regular file: ${stateBackup}`);
+        }
+        assertInside(layout.jsaddons, stateBackup, "state backup");
+        fs.unlinkSync(stateBackup);
+        stateBackup = null;
+      } catch (error) {
+        warnings.push(
+          `uninstall committed but state backup cleanup failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     return {
@@ -168,9 +239,11 @@ export function uninstallWpsJsa(opts = {}) {
       restartRequired: true,
       publishXml: layout.publishXml,
       addonDir: layout.addonDir,
+      activeTemps: listActiveTempNames(layout.jsaddons),
     };
   } catch (error) {
-    rollback();
-    throw error;
+    if (committed) throw error;
+    if (error && error.rollbackErrors) throw error;
+    throw rollback(error);
   }
 }

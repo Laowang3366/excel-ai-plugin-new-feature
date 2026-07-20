@@ -40,12 +40,20 @@ export function resolveAppDataRoot(opts = {}) {
   return path.resolve(String(appData));
 }
 
+/** lstat if path or dangling symlink exists; null only when truly absent. */
+export function lstatIfPresent(absPath) {
+  try {
+    return fs.lstatSync(absPath);
+  } catch (error) {
+    if (error && error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 export function assertRealDirectory(absPath, label = "path") {
   const resolved = path.resolve(absPath);
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`${label} does not exist: ${resolved}`);
-  }
-  const st = fs.lstatSync(resolved);
+  const st = lstatIfPresent(resolved);
+  if (!st) throw new Error(`${label} does not exist: ${resolved}`);
   if (st.isSymbolicLink()) {
     throw new Error(`${label} must not be a symlink/junction: ${resolved}`);
   }
@@ -57,10 +65,8 @@ export function assertRealDirectory(absPath, label = "path") {
 
 export function assertRealFile(absPath, label = "path") {
   const resolved = path.resolve(absPath);
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`${label} does not exist: ${resolved}`);
-  }
-  const st = fs.lstatSync(resolved);
+  const st = lstatIfPresent(resolved);
+  if (!st) throw new Error(`${label} does not exist: ${resolved}`);
   if (st.isSymbolicLink()) {
     throw new Error(`${label} must not be a symlink/junction: ${resolved}`);
   }
@@ -70,23 +76,22 @@ export function assertRealFile(absPath, label = "path") {
   return resolved;
 }
 
-/** Every existing path component under stopAt must be real (no symlink). */
 export function assertAncestryReal(absPath, stopAt) {
   const target = path.resolve(absPath);
-  const root = path.resolve(stopAt);
-  if (target !== root && !target.startsWith(root + path.sep)) {
+  const rootDir = path.resolve(stopAt);
+  if (target !== rootDir && !target.startsWith(rootDir + path.sep)) {
     throw new Error(`path escapes allowed root: ${target}`);
   }
-  const rel = path.relative(root, target);
-  let current = root;
-  if (fs.existsSync(root)) {
-    assertRealDirectory(root, "root");
+  const rel = path.relative(rootDir, target);
+  let current = rootDir;
+  if (lstatIfPresent(rootDir)) {
+    assertRealDirectory(rootDir, "root");
   }
   if (rel === "" || rel === ".") return target;
   for (const segment of rel.split(path.sep)) {
     current = path.join(current, segment);
-    if (!fs.existsSync(current)) break;
-    const st = fs.lstatSync(current);
+    const st = lstatIfPresent(current);
+    if (!st) break;
     if (st.isSymbolicLink()) {
       throw new Error(`path must not contain symlink/junction: ${current}`);
     }
@@ -121,20 +126,20 @@ export function resolveJsaddonsLayout(appDataRoot) {
 
 export function ensureJsaddonsDir(jsaddons, appData) {
   assertInside(appData, jsaddons, "jsaddons");
-  if (fs.existsSync(jsaddons)) {
+  if (lstatIfPresent(jsaddons)) {
     assertRealDirectory(jsaddons, "jsaddons");
     assertAncestryReal(jsaddons, appData);
     return;
   }
   const segments = path.relative(appData, jsaddons).split(path.sep);
   let current = appData;
-  if (!fs.existsSync(appData)) {
+  if (!lstatIfPresent(appData)) {
     fs.mkdirSync(appData, { recursive: true });
   }
   assertRealDirectory(appData, "appData");
   for (const segment of segments) {
     current = path.join(current, segment);
-    if (fs.existsSync(current)) {
+    if (lstatIfPresent(current)) {
       assertRealDirectory(current, "jsaddons ancestor");
     } else {
       fs.mkdirSync(current);
@@ -147,7 +152,6 @@ export function randomToken() {
   return randomBytes(12).toString("hex");
 }
 
-/** Exclusive create of empty regular file inside jsaddons; returns absolute path. */
 export function exclusiveTempFile(jsaddons, prefix = TMP_PREFIX) {
   assertRealDirectory(jsaddons, "jsaddons");
   for (let attempt = 0; attempt < 32; attempt += 1) {
@@ -181,6 +185,19 @@ export function exclusiveTempDir(jsaddons, prefix = STAGING_PREFIX) {
   throw new Error("unable to allocate exclusive temp directory in jsaddons");
 }
 
+/** Reserve exclusive path for rename target: create empty then unlink, return free path. */
+export function reserveExclusivePath(jsaddons, prefix) {
+  const full = exclusiveTempFile(jsaddons, prefix);
+  fs.unlinkSync(full);
+  return full;
+}
+
+export function reserveExclusiveDirPath(jsaddons, prefix) {
+  const full = exclusiveTempDir(jsaddons, prefix);
+  fs.rmdirSync(full);
+  return full;
+}
+
 export function stagingDir(jsaddons) {
   return exclusiveTempDir(jsaddons, STAGING_PREFIX);
 }
@@ -189,58 +206,68 @@ export function prevAddonDir(jsaddons) {
   return exclusiveTempDir(jsaddons, PREV_PREFIX);
 }
 
+/** Timestamp + random own-prefix backup path (exclusive create). */
 export function ownPublishBackupPath(jsaddons) {
-  return exclusiveTempFile(jsaddons, PUBLISH_BACKUP_PREFIX);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return exclusiveTempFile(jsaddons, `${PUBLISH_BACKUP_PREFIX}${stamp}.`);
 }
 
-/** Rotate only our backup prefix; never touch publish.xml.bak.* */
-export function rotateOwnPublishBackups(jsaddons) {
+/** Read-only validate own-prefix backups (no symlink/non-regular). */
+export function assertOwnPublishBackupSurface(jsaddons) {
   assertRealDirectory(jsaddons, "jsaddons");
-  const entries = fs
-    .readdirSync(jsaddons, { withFileTypes: true })
-    .filter((e) => e.name.startsWith(PUBLISH_BACKUP_PREFIX))
-    .map((e) => e.name)
-    .sort();
-  // fail closed on non-regular/symlink own-prefix entries
-  for (const name of entries) {
+  for (const name of fs.readdirSync(jsaddons)) {
+    if (!name.startsWith(PUBLISH_BACKUP_PREFIX)) continue;
     const full = path.join(jsaddons, name);
     assertInside(jsaddons, full, "backup");
-    const st = fs.lstatSync(full);
+    const st = lstatIfPresent(full);
+    if (!st) continue;
     if (st.isSymbolicLink() || !st.isFile()) {
       throw new Error(`own publish backup is not a regular file: ${full}`);
     }
   }
-  const files = entries.filter((name) => {
-    const full = path.join(jsaddons, name);
-    return fs.lstatSync(full).isFile() && !fs.lstatSync(full).isSymbolicLink();
-  });
-  while (files.length > MAX_OWN_PUBLISH_BACKUPS) {
-    const name = files.shift();
-    const full = path.join(jsaddons, name);
-    assertInside(jsaddons, full, "backup");
-    const st = fs.lstatSync(full);
-    if (st.isSymbolicLink() || !st.isFile()) {
-      throw new Error(`refusing to remove non-regular backup: ${full}`);
-    }
-    fs.unlinkSync(full);
-  }
 }
 
 /**
- * Safe recursive remove only if path is strictly inside parent and not parent itself.
+ * Rotate only our backup prefix by mtimeMs (tie-break name); never touch publish.xml.bak.*.
+ * Best-effort after successful commit — caller should not roll back install on failure.
  */
+export function rotateOwnPublishBackups(jsaddons) {
+  assertRealDirectory(jsaddons, "jsaddons");
+  assertOwnPublishBackupSurface(jsaddons);
+  const entries = fs
+    .readdirSync(jsaddons)
+    .filter((name) => name.startsWith(PUBLISH_BACKUP_PREFIX))
+    .map((name) => {
+      const full = path.join(jsaddons, name);
+      const st = fs.lstatSync(full);
+      return { name, full, mtimeMs: st.mtimeMs };
+    })
+    .sort((a, b) => {
+      if (a.mtimeMs !== b.mtimeMs) return a.mtimeMs - b.mtimeMs; // oldest first
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    });
+  while (entries.length > MAX_OWN_PUBLISH_BACKUPS) {
+    const oldest = entries.shift();
+    assertInside(jsaddons, oldest.full, "backup");
+    const st = lstatIfPresent(oldest.full);
+    if (!st || st.isSymbolicLink() || !st.isFile()) {
+      throw new Error(`refusing to remove non-regular backup: ${oldest.full}`);
+    }
+    fs.unlinkSync(oldest.full);
+  }
+}
+
 export function safeRmInside(parent, target) {
   const p = path.resolve(parent);
   const t = path.resolve(target);
   if (t === p) throw new Error("refusing to remove parent directory");
   assertInside(p, t, "remove target");
-  if (!fs.existsSync(t)) return;
-  const st = fs.lstatSync(t);
+  const st = lstatIfPresent(t);
+  if (!st) return;
   if (st.isSymbolicLink()) {
     throw new Error(`refusing to remove symlink: ${t}`);
   }
   assertAncestryReal(path.dirname(t), p);
-  // re-check not jsaddons root
   if (t === p) throw new Error("refusing to remove jsaddons root");
   fs.rmSync(t, { recursive: true, force: false });
 }
@@ -248,20 +275,19 @@ export function safeRmInside(parent, target) {
 export function safeRenameInside(parent, from, to) {
   assertInside(parent, from, "rename from");
   assertInside(parent, to, "rename to");
-  if (!fs.existsSync(from)) {
-    throw new Error(`rename source missing: ${from}`);
-  }
-  const st = fs.lstatSync(from);
-  if (st.isSymbolicLink()) {
+  const fromSt = lstatIfPresent(from);
+  if (!fromSt) throw new Error(`rename source missing: ${from}`);
+  if (fromSt.isSymbolicLink()) {
     throw new Error(`refusing to rename symlink: ${from}`);
   }
-  if (fs.existsSync(to)) {
+  const toSt = lstatIfPresent(to);
+  if (toSt) {
     throw new Error(`rename destination already exists: ${to}`);
   }
   fs.renameSync(from, to);
 }
 
-/** Preflight existing install surface before mutation. */
+/** Preflight existing install surface (detects dangling symlinks). */
 export function preflightExistingSurface(layout) {
   const { jsaddons, addonDir, publishXml, stateFile } = layout;
   assertRealDirectory(jsaddons, "jsaddons");
@@ -270,8 +296,8 @@ export function preflightExistingSurface(layout) {
     [stateFile, "state", "file"],
     [addonDir, "addonDir", "dir"],
   ]) {
-    if (!fs.existsSync(p)) continue;
-    const st = fs.lstatSync(p);
+    const st = lstatIfPresent(p);
+    if (!st) continue;
     if (st.isSymbolicLink()) {
       throw new Error(`${label} must not be a symlink/junction: ${p}`);
     }
@@ -282,6 +308,45 @@ export function preflightExistingSurface(layout) {
       throw new Error(`${label} must be a real directory: ${p}`);
     }
   }
+}
+
+/**
+ * Fail closed if any own-prefix entry is symlink/non-regular (before mutations).
+ */
+export function preflightOwnPrefixedEntries(jsaddons) {
+  assertRealDirectory(jsaddons, "jsaddons");
+  const prefixes = [STAGING_PREFIX, PREV_PREFIX, TMP_PREFIX, PUBLISH_BACKUP_PREFIX];
+  for (const name of fs.readdirSync(jsaddons)) {
+    if (!prefixes.some((p) => name.startsWith(p))) continue;
+    const full = path.join(jsaddons, name);
+    assertInside(jsaddons, full, "own-prefix entry");
+    const st = lstatIfPresent(full);
+    if (!st) continue;
+    if (st.isSymbolicLink()) {
+      throw new Error(`own-prefix entry must not be symlink: ${full}`);
+    }
+    if (name.startsWith(PUBLISH_BACKUP_PREFIX) || name.startsWith(TMP_PREFIX)) {
+      if (!st.isFile()) {
+        throw new Error(`own-prefix temp/backup must be regular file: ${full}`);
+      }
+    } else if (!st.isDirectory() && !st.isFile()) {
+      throw new Error(`own-prefix entry has unexpected type: ${full}`);
+    }
+  }
+}
+
+/** Active stage/prev/tmp names currently present (for tests/cleanup checks). */
+export function listActiveTempNames(jsaddons) {
+  if (!lstatIfPresent(jsaddons)) return [];
+  return fs
+    .readdirSync(jsaddons)
+    .filter(
+      (n) =>
+        n.startsWith(STAGING_PREFIX) ||
+        n.startsWith(PREV_PREFIX) ||
+        n.startsWith(TMP_PREFIX),
+    )
+    .sort();
 }
 
 export function tmpdir() {

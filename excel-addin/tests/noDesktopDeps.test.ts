@@ -54,8 +54,8 @@ describe("no COM/.NET/Electron runtime deps", () => {
 
   it("source tree does not import desktop runtime or native office bridges", () => {
     const files = walk(root).filter((file) => {
-      // Self + build-time package CLIs (spawn npm run build* only; not runtime host bridges).
-      if (file.includes(`${path.sep}tests${path.sep}noDesktopDeps.test.ts`)) return false;
+      // Tests may use node:child_process for CLI exit-code proof; not shipped runtime.
+      if (file.includes(`${path.sep}tests${path.sep}`)) return false;
       if (file.endsWith(`${path.sep}scripts${path.sep}package-prod.mjs`)) return false;
       if (file.endsWith(`${path.sep}scripts${path.sep}package-wps-jsa.mjs`)) return false;
       if (file.endsWith(`${path.sep}scripts${path.sep}runtimeDesktopDeps.mjs`)) return false;

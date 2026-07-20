@@ -6,6 +6,7 @@
 
 ### Excel 加载项
 
+- 独立 Excel 加载项 Phase56.2：WPS 安装 CLI 真事务卸载（state 失败恢复 addon）、不同包 install 回滚、staged 精确哈希、publish 合同/备份 mtime 轮转、CLI 真进程退出码；工具数仍 98；**尚未真实 WPS 侧载验收**。
 - 独立 Excel 加载项 Phase56.1：WPS 安装 CLI 合同收口（SHA256SUMS 原始反斜杠 fail-closed、受限 publish.xml tokenizer、install/uninstall 真事务回滚、status 全树哈希与 state schema 诚实 drift、CLI 参数校验）；工具数仍 98；**尚未真实 WPS 侧载验收**。
 - 独立 Excel 加载项 Phase56：提供 install-time 纯 Node CLI `npm run wps:install` / `wps:status` / `wps:uninstall`，在用户 `jsaddons` 中安全 upsert 本插件 `publish.xml` 条目并原子替换 `wengge-excel-ai-addin`（保留其他插件、自有备份前缀、包哈希校验、重启提示）；工具数仍 98；**尚未真实 WPS 侧载验收**。
 - 独立 Excel 加载项 Phase55.3：template print 严格拒绝 undefined/缺失成员（仅显式 null=unavailable）；defaultForAllPages.load 必填；freeze address 必须可解析 A1；工具数仍 98；**尚未真实 Excel/WPS 侧载验收**。

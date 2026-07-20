@@ -8,6 +8,7 @@ import {
   assertInside,
   assertRealFile,
   exclusiveTempFile,
+  lstatIfPresent,
   STATE_FILE_NAME,
   TMP_PREFIX,
 } from "./wpsJsaInstallPaths.mjs";
@@ -81,7 +82,7 @@ export function validateInstallState(state) {
 }
 
 export function readStateFile(statePath) {
-  if (!fs.existsSync(statePath)) return { present: false };
+  if (!lstatIfPresent(statePath)) return { present: false };
   try {
     assertRealFile(statePath, "state");
   } catch (error) {
@@ -117,7 +118,7 @@ export function writeStateAtomic(jsaddons, statePath, state, opts = {}) {
   }
   let previousBytes = null;
   let previousExisted = false;
-  if (fs.existsSync(statePath)) {
+  if (lstatIfPresent(statePath)) {
     assertRealFile(statePath, "state");
     previousExisted = true;
     previousBytes = fs.readFileSync(statePath, "utf8");
@@ -138,7 +139,7 @@ export function writeStateAtomic(jsaddons, statePath, state, opts = {}) {
     if (typeof opts.failAfterCommit === "function") opts.failAfterCommit();
   } catch (error) {
     try {
-      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+      if (lstatIfPresent(tmp)) fs.unlinkSync(tmp);
     } catch {
       /* ignore */
     }
@@ -149,10 +150,13 @@ export function writeStateAtomic(jsaddons, statePath, state, opts = {}) {
 
 export function restoreStateBytes(jsaddons, statePath, previousBytes, previousExisted) {
   assertInside(jsaddons, statePath, "state");
+  const st = lstatIfPresent(statePath);
+  if (st && st.isSymbolicLink()) {
+    throw new Error(`cannot restore state over symlink: ${statePath}`);
+  }
   if (!previousExisted) {
-    if (fs.existsSync(statePath)) {
-      const st = fs.lstatSync(statePath);
-      if (st.isSymbolicLink()) throw new Error("cannot restore over symlink state");
+    if (st) {
+      if (!st.isFile()) throw new Error(`cannot remove non-file state: ${statePath}`);
       fs.unlinkSync(statePath);
     }
     return;

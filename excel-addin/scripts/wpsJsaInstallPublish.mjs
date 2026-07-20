@@ -1,21 +1,23 @@
 /**
  * Restricted deterministic publish.xml tokenizer/parser for jsaddons.
- * Accepts: optional XML declaration + bare <jsplugins> + self-closing <jsplugin .../> only.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { WPS_ADDON_NAME, WPS_PUBLISH_URL } from "./wpsJsaPackage.mjs";
 import {
   assertInside,
-  assertRealFile,
+  assertOwnPublishBackupSurface,
   exclusiveTempFile,
+  lstatIfPresent,
   ownPublishBackupPath,
   rotateOwnPublishBackups,
-  safeRenameInside,
   TMP_PREFIX,
 } from "./wpsJsaInstallPaths.mjs";
 
 const XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>';
+// version=1.0 required; encoding optional, only utf-8 (any case)
+const XML_DECL_RE =
+  /^<\?xml\s+version\s*=\s*(["'])1\.0\1(?:\s+encoding\s*=\s*(["'])utf-8\2)?\s*\?>$/i;
 
 export function renderOwnJsplugin() {
   return `  <jsplugin
@@ -41,23 +43,14 @@ function parseXmlDeclaration(text, i) {
   const end = text.indexOf("?>", i);
   if (end < 0) throw new Error("unterminated XML declaration");
   const decl = text.slice(i, end + 2);
-  if (/<!DOCTYPE|<!ENTITY|<!--|<\[CDATA\[|<\?[^x]/i.test(decl.slice(5))) {
-    throw new Error("unsafe content in XML declaration");
-  }
-  // only allow version/encoding style declaration
-  if (!/^<\?xml\s+version\s*=\s*(["'])1\.0\1(?:\s+encoding\s*=\s*(["'])[^"']+\2)?\s*\?>$/i.test(decl)) {
-    // tolerate encoding=utf-8 casing as real host files
-    if (!/^<\?xml\b[^?]*\?>$/i.test(decl) || /<!|\[|\]/.test(decl)) {
-      throw new Error("invalid XML declaration");
-    }
+  if (!XML_DECL_RE.test(decl)) {
+    throw new Error(
+      "publish.xml XML declaration must be version=1.0 with optional encoding=utf-8 only",
+    );
   }
   return end + 2;
 }
 
-/**
- * Parse attributes from inside a jsplugin open segment (without <jsplugin and />).
- * @returns {Record<string,string>}
- */
 export function parseAttributes(attrText) {
   const attrs = {};
   let i = 0;
@@ -85,7 +78,7 @@ export function parseAttributes(attrText) {
       i += 1;
     }
     if (i >= s.length) throw new Error(`unterminated attribute value for ${name}`);
-    i += 1; // closing quote
+    i += 1;
     if (Object.prototype.hasOwnProperty.call(attrs, name)) {
       throw new Error(`duplicate attribute: ${name}`);
     }
@@ -94,9 +87,6 @@ export function parseAttributes(attrText) {
   return attrs;
 }
 
-/**
- * @returns {{ plugins: { raw: string, attrs: Record<string,string> }[], warnings: string[] }}
- */
 export function parseJspluginsDocument(xml) {
   const warnings = [];
   const text = String(xml).replace(/\r\n/g, "\n");
@@ -107,7 +97,6 @@ export function parseJspluginsDocument(xml) {
   if (/<!--/.test(text) || /<!\[CDATA\[/i.test(text)) {
     throw new Error("publish.xml comments/CDATA are not supported");
   }
-  // reject processing instructions other than leading xml decl
   let i = 0;
   i = parseXmlDeclaration(text, i);
   i = skipWs(text, i);
@@ -117,10 +106,6 @@ export function parseJspluginsDocument(xml) {
   const openEnd = text.indexOf(">", i);
   if (openEnd < 0) throw new Error("unterminated jsplugins open tag");
   const openTag = text.slice(i, openEnd + 1);
-  if (openTag.includes("/>")) {
-    throw new Error("jsplugins root must not be self-closing empty without body form mismatch");
-  }
-  // <jsplugins> only — no attributes
   if (!/^<jsplugins\s*>$/i.test(openTag)) {
     throw new Error("publish.xml jsplugins root must not have attributes");
   }
@@ -137,7 +122,6 @@ export function parseJspluginsDocument(xml) {
     if (!text.startsWith("<jsplugin", i)) {
       throw new Error("publish.xml contains non-jsplugin markup");
     }
-    // find end of this tag — must be self-closing />
     let j = i + "<jsplugin".length;
     let inQuote = null;
     while (j < text.length) {
@@ -156,7 +140,6 @@ export function parseJspluginsDocument(xml) {
         throw new Error("nested markup inside jsplugin is forbidden");
       }
       if (ch === ">") {
-        // check self-closing
         const tag = text.slice(i, j + 1);
         if (!/\/\s*>$/.test(tag)) {
           throw new Error("publish.xml jsplugin must be self-closing");
@@ -171,9 +154,7 @@ export function parseJspluginsDocument(xml) {
       }
       j += 1;
     }
-    if (j >= text.length && !text.slice(i).includes(">")) {
-      throw new Error("unterminated jsplugin tag");
-    }
+    if (j >= text.length) throw new Error("unterminated jsplugin tag");
   }
 
   i = skipWs(text, i);
@@ -182,8 +163,7 @@ export function parseJspluginsDocument(xml) {
   }
 
   const names = plugins.map((p) => p.attrs.name);
-  const ownCount = names.filter((n) => n === WPS_ADDON_NAME).length;
-  if (ownCount > 1) {
+  if (names.filter((n) => n === WPS_ADDON_NAME).length > 1) {
     throw new Error("publish.xml contains duplicate WenggeExcelAiAddin entries");
   }
   for (const n of names) {
@@ -191,7 +171,6 @@ export function parseJspluginsDocument(xml) {
       warnings.push(`legacy or third-party plugin present: ${n}`);
     }
   }
-
   return { plugins, warnings };
 }
 
@@ -199,9 +178,7 @@ function renderDocument(plugins) {
   const body = plugins
     .map((p) => {
       if (p.attrs.name === WPS_ADDON_NAME) return renderOwnJsplugin();
-      // preserve foreign raw tag (trim and re-indent)
-      const raw = p.raw.trim();
-      return `  ${raw}`;
+      return `  ${p.raw.trim()}`;
     })
     .join("\n");
   return `${XML_DECL}\n<jsplugins>\n${body ? `${body}\n` : ""}</jsplugins>\n`;
@@ -235,32 +212,43 @@ export function removeOwnPlugin(xml) {
   return { xml: renderDocument(next), warnings, removed, plugins: next };
 }
 
+/** Own entry must be exactly the five contract attributes (order free). */
 export function ownPluginMatchesContract(attrs) {
+  if (!attrs || typeof attrs !== "object") return false;
+  const keys = Object.keys(attrs).sort();
+  const expected = ["debug", "enable", "name", "type", "url"];
+  if (keys.length !== expected.length || keys.join(",") !== expected.join(",")) {
+    return false;
+  }
   return (
-    attrs?.name === WPS_ADDON_NAME &&
-    attrs?.type === "et" &&
-    attrs?.url === WPS_PUBLISH_URL &&
-    attrs?.enable === "enable_dev" &&
-    (attrs?.debug === "" || attrs?.debug == null)
+    attrs.name === WPS_ADDON_NAME &&
+    attrs.type === "et" &&
+    attrs.url === WPS_PUBLISH_URL &&
+    attrs.debug === "" &&
+    attrs.enable === "enable_dev"
   );
 }
 
 /**
- * Atomic publish write with own-prefix backup of previous content.
- * @returns {{ backedUp: string|null, previousBytes: string|null, previousExisted: boolean }}
+ * Atomic publish write. Backup rotation is best-effort AFTER successful commit.
  */
 export function writePublishXmlAtomic(jsaddons, publishPath, newXml, opts = {}) {
   assertInside(jsaddons, publishPath, "publish.xml");
   if (path.basename(publishPath) !== "publish.xml") {
     throw new Error("publish path basename must be publish.xml");
   }
+  // pre-commit: read-only validate backup surface (no rotate yet)
+  assertOwnPublishBackupSurface(jsaddons);
 
   let previousBytes = null;
   let previousExisted = false;
   let backedUp = null;
 
-  if (fs.existsSync(publishPath)) {
-    assertRealFile(publishPath, "publish.xml");
+  const existing = lstatIfPresent(publishPath);
+  if (existing) {
+    if (existing.isSymbolicLink() || !existing.isFile()) {
+      throw new Error(`publish.xml must be a regular file: ${publishPath}`);
+    }
     previousExisted = true;
     previousBytes = fs.readFileSync(publishPath, "utf8");
     backedUp = ownPublishBackupPath(jsaddons);
@@ -271,7 +259,6 @@ export function writePublishXmlAtomic(jsaddons, publishPath, newXml, opts = {}) 
     } finally {
       fs.closeSync(bfd);
     }
-    rotateOwnPublishBackups(jsaddons);
   }
 
   const tmp = exclusiveTempFile(jsaddons, `${TMP_PREFIX}publish-`);
@@ -285,42 +272,41 @@ export function writePublishXmlAtomic(jsaddons, publishPath, newXml, opts = {}) 
       fs.closeSync(fd);
     }
     if (typeof opts.failBeforeRename === "function") opts.failBeforeRename();
-    // replace: if publish exists, rename aside then put new (or overwrite via rename on POSIX)
-    if (fs.existsSync(publishPath)) {
-      // On POSIX rename over file replaces atomically
-      fs.renameSync(tmp, publishPath);
-    } else {
-      fs.renameSync(tmp, publishPath);
-    }
+    fs.renameSync(tmp, publishPath);
     if (typeof opts.failAfterCommit === "function") opts.failAfterCommit();
   } catch (error) {
     try {
-      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+      if (lstatIfPresent(tmp) && !lstatIfPresent(tmp).isSymbolicLink()) {
+        fs.unlinkSync(tmp);
+      }
     } catch {
       /* ignore */
     }
-    // restore previous if we may have damaged
-    if (previousExisted && previousBytes != null && backedUp && fs.existsSync(backedUp)) {
-      try {
-        if (!fs.existsSync(publishPath) || fs.readFileSync(publishPath, "utf8") !== previousBytes) {
-          fs.writeFileSync(publishPath, previousBytes, "utf8");
-        }
-      } catch {
-        /* best effort; caller may also restore */
-      }
-    }
     throw error;
+  }
+
+  // post-commit best-effort rotate — never throws into caller rollback for install success
+  try {
+    rotateOwnPublishBackups(jsaddons);
+  } catch (error) {
+    if (opts.collectRotateWarning) {
+      opts.collectRotateWarning(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
   return { backedUp, previousBytes, previousExisted };
 }
 
-/** Restore publish.xml bytes or delete if it did not exist. */
 export function restorePublishBytes(jsaddons, publishPath, previousBytes, previousExisted) {
   assertInside(jsaddons, publishPath, "publish.xml");
+  const st = lstatIfPresent(publishPath);
+  if (st && st.isSymbolicLink()) {
+    throw new Error(`cannot restore publish over symlink: ${publishPath}`);
+  }
   if (!previousExisted) {
-    if (fs.existsSync(publishPath)) {
-      const st = fs.lstatSync(publishPath);
-      if (st.isSymbolicLink()) throw new Error("cannot restore over symlink publish");
+    if (st) {
+      if (!st.isFile()) throw new Error(`cannot remove non-file publish: ${publishPath}`);
       fs.unlinkSync(publishPath);
     }
     return;

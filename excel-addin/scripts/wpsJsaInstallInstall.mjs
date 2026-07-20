@@ -20,13 +20,17 @@ import {
 import {
   writeStateAtomic,
   restoreStateBytes,
+  hashAddonTree,
 } from "./wpsJsaInstallState.mjs";
 import {
   assertInside,
   assertRealDirectory,
   assertRealFile,
   ensureJsaddonsDir,
+  listActiveTempNames,
+  lstatIfPresent,
   preflightExistingSurface,
+  preflightOwnPrefixedEntries,
   prevAddonDir,
   resolveAppDataRoot,
   resolveJsaddonsLayout,
@@ -64,26 +68,45 @@ function copyDirReal(src, dest, destRoot) {
   }
 }
 
-function verifyStagedAddon(stageAddonDir, packageValidation) {
-  const prefix = `${WPS_ADDON_DIRECTORY}/`;
-  for (const [rel, expected] of packageValidation.hashes) {
-    if (!rel.startsWith(prefix)) continue;
-    const sub = rel.slice(prefix.length);
-    const abs = path.join(stageAddonDir, ...sub.split("/"));
-    assertRealFile(abs, rel);
-    const actual = createHash("sha256").update(fs.readFileSync(abs)).digest("hex");
-    if (actual !== expected) {
+/** Exact key set + hash re-verify of staged addon tree. */
+function verifyStagedAddonExact(stageAddonDir, packageValidation) {
+  const expected = new Map(
+    [...packageValidation.hashes.entries()].filter(([k]) =>
+      k.startsWith(`${WPS_ADDON_DIRECTORY}/`),
+    ),
+  );
+  const actual = hashAddonTree(stageAddonDir);
+  const expKeys = [...expected.keys()].sort();
+  const actKeys = [...actual.keys()].sort();
+  if (expKeys.length !== actKeys.length || expKeys.some((k, i) => k !== actKeys[i])) {
+    throw new Error(
+      `staged addon file set mismatch: expected ${expKeys.length} files, got ${actKeys.length}`,
+    );
+  }
+  for (const [rel, exp] of expected) {
+    if (actual.get(rel) !== exp) {
       throw new Error(`staged hash mismatch for ${rel}`);
     }
   }
 }
 
-function snapshotBytesIfExists(filePath, label) {
-  if (!fs.existsSync(filePath)) {
-    return { existed: false, bytes: null };
-  }
-  assertRealFile(filePath, label);
+function snapshotBytesIfPresent(filePath, label) {
+  const st = lstatIfPresent(filePath);
+  if (!st) return { existed: false, bytes: null };
+  if (st.isSymbolicLink()) throw new Error(`${label} is a symlink`);
+  if (!st.isFile()) throw new Error(`${label} is not a regular file`);
   return { existed: true, bytes: fs.readFileSync(filePath, "utf8") };
+}
+
+function compoundError(primary, rollbackErrors) {
+  if (!rollbackErrors.length) return primary;
+  const detail = rollbackErrors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ");
+  const err = new Error(
+    `${primary instanceof Error ? primary.message : String(primary)} | rollback incomplete: ${detail}`,
+  );
+  err.cause = primary;
+  err.rollbackErrors = rollbackErrors;
+  return err;
 }
 
 /**
@@ -95,8 +118,8 @@ function snapshotBytesIfExists(filePath, label) {
  *   skipBuild?: boolean,
  *   platform?: string,
  *   env?: NodeJS.ProcessEnv,
- *   failAfter?: 'addon-swap'|'publish-write'|'state-write'|null,
- *   failpoints?: Record<string, Function>,
+ *   failAfter?: string|null,
+ *   afterValidate?: (packageDir: string) => void,
  * }} opts
  */
 export function installWpsJsa(opts = {}) {
@@ -114,8 +137,12 @@ export function installWpsJsa(opts = {}) {
     built = true;
   }
 
-  // Full validation before any appData mutation
-  const validated = validateWpsPackageDir(packageDir);
+  let validated = validateWpsPackageDir(packageDir);
+  if (typeof opts.afterValidate === "function") {
+    opts.afterValidate(packageDir);
+  }
+  // Re-validate after optional seam so package TOCTOU fails before appData mutation.
+  validated = validateWpsPackageDir(packageDir);
 
   const appData = resolveAppDataRoot({
     appData: opts.appData,
@@ -125,16 +152,13 @@ export function installWpsJsa(opts = {}) {
   const layout = resolveJsaddonsLayout(appData);
   ensureJsaddonsDir(layout.jsaddons, layout.appData);
   preflightExistingSurface(layout);
+  preflightOwnPrefixedEntries(layout.jsaddons);
 
-  // Snapshot old surface for true rollback
-  const oldPublish = snapshotBytesIfExists(layout.publishXml, "publish.xml");
-  const oldState = snapshotBytesIfExists(layout.stateFile, "state");
-  const hadOldAddon = fs.existsSync(layout.addonDir);
-  if (hadOldAddon) {
-    assertRealDirectory(layout.addonDir, "existing addon");
-  }
+  const oldPublish = snapshotBytesIfPresent(layout.publishXml, "publish.xml");
+  const oldState = snapshotBytesIfPresent(layout.stateFile, "state");
+  const hadOldAddon = Boolean(lstatIfPresent(layout.addonDir));
+  if (hadOldAddon) assertRealDirectory(layout.addonDir, "existing addon");
 
-  // Prepare merged publish before mutating install dirs
   let currentPublish = emptyPublish();
   if (oldPublish.existed) currentPublish = oldPublish.bytes;
   const merged = upsertOwnPlugin(currentPublish);
@@ -145,105 +169,90 @@ export function installWpsJsa(opts = {}) {
   let prevDir = null;
   let swapped = false;
   let publishCommitted = false;
-  let stateCommitted = false;
-  let publishMeta = { previousBytes: oldPublish.bytes, previousExisted: oldPublish.existed };
-  let stateMeta = { previousBytes: oldState.bytes, previousExisted: oldState.existed };
-
   const failAfter = opts.failAfter || null;
-  const fp = opts.failpoints || {};
 
   function runFail(name) {
     if (failAfter === name) throw new Error(`failpoint:${name}`);
-    if (typeof fp[name] === "function") fp[name]();
   }
 
-  function rollback() {
-    // Restore addon
+  function rollback(primary) {
+    const rbErrors = [];
     try {
       if (swapped) {
-        if (fs.existsSync(layout.addonDir)) {
+        if (lstatIfPresent(layout.addonDir)) {
           safeRmInside(layout.jsaddons, layout.addonDir);
         }
-        if (prevDir && fs.existsSync(prevDir)) {
+        if (prevDir && lstatIfPresent(prevDir)) {
           safeRenameInside(layout.jsaddons, prevDir, layout.addonDir);
           prevDir = null;
         }
-      } else if (prevDir && fs.existsSync(prevDir) && !fs.existsSync(layout.addonDir)) {
+      } else if (prevDir && lstatIfPresent(prevDir) && !lstatIfPresent(layout.addonDir)) {
         safeRenameInside(layout.jsaddons, prevDir, layout.addonDir);
         prevDir = null;
       }
-    } catch {
-      /* best effort */
+    } catch (e) {
+      rbErrors.push(e);
     }
-    // Restore publish
     try {
-      if (publishCommitted || fs.existsSync(layout.publishXml)) {
-        restorePublishBytes(
-          layout.jsaddons,
-          layout.publishXml,
-          publishMeta.previousBytes,
-          publishMeta.previousExisted,
-        );
-      }
-    } catch {
-      /* best effort */
+      restorePublishBytes(
+        layout.jsaddons,
+        layout.publishXml,
+        oldPublish.bytes,
+        oldPublish.existed,
+      );
+    } catch (e) {
+      rbErrors.push(e);
     }
-    // Restore state
     try {
       restoreStateBytes(
         layout.jsaddons,
         layout.stateFile,
-        stateMeta.previousBytes,
-        stateMeta.previousExisted,
+        oldState.bytes,
+        oldState.existed,
       );
-    } catch {
-      /* best effort */
-    }
-    // Cleanup staging/prev leftovers
-    try {
-      if (fs.existsSync(stageRoot)) safeRmInside(layout.jsaddons, stageRoot);
-    } catch {
-      /* ignore */
+    } catch (e) {
+      rbErrors.push(e);
     }
     try {
-      if (prevDir && fs.existsSync(prevDir)) safeRmInside(layout.jsaddons, prevDir);
-    } catch {
-      /* ignore */
+      if (lstatIfPresent(stageRoot)) safeRmInside(layout.jsaddons, stageRoot);
+    } catch (e) {
+      rbErrors.push(e);
     }
+    try {
+      if (prevDir && lstatIfPresent(prevDir)) safeRmInside(layout.jsaddons, prevDir);
+    } catch (e) {
+      rbErrors.push(e);
+    }
+    throw compoundError(primary, rbErrors);
   }
 
   try {
     copyDirReal(validated.addonDir, stageAddon, layout.jsaddons);
-    verifyStagedAddon(stageAddon, validated);
+    // Re-validate after copy against original validated hashes (exact set)
+    // and re-read staged tree so post-validate package extras fail.
+    verifyStagedAddonExact(stageAddon, validated);
 
-    // Move old addon aside (kept until publish+state succeed)
     if (hadOldAddon) {
       prevDir = prevAddonDir(layout.jsaddons);
-      // prevAddonDir creates an empty exclusive dir — remove it so rename can use the path
       fs.rmdirSync(prevDir);
       safeRenameInside(layout.jsaddons, layout.addonDir, prevDir);
     }
 
-    // Place new addon
     safeRenameInside(layout.jsaddons, stageAddon, layout.addonDir);
     swapped = true;
     try {
-      if (fs.existsSync(stageRoot)) safeRmInside(layout.jsaddons, stageRoot);
+      if (lstatIfPresent(stageRoot)) safeRmInside(layout.jsaddons, stageRoot);
     } catch {
-      /* best effort */
+      /* best effort empty stage root */
     }
     runFail("addon-swap");
 
-    // Publish commit
-    publishMeta = {
-      ...writePublishXmlAtomic(layout.jsaddons, layout.publishXml, merged.xml, {
-        failBeforeRename: () => runFail("publish-write"),
-      }),
-      previousBytes: oldPublish.bytes,
-      previousExisted: oldPublish.existed,
-    };
+    writePublishXmlAtomic(layout.jsaddons, layout.publishXml, merged.xml, {
+      failBeforeRename: () => runFail("publish-write"),
+      failAfterCommit: () => runFail("publish-write-after"),
+      collectRotateWarning: (msg) => warnings.push(`publish backup rotate: ${msg}`),
+    });
     publishCommitted = true;
-    runFail("publish-write-after");
 
     const addonHashes = new Map(
       [...validated.hashes.entries()].filter(([k]) =>
@@ -264,18 +273,13 @@ export function installWpsJsa(opts = {}) {
       builtPackage: built,
     };
 
-    stateMeta = {
-      ...writeStateAtomic(layout.jsaddons, layout.stateFile, state, {
-        failBeforeRename: () => runFail("state-write"),
-      }),
-      previousBytes: oldState.bytes,
-      previousExisted: oldState.existed,
-    };
-    stateCommitted = true;
-    runFail("state-write-after");
+    writeStateAtomic(layout.jsaddons, layout.stateFile, state, {
+      failBeforeRename: () => runFail("state-write"),
+      failAfterCommit: () => runFail("state-write-after"),
+    });
 
-    // Success: cleanup previous addon; failure here is warning only
-    if (prevDir && fs.existsSync(prevDir)) {
+    // success: cleanup previous addon backup
+    if (prevDir && lstatIfPresent(prevDir)) {
       try {
         safeRmInside(layout.jsaddons, prevDir);
         prevDir = null;
@@ -303,9 +307,10 @@ export function installWpsJsa(opts = {}) {
         "Installed. Fully quit and restart WPS before loading the add-in. This tool does not start or stop WPS.",
       warnings,
       packageDir,
+      activeTemps: listActiveTempNames(layout.jsaddons),
     };
   } catch (error) {
-    rollback();
-    throw error;
+    if (error && error.rollbackErrors) throw error;
+    throw rollback(error);
   }
 }
