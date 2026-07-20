@@ -22,7 +22,7 @@ Load-item runtime continues to use **member probes** on assumed ET COM-shaped ob
 | `range.read` expand spill / currentArray | No WPS spill member contract in bridge or add-in probes | Office.js only |
 | `formula.protection.*` | No in-repo `Range.Locked` / formula-cell lock probe for WPS | Office.js `format.protection.locked` |
 | table / unlist / filter / sort | No ListObjects contract | Desktop table actions |
-| chart 全系 / chart.image | No ChartObjects/setData contract | Office.js charts |
+| chart 全系 / chart.image / series.trendlines | No ChartObjects/setData/trendlines contract | Office.js charts/trendlines |
 | shape / range.image | No Shapes / Range.getImage | Office.js |
 | `sheet.freeze.*` | Needs `ActiveWindow.FreezePanes` or sheet freeze panes; **not** in JSA bridge; only desktop `ExcelTemplatePrintActionService` COM | COM Worker freeze |
 | `sheet.display.*` | `ActiveWindow.DisplayGridlines` etc. desktop COM only | COM Worker display |

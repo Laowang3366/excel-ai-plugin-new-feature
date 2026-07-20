@@ -19,6 +19,7 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "table.list",
   "chart.list",
   "chart.series.list",
+  "chart.series.trendlines.list",
   "chart.image.get",
   "range.image.get",
   "workbook.inspect",

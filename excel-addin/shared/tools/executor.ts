@@ -21,6 +21,7 @@ import { executeChartSeriesAddTool } from "./chartSeriesAddExecutor";
 import { executeChartSeriesDeleteTool } from "./chartSeriesDeleteExecutor";
 import { executeChartSeriesValuesTool } from "./chartSeriesValuesExecutor";
 import { executeChartSeriesBubbleSizesTool } from "./chartSeriesBubbleSizesExecutor";
+import { executeChartSeriesTrendlineTool } from "./chartSeriesTrendlineExecutor";
 import { executeChartImageTool } from "./chartImageExecutor";
 import { executeRangeImageTool } from "./rangeImageExecutor";
 import { executeRangeStructureTool } from "./rangeStructureExecutor";
@@ -353,6 +354,8 @@ export class ToolExecutor {
           if (chartSeriesValues) return chartSeriesValues;
           const chartSeriesBubbleSizes = await executeChartSeriesBubbleSizesTool(this.host, call);
           if (chartSeriesBubbleSizes) return chartSeriesBubbleSizes;
+          const chartSeriesTrendlines = await executeChartSeriesTrendlineTool(this.host, call);
+          if (chartSeriesTrendlines) return chartSeriesTrendlines;
           const chartImage = await executeChartImageTool(this.host, call);
           if (chartImage) return chartImage;
           const rangeImage = await executeRangeImageTool(this.host, call);

@@ -126,3 +126,51 @@ export async function wpsGetChartImage(_input: unknown) {
     CHART_IMAGE_EVIDENCE,
   ) as HostResult<never>;
 }
+
+const CHART_SERIES_TRENDLINES_EVIDENCE =
+  "No in-repo WPS JSA ChartSeries.trendlines / ChartTrendline contract";
+
+export async function wpsListChartSeriesTrendlines(
+  _sheetName: string,
+  _chartName: string,
+  _seriesIndex: number,
+) {
+  return unsupported(
+    "chart.series.trendlines.list",
+    "wps-jsa",
+    "chart.series.trendlines.list is not verified for WPS JSA",
+    CHART_SERIES_TRENDLINES_EVIDENCE,
+  ) as HostResult<never>;
+}
+
+export async function wpsAddChartSeriesTrendline(_input: unknown) {
+  return unsupported(
+    "chart.series.trendlines.add",
+    "wps-jsa",
+    "chart.series.trendlines.add is not verified for WPS JSA",
+    CHART_SERIES_TRENDLINES_EVIDENCE,
+  ) as HostResult<never>;
+}
+
+export async function wpsUpdateChartSeriesTrendline(_input: unknown) {
+  return unsupported(
+    "chart.series.trendlines.update",
+    "wps-jsa",
+    "chart.series.trendlines.update is not verified for WPS JSA",
+    CHART_SERIES_TRENDLINES_EVIDENCE,
+  ) as HostResult<never>;
+}
+
+export async function wpsDeleteChartSeriesTrendline(
+  _sheetName: string,
+  _chartName: string,
+  _seriesIndex: number,
+  _trendlineIndex: number,
+) {
+  return unsupported(
+    "chart.series.trendlines.delete",
+    "wps-jsa",
+    "chart.series.trendlines.delete is not verified for WPS JSA",
+    CHART_SERIES_TRENDLINES_EVIDENCE,
+  ) as HostResult<never>;
+}

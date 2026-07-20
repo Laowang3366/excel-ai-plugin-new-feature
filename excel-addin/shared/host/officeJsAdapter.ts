@@ -68,6 +68,12 @@ import { officeJsAddChartSeries } from "./officeJsChartSeriesAdd";
 import { officeJsDeleteChartSeries } from "./officeJsChartSeriesDelete";
 import { officeJsUpdateChartSeriesValues } from "./officeJsChartSeriesValues";
 import { officeJsUpdateChartSeriesBubbleSizes } from "./officeJsChartSeriesBubbleSizes";
+import {
+  officeJsAddChartSeriesTrendline,
+  officeJsDeleteChartSeriesTrendline,
+  officeJsListChartSeriesTrendlines,
+  officeJsUpdateChartSeriesTrendline,
+} from "./officeJsChartSeriesTrendlines";
 import { officeJsGetChartImage } from "./officeJsChartImage";
 import { officeJsGetRangeImage } from "./officeJsRangeImage";
 import {
@@ -301,6 +307,10 @@ export class OfficeJsAdapter implements HostAdapter {
   addChartSeries = officeJsAddChartSeries;
   updateChartSeriesValues = officeJsUpdateChartSeriesValues;
   updateChartSeriesBubbleSizes = officeJsUpdateChartSeriesBubbleSizes;
+  listChartSeriesTrendlines = officeJsListChartSeriesTrendlines;
+  addChartSeriesTrendline = officeJsAddChartSeriesTrendline;
+  updateChartSeriesTrendline = officeJsUpdateChartSeriesTrendline;
+  deleteChartSeriesTrendline = officeJsDeleteChartSeriesTrendline;
   getChartImage = officeJsGetChartImage;
   getRangeImage = officeJsGetRangeImage;
   updateChartSource = officeJsUpdateChartSource;

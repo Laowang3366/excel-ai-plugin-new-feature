@@ -24,6 +24,7 @@ describe("chat readonly allowlist", () => {
       "table.list",
       "chart.list",
       "chart.series.list",
+      "chart.series.trendlines.list",
       "chart.image.get",
       "range.image.get",
       "workbook.inspect",

@@ -24,6 +24,13 @@ import type {
   ChartSeriesBubbleSizesUpdateInput,
 } from "./chartSeriesBubbleSizesTypes";
 import type {
+  ChartTrendlineAddInput,
+  ChartTrendlineDeleteResult,
+  ChartTrendlineInfo,
+  ChartTrendlineListResult,
+  ChartTrendlineUpdateInput,
+} from "./chartSeriesTrendlineTypes";
+import type {
   ChartSeriesAddInput,
   ChartSeriesAddResult,
   ChartSeriesDeleteResult,
@@ -220,6 +227,21 @@ export interface HostAdapter {
   updateChartSeriesBubbleSizes(
     input: ChartSeriesBubbleSizesUpdateInput,
   ): Promise<HostResult<ChartSeriesBubbleSizesInfo>>;
+  listChartSeriesTrendlines(
+    sheetName: string,
+    chartName: string,
+    seriesIndex: number,
+  ): Promise<HostResult<ChartTrendlineListResult>>;
+  addChartSeriesTrendline(input: ChartTrendlineAddInput): Promise<HostResult<ChartTrendlineInfo>>;
+  updateChartSeriesTrendline(
+    input: ChartTrendlineUpdateInput,
+  ): Promise<HostResult<ChartTrendlineInfo>>;
+  deleteChartSeriesTrendline(
+    sheetName: string,
+    chartName: string,
+    seriesIndex: number,
+    trendlineIndex: number,
+  ): Promise<HostResult<ChartTrendlineDeleteResult>>;
   getChartImage(input: ChartImageGetInput): Promise<HostResult<ChartImageInfo>>;
   getRangeImage(input: RangeImageGetInput): Promise<HostResult<RangeImageInfo>>;
   updateChartSource(input: ChartSourceUpdateInput): Promise<HostResult<ChartSourceInfo>>;

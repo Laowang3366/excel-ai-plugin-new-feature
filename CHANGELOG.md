@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项新增图表 series 趋势线工具 `chart.series.trendlines.list/add/update/delete`（Office.js ExcelApi 1.7/1.8 写后回读；WPS 仍 unsupported；series formula 仍无官方合同；真实 Excel/WPS 侧载尚未验收）。
+
 - 独立 Excel 加载项 `chart.axes.update` 扩展坐标轴 displayUnit/customDisplayUnit、scaleType/logBase、showDisplayUnitLabel（ExcelApi 1.7）与主/次网格线可见性（ExcelApi 1.1）；写后宿主回读；series formula/categoryFormula 仍无 Office.js 合同故不实现；WPS 仍 unsupported；真实 Excel/WPS 侧载尚未验收。
 
 - 独立 Excel 加载项透视表复审：执行层拒绝非 dataFields 的 function/caption；禁止零字段创建；refresh 门禁 ExcelApi 1.3、list/create 仍 1.8；`refreshConnections` 明确非桌面对等拒绝；默认 Pivots 落点对齐桌面 lastBottom+3；dataFields 允许多聚合同名字段；真实侧载尚未验收。
