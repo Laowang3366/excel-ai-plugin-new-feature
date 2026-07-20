@@ -256,6 +256,12 @@ export type {
   ChartSeriesMarkersUpdateInput,
 } from "./chartSeriesMarkersTypes";
 export { CHART_MARKER_STYLES, isChartMarkerStyle } from "./chartSeriesMarkersTypes";
+export type {
+  ChartLineStyle,
+  ChartTrendlineFormatInfo,
+  ChartTrendlineFormatUpdateInput,
+} from "./chartSeriesTrendlineFormatTypes";
+export { CHART_LINE_STYLES, isChartLineStyle } from "./chartSeriesTrendlineFormatTypes";
 export type { ChartImageGetInput, ChartImageInfo } from "./chartImageTypes";
 export type { RangeImageGetInput, RangeImageInfo } from "./rangeImageTypes";
 export type {

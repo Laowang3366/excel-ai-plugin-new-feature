@@ -22,6 +22,7 @@ import { executeChartSeriesDeleteTool } from "./chartSeriesDeleteExecutor";
 import { executeChartSeriesValuesTool } from "./chartSeriesValuesExecutor";
 import { executeChartSeriesBubbleSizesTool } from "./chartSeriesBubbleSizesExecutor";
 import { executeChartSeriesTrendlineTool } from "./chartSeriesTrendlineExecutor";
+import { executeChartSeriesTrendlineFormatTool } from "./chartSeriesTrendlineFormatExecutor";
 import { executeChartSeriesMarkersTool } from "./chartSeriesMarkersExecutor";
 import { executeChartImageTool } from "./chartImageExecutor";
 import { executeRangeImageTool } from "./rangeImageExecutor";
@@ -357,6 +358,8 @@ export class ToolExecutor {
           if (chartSeriesBubbleSizes) return chartSeriesBubbleSizes;
           const chartSeriesTrendlines = await executeChartSeriesTrendlineTool(this.host, call);
           if (chartSeriesTrendlines) return chartSeriesTrendlines;
+          const chartSeriesTrendlineFormat = await executeChartSeriesTrendlineFormatTool(this.host, call);
+          if (chartSeriesTrendlineFormat) return chartSeriesTrendlineFormat;
           const chartSeriesMarkers = await executeChartSeriesMarkersTool(this.host, call);
           if (chartSeriesMarkers) return chartSeriesMarkers;
           const chartImage = await executeChartImageTool(this.host, call);

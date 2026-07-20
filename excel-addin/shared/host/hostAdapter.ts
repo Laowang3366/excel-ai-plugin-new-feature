@@ -35,6 +35,10 @@ import type {
   ChartSeriesMarkersUpdateInput,
 } from "./chartSeriesMarkersTypes";
 import type {
+  ChartTrendlineFormatInfo,
+  ChartTrendlineFormatUpdateInput,
+} from "./chartSeriesTrendlineFormatTypes";
+import type {
   ChartSeriesAddInput,
   ChartSeriesAddResult,
   ChartSeriesDeleteResult,
@@ -246,6 +250,9 @@ export interface HostAdapter {
     seriesIndex: number,
     trendlineIndex: number,
   ): Promise<HostResult<ChartTrendlineDeleteResult>>;
+  updateChartSeriesTrendlineFormat(
+    input: ChartTrendlineFormatUpdateInput,
+  ): Promise<HostResult<ChartTrendlineFormatInfo>>;
   updateChartSeriesMarkers(
     input: ChartSeriesMarkersUpdateInput,
   ): Promise<HostResult<ChartSeriesMarkersInfo>>;

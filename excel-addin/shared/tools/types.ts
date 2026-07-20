@@ -61,6 +61,7 @@ export type ToolName =
   | "chart.series.trendlines.add"
   | "chart.series.trendlines.update"
   | "chart.series.trendlines.delete"
+  | "chart.series.trendlines.format.update"
   | "chart.series.markers.update"
   | "chart.image.get"
   | "range.image.get"

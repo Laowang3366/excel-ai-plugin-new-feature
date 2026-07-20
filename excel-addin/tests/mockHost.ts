@@ -84,6 +84,10 @@ import type {
   ChartSeriesMarkersInfo,
   ChartSeriesMarkersUpdateInput,
 } from "../shared/host/chartSeriesMarkersTypes";
+import type {
+  ChartTrendlineFormatInfo,
+  ChartTrendlineFormatUpdateInput,
+} from "../shared/host/chartSeriesTrendlineFormatTypes";
 import type { ChartImageGetInput, ChartImageInfo } from "../shared/host/chartImageTypes";
 import type { RangeImageGetInput, RangeImageInfo } from "../shared/host/rangeImageTypes";
 import type { ChartSourceUpdateInput } from "../shared/host/chartSourceTypes";
@@ -150,6 +154,7 @@ export class MockHostAdapter implements HostAdapter {
   chartSeriesAxisGroups = new Map<string, ChartSeriesAxisGroupInfo>();
   chartTrendlines = new Map<string, ChartTrendlineInfo[]>();
   chartSeriesMarkers = new Map<string, ChartSeriesMarkersInfo>();
+  chartTrendlineFormats = new Map<string, ChartTrendlineFormatInfo>();
   shapes: import("../shared/host/shapeTypes").ShapeInfo[] = [];
   usedRangeAddress: string | null = "Sheet1!A1:B2";
   selection: SelectionInfo = {
@@ -1330,6 +1335,49 @@ export class MockHostAdapter implements HostAdapter {
     });
   }
 
+
+
+  async updateChartSeriesTrendlineFormat(
+    input: ChartTrendlineFormatUpdateInput,
+  ): Promise<HostResult<ChartTrendlineFormatInfo>> {
+    const chart = this.charts.find(
+      (c) => c.sheetName === input.sheetName && c.name === input.chartName,
+    );
+    if (!chart) throw new Error(`chart not found: ${input.chartName}`);
+    const series = this.chartSeries.get(chartKey(input.sheetName, input.chartName));
+    if (!series || input.seriesIndex < 1 || input.seriesIndex > series.length) {
+      throw new Error(`seriesIndex out of range: ${input.seriesIndex}`);
+    }
+    const list = this.ensureTrendlines(input.sheetName, input.chartName, input.seriesIndex);
+    if (input.trendlineIndex < 1 || input.trendlineIndex > list.length) {
+      throw new Error(`trendlineIndex out of range: ${input.trendlineIndex}`);
+    }
+    const key = `${input.sheetName}\0${input.chartName}\0${input.seriesIndex}\0${input.trendlineIndex}`;
+    const prev = this.chartTrendlineFormats.get(key) ?? {
+      sheetName: input.sheetName,
+      chartName: chart.name,
+      seriesIndex: input.seriesIndex,
+      trendlineIndex: input.trendlineIndex,
+      color: "#000000",
+      lineStyle: "continuous",
+      weight: 1.5,
+    };
+    const color =
+      input.color !== undefined
+        ? (input.color.startsWith("#") ? input.color : `#${input.color}`).toUpperCase()
+        : prev.color;
+    const info: ChartTrendlineFormatInfo = {
+      ...prev,
+      chartName: chart.name,
+      seriesIndex: input.seriesIndex,
+      trendlineIndex: input.trendlineIndex,
+      color,
+      lineStyle: input.lineStyle ?? prev.lineStyle,
+      weight: input.weight ?? prev.weight,
+    };
+    this.chartTrendlineFormats.set(key, info);
+    return ok({ ...info });
+  }
 
   async updateChartSeriesMarkers(
     input: ChartSeriesMarkersUpdateInput,

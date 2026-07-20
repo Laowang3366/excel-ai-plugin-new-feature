@@ -186,3 +186,15 @@ export async function wpsUpdateChartSeriesMarkers(_input: unknown) {
     CHART_SERIES_MARKERS_EVIDENCE,
   ) as HostResult<never>;
 }
+
+const CHART_SERIES_TRENDLINE_FORMAT_EVIDENCE =
+  "No in-repo WPS JSA ChartTrendline.format.line contract";
+
+export async function wpsUpdateChartSeriesTrendlineFormat(_input: unknown) {
+  return unsupported(
+    "chart.series.trendlines.format.update",
+    "wps-jsa",
+    "chart.series.trendlines.format.update is not verified for WPS JSA",
+    CHART_SERIES_TRENDLINE_FORMAT_EVIDENCE,
+  ) as HostResult<never>;
+}
