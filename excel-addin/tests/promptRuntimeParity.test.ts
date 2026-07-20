@@ -83,6 +83,8 @@ describe("add-in prompt runtime parity", () => {
     expect(boundary).toContain("copy/move");
     expect(boundary).toContain("formula.dependencies.inspect");
     expect(boundary).toContain("formula.backups.inspect|restore");
+    expect(boundary).toContain("conditionalFormat.list/add/delete");
+    expect(boundary).toContain("dataValidation.read/write/clear");
     expect(boundary).toContain("跨表");
     expect(boundary).toMatch(/成员缺失/);
     expect(boundary).toContain("COM/.NET/Shell");

@@ -9,22 +9,26 @@ import {
   requireWorkbook,
 } from "./wpsJsaRuntime";
 import {
-  wpsAddConditionalFormat,
-  wpsClearDataValidation,
   wpsCreateChart,
   wpsCreateTable,
   wpsDeleteChart,
-  wpsDeleteConditionalFormat,
   wpsDeleteTable,
   wpsListCharts,
-  wpsListConditionalFormats,
   wpsListTables,
-  wpsReadDataValidation,
   wpsReadFormat,
   wpsUnlistTable,
-  wpsWriteDataValidation,
   wpsWriteFormat,
 } from "./wpsJsaUnsupported";
+import {
+  wpsAddConditionalFormat,
+  wpsDeleteConditionalFormat,
+  wpsListConditionalFormats,
+} from "./wpsJsaConditionalFormat";
+import {
+  wpsClearDataValidation,
+  wpsReadDataValidation,
+  wpsWriteDataValidation,
+} from "./wpsJsaDataValidation";
 import { wpsInspectWorkbook } from "./wpsJsaInspect";
 import { wpsCopySheet, wpsMoveSheet } from "./wpsJsaSheetOps";
 import { wpsReadRange } from "./wpsJsaRangeRead";

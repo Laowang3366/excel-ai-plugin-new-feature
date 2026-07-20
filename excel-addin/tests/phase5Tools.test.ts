@@ -190,7 +190,8 @@ describe("phase5 tools", () => {
     expect(tooLongInline.ok).toBe(false);
   });
 
-  it("WPS returns unsupported for all six CF/DV tools", async () => {
+  it("WPS without Application is typed unsupported for CF/DV tools", async () => {
+    delete (globalThis as { Application?: unknown }).Application;
     const host = new WpsJsaAdapter();
     const executor = new ToolExecutor(host);
     for (const call of [
@@ -205,7 +206,7 @@ describe("phase5 tools", () => {
       },
       {
         name: "conditionalFormat.delete" as const,
-        arguments: { sheetName: "Sheet1", range: "A1", id: "x" },
+        arguments: { sheetName: "Sheet1", range: "A1", id: "1" },
       },
       { name: "dataValidation.read" as const, arguments: { sheetName: "Sheet1", range: "A1" } },
       {

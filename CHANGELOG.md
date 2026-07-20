@@ -4,6 +4,8 @@
 
 ## 未发布
 
+- 独立 Excel 加载项 WPS JSA 条件格式/数据验证：**implemented***（FormatConditions 1-based index id、Validation 写前快照与 Add 失败恢复；复用 classifyListSource/dvRulesMatch；成员缺失 typed unsupported）；真实 WPS 侧载尚未验收。
+
 - 独立 Excel 加载项修复数据验证单值内联列表：host source `Yes`/`1`/`x` 分类为 inline 而非 unsupported；clear 测试强制验证 setup 写入成功；恢复 8 个 CF 运算符与 date/time DV 及 custom 成功 round-trip；真实 Excel 侧载尚未验收。
 
 - 独立 Excel 加载项条件格式/数据验证：list 源仅无损同簿 A1 才标记 range；命名范围/函数/外部引用为 unsupported；custom 拒绝宿主额外 formula2；真实侧载尚未验收。

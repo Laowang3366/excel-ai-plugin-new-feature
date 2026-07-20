@@ -26,6 +26,48 @@ export interface WpsRangeCollection {
   AutoFit?: () => void;
 }
 
+
+export interface WpsFormatCondition {
+  Type?: number | string;
+  Operator?: number | string;
+  Formula1?: string | number | null;
+  Formula2?: string | number | null;
+  Interior?: WpsInterior;
+  Font?: WpsFont;
+  Delete?: () => void;
+}
+
+export interface WpsFormatConditions {
+  Count?: number;
+  Item?: (index: number) => WpsFormatCondition;
+  Add?: (
+    type: number,
+    operator?: number | string | undefined,
+    formula1?: string | number,
+    formula2?: string | number,
+  ) => WpsFormatCondition;
+  Delete?: () => void;
+}
+
+export interface WpsValidation {
+  Type?: number | string;
+  Operator?: number | string;
+  Formula1?: string | number | null;
+  Formula2?: string | number | null;
+  IgnoreBlank?: boolean | number;
+  InCellDropdown?: boolean | number;
+  /** xlValidAlertStop = 1 etc. */
+  AlertStyle?: number;
+  Delete?: () => void;
+  Add?: (
+    type: number,
+    alertStyle?: number,
+    operator?: number | string | undefined,
+    formula1?: string | number,
+    formula2?: string | number,
+  ) => void;
+}
+
 export interface WpsRange {
   Address?: string;
   Value2?: unknown;
@@ -49,6 +91,10 @@ export interface WpsRange {
   Insert?: (shift?: number | string) => WpsRange | void;
   /** Excel/WPS COM Range.Delete(Shift). */
   Delete?: (shift?: number | string) => void;
+  /** Excel/WPS COM FormatConditions collection (conditional formatting). */
+  FormatConditions?: WpsFormatConditions;
+  /** Excel/WPS COM Validation (data validation). */
+  Validation?: WpsValidation;
 }
 
 export interface WpsSheet {

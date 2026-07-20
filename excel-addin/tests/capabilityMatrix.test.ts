@@ -109,6 +109,9 @@ describe("capability matrix", () => {
     expect(text).toMatch(/protection get\/protect\/unprotect[\s\S]*?implemented\*/);
     expect(text).toMatch(/named range \| list\/create\/update\/delete[\s\S]*?implemented\*/);
     expect(text).toMatch(/dependencies\.inspect[\s\S]*?implemented\*/);
+    expect(text).toMatch(/conditional format[\s\S]*?implemented\*/);
+    expect(text).toMatch(/data validation[\s\S]*?implemented\*/);
+    expect(text).toMatch(/FormatConditions 1-based index ids/);
     expect(text).toMatch(/chart\.source\.update[\s\S]*?cross-sheet/);
     // Still unsupported
     expect(text).toMatch(/range\.read expand spill \/ currentArray[\s\S]*?\*\*unsupported\*\*/);
