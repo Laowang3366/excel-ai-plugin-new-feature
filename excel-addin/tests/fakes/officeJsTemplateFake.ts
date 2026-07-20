@@ -1,31 +1,62 @@
 /**
- * Sync-gated fake for workbook.template.apply / capture (single Excel.run for capture).
+ * Sync-gated fake for workbook.template.apply / capture.
+ * PropertyNotLoaded until context.sync; everReadBeforeSync is sticky.
  */
 import {
   defaultPageLayoutState,
-  makePageLayoutObject,
   type PageLayoutSheetState,
 } from "./officeJsPageLayoutFakeLayout";
 import {
-  attachPageBreaks,
   commitPageBreaks,
   defaultPageBreakSheetState,
   type PageBreakSheetState,
 } from "./officeJsPageBreaksFake";
 
 type FormatState = {
-  font: { name: string | null; size: number | null; bold: boolean | null; color: string | null };
-  fill: { color: string | null };
-  horizontalAlignment: string;
-  wrapText: boolean;
-  rowHeight: number | null;
+  font: { name: any; size: any; bold: any; color: any };
+  fill: { color: any };
+  horizontalAlignment: any;
+  wrapText: any;
+  rowHeight: any;
   columnWidth: number;
 };
+
+type Poison = Partial<{
+  fontName: unknown;
+  fontSize: unknown;
+  headerFontName: unknown;
+  headerFontSize: unknown;
+  headerFill: unknown;
+  headerFontColor: unknown;
+  headerBold: unknown;
+  headerAlignment: unknown;
+  headerWrap: unknown;
+  headerRowHeight: unknown;
+  showGridlines: unknown;
+  freezeRows: unknown;
+  freezeAddress: unknown;
+  freezeColumnCount: unknown;
+  address: unknown;
+  rowCount: unknown;
+  columnCount: unknown;
+  isNullObject: unknown;
+  baseFontName: unknown;
+  baseFontSize: unknown;
+  baseFontColor: unknown;
+  printOrientation: unknown;
+  printPaperSize: unknown;
+  printFitWide: unknown;
+  printFitTall: unknown;
+  printAreaIsNull: unknown;
+  printAreaAddress: unknown;
+  printHeader: unknown;
+  printFooter: unknown;
+}>;
 
 type SheetState = {
   name: string;
   empty: boolean;
-  showGridlines: boolean;
+  showGridlines: any;
   freezeRows: number;
   usedAddress: string;
   rows: number;
@@ -36,31 +67,8 @@ type SheetState = {
   pageLayout: PageLayoutSheetState;
   pageBreaks: PageBreakSheetState;
   isNullObjectOverride?: unknown;
-  poison?: Partial<{
-    fontName: unknown;
-    fontSize: unknown;
-    headerFill: unknown;
-    headerFontColor: unknown;
-    headerBold: unknown;
-    headerAlignment: unknown;
-    headerWrap: unknown;
-    headerRowHeight: unknown;
-    showGridlines: unknown;
-    freezeRows: unknown;
-    address: unknown;
-    rowCount: unknown;
-    columnCount: unknown;
-    isNullObject: unknown;
-    baseFontName: unknown;
-    baseFontSize: unknown;
-    baseFontColor: unknown;
-  }>;
-  /** When set, address/rowCount/columnCount poison applies only after writeCalls > 0. */
-  postWritePoison?: Partial<{
-    address: unknown;
-    rowCount: unknown;
-    columnCount: unknown;
-  }>;
+  poison?: Poison;
+  postWritePoison?: Partial<{ address: unknown; rowCount: unknown; columnCount: unknown }>;
 };
 
 function defaultFormat(): FormatState {
@@ -74,6 +82,10 @@ function defaultFormat(): FormatState {
   };
 }
 
+function notLoaded(field: string): never {
+  throw new Error(`PropertyNotLoaded: ${field}`);
+}
+
 export function installTemplateExcel(options?: {
   excelApi18?: boolean;
   excelApi19?: boolean;
@@ -84,16 +96,34 @@ export function installTemplateExcel(options?: {
   missingGetLocation?: boolean;
   missingAutofit?: boolean;
   missingUsedRange?: boolean;
+  missingGetRange?: boolean;
+  missingRangeLoad?: boolean;
+  missingFormat?: boolean;
+  missingFormatLoad?: boolean;
+  missingFont?: boolean;
+  missingFontLoad?: boolean;
+  missingFill?: boolean;
+  missingFillLoad?: boolean;
   sheetCount?: number;
   activeSheet?: string;
-  extraSheets?: Array<{ name: string; empty?: boolean; usedAddress?: string; rows?: number; cols?: number }>;
+  extraSheets?: Array<{
+    name: string;
+    empty?: boolean;
+    usedAddress?: string;
+    rows?: number;
+    cols?: number;
+    text?: string;
+  }>;
 }) {
   const excelApi18 = options?.excelApi18 !== false;
   const excelApi19 = options?.excelApi19 !== false;
   let excelRunCalls = 0;
   let writeCalls = 0;
   let syncCount = 0;
-  let lastClientReadBeforeSync = false;
+  let bulkTextReadCalls = 0;
+  let bulkValuesReadCalls = 0;
+  let everReadBeforeSync = false;
+  let generation = 0;
 
   const sheets = new Map<string, SheetState>();
   function seed(
@@ -102,6 +132,7 @@ export function installTemplateExcel(options?: {
     usedAddress = empty ? "A1" : "A1:B2",
     rows = empty ? 1 : 2,
     cols = empty ? 1 : 2,
+    text = empty ? "" : "x",
   ) {
     sheets.set(name, {
       name,
@@ -111,226 +142,419 @@ export function installTemplateExcel(options?: {
       usedAddress,
       rows,
       cols,
-      text: empty ? "" : "x",
+      text,
       usedFormat: defaultFormat(),
       headerFormat: defaultFormat(),
       pageLayout: { name, committed: defaultPageLayoutState(), pending: undefined },
       pageBreaks: defaultPageBreakSheetState(),
     });
   }
+
   const count = options?.sheetCount ?? 2;
   if (count > 500) {
     for (let i = 1; i <= count; i += 1) seed(`S${i}`);
+  } else if (count === 1) {
+    seed("Sheet1", false);
+  } else if (count === 50) {
+    for (let i = 1; i <= 50; i += 1) seed(`S${i}`);
   } else {
     seed("Sheet1", false);
     seed("Sheet2", false);
     seed("Empty", true);
-    for (let i = 3; i <= count; i += 1) seed(`Sheet${i}`, false);
   }
   for (const extra of options?.extraSheets ?? []) {
-    seed(extra.name, extra.empty ?? false, extra.usedAddress, extra.rows, extra.cols);
+    seed(
+      extra.name,
+      extra.empty === true,
+      extra.usedAddress,
+      extra.rows,
+      extra.cols,
+      extra.text,
+    );
   }
 
-  const activeName = options?.activeSheet ?? "Sheet1";
+  const activeName = options?.activeSheet ?? [...sheets.keys()][0]!;
 
-  function makeRange(sheet: SheetState, kind: "used" | "header" | "other", address: string) {
+  type Tracked = {
+    queued: Set<string>;
+    loaded: Set<string>;
+    markLoad: (props: string) => void;
+    ensure: (key: string, field: string) => void;
+  };
+
+  function makeTracked(): Tracked {
+    const queued = new Set<string>();
+    const loaded = new Set<string>();
+    return {
+      queued,
+      loaded,
+      markLoad(props: string) {
+        for (const p of props.split(",").map((s) => s.trim()).filter(Boolean)) {
+          queued.add(p);
+        }
+      },
+      ensure(key: string, field: string) {
+        if (!loaded.has(key)) {
+          everReadBeforeSync = true;
+          notLoaded(field);
+        }
+      },
+    };
+  }
+
+  const pendingTrackers: Tracked[] = [];
+
+  function commitLoads() {
+    for (const t of pendingTrackers) {
+      for (const k of t.queued) t.loaded.add(k);
+      t.queued.clear();
+    }
+  }
+
+  function makeFormat(sheet: SheetState, kind: "used" | "header" | "other", needAutofit: boolean) {
     const formatState = kind === "header" ? sheet.headerFormat : sheet.usedFormat;
-    let fontLoaded = false;
-    let fillLoaded = false;
-    let formatLoaded = false;
-    let dimsLoaded = false;
+    const track = makeTracked();
+    pendingTrackers.push(track);
+    const fontTrack = makeTracked();
+    pendingTrackers.push(fontTrack);
+    const fillTrack = makeTracked();
+    pendingTrackers.push(fillTrack);
 
-    const format: Record<string, unknown> = {
+    const font: any = {
+      load(props?: string) {
+        fontTrack.markLoad(props ?? "name,size,bold,color");
+      },
+      get name() {
+        fontTrack.ensure("name", "font.name");
+        if (kind === "used" && sheet.poison?.fontName !== undefined) return sheet.poison.fontName;
+        if (kind === "header" && sheet.poison?.headerFontName !== undefined) {
+          return sheet.poison.headerFontName;
+        }
+        if (kind === "used" && sheet.poison?.baseFontName !== undefined) {
+          return sheet.poison.baseFontName;
+        }
+        return formatState.font.name;
+      },
+      set name(v: any) {
+        writeCalls += 1;
+        formatState.font.name = v as any;
+      },
+      get size() {
+        fontTrack.ensure("size", "font.size");
+        if (kind === "used" && sheet.poison?.fontSize !== undefined) return sheet.poison.fontSize;
+        if (kind === "header" && sheet.poison?.headerFontSize !== undefined) {
+          return sheet.poison.headerFontSize;
+        }
+        if (kind === "used" && sheet.poison?.baseFontSize !== undefined) {
+          return sheet.poison.baseFontSize;
+        }
+        return formatState.font.size;
+      },
+      set size(v: any) {
+        writeCalls += 1;
+        formatState.font.size = v as any;
+      },
+      get bold() {
+        fontTrack.ensure("bold", "font.bold");
+        if (kind === "header" && sheet.poison?.headerBold !== undefined) {
+          return sheet.poison.headerBold;
+        }
+        return formatState.font.bold;
+      },
+      set bold(v: any) {
+        writeCalls += 1;
+        formatState.font.bold = v as any;
+      },
+      get color() {
+        fontTrack.ensure("color", "font.color");
+        if (kind === "header" && sheet.poison?.headerFontColor !== undefined) {
+          return sheet.poison.headerFontColor;
+        }
+        if (kind === "used" && sheet.poison?.baseFontColor !== undefined) {
+          return sheet.poison.baseFontColor;
+        }
+        return formatState.font.color;
+      },
+      set color(v: any) {
+        writeCalls += 1;
+        formatState.font.color = v as any;
+      },
+    };
+    if (options?.missingFontLoad) {
+      delete font.load;
+    }
+
+    const fill: any = {
+      load(props?: string) {
+        fillTrack.markLoad(props ?? "color");
+      },
+      get color() {
+        fillTrack.ensure("color", "fill.color");
+        if (kind === "header" && sheet.poison?.headerFill !== undefined) {
+          return sheet.poison.headerFill;
+        }
+        return formatState.fill.color;
+      },
+      set color(v: any) {
+        writeCalls += 1;
+        formatState.fill.color = v as any;
+      },
+    };
+    if (options?.missingFillLoad) {
+      delete fill.load;
+    }
+
+    if (options?.missingFont) {
+      // omit font
+    }
+    if (options?.missingFill) {
+      // omit fill
+    }
+
+    const format: any = {
       get font() {
-        return {
-          get name() {
-            if (!fontLoaded) throw new Error("font.name not loaded");
-            if (kind === "used" && sheet.poison?.fontName !== undefined) {
-              return sheet.poison.fontName as string;
-            }
-            if (kind === "used" && sheet.poison?.baseFontName !== undefined) {
-              return sheet.poison.baseFontName as string;
-            }
-            return formatState.font.name as string;
-          },
-          set name(v: string) {
-            writeCalls += 1;
-            formatState.font.name = v;
-          },
-          get size() {
-            if (!fontLoaded) throw new Error("font.size not loaded");
-            if (kind === "used" && sheet.poison?.fontSize !== undefined) {
-              return sheet.poison.fontSize as number;
-            }
-            if (kind === "used" && sheet.poison?.baseFontSize !== undefined) {
-              return sheet.poison.baseFontSize as number;
-            }
-            return formatState.font.size as number;
-          },
-          set size(v: number) {
-            writeCalls += 1;
-            formatState.font.size = v;
-          },
-          get bold() {
-            if (!fontLoaded) throw new Error("font.bold not loaded");
-            if (kind === "header" && sheet.poison?.headerBold !== undefined) {
-              return sheet.poison.headerBold as boolean;
-            }
-            return formatState.font.bold as boolean;
-          },
-          set bold(v: boolean) {
-            writeCalls += 1;
-            formatState.font.bold = v;
-          },
-          get color() {
-            if (!fontLoaded) throw new Error("font.color not loaded");
-            if (kind === "header" && sheet.poison?.headerFontColor !== undefined) {
-              return sheet.poison.headerFontColor as string;
-            }
-            if (kind === "used" && sheet.poison?.baseFontColor !== undefined) {
-              return sheet.poison.baseFontColor as string;
-            }
-            return formatState.font.color as string;
-          },
-          set color(v: string) {
-            writeCalls += 1;
-            formatState.font.color = v;
-          },
-          load() {
-            fontLoaded = true;
-          },
-        };
+        if (options?.missingFont) return undefined;
+        return font;
       },
       get fill() {
-        return {
-          get color() {
-            if (!fillLoaded) throw new Error("fill.color not loaded");
-            if (kind === "header" && sheet.poison?.headerFill !== undefined) {
-              return sheet.poison.headerFill as string;
-            }
-            return formatState.fill.color as string;
-          },
-          set color(v: string) {
-            writeCalls += 1;
-            formatState.fill.color = v;
-          },
-          load() {
-            fillLoaded = true;
-          },
-        };
+        if (options?.missingFill) return undefined;
+        return fill;
       },
       get horizontalAlignment() {
-        if (!formatLoaded) throw new Error("horizontalAlignment not loaded");
+        track.ensure("horizontalAlignment", "format.horizontalAlignment");
         if (kind === "header" && sheet.poison?.headerAlignment !== undefined) {
-          return sheet.poison.headerAlignment as string;
+          return sheet.poison.headerAlignment;
         }
         return formatState.horizontalAlignment;
       },
-      set horizontalAlignment(v: string) {
+      set horizontalAlignment(v: any) {
         writeCalls += 1;
-        formatState.horizontalAlignment = v;
+        formatState.horizontalAlignment = v as any;
       },
       get wrapText() {
-        if (!formatLoaded) throw new Error("wrapText not loaded");
+        track.ensure("wrapText", "format.wrapText");
         if (kind === "header" && sheet.poison?.headerWrap !== undefined) {
-          return sheet.poison.headerWrap as boolean;
+          return sheet.poison.headerWrap;
         }
         return formatState.wrapText;
       },
-      set wrapText(v: boolean) {
+      set wrapText(v: any) {
         writeCalls += 1;
-        formatState.wrapText = v;
+        formatState.wrapText = v as any;
       },
       get rowHeight() {
-        if (!formatLoaded) throw new Error("rowHeight not loaded");
+        track.ensure("rowHeight", "format.rowHeight");
         if (kind === "header" && sheet.poison?.headerRowHeight !== undefined) {
-          return sheet.poison.headerRowHeight as number;
+          return sheet.poison.headerRowHeight;
         }
-        return formatState.rowHeight as number;
+        return formatState.rowHeight;
       },
-      set rowHeight(v: number) {
+      set rowHeight(v: any) {
         writeCalls += 1;
-        formatState.rowHeight = v;
+        formatState.rowHeight = v as any;
       },
       get columnWidth() {
         return formatState.columnWidth;
       },
-      autofitColumns: options?.missingAutofit
-        ? undefined
-        : () => {
-            writeCalls += 1;
-            formatState.columnWidth = 12;
-          },
-      autofitRows: options?.missingAutofit
-        ? undefined
-        : () => {
-            writeCalls += 1;
-          },
-      load(_props?: string) {
-        formatLoaded = true;
+      load(props?: string) {
+        track.markLoad(props ?? "horizontalAlignment,wrapText,rowHeight");
       },
     };
-    if (options?.missingAutofit) {
-      delete (format as { autofitColumns?: unknown }).autofitColumns;
-      delete (format as { autofitRows?: unknown }).autofitRows;
+    if (options?.missingFormatLoad) {
+      delete format.load;
     }
 
-    const qualified = sheet.name.includes("!") || /[\s']/.test(sheet.name)
-      ? `'${sheet.name.replace(/'/g, "''")}'!${address}`
-      : `${sheet.name}!${address}`;
+    if (!options?.missingAutofit && needAutofit !== false) {
+      format.autofitColumns = () => {
+        writeCalls += 1;
+        formatState.columnWidth = 12;
+      };
+      format.autofitRows = () => {
+        writeCalls += 1;
+      };
+    }
+    if (options?.missingAutofit) {
+      // no autofit methods
+    }
+    if (options?.missingFormat) return undefined as unknown as Record<string, unknown>;
+    return format;
+  }
 
-    return {
+  function makeRange(sheet: SheetState, kind: "used" | "header" | "other", address: string) {
+    const dims = makeTracked();
+    pendingTrackers.push(dims);
+    const textTrack = makeTracked();
+    pendingTrackers.push(textTrack);
+    const valuesTrack = makeTracked();
+    pendingTrackers.push(valuesTrack);
+    const format = makeFormat(sheet, kind, kind === "used");
+
+    const qualified =
+      sheet.name.includes("!") || /[\s']/.test(sheet.name)
+        ? `'${sheet.name.replace(/'/g, "''")}'!${address}`
+        : `${sheet.name}!${address}`;
+
+    const range: any = {
       get address() {
-        if (!dimsLoaded) lastClientReadBeforeSync = true;
-        if (
-          kind === "used" &&
-          sheet.postWritePoison?.address !== undefined &&
-          writeCalls > 0
-        ) {
-          return sheet.postWritePoison.address as string;
+        dims.ensure("address", "range.address");
+        if (kind === "used" && writeCalls > 0 && sheet.postWritePoison?.address !== undefined) {
+          return sheet.postWritePoison.address;
         }
-        if (kind === "used" && sheet.poison?.address !== undefined) {
-          return sheet.poison.address as string;
-        }
+        if (kind === "used" && sheet.poison?.address !== undefined) return sheet.poison.address;
         return qualified;
       },
       get rowCount() {
-        if (!dimsLoaded) lastClientReadBeforeSync = true;
-        if (
-          kind === "used" &&
-          sheet.postWritePoison?.rowCount !== undefined &&
-          writeCalls > 0
-        ) {
-          return sheet.postWritePoison.rowCount as number;
+        dims.ensure("rowCount", "range.rowCount");
+        if (kind === "used" && writeCalls > 0 && sheet.postWritePoison?.rowCount !== undefined) {
+          return sheet.postWritePoison.rowCount;
         }
-        if (kind === "used" && sheet.poison?.rowCount !== undefined) {
-          return sheet.poison.rowCount as number;
-        }
+        if (kind === "used" && sheet.poison?.rowCount !== undefined) return sheet.poison.rowCount;
         return sheet.rows;
       },
       get columnCount() {
-        if (!dimsLoaded) lastClientReadBeforeSync = true;
+        dims.ensure("columnCount", "range.columnCount");
         if (
           kind === "used" &&
-          sheet.postWritePoison?.columnCount !== undefined &&
-          writeCalls > 0
+          writeCalls > 0 &&
+          sheet.postWritePoison?.columnCount !== undefined
         ) {
-          return sheet.postWritePoison.columnCount as number;
+          return sheet.postWritePoison.columnCount;
         }
         if (kind === "used" && sheet.poison?.columnCount !== undefined) {
-          return sheet.poison.columnCount as number;
+          return sheet.poison.columnCount;
         }
         return sheet.cols;
       },
       get text() {
+        textTrack.ensure("text", "range.text");
+        if (kind === "used") {
+          bulkTextReadCalls += 1;
+          if (sheet.rows > 1 || sheet.cols > 1) {
+            // multi-cell text still counts as bulk
+          }
+        }
         return sheet.text;
       },
       get values() {
+        valuesTrack.ensure("values", "range.values");
+        if (kind === "used") bulkValuesReadCalls += 1;
         return [[sheet.text || null]];
       },
-      format,
-      load(_props?: string) {
-        dimsLoaded = true;
+      get format() {
+        return format;
+      },
+      load(props?: string) {
+        const p = props ?? "";
+        dims.markLoad(p);
+        if (p.includes("text")) textTrack.markLoad("text");
+        if (p.includes("values")) valuesTrack.markLoad("values");
+        if (p.includes("isNullObject")) dims.markLoad("isNullObject");
+        if (!p) {
+          dims.markLoad("address,rowCount,columnCount,isNullObject");
+        }
+      },
+    };
+    if (options?.missingRangeLoad) {
+      delete range.load;
+    }
+    return range;
+  }
+
+  function makeUsedNullObject(sheet: SheetState) {
+    const dims = makeTracked();
+    pendingTrackers.push(dims);
+    const format = makeFormat(sheet, "used", true);
+    const isNull =
+      sheet.isNullObjectOverride !== undefined
+        ? sheet.isNullObjectOverride
+        : sheet.poison?.isNullObject !== undefined
+          ? sheet.poison.isNullObject
+          : sheet.empty;
+
+    const obj: any = {
+      get isNullObject() {
+        // Office.js nullObject: isNullObject is readable without scalar load.
+        return isNull;
+      },
+      get address() {
+        dims.ensure("address", "UsedRange.address");
+        if (writeCalls > 0 && sheet.postWritePoison?.address !== undefined) {
+          return sheet.postWritePoison.address;
+        }
+        if (sheet.poison?.address !== undefined) return sheet.poison.address;
+        const address = sheet.usedAddress;
+        return sheet.name.includes("!") || /[\s']/.test(sheet.name)
+          ? `'${sheet.name.replace(/'/g, "''")}'!${address}`
+          : `${sheet.name}!${address}`;
+      },
+      get rowCount() {
+        dims.ensure("rowCount", "UsedRange.rowCount");
+        if (writeCalls > 0 && sheet.postWritePoison?.rowCount !== undefined) {
+          return sheet.postWritePoison.rowCount;
+        }
+        if (sheet.poison?.rowCount !== undefined) return sheet.poison.rowCount;
+        return sheet.rows;
+      },
+      get columnCount() {
+        dims.ensure("columnCount", "UsedRange.columnCount");
+        if (writeCalls > 0 && sheet.postWritePoison?.columnCount !== undefined) {
+          return sheet.postWritePoison.columnCount;
+        }
+        if (sheet.poison?.columnCount !== undefined) return sheet.poison.columnCount;
+        return sheet.cols;
+      },
+      get text() {
+        dims.ensure("text", "UsedRange.text");
+        bulkTextReadCalls += 1;
+        return sheet.text;
+      },
+      get values() {
+        dims.ensure("values", "UsedRange.values");
+        bulkValuesReadCalls += 1;
+        return [[sheet.text || null]];
+      },
+      get format() {
+        return format;
+      },
+      load(props?: string) {
+        const p = props ?? "isNullObject,address,rowCount,columnCount";
+        dims.markLoad(p);
+      },
+    };
+    if (options?.missingRangeLoad) {
+      delete obj.load;
+    }
+    return obj;
+  }
+
+  function makeFreezeLoc(sheet: SheetState) {
+    const dims = makeTracked();
+    pendingTrackers.push(dims);
+    const fr =
+      sheet.poison?.freezeRows !== undefined
+        ? (sheet.poison.freezeRows as number)
+        : sheet.freezeRows;
+    return {
+      get isNullObject() {
+        dims.ensure("isNullObject", "freeze.isNullObject");
+        return !fr;
+      },
+      get address() {
+        dims.ensure("address", "freeze.address");
+        if (sheet.poison?.freezeAddress !== undefined) return sheet.poison.freezeAddress;
+        return `${sheet.name}!A1:A${fr || 1}`;
+      },
+      get rowCount() {
+        dims.ensure("rowCount", "freeze.rowCount");
+        return fr || 0;
+      },
+      get columnCount() {
+        dims.ensure("columnCount", "freeze.columnCount");
+        if (sheet.poison?.freezeColumnCount !== undefined) return sheet.poison.freezeColumnCount;
+        return 0;
+      },
+      load(props?: string) {
+        dims.markLoad(props ?? "isNullObject,address,rowCount,columnCount");
       },
     };
   }
@@ -338,69 +562,53 @@ export function installTemplateExcel(options?: {
   function makeSheet(name: string) {
     const sheet = sheets.get(name);
     if (!sheet) throw new Error(`missing sheet ${name}`);
+    const nameTrack = makeTracked();
+    pendingTrackers.push(nameTrack);
+    const gridTrack = makeTracked();
+    pendingTrackers.push(gridTrack);
+
     const sheetObj: Record<string, unknown> = {
       get name() {
+        // name often loaded via items/name or sheet.load("name")
+        if (!nameTrack.loaded.has("name")) {
+          // collection load items/name commits name for sheet items
+          if (!nameTrack.loaded.has("name")) {
+            // allow if collection seeded — mark on collection load
+          }
+        }
+        if (!nameTrack.loaded.has("name")) {
+          everReadBeforeSync = true;
+          notLoaded("Worksheet.name");
+        }
         return sheet.name;
       },
-      load() {},
+      load(props?: string) {
+        nameTrack.markLoad(props ?? "name");
+        if (props?.includes("showGridlines")) gridTrack.markLoad("showGridlines");
+        if (!props || props.includes("name")) nameTrack.markLoad("name");
+      },
       get showGridlines() {
-        if (sheet.poison?.showGridlines !== undefined) {
-          return sheet.poison.showGridlines as boolean;
-        }
+        gridTrack.ensure("showGridlines", "showGridlines");
+        if (sheet.poison?.showGridlines !== undefined) return sheet.poison.showGridlines;
         return sheet.showGridlines;
       },
-      set showGridlines(v: boolean) {
+      set showGridlines(v: any) {
         writeCalls += 1;
-        sheet.showGridlines = v;
+        sheet.showGridlines = Boolean(v);
       },
-      getRange(address: string) {
-        const bare = address.replace(/\$/g, "");
-        const isHeader =
-          bare === "A1:B1" ||
-          /^[A-Z]+1:[A-Z]+1$/i.test(bare) ||
-          (bare.toUpperCase().endsWith("1") && bare.includes(":"));
-        return makeRange(sheet, isHeader ? "header" : "other", bare);
-      },
+      getRange: options?.missingGetRange
+        ? undefined
+        : (address: string) => {
+            const bare = address.replace(/\$/g, "");
+            const isHeader =
+              bare === "A1:B1" ||
+              /^[A-Z]+1:[A-Z]+1$/i.test(bare) ||
+              (bare.toUpperCase().endsWith("1") && bare.includes(":"));
+            return makeRange(sheet, isHeader ? "header" : "other", bare);
+          },
       getUsedRangeOrNullObject: options?.missingUsedRange
         ? undefined
-        : () => {
-            const isNull =
-              sheet.isNullObjectOverride !== undefined
-                ? sheet.isNullObjectOverride
-                : sheet.poison?.isNullObject !== undefined
-                  ? sheet.poison.isNullObject
-                  : sheet.empty;
-            if (isNull === true) {
-              return {
-                isNullObject: true,
-                address: "",
-                rowCount: 0,
-                columnCount: 0,
-                text: "",
-                values: [[null]],
-                format: makeRange(sheet, "used", "A1").format,
-                load() {},
-              };
-            }
-            if (isNull !== false && isNull !== true) {
-              return {
-                isNullObject: isNull,
-                address: "",
-                rowCount: 0,
-                columnCount: 0,
-                text: "",
-                values: [[null]],
-                format: makeRange(sheet, "used", "A1").format,
-                load() {},
-              };
-            }
-            const range = makeRange(sheet, "used", sheet.usedAddress) as {
-              isNullObject?: boolean;
-              [key: string]: unknown;
-            };
-            range.isNullObject = false;
-            return range;
-          },
+        : () => makeUsedNullObject(sheet),
       freezePanes: options?.missingFreeze
         ? undefined
         : {
@@ -414,89 +622,191 @@ export function installTemplateExcel(options?: {
             },
             getLocationOrNullObject: options?.missingGetLocation
               ? undefined
-              : () => {
-                  const fr =
-                    sheet.poison?.freezeRows !== undefined
-                      ? (sheet.poison.freezeRows as number)
-                      : sheet.freezeRows;
-                  if (!fr) {
-                    return {
-                      isNullObject: true,
-                      address: "",
-                      rowCount: 0,
-                      columnCount: 0,
-                      load() {},
-                    };
-                  }
-                  return {
-                    isNullObject: false,
-                    address: `${sheet.name}!A1:A${fr}`,
-                    rowCount: fr,
-                    columnCount: 0,
-                    load() {},
-                  };
-                },
+              : () => makeFreezeLoc(sheet),
           },
-      pageLayout: makePageLayoutObject(sheet.pageLayout, {
-        hasPaperSize: true,
-        hasZoom: true,
-        hasDraftMode: true,
-        hasPrintOrder: true,
-        hasFirstPageNumber: true,
-        hasHeaderMargin: true,
-        hasFooterMargin: true,
-        hasHeadersFooters: true,
-        hasDefaultForAllPages: true,
-        queue: (layoutSheet, patch) => {
-          layoutSheet.pending = { ...(layoutSheet.pending ?? {}), ...patch };
-        },
-      }),
+      get pageLayout() {
+        // Capture print subset only (no full pageLayout / page breaks).
+        const layoutTrack = makeTracked();
+        pendingTrackers.push(layoutTrack);
+        const areaTrack = makeTracked();
+        pendingTrackers.push(areaTrack);
+        const rowsTrack = makeTracked();
+        pendingTrackers.push(rowsTrack);
+        const colsTrack = makeTracked();
+        pendingTrackers.push(colsTrack);
+        const hfTrack = makeTracked();
+        pendingTrackers.push(hfTrack);
+
+        const printArea = () => ({
+          get isNullObject() {
+            areaTrack.ensure("isNullObject", "printArea.isNullObject");
+            if (sheet.poison?.printAreaIsNull !== undefined) return sheet.poison.printAreaIsNull;
+            return true;
+          },
+          get address() {
+            areaTrack.ensure("address", "printArea.address");
+            if (sheet.poison?.printAreaAddress !== undefined) return sheet.poison.printAreaAddress;
+            return `${sheet.name}!$A$1:$B$2`;
+          },
+          load(props?: string) {
+            areaTrack.markLoad(props ?? "isNullObject,address");
+          },
+        });
+        const titleRows = () => ({
+          get isNullObject() {
+            rowsTrack.ensure("isNullObject", "titleRows.isNullObject");
+            return true;
+          },
+          get address() {
+            rowsTrack.ensure("address", "titleRows.address");
+            return `${sheet.name}!$1:$1`;
+          },
+          load(props?: string) {
+            rowsTrack.markLoad(props ?? "isNullObject,address");
+          },
+        });
+        const titleCols = () => ({
+          get isNullObject() {
+            colsTrack.ensure("isNullObject", "titleCols.isNullObject");
+            return true;
+          },
+          get address() {
+            colsTrack.ensure("address", "titleCols.address");
+            return `${sheet.name}!$A:$A`;
+          },
+          load(props?: string) {
+            colsTrack.markLoad(props ?? "isNullObject,address");
+          },
+        });
+
+        const def = {
+          get centerHeader() {
+            hfTrack.ensure("centerHeader", "centerHeader");
+            if (sheet.poison?.printHeader !== undefined) return sheet.poison.printHeader;
+            return "";
+          },
+          get centerFooter() {
+            hfTrack.ensure("centerFooter", "centerFooter");
+            if (sheet.poison?.printFooter !== undefined) return sheet.poison.printFooter;
+            return "";
+          },
+          load(props?: string) {
+            hfTrack.markLoad(props ?? "centerHeader,centerFooter");
+          },
+        };
+
+        return {
+          load(props?: string) {
+            layoutTrack.markLoad(props ?? "orientation,paperSize,zoom");
+          },
+          get orientation() {
+            layoutTrack.ensure("orientation", "layout.orientation");
+            if (sheet.poison?.printOrientation !== undefined) return sheet.poison.printOrientation;
+            return "Portrait";
+          },
+          get paperSize() {
+            layoutTrack.ensure("paperSize", "layout.paperSize");
+            if (sheet.poison?.printPaperSize !== undefined) return sheet.poison.printPaperSize;
+            return "A4";
+          },
+          get zoom() {
+            layoutTrack.ensure("zoom", "layout.zoom");
+            return {
+              get horizontalFitToPages() {
+                if (sheet.poison?.printFitWide !== undefined) return sheet.poison.printFitWide;
+                return null;
+              },
+              get verticalFitToPages() {
+                if (sheet.poison?.printFitTall !== undefined) return sheet.poison.printFitTall;
+                return null;
+              },
+            };
+          },
+          get headersFooters() {
+            return { defaultForAllPages: def };
+          },
+          getPrintAreaOrNullObject: printArea,
+          getPrintTitleRowsOrNullObject: titleRows,
+          getPrintTitleColumnsOrNullObject: titleCols,
+        };
+      },
     };
+
     if (options?.missingShowGridlines) {
       delete sheetObj.showGridlines;
     }
-    attachPageBreaks(sheetObj, sheet.pageBreaks, () => {});
+
+    // seed name as loadable via collection
+    (sheetObj as { __nameTrack: Tracked }).__nameTrack = nameTrack;
     return sheetObj;
   }
 
-  (globalThis as unknown as { window: unknown }).window = globalThis;
-  (globalThis as unknown as { Excel?: unknown }).Excel = {
-    run: async <T>(fn: (ctx: unknown) => Promise<T>) => {
-      excelRunCalls += 1;
-      const context = {
-        workbook: {
-          name: "Book1",
-          load() {},
-          worksheets: {
-            items: [...sheets.keys()].map((n) => makeSheet(n)),
-            load() {},
-            getItem(name: string) {
-              if (!sheets.has(name)) throw new Error(`ItemNotFound: ${name}`);
-              return makeSheet(name);
-            },
-            getActiveWorksheet() {
-              return makeSheet(activeName);
-            },
-          },
-        },
-        async sync() {
-          syncCount += 1;
-          lastClientReadBeforeSync = false;
-          for (const sheet of sheets.values()) {
-            if (sheet.pageLayout.pending) {
-              sheet.pageLayout.committed = {
-                ...sheet.pageLayout.committed,
-                ...sheet.pageLayout.pending,
-              };
-              sheet.pageLayout.pending = undefined;
-            }
-            commitPageBreaks(sheet.pageBreaks);
+  const sheetObjects = new Map<string, ReturnType<typeof makeSheet>>();
+  for (const name of sheets.keys()) {
+    sheetObjects.set(name, makeSheet(name));
+  }
+  // Allow reading names after items/name load
+  function markAllNamesQueued() {
+    for (const obj of sheetObjects.values()) {
+      const t = (obj as { __nameTrack?: Tracked }).__nameTrack;
+      t?.markLoad("name");
+    }
+  }
+
+  const context = {
+    workbook: {
+      get name() {
+        wbNameTrack.ensure("name", "Workbook.name");
+        return "Book1";
+      },
+      load(props?: string) {
+        if (props?.includes("name")) wbNameTrack.markLoad("name");
+      },
+      worksheets: {
+        load(props?: string) {
+          if (props?.includes("items") || props?.includes("name")) {
+            itemsTrack.markLoad("items");
+            markAllNamesQueued();
           }
         },
-      };
-      (context.workbook.worksheets as { items: unknown[] }).items = [...sheets.keys()].map((n) =>
-        makeSheet(n),
-      );
+        get items() {
+          itemsTrack.ensure("items", "worksheets.items");
+          return [...sheetObjects.values()];
+        },
+        getActiveWorksheet() {
+          return sheetObjects.get(activeName)!;
+        },
+        getItem(name: string) {
+          const s = sheetObjects.get(name);
+          if (!s) throw new Error(`sheet not found: ${name}`);
+          return s;
+        },
+      },
+    },
+    async sync() {
+      syncCount += 1;
+      generation += 1;
+      commitLoads();
+      for (const st of sheets.values()) {
+        commitPageBreaks(st.pageBreaks);
+        if (st.pageLayout.pending) {
+          st.pageLayout.committed = { ...st.pageLayout.committed, ...st.pageLayout.pending };
+          st.pageLayout.pending = undefined;
+        }
+      }
+    },
+  };
+
+  const itemsTrack = makeTracked();
+  pendingTrackers.push(itemsTrack);
+  const wbNameTrack = makeTracked();
+  pendingTrackers.push(wbNameTrack);
+
+  // Node vitest: getExcelRun() reads window.Excel only — mirror baseline install.
+  (globalThis as unknown as { window: unknown }).window = globalThis;
+  (globalThis as unknown as { Excel: { run: (fn: (ctx: typeof context) => Promise<unknown>) => Promise<unknown> } }).Excel = {
+    run: async (fn) => {
+      excelRunCalls += 1;
       return fn(context);
     },
   };
@@ -517,7 +827,9 @@ export function installTemplateExcel(options?: {
     };
   } else {
     (globalThis as unknown as {
-      Office: { context: { requirements: { isSetSupported: (n: string, v?: string) => boolean } } };
+      Office: {
+        context: { requirements: { isSetSupported: (n: string, v?: string) => boolean } };
+      };
     }).Office = {
       context: {
         requirements: {
@@ -535,9 +847,12 @@ export function installTemplateExcel(options?: {
     excelRunCalls: () => excelRunCalls,
     writeCalls: () => writeCalls,
     syncCount: () => syncCount,
-    lastClientReadBeforeSync: () => lastClientReadBeforeSync,
+    bulkTextReadCalls: () => bulkTextReadCalls,
+    bulkValuesReadCalls: () => bulkValuesReadCalls,
+    everReadBeforeSync: () => everReadBeforeSync,
+    generation: () => generation,
     getSheet: (name: string) => sheets.get(name),
-    setPoison: (name: string, poison: SheetState["poison"]) => {
+    setPoison: (name: string, poison: Poison) => {
       const s = sheets.get(name);
       if (s) s.poison = { ...(s.poison ?? {}), ...poison };
     },
@@ -554,14 +869,24 @@ export function installTemplateExcel(options?: {
     },
     setEmpty: (name: string, empty: boolean) => {
       const s = sheets.get(name);
-      if (s) s.empty = empty;
+      if (s) {
+        s.empty = empty;
+        if (empty) {
+          s.rows = 1;
+          s.cols = 1;
+          s.text = "";
+          s.usedAddress = "A1";
+        }
+      }
     },
-    setUsedDims: (name: string, rows: number, cols: number, address?: string) => {
+    setUsedDims: (name: string, rows: number, cols: number, address?: string, text?: string) => {
       const s = sheets.get(name);
       if (!s) return;
       s.rows = rows;
       s.cols = cols;
       if (address) s.usedAddress = address;
+      if (text !== undefined) s.text = text;
+      s.empty = false;
     },
     setBaseNull: (name: string) => {
       const s = sheets.get(name);
@@ -569,10 +894,16 @@ export function installTemplateExcel(options?: {
       s.usedFormat.font.name = null;
       s.usedFormat.font.size = null;
       s.usedFormat.font.color = null;
-      s.headerFormat.fill.color = null;
-      s.headerFormat.font.color = null;
-      s.headerFormat.font.bold = null;
-      s.headerFormat.rowHeight = null;
+    },
+    /** Force a premature property read for gate self-test. */
+    forcePrematureRead: (_name: string) => {
+      const used = (sheetObjects.get(_name) as { getUsedRangeOrNullObject?: () => { address: unknown } })
+        ?.getUsedRangeOrNullObject?.();
+      try {
+        void used?.address;
+      } catch {
+        // expected
+      }
     },
   };
 }

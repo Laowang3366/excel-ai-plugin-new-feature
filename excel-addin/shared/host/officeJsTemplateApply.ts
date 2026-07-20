@@ -1,7 +1,12 @@
 /** workbook.template.apply — plan → precheck → write → sync → load → sync readback. */
 import { parseA1Cell, toA1 } from "./a1Address";
-import type { ExcelRange, ExcelRequestContext, ExcelWorksheet } from "./officeJsExcelTypes";
+import type { ExcelRange, ExcelWorksheet } from "./officeJsExcelTypes";
 import { getExcelRun } from "./officeJsRuntime";
+import {
+  isEmptyUsedRange,
+  resolveApplyTargets,
+  verifyFreezeReadback,
+} from "./officeJsTemplateApplyHelpers";
 import { requireExcelApi18ForTemplateApply } from "./officeJsTemplateRequirements";
 import {
   colorsEqual,
@@ -13,7 +18,6 @@ import {
   requireFiniteNumber,
   requireHexColor,
   requireNonEmptyString,
-  requireNonNegativeInt,
   requirePositiveInt,
   splitSheetQualifiedAddress,
 } from "./officeJsTemplateReadback";
@@ -73,7 +77,11 @@ function assertSheetSurface(sheet: ExcelWorksheet): void {
   if (typeof sheet.load !== "function") throw new Error("Worksheet.load is missing");
 }
 
-function assertRangeWriteSurface(range: ExcelRange, needAutofit: boolean, label: string): void {
+function assertRangeWriteSurface(
+  range: ExcelRange,
+  needAutofit: boolean,
+  label: string,
+): void {
   if (typeof range.load !== "function") throw new Error(`${label}.load is missing`);
   if (!range.format) throw new Error(`${label}.format is missing`);
   if (typeof range.format.load !== "function") {
@@ -95,90 +103,6 @@ function assertRangeWriteSurface(range: ExcelRange, needAutofit: boolean, label:
       throw new Error(`${label}.format.autofitRows is missing`);
     }
   }
-}
-
-async function isEmptyUsed(
-  used: ExcelRange & { isNullObject?: unknown },
-  context: ExcelRequestContext,
-): Promise<boolean> {
-  const isNull = requireBoolean(used.isNullObject, "UsedRange.isNullObject");
-  if (isNull) return true;
-  used.load("address,rowCount,columnCount,text");
-  await context.sync();
-  const rows = requirePositiveInt(used.rowCount, "UsedRange.rowCount");
-  const cols = requirePositiveInt(used.columnCount, "UsedRange.columnCount");
-  if (rows === 1 && cols === 1) {
-    const text = (used as ExcelRange & { text?: unknown }).text;
-    if (text === null || text === undefined || text === "") return true;
-    if (typeof text === "string" && text.trim() === "") return true;
-    if (typeof text !== "string") {
-      used.load("values");
-      await context.sync();
-      const v = used.values?.[0]?.[0];
-      if (v == null || (typeof v === "string" && v.trim() === "")) return true;
-    }
-  }
-  return false;
-}
-
-async function resolveTargets(
-  context: ExcelRequestContext,
-  input: WorkbookTemplateApplyInput,
-): Promise<ExcelWorksheet[]> {
-  if (input.sheetNames !== undefined && input.sheetNames.length === 0) {
-    throw new Error("sheetNames must not be an empty array");
-  }
-  const sheets = context.workbook.worksheets;
-  sheets.load("items/name");
-  const active = context.workbook.worksheets.getActiveWorksheet();
-  active.load("name");
-  await context.sync();
-
-  const items = sheets.items;
-  if (!Array.isArray(items)) throw new Error("WorksheetCollection.items is not an array");
-  if (items.length > 500) {
-    throw new Error("workbook exceeds 500 worksheets (resource-limit)");
-  }
-
-  const byLower = new Map<string, ExcelWorksheet>();
-  for (const sheet of items) {
-    const name = requireNonEmptyString(sheet.name, "Worksheet.name");
-    byLower.set(name.toLowerCase(), sheet);
-  }
-
-  let selected: ExcelWorksheet[] = [];
-  if (input.sheetNames && input.sheetNames.length > 0) {
-    for (const requested of input.sheetNames) {
-      const hit = byLower.get(requested.toLowerCase());
-      if (!hit) throw new Error(`sheet not found: ${requested}`);
-      selected.push(hit);
-    }
-  } else {
-    selected = items.slice();
-  }
-
-  if (!input.allSheets) {
-    const activeName = requireNonEmptyString(active.name, "ActiveWorksheet.name");
-    selected = selected.filter(
-      (s) =>
-        requireNonEmptyString(s.name, "Worksheet.name").toLowerCase() ===
-        activeName.toLowerCase(),
-    );
-  }
-
-  const seen = new Set<string>();
-  const unique: ExcelWorksheet[] = [];
-  for (const sheet of selected) {
-    const name = requireNonEmptyString(sheet.name, "Worksheet.name");
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(sheet);
-  }
-  if (unique.length === 0) {
-    throw new Error("no target worksheets after sheetNames/allSheets selection");
-  }
-  return unique;
 }
 
 export async function officeJsApplyWorkbookTemplate(
@@ -204,7 +128,7 @@ export async function officeJsApplyWorkbookTemplate(
   try {
     const data = await run(async (context) => {
       const style = WORKBOOK_TEMPLATE_PRESET_STYLES[input.preset];
-      const targets = await resolveTargets(context, input);
+      const targets = await resolveApplyTargets(context, input);
       for (const sheet of targets) assertSheetSurface(sheet);
 
       const plans: ApplyPlan[] = [];
@@ -214,7 +138,7 @@ export async function officeJsApplyWorkbookTemplate(
           isNullObject?: unknown;
         };
         await context.sync();
-        if (await isEmptyUsed(used, context)) {
+        if (await isEmptyUsedRange(used, context)) {
           plans.push({
             kind: "skip",
             name,
@@ -228,11 +152,7 @@ export async function officeJsApplyWorkbookTemplate(
         const expectedAddress = normalizeRangeAddressForCompare(usedAddr);
         const header = sheet.getRange(headerRowAddress(usedAddr, cols));
         assertRangeWriteSurface(used, input.autoFit, "UsedRange");
-        assertRangeWriteSurface(header, input.autoFit, "HeaderRange");
-        const probe = sheet.freezePanes.getLocationOrNullObject();
-        if (!probe || typeof probe.load !== "function") {
-          throw new Error("freeze getLocationOrNullObject surface incomplete");
-        }
+        assertRangeWriteSurface(header, false, "HeaderRange");
         plans.push({
           kind: "apply",
           name,
@@ -245,11 +165,27 @@ export async function officeJsApplyWorkbookTemplate(
         });
       }
 
+      const freezeProbes: Array<ExcelRange & { isNullObject?: unknown }> = [];
+      for (const plan of plans) {
+        if (plan.kind !== "apply") continue;
+        const probe = plan.sheet.freezePanes.getLocationOrNullObject() as ExcelRange & {
+          isNullObject?: unknown;
+        };
+        if (!probe || typeof probe.load !== "function") {
+          throw new Error("freeze getLocationOrNullObject surface incomplete");
+        }
+        probe.load("isNullObject,address,rowCount,columnCount");
+        freezeProbes.push(probe);
+      }
+      if (freezeProbes.length > 0) await context.sync();
+
       for (const plan of plans) {
         if (plan.kind !== "apply") continue;
         const { sheet, used, header } = plan;
         used.format.font.name = input.fontName;
         used.format.font.size = input.fontSize;
+        header.format.font.name = input.fontName;
+        header.format.font.size = input.fontSize;
         header.format.font.bold = true;
         header.format.font.color = style.headerFontColor;
         header.format.fill.color = style.headerFill;
@@ -291,7 +227,7 @@ export async function officeJsApplyWorkbookTemplate(
         const loc = sheet.freezePanes.getLocationOrNullObject() as ExcelRange & {
           isNullObject?: unknown;
         };
-        loc.load("address,rowCount,columnCount");
+        loc.load("isNullObject,address,rowCount,columnCount");
         await context.sync();
 
         const rangeRaw = requireNonEmptyString(used.address, "UsedRange.address");
@@ -318,6 +254,21 @@ export async function officeJsApplyWorkbookTemplate(
         if (!numbersClose(fontSize, input.fontSize, 0.05)) {
           throw new Error(`fontSize readback mismatch: ${fontSize} !== ${input.fontSize}`);
         }
+        const headerFontName = requireNonEmptyString(
+          header.format.font.name,
+          "header.font.name",
+        );
+        const headerFontSize = requireFiniteNumber(header.format.font.size, "header.font.size");
+        if (!fontsEqual(headerFontName, input.fontName)) {
+          throw new Error(
+            `header fontName readback mismatch: ${headerFontName} !== ${input.fontName}`,
+          );
+        }
+        if (!numbersClose(headerFontSize, input.fontSize, 0.05)) {
+          throw new Error(
+            `header fontSize readback mismatch: ${headerFontSize} !== ${input.fontSize}`,
+          );
+        }
         const headerFill = requireHexColor(header.format.fill.color, "header.fill.color");
         const headerFontColor = requireHexColor(header.format.font.color, "header.font.color");
         if (!colorsEqual(headerFill, style.headerFill)) {
@@ -342,21 +293,7 @@ export async function officeJsApplyWorkbookTemplate(
         if (showGridlines !== input.showGridlines) {
           throw new Error(`showGridlines readback mismatch: ${showGridlines}`);
         }
-
-        const locNull = requireBoolean(loc.isNullObject, "freeze.isNullObject");
-        let freezeRowCount = 0;
-        if (locNull) {
-          if (input.freezeRows !== 0) {
-            throw new Error("freeze location is null but freezeRows > 0");
-          }
-        } else {
-          freezeRowCount = requireNonNegativeInt(loc.rowCount, "freeze.rowCount");
-          if (freezeRowCount !== input.freezeRows) {
-            throw new Error(
-              `freeze rowCount readback mismatch: ${freezeRowCount} !== ${input.freezeRows}`,
-            );
-          }
-        }
+        const freezeRowCount = verifyFreezeReadback(loc, input.freezeRows);
 
         applied.push({
           name: requireNonEmptyString(sheet.name, "Worksheet.name") || name,

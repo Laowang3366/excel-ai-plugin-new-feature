@@ -13,7 +13,7 @@ export function requireNonEmptyString(value: unknown, field: string): string {
 
 export function requireFiniteNumber(value: unknown, field: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${field} is not a loaded finite number`);
+    throw new Error(`${field} is not a finite number`);
   }
   return value;
 }
@@ -50,25 +50,31 @@ export function requireNonNegativeInt(value: unknown, field: string): number {
   return value;
 }
 
-/** null = mixed/unavailable; non-null must be string (bad types fail). */
-export function nullableString(value: unknown, field: string): string | null {
+/**
+ * null = mixed/unavailable; non-null must be non-empty string (empty/whitespace rejected).
+ */
+export function nullableNonEmptyString(value: unknown, field: string): string | null {
   if (value === null) return null;
-  if (typeof value !== "string") {
-    throw new Error(`${field} is not a string or null`);
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${field} is not a non-empty string or null`);
   }
   return value;
 }
 
-/** null = mixed/unavailable; non-null must be finite number. */
-export function nullableFiniteNumber(value: unknown, field: string): number | null {
+/**
+ * null = mixed/unavailable; non-null must be finite number > 0 (fontSize, rowHeight).
+ */
+export function nullablePositiveFinite(value: unknown, field: string): number | null {
   if (value === null) return null;
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${field} is not a finite number or null`);
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${field} is not a finite number > 0 or null`);
   }
   return value;
 }
 
-/** null = mixed/unavailable; non-null must be boolean. */
+/**
+ * null = mixed/unavailable; non-null must be boolean.
+ */
 export function nullableBoolean(value: unknown, field: string): boolean | null {
   if (value === null) return null;
   if (typeof value !== "boolean") {
@@ -77,22 +83,22 @@ export function nullableBoolean(value: unknown, field: string): boolean | null {
   return value;
 }
 
-/** null = mixed; non-null must be #RRGGBB. */
+/** null = mixed; non-null must be exact #RRGGBB (no auto # prefix). */
 export function nullableHexColor(value: unknown, field: string): string | null {
   if (value === null) return null;
   return requireHexColor(value, field);
 }
 
+/** Exact #RRGGBB only (case-insensitive compare elsewhere); no auto-prefix. */
 export function requireHexColor(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${field} is not a loaded color string`);
   }
   const raw = value.trim();
-  const withHash = raw.startsWith("#") ? raw : `#${raw}`;
-  if (!HEX_RE.test(withHash)) {
+  if (!raw.startsWith("#") || !HEX_RE.test(raw)) {
     throw new Error(`${field} is not a #RRGGBB color`);
   }
-  return withHash.toUpperCase();
+  return raw.toUpperCase();
 }
 
 export function colorsEqual(a: string, b: string): boolean {
@@ -110,7 +116,7 @@ export function requireAlignmentCenter(value: unknown, field: string): string {
     throw new Error(`${field} is not a string alignment`);
   }
   if (value.toLowerCase() !== "center") {
-    throw new Error(`${field} expected Center, got ${JSON.stringify(value)}`);
+    throw new Error(`${field} is not Center`);
   }
   return "Center";
 }
@@ -161,4 +167,43 @@ export function normalizeRangeAddressForCompare(address: string): string {
   const { bare } = splitSheetQualifiedAddress(address);
   if (bare.trim() === "") throw new Error("address bare range is empty");
   return bare.replace(/\$/g, "").toUpperCase();
+}
+
+/** null or non-negative integer (fit page counts). */
+export function nullableNonNegativeInt(value: unknown, field: string): number | null {
+  if (value === null) return null;
+  return requireNonNegativeInt(value, field);
+}
+
+/**
+ * Orientation host token: Portrait|Landscape only (case-insensitive exact; no strip).
+ * null = unavailable.
+ */
+export function nullableOrientation(value: unknown, field: string): "portrait" | "landscape" | null {
+  if (value === null) return null;
+  if (typeof value !== "string") {
+    throw new Error(`${field} is not a string or null`);
+  }
+  const lower = value.toLowerCase();
+  if (lower === "portrait") return "portrait";
+  if (lower === "landscape") return "landscape";
+  throw new Error(`${field} is not a portrait/landscape host token`);
+}
+
+/** null or non-empty paper size string (no coercion). */
+export function nullablePaperSizeToken(value: unknown, field: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${field} is not a non-empty string or null`);
+  }
+  return value;
+}
+
+/** null or string (header/footer text may be empty string). */
+export function nullableStringAllowEmpty(value: unknown, field: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string") {
+    throw new Error(`${field} is not a string or null`);
+  }
+  return value;
 }
