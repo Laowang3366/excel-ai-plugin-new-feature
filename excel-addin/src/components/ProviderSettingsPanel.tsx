@@ -3,6 +3,7 @@ import {
   getProviderTemplate,
   PROVIDER_TEMPLATES,
   ProviderClient,
+  type ConnectionMode,
   type ProviderPublicView,
   type ProviderStore,
 } from "@shared/provider";
@@ -25,6 +26,9 @@ export function ProviderSettingsPanel({ store }: Props) {
   const [activeId, setActiveId] = useState<string | null>(() => store.getActiveId());
   const [templateId, setTemplateId] = useState(PROVIDER_TEMPLATES[0]?.id ?? "openai");
   const [apiKey, setApiKey] = useState("");
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>("direct");
+  const [gatewayBaseUrl, setGatewayBaseUrl] = useState("");
+  const [gatewayUpstreamId, setGatewayUpstreamId] = useState("openai");
   const [editId, setEditId] = useState<string | null>(null);
   const [edit, setEdit] = useState<ProviderCardEditState | null>(null);
   const [actionState, setActionState] = useState<ActionState>({ status: "idle" });
@@ -36,7 +40,11 @@ export function ProviderSettingsPanel({ store }: Props) {
   }
 
   function addProvider() {
-    store.addFromTemplate(templateId, apiKey);
+    store.addFromTemplate(templateId, connectionMode === "direct" ? apiKey : "", {
+      connectionMode,
+      gatewayBaseUrl,
+      gatewayUpstreamId,
+    });
     setApiKey("");
     refresh();
   }
@@ -47,6 +55,9 @@ export function ProviderSettingsPanel({ store }: Props) {
     setEdit({
       name: provider.name,
       baseUrl: provider.baseUrl,
+      gatewayBaseUrl: provider.gatewayBaseUrl,
+      gatewayUpstreamId: provider.gatewayUpstreamId,
+      connectionMode: provider.connectionMode,
       model: provider.model,
       format: provider.apiFormat,
       contextWindow: provider.contextWindowSize,
@@ -67,11 +78,14 @@ export function ProviderSettingsPanel({ store }: Props) {
     store.update(editId, {
       name: edit.name,
       baseUrl: edit.baseUrl,
+      gatewayBaseUrl: edit.gatewayBaseUrl,
+      gatewayUpstreamId: edit.gatewayUpstreamId,
+      connectionMode: edit.connectionMode,
       model: edit.model,
       apiFormat: edit.format,
       contextWindowSize: Number(edit.contextWindow) || 128_000,
       reasoningMode: edit.reasoning,
-      ...(edit.key ? { apiKey: edit.key } : {}),
+      ...(edit.connectionMode === "direct" && edit.key ? { apiKey: edit.key } : {}),
     });
     setEditId(null);
     setEdit(null);
@@ -81,13 +95,16 @@ export function ProviderSettingsPanel({ store }: Props) {
   async function runTest(providerId: string) {
     const secret = store.getWithSecret(providerId);
     if (!secret) return;
-    if (!secret.apiKey) {
+    if (secret.connectionMode === "direct" && !secret.apiKey) {
       setActionState({ status: "error", message: "API key 未设置，无法测试连接" });
       return;
     }
     setActionState({ status: "loading", action: "test" });
     const result = await client.testConnection({
       baseUrl: secret.baseUrl,
+      gatewayBaseUrl: secret.gatewayBaseUrl,
+      gatewayUpstreamId: secret.gatewayUpstreamId,
+      connectionMode: secret.connectionMode,
       apiKey: secret.apiKey,
       apiFormat: secret.apiFormat,
       model: secret.model,
@@ -108,13 +125,16 @@ export function ProviderSettingsPanel({ store }: Props) {
   async function runListModels(providerId: string) {
     const secret = store.getWithSecret(providerId);
     if (!secret) return;
-    if (!secret.apiKey) {
+    if (secret.connectionMode === "direct" && !secret.apiKey) {
       setActionState({ status: "error", message: "API key 未设置，无法拉取模型" });
       return;
     }
     setActionState({ status: "loading", action: "models" });
     const result = await client.listModels({
       baseUrl: secret.baseUrl,
+      gatewayBaseUrl: secret.gatewayBaseUrl,
+      gatewayUpstreamId: secret.gatewayUpstreamId,
+      connectionMode: secret.connectionMode,
       apiKey: secret.apiKey,
       apiFormat: secret.apiFormat,
     });
@@ -137,15 +157,21 @@ export function ProviderSettingsPanel({ store }: Props) {
     <section className="card">
       <h2>模型供应商</h2>
       <p className="muted">
-        API key 仅保存在内存（MemorySecretStore），禁止写入 localStorage。任务窗格直连 API 可能被 CORS
-        拦截，错误会原样展示，不会伪造成功。
+        直连模式的 API key 仅保存在内存，禁止写入 localStorage，且请求可能被 CORS
+        拦截；同源 Gateway 模式由服务端注入供应商密钥，浏览器不会保存或发送真实 API key。
       </p>
 
       <ProviderCreateSection
         templateId={templateId}
         apiKey={apiKey}
+        connectionMode={connectionMode}
+        gatewayBaseUrl={gatewayBaseUrl}
+        gatewayUpstreamId={gatewayUpstreamId}
         onTemplateIdChange={setTemplateId}
         onApiKeyChange={setApiKey}
+        onConnectionModeChange={setConnectionMode}
+        onGatewayBaseUrlChange={setGatewayBaseUrl}
+        onGatewayUpstreamIdChange={setGatewayUpstreamId}
         onAdd={addProvider}
       />
 

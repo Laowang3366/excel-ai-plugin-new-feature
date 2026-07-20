@@ -54,37 +54,20 @@ async function drain(
 }
 
 const openaiDone = [
-  data({
-    id: "c",
-    choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }],
-  }),
-  data({
-    id: "c",
-    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-  }),
+  data({ id: "c", choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }] }),
+  data({ id: "c", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }),
   "data: [DONE]\n\n",
 ];
 
 const responsesDone = [
-  data({
-    type: "response.output_text.delta",
-    item_id: "m1",
-    delta: "ok",
-  }),
+  data({ type: "response.output_text.delta", item_id: "m1", delta: "ok" }),
   data({ type: "response.completed", response: {} }),
   "data: [DONE]\n\n",
 ];
 
 const anthropicDone = [
-  data({
-    type: "message_start",
-    message: { usage: { input_tokens: 1, output_tokens: 0 } },
-  }),
-  data({
-    type: "content_block_start",
-    index: 0,
-    content_block: { type: "text", text: "ok" },
-  }),
+  data({ type: "message_start", message: { usage: { input_tokens: 1, output_tokens: 0 } } }),
+  data({ type: "content_block_start", index: 0, content_block: { type: "text", text: "ok" } }),
   data({ type: "content_block_stop", index: 0 }),
   data({
     type: "message_delta",
@@ -284,5 +267,130 @@ describe("createStreamProviderFromStore", () => {
     const empty = createStreamProviderFromStore(store, { fetchImpl: vi.fn() });
     expect(empty).toMatchObject({ ok: false, kind: "missing_key" });
     expect(JSON.stringify(empty)).not.toContain("sk-ant-live");
+  });
+});
+
+describe("createStreamProvider gateway mode stream", () => {
+  for (const testCase of [
+    {
+      apiFormat: "openai",
+      upstreamId: "openai",
+      suffix: "chat/completions",
+      model: "gpt-4o",
+      response: openaiDone,
+    },
+    {
+      apiFormat: "responses",
+      upstreamId: "responses",
+      suffix: "responses",
+      model: "gpt-4o",
+      response: responsesDone,
+    },
+    {
+      apiFormat: "anthropic",
+      upstreamId: "anthropic",
+      suffix: "messages",
+      model: "claude-test",
+      response: anthropicDone,
+    },
+  ] as const) {
+    it(`${testCase.apiFormat} gateway streams without browser auth`, async () => {
+      const browserSecret = "browser-secret-must-not-leak";
+      const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+        expect(url).toBe(
+          `https://app.example/api/ai/v1/${testCase.upstreamId}/${testCase.suffix}`,
+        );
+        const headers = init?.headers as Record<string, string>;
+        expect(headers.Authorization).toBeUndefined();
+        expect(headers["x-api-key"]).toBeUndefined();
+        expect(headers.Accept).toBe("text/event-stream");
+        expect(JSON.stringify({ headers, body: init?.body, url })).not.toContain(
+          browserSecret,
+        );
+        if (testCase.apiFormat === "anthropic") {
+          expect(headers["anthropic-version"]).toBe("2023-06-01");
+        }
+        return sseResponse([...testCase.response]);
+      });
+      const created = createStreamProvider({
+        apiFormat: testCase.apiFormat,
+        baseUrl: "https://vendor.example/v1",
+        gatewayBaseUrl: "https://app.example",
+        apiKey: browserSecret,
+        model: testCase.model,
+        connectionMode: "gateway",
+        gatewayUpstreamId: testCase.upstreamId,
+        fetchImpl,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+      await drain(created.provider);
+      expect(fetchImpl).toHaveBeenCalledOnce();
+    });
+  }
+
+  it("rejects gateway without upstream id", () => {
+    const created = createStreamProvider({
+      apiFormat: "openai",
+      baseUrl: "https://api.openai.com/v1",
+      gatewayBaseUrl: "https://app.example",
+      apiKey: "",
+      model: "gpt-4o",
+      connectionMode: "gateway",
+      gatewayUpstreamId: "",
+    });
+    expect(created.ok).toBe(false);
+    if (!created.ok) expect(created.kind).toBe("parse");
+  });
+
+  it("rejects unsafe gateway URL, upstream id, and connection mode before fetch", () => {
+    const fetchImpl = vi.fn();
+    const inputs = [
+      { gatewayBaseUrl: "//evil.example", gatewayUpstreamId: "openai" },
+      { gatewayBaseUrl: "https://app.example/path", gatewayUpstreamId: "openai" },
+      { gatewayBaseUrl: "", gatewayUpstreamId: "OpenAI" },
+    ];
+    for (const input of inputs) {
+      expect(
+        createStreamProvider({
+          apiFormat: "openai",
+          baseUrl: "https://api.openai.com/v1",
+          apiKey: "",
+          model: "gpt-4o",
+          connectionMode: "gateway",
+          ...input,
+          fetchImpl,
+        }),
+      ).toMatchObject({ ok: false, kind: "parse" });
+    }
+    expect(
+      createStreamProvider({
+        apiFormat: "openai",
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk",
+        model: "gpt-4o",
+        connectionMode: "invalid",
+        fetchImpl,
+      }),
+    ).toMatchObject({ ok: false, kind: "parse" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("createStreamProviderFromStore passes gateway fields", async () => {
+    const store = new ProviderStore();
+    store.addFromTemplate("openai", "", {
+      connectionMode: "gateway",
+      gatewayUpstreamId: "openai",
+      gatewayBaseUrl: "https://app.example",
+    });
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/api/ai/v1/openai/chat/completions");
+      expect((init?.headers as Record<string, string>).Authorization).toBeUndefined();
+      return sseResponse(openaiDone);
+    });
+    const created = createStreamProviderFromStore(store, { fetchImpl });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    await drain(created.provider);
   });
 });

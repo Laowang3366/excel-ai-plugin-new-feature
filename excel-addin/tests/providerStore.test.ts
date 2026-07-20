@@ -74,3 +74,62 @@ describe("ProviderStore", () => {
     expect(listed.hasApiKey).toBe(true);
   });
 });
+
+
+describe("ProviderStore gateway mode", () => {
+  it("creates gateway provider without storing api key", () => {
+    const secrets = new MemorySecretStore();
+    const store = new ProviderStore(secrets);
+    const created = store.addFromTemplate("openai", "should-ignore", {
+      connectionMode: "gateway",
+      gatewayUpstreamId: "openai",
+      gatewayBaseUrl: "https://app.example",
+    });
+    expect(created.connectionMode).toBe("gateway");
+    expect(created.gatewayUpstreamId).toBe("openai");
+    expect(created.hasApiKey).toBe(false);
+    expect(created.baseUrl).toBe("https://api.openai.com/v1");
+    expect(created.gatewayBaseUrl).toBe("https://app.example");
+    expect(secrets.get(created.id)).toBeUndefined();
+    const withSecret = store.getWithSecret(created.id);
+    expect(withSecret?.apiKey).toBe("");
+    expect(JSON.stringify(created)).not.toContain("should-ignore");
+  });
+
+  it("switching to gateway drops browser api key", () => {
+    const secrets = new MemorySecretStore();
+    const store = new ProviderStore(secrets);
+    const created = store.addFromTemplate("openai", "sk-keep");
+    expect(secrets.get(created.id)).toBe("sk-keep");
+    store.update(created.id, {
+      connectionMode: "gateway",
+      gatewayUpstreamId: "openai",
+      gatewayBaseUrl: "",
+    });
+    expect(secrets.get(created.id)).toBeUndefined();
+    const view = store.list().find((p) => p.id === created.id);
+    expect(view?.connectionMode).toBe("gateway");
+    expect(view?.hasApiKey).toBe(false);
+    expect(view?.baseUrl).toBe("https://api.openai.com/v1");
+  });
+
+  it("keeps direct and gateway URLs separate while editing", () => {
+    const store = new ProviderStore();
+    const created = store.addFromTemplate("openai", "sk-direct");
+    store.update(created.id, {
+      connectionMode: "gateway",
+      gatewayBaseUrl: "https://plugin.example",
+      gatewayUpstreamId: "openai",
+    });
+    const gateway = store.getWithSecret(created.id);
+    expect(gateway?.baseUrl).toBe("https://api.openai.com/v1");
+    expect(gateway?.gatewayBaseUrl).toBe("https://plugin.example");
+    expect(gateway?.apiKey).toBe("");
+
+    store.update(created.id, { connectionMode: "direct", apiKey: "sk-new" });
+    const direct = store.getWithSecret(created.id);
+    expect(direct?.baseUrl).toBe("https://api.openai.com/v1");
+    expect(direct?.gatewayBaseUrl).toBe("https://plugin.example");
+    expect(direct?.apiKey).toBe("sk-new");
+  });
+});

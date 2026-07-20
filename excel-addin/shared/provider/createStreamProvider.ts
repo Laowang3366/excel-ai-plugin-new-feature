@@ -1,7 +1,12 @@
 import type { AgentStreamProvider } from "../agent/types";
 import type { ProviderFetch } from "./client";
-import type { ApiFormat } from "./types";
+import type { ApiFormat, ConnectionMode } from "./types";
 import type { ProviderStore } from "./store";
+import {
+  normalizeConnectionMode,
+  resolveProviderEndpoint,
+  streamKindForApiFormat,
+} from "./endpointResolve";
 import { OpenAIChatCompletionsStreamProvider } from "./openaiChatCompletionsProvider";
 import { OpenAIResponsesStreamProvider } from "./openaiResponsesProvider";
 import { AnthropicMessagesStreamProvider } from "./anthropicMessagesProvider";
@@ -11,6 +16,9 @@ export type CreateStreamProviderInput = {
   baseUrl: string;
   apiKey: string;
   model: string;
+  connectionMode?: ConnectionMode | string;
+  gatewayBaseUrl?: string;
+  gatewayUpstreamId?: string;
   /** Anthropic only; defaults to provider 4096 when omitted. */
   maxTokens?: number;
   fetchImpl?: ProviderFetch;
@@ -44,20 +52,34 @@ function isApiFormat(value: string): value is ApiFormat {
 export function createStreamProvider(
   input: CreateStreamProviderInput,
 ): CreateStreamProviderResult {
+  let connectionMode: ConnectionMode;
+  try {
+    connectionMode = normalizeConnectionMode(input.connectionMode);
+  } catch (error) {
+    return {
+      ok: false,
+      kind: "parse",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
   const apiKey = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
   const baseUrl = typeof input.baseUrl === "string" ? input.baseUrl.trim() : "";
+  const gatewayBaseUrl =
+    typeof input.gatewayBaseUrl === "string" ? input.gatewayBaseUrl.trim() : "";
   const model = typeof input.model === "string" ? input.model.trim() : "";
+  const gatewayUpstreamId =
+    typeof input.gatewayUpstreamId === "string" ? input.gatewayUpstreamId.trim() : "";
   const apiFormatRaw =
     typeof input.apiFormat === "string" ? input.apiFormat.trim() : "";
 
-  if (!apiKey) {
+  if (connectionMode === "direct" && !apiKey) {
     return {
       ok: false,
       kind: "missing_key",
       error: "API key 未设置，无法发起请求",
     };
   }
-  if (!baseUrl) {
+  if (connectionMode === "direct" && !baseUrl) {
     return { ok: false, kind: "parse", error: "Base URL 未设置" };
   }
   if (!model) {
@@ -71,10 +93,27 @@ export function createStreamProvider(
     };
   }
 
+  const endpoint = resolveProviderEndpoint({
+    connectionMode,
+    baseUrl,
+    gatewayBaseUrl,
+    apiKey,
+    apiFormat: apiFormatRaw,
+    gatewayUpstreamId,
+    kind: streamKindForApiFormat(apiFormatRaw),
+    acceptEventStream: true,
+  });
+  if (!endpoint.ok) {
+    return { ok: false, kind: endpoint.kind, error: endpoint.error };
+  }
+
   const common = {
     baseUrl,
-    apiKey,
+    apiKey: connectionMode === "gateway" ? "" : apiKey,
     model,
+    connectionMode,
+    gatewayBaseUrl,
+    gatewayUpstreamId,
     fetchImpl: input.fetchImpl,
   };
 
@@ -98,7 +137,6 @@ export function createStreamProvider(
         }),
       };
     default:
-      // Exhaustiveness: isApiFormat already narrowed.
       return {
         ok: false,
         kind: "parse",
@@ -128,6 +166,9 @@ export function createStreamProviderFromStore(
     baseUrl: active.baseUrl,
     apiKey: active.apiKey,
     model: active.model,
+    connectionMode: active.connectionMode,
+    gatewayBaseUrl: active.gatewayBaseUrl,
+    gatewayUpstreamId: active.gatewayUpstreamId,
     fetchImpl: options?.fetchImpl,
     maxTokens: options?.maxTokens,
   });

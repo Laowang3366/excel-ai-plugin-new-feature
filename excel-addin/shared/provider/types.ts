@@ -1,6 +1,7 @@
 export type ReasoningMode = "off" | "low" | "medium" | "high" | "max";
 export type ProviderCategory = "direct" | "aggregation" | "other";
 export type ApiFormat = "openai" | "anthropic" | "responses";
+export type ConnectionMode = "direct" | "gateway";
 
 export interface ReasoningOption {
   value: ReasoningMode;
@@ -29,6 +30,12 @@ export interface ProviderConfig {
   baseUrl: string;
   model: string;
   apiFormat: ApiFormat;
+  /** direct = browser holds vendor key; gateway = same-origin AI gateway, no browser key. */
+  connectionMode: ConnectionMode;
+  /** Gateway origin only; empty means current page origin. */
+  gatewayBaseUrl: string;
+  /** Gateway allowlist id (server-side only). Empty in direct mode. */
+  gatewayUpstreamId: string;
   contextWindowSize: number;
   reasoningMode: ReasoningMode;
   templateId?: string;
@@ -41,6 +48,9 @@ export interface ProviderPublicView {
   baseUrl: string;
   model: string;
   apiFormat: ApiFormat;
+  connectionMode: ConnectionMode;
+  gatewayBaseUrl: string;
+  gatewayUpstreamId: string;
   contextWindowSize: number;
   reasoningMode: ReasoningMode;
   templateId?: string;
@@ -54,6 +64,9 @@ export interface CreateProviderInput {
   baseUrl: string;
   model: string;
   apiFormat: ApiFormat;
+  connectionMode?: ConnectionMode;
+  gatewayBaseUrl?: string;
+  gatewayUpstreamId?: string;
   contextWindowSize?: number;
   reasoningMode?: ReasoningMode;
   templateId?: string;
@@ -66,6 +79,9 @@ export interface UpdateProviderInput {
   baseUrl?: string;
   model?: string;
   apiFormat?: ApiFormat;
+  connectionMode?: ConnectionMode;
+  gatewayBaseUrl?: string;
+  gatewayUpstreamId?: string;
   contextWindowSize?: number;
   reasoningMode?: ReasoningMode;
 }

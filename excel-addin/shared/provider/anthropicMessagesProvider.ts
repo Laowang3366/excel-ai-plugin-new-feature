@@ -1,9 +1,13 @@
 import {
   classifyNetworkError,
-  joinUrl,
   readErrorMessage,
   type ProviderFetch,
 } from "./client";
+import {
+  normalizeConnectionMode,
+  resolveProviderEndpoint,
+} from "./endpointResolve";
+import type { ConnectionMode } from "./types";
 import { isAbortError } from "../agent/streamProvider";
 import type {
   AgentStreamEvent,
@@ -26,6 +30,9 @@ export interface AnthropicMessagesStreamProviderOptions {
   model: string;
   /** Defaults to 4096. Must be an integer >= 1. */
   maxTokens?: number;
+  connectionMode?: ConnectionMode;
+  gatewayBaseUrl?: string;
+  gatewayUpstreamId?: string;
   fetchImpl?: ProviderFetch;
 }
 
@@ -34,6 +41,9 @@ export class AnthropicMessagesStreamProvider implements AgentStreamProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly maxTokens: number;
+  private readonly connectionMode: ConnectionMode;
+  private readonly gatewayBaseUrl: string;
+  private readonly gatewayUpstreamId: string;
   private readonly fetchImpl: ProviderFetch;
 
   constructor(options: AnthropicMessagesStreamProviderOptions) {
@@ -41,6 +51,9 @@ export class AnthropicMessagesStreamProvider implements AgentStreamProvider {
     this.apiKey = options.apiKey;
     this.model = options.model;
     this.maxTokens = options.maxTokens ?? 4096;
+    this.connectionMode = normalizeConnectionMode(options.connectionMode);
+    this.gatewayBaseUrl = options.gatewayBaseUrl ?? "";
+    this.gatewayUpstreamId = options.gatewayUpstreamId ?? "";
     this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
   }
 
@@ -49,11 +62,11 @@ export class AnthropicMessagesStreamProvider implements AgentStreamProvider {
       yield { type: "error", message: "aborted", kind: "aborted" };
       return;
     }
-    if (!this.apiKey.trim()) {
+    if (this.connectionMode === "direct" && !this.apiKey.trim()) {
       yield { type: "error", message: "API key 未设置，无法发起请求", kind: "missing_key" };
       return;
     }
-    if (!this.baseUrl.trim()) {
+    if (this.connectionMode === "direct" && !this.baseUrl.trim()) {
       yield { type: "error", message: "Base URL 未设置", kind: "parse" };
       return;
     }
@@ -90,8 +103,26 @@ export class AnthropicMessagesStreamProvider implements AgentStreamProvider {
       return;
     }
 
-    const url = joinUrl(this.baseUrl, "/messages");
-    const apiKey = this.apiKey;
+    const resolved = resolveProviderEndpoint({
+      connectionMode: this.connectionMode,
+      baseUrl: this.baseUrl,
+      gatewayBaseUrl: this.gatewayBaseUrl,
+      apiKey: this.apiKey,
+      apiFormat: "anthropic",
+      gatewayUpstreamId: this.gatewayUpstreamId,
+      kind: "messages",
+      acceptEventStream: true,
+    });
+    if (!resolved.ok) {
+      yield {
+        type: "error",
+        message: resolved.error,
+        kind: resolved.kind === "missing_key" ? "missing_key" : "parse",
+      };
+      return;
+    }
+    const url = resolved.data.url;
+    const apiKey = resolved.data.redactionSecret;
     const body: Record<string, unknown> = {
       model: this.model,
       max_tokens: this.maxTokens,
@@ -105,12 +136,7 @@ export class AnthropicMessagesStreamProvider implements AgentStreamProvider {
     try {
       response = await this.fetchImpl(url, {
         method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-          Accept: "text/event-stream",
-        },
+        headers: resolved.data.headers,
         body: JSON.stringify(body),
         signal: request.signal,
       });

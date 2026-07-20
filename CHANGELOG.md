@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- 独立 Excel 加载项支持同源 AI Gateway 连接模式：可配置 gatewayBaseUrl 与 gatewayUpstreamId，浏览器不保存或不发送 API Key，请求经同域 `/api/ai/v1/:upstreamId/...` 转发。
 - 独立 Excel 加载项的表格更新现可调整同一工作表内的表格范围，并切换行/列交替底纹；操作完成后会回读宿主中的实际表格范围与显示状态。
 - 独立 Excel 加载项新增区域行列结构操作：可插入、删除并自动调整选区行高/列宽；自动调整完成后会回读宿主中的实际尺寸，WPS 对这些高级操作明确返回不支持。
 - 新增独立同源 AI Gateway 服务（`ai-gateway/`）：浏览器可通过同域 `/api/ai/v1/:upstreamId/...` 访问服务端显式配置的上游，无需在客户端暴露 API Key。
