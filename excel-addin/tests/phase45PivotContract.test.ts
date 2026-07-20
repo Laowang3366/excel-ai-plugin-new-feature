@@ -167,4 +167,76 @@ describe("phase45 pivot contract", () => {
     expect(computeNextPivotAddress(8)).toBe("A11");
     expect(computeNextPivotAddress(20)).toBe("A23");
   });
+
+  it("executor rejects explicit null for sheetName/name/destination before Host", async () => {
+    const host = new MockHostAdapter();
+    let listCalls = 0;
+    let createCalls = 0;
+    let refreshCalls = 0;
+    const listOrig = host.listPivots.bind(host);
+    const createOrig = host.createPivot.bind(host);
+    const refreshOrig = host.refreshPivots.bind(host);
+    host.listPivots = async (input) => {
+      listCalls += 1;
+      return listOrig(input);
+    };
+    host.createPivot = async (input) => {
+      createCalls += 1;
+      return createOrig(input);
+    };
+    host.refreshPivots = async (input) => {
+      refreshCalls += 1;
+      return refreshOrig(input);
+    };
+    const ex = new ToolExecutor(host);
+
+    const listNull = await ex.execute({
+      name: "pivot.list",
+      arguments: { sheetName: null },
+    });
+    expect(listNull.ok).toBe(false);
+    if (!listNull.ok) expect(listNull.error).toMatch(/sheetName must not be null/);
+    expect(listCalls).toBe(0);
+
+    const refreshNull = await ex.execute({
+      name: "pivot.refresh",
+      arguments: { advancedIntent: "interactive-pivot", name: null },
+    });
+    expect(refreshNull.ok).toBe(false);
+    if (!refreshNull.ok) expect(refreshNull.error).toMatch(/name must not be null/);
+    expect(refreshCalls).toBe(0);
+
+    const destNull = await ex.execute({
+      name: "pivot.create",
+      arguments: {
+        advancedIntent: "interactive-pivot",
+        sourceSheetName: "Sheet1",
+        sourceAddress: "A1:C10",
+        destination: null,
+        rowFields: ["Region"],
+        dataFields: ["Sales"],
+      },
+    });
+    expect(destNull.ok).toBe(false);
+    if (!destNull.ok) expect(destNull.error).toMatch(/destination must not be null/);
+    expect(createCalls).toBe(0);
+
+    // Explicit "" destination remains default Pivots (documented), and Host is called.
+    const destEmpty = await ex.execute({
+      name: "pivot.create",
+      arguments: {
+        advancedIntent: "interactive-pivot",
+        sourceSheetName: "Sheet1",
+        sourceAddress: "A1:C10",
+        destination: "",
+        rowFields: ["Region"],
+        dataFields: ["Sales"],
+      },
+    });
+    expect(destEmpty.ok).toBe(true);
+    expect(createCalls).toBe(1);
+    if (destEmpty.ok) {
+      expect((destEmpty.data as { sheetName: string }).sheetName).toBe("Pivots");
+    }
+  });
 });

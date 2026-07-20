@@ -46,40 +46,47 @@ function requireNonEmptyString(args: Record<string, unknown>, key: string): stri
 }
 
 /**
- * Optional non-empty: missing/null → omit; explicit "" or whitespace → error.
- * Use for sheetName/name filters where empty is invalid, not "default".
+ * Optional non-empty string: property missing → omit.
+ * Explicit null / non-string / "" / whitespace → error (never silent omit).
  */
 function optionalNonEmptyString(args: Record<string, unknown>, key: string): string | undefined {
-  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] == null) {
+  if (!Object.prototype.hasOwnProperty.call(args, key)) {
     return undefined;
   }
-  if (typeof args[key] !== "string") throw new Error(`Invalid string argument: ${key}`);
-  const trimmed = (args[key] as string).trim();
+  const value = args[key];
+  if (value === null) throw new Error(`${key} must not be null`);
+  if (typeof value !== "string") throw new Error(`Invalid string argument: ${key}`);
+  const trimmed = value.trim();
   if (trimmed === "") throw new Error(`${key} must be non-empty`);
   return trimmed;
 }
 
 /**
- * destination only: missing/null/"" → undefined (default Pivots auto placement).
- * Non-string → error; pure whitespace (non-empty property) → error.
+ * destination: property missing → omit (default Pivots auto placement).
+ * Explicit "" → omit (documented default Pivots semantics).
+ * Explicit null / non-string / whitespace-only → error (not silent default).
  */
 function optionalDestination(args: Record<string, unknown>): string | undefined {
-  if (!Object.prototype.hasOwnProperty.call(args, "destination") || args.destination == null) {
+  if (!Object.prototype.hasOwnProperty.call(args, "destination")) {
     return undefined;
   }
-  if (args.destination === "") return undefined;
-  if (typeof args.destination !== "string") {
+  const value = args.destination;
+  if (value === null) throw new Error("destination must not be null");
+  if (value === "") return undefined;
+  if (typeof value !== "string") {
     throw new Error("Invalid string argument: destination");
   }
-  const trimmed = args.destination.trim();
+  const trimmed = value.trim();
   if (trimmed === "") throw new Error("destination must be non-empty when provided");
   return trimmed;
 }
 
 function optionalBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
-  if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] == null) return undefined;
-  if (typeof args[key] !== "boolean") throw new Error(`Invalid boolean argument: ${key}`);
-  return args[key] as boolean;
+  if (!Object.prototype.hasOwnProperty.call(args, key)) return undefined;
+  const value = args[key];
+  if (value === null) throw new Error(`${key} must not be null`);
+  if (typeof value !== "boolean") throw new Error(`Invalid boolean argument: ${key}`);
+  return value;
 }
 
 /**
