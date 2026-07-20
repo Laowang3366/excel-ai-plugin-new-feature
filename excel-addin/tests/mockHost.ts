@@ -134,6 +134,14 @@ import type {
   SlicerListInput,
   SlicerUpdateInput,
 } from "../shared/host/slicerTypes";
+import type {
+  WorkbookTemplateApplyInfo,
+  WorkbookTemplateApplyInput,
+  WorkbookTemplateCaptureInfo,
+} from "../shared/host/workbookTemplateTypes";
+import {
+  WORKBOOK_TEMPLATE_PRESET_STYLES,
+} from "../shared/host/workbookTemplateTypes";
 
 function key(sheet: string, address: string): string {
   return `${sheet}!${address.toUpperCase()}`;
@@ -2296,6 +2304,97 @@ export class MockHostAdapter implements HostAdapter {
     for (const item of slicer.items) item.isSelected = true;
     slicer.isFilterCleared = true;
     return ok(this.filterInfoFrom(slicer));
+  }
+
+
+  async applyWorkbookTemplate(
+    input: WorkbookTemplateApplyInput,
+  ): Promise<HostResult<WorkbookTemplateApplyInfo>> {
+    const style = WORKBOOK_TEMPLATE_PRESET_STYLES[input.preset];
+    const sheet = this.sheets[0];
+    if (!sheet) return fail("workbook.template.apply", this.kind, "no worksheets");
+    const names = input.sheetNames?.length
+      ? input.sheetNames
+      : this.sheets.map((s) => s.name);
+    let targets = this.sheets.filter((s) =>
+      names.some((n) => n.toLowerCase() === s.name.toLowerCase()),
+    );
+    if (!input.allSheets) {
+      const active = this.sheets[0]!.name;
+      targets = targets.filter((s) => s.name.toLowerCase() === active.toLowerCase());
+    }
+    if (targets.length === 0) {
+      return fail("workbook.template.apply", this.kind, "no target worksheets after sheetNames/allSheets selection");
+    }
+    const applied = targets.map((s) => ({
+      name: s.name,
+      range: "A1:B2",
+      rows: 2,
+      columns: 2,
+      readback: {
+        fontName: input.fontName,
+        fontSize: input.fontSize,
+        headerFill: style.headerFill.toUpperCase(),
+        headerFontColor: style.headerFontColor.toUpperCase(),
+        headerBold: true,
+        headerHorizontalAlignment: "Center",
+        headerWrapText: true,
+        headerRowHeight: 24,
+        showGridlines: input.showGridlines,
+        freezeRowCount: input.freezeRows,
+        autoFitVerified: false as const,
+      },
+    }));
+    return ok({
+      preset: input.preset,
+      appliedSheets: applied,
+      appliedSheetCount: applied.length,
+      skippedSheets: [],
+      limitations: [
+        "autoFit does not verify exact columnWidth/rowHeight against a fixed size; autoFitVerified=false",
+        "MockHost template apply is a contract stub",
+      ],
+    });
+  }
+
+  async captureWorkbookTemplate(): Promise<HostResult<WorkbookTemplateCaptureInfo>> {
+    return ok({
+      template: {
+        version: 1,
+        capturedFrom: "MockWorkbook",
+        capturedAt: new Date().toISOString(),
+        sheets: this.sheets.map((s) => ({
+          name: s.name,
+          usedRange: "A1:B2",
+          rows: 2,
+          columns: 2,
+          baseStyle: { fontName: "Calibri", fontSize: 11, fontColor: "#000000" },
+          headerStyle: {
+            fillColor: "#FFFFFF",
+            fontColor: "#000000",
+            bold: false,
+            rowHeight: 15,
+          },
+          print: {
+            area: null,
+            orientation: "portrait",
+            paperSize: "a4",
+            fitToPagesWide: null,
+            fitToPagesTall: null,
+            repeatRows: null,
+            repeatColumns: null,
+            header: "",
+            footer: "",
+          },
+          limitations: [],
+        })),
+      },
+      sheetCount: this.sheets.length,
+      limitations: [
+        "Shallow snapshot only — not a full theme/table-style/CF/DV dump; not a replayable template package",
+        "MockHost template capture is a contract stub",
+      ],
+    });
   }
 
 }

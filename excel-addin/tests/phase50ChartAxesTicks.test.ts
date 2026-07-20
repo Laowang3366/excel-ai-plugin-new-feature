@@ -256,7 +256,7 @@ describe("phase50 chart axes ticks/position/linkNumberFormat", () => {
       expect(props.majorTickMark).toBeTruthy();
       expect(props.position).toBeTruthy();
       expect(props.linkNumberFormat).toBeTruthy();
-      expect(TOOL_DEFINITIONS).toHaveLength(96);
+      expect(TOOL_DEFINITIONS).toHaveLength(98);
     });
   });
 

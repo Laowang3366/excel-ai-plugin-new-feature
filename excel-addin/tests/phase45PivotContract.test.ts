@@ -14,7 +14,7 @@ describe("phase45 pivot contract", () => {
     expect(names).toContain("pivot.list");
     expect(names).toContain("pivot.create");
     expect(names).toContain("pivot.refresh");
-    expect(TOOL_DEFINITIONS).toHaveLength(96);
+    expect(TOOL_DEFINITIONS).toHaveLength(98);
     for (const name of ["pivot.list", "pivot.create", "pivot.refresh"] as const) {
       const def = TOOL_DEFINITIONS.find((d) => d.name === name)!;
       expect(def.parameters.additionalProperties).toBe(false);

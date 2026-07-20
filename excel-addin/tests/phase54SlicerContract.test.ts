@@ -14,10 +14,10 @@ const SLICER_TOOLS = [
 ] as const;
 
 describe("phase54 slicer contract", () => {
-  it("registers 7 slicer tools; total 96 unique names", () => {
+  it("registers 7 slicer tools; total 98 unique names", () => {
     const names = TOOL_DEFINITIONS.map((d) => d.name);
-    expect(TOOL_DEFINITIONS).toHaveLength(96);
-    expect(new Set(names).size).toBe(96);
+    expect(TOOL_DEFINITIONS).toHaveLength(98);
+    expect(new Set(names).size).toBe(98);
     for (const name of SLICER_TOOLS) expect(names).toContain(name);
   });
 

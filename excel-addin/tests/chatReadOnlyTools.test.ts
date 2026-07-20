@@ -41,6 +41,7 @@ describe("chat readonly allowlist", () => {
       "pivot.list",
       "slicer.list",
       "slicer.filter.get",
+      "workbook.template.capture",
     ]);
 
     const listed = listChatReadOnlyTools();

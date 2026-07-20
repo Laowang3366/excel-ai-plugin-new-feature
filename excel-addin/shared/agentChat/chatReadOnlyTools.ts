@@ -36,6 +36,7 @@ export const CHAT_READONLY_TOOL_ALLOWLIST = [
   "pivot.list",
   "slicer.list",
   "slicer.filter.get",
+  "workbook.template.capture",
 ] as const;
 
 export type ChatReadOnlyToolName = (typeof CHAT_READONLY_TOOL_ALLOWLIST)[number];

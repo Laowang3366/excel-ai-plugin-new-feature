@@ -222,7 +222,7 @@ describe("phase51 pivot.refresh refreshConnections", () => {
       }
     });
 
-    it("WPS remains typed unsupported; tool count stays 96", async () => {
+    it("WPS remains typed unsupported; tool count stays 98", async () => {
       const result = await new ToolExecutor(new WpsJsaAdapter()).execute({
         name: "pivot.refresh",
         arguments: {
@@ -232,7 +232,7 @@ describe("phase51 pivot.refresh refreshConnections", () => {
       });
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.unsupported).toBe(true);
-      expect(TOOL_DEFINITIONS).toHaveLength(96);
+      expect(TOOL_DEFINITIONS).toHaveLength(98);
     });
   });
 });

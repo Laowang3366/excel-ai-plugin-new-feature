@@ -318,7 +318,7 @@ describe("phase52 chart.series.dataLabels extended fields", () => {
       expect(calls).toBe(0);
     });
 
-    it("mock host accepts extended fields; tool count 96; WPS unsupported", async () => {
+    it("mock host accepts extended fields; tool count 98; WPS unsupported", async () => {
       const host = new MockHostAdapter();
       await host.createChart({ sheetName: "Sheet1", sourceRange: "A1:B2", name: "C1" });
       const ok = await new ToolExecutor(host).execute({
@@ -352,7 +352,7 @@ describe("phase52 chart.series.dataLabels extended fields", () => {
       });
       expect(wps.ok).toBe(false);
       if (!wps.ok) expect(wps.unsupported).toBe(true);
-      expect(TOOL_DEFINITIONS).toHaveLength(96);
+      expect(TOOL_DEFINITIONS).toHaveLength(98);
     });
   });
 });

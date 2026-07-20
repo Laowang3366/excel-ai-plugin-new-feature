@@ -159,8 +159,8 @@ describe("phase54 slicer Office.js host", () => {
     }
   });
 
-  it("WPS typed unsupported for all slicer tools; tool count 96", async () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(96);
+  it("WPS typed unsupported for all slicer tools; tool count 98", async () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(98);
     const wps = new WpsJsaAdapter();
     for (const call of [
       () => wps.listSlicers({}),

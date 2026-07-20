@@ -127,9 +127,10 @@ import type {
   PivotRefreshInput,
 } from "./pivotTypes";
 import type { SlicerHostMethods } from "./slicerHostMethods";
+import type { TemplateHostMethods } from "./templateHostMethods";
 
 /** Host capability surface implemented by Office.js / WPS / Mock adapters. */
-export interface HostAdapter extends SlicerHostMethods {
+export interface HostAdapter extends SlicerHostMethods, TemplateHostMethods {
   readonly kind: HostKind;
   getStatus(): Promise<HostResult<HostStatus>>;
   getRuntimeCapabilities(): HostRuntimeCapabilities;

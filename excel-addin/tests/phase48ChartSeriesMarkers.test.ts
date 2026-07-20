@@ -219,7 +219,7 @@ describe("phase48 chart series markers", () => {
 
     it("registers tool and keeps total count 88", () => {
       expect(TOOL_DEFINITIONS.map((t) => t.name)).toContain("chart.series.markers.update");
-      expect(TOOL_DEFINITIONS).toHaveLength(96);
+      expect(TOOL_DEFINITIONS).toHaveLength(98);
       const def = TOOL_DEFINITIONS.find((t) => t.name === "chart.series.markers.update");
       expect(def?.riskLevel).toBe("moderate");
       expect(

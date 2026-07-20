@@ -109,3 +109,15 @@ export type {
   SlicerUpdateInput,
 } from "./slicerTypes";
 export type { SlicerHostMethods } from "./slicerHostMethods";
+
+export type {
+  WorkbookTemplateApplyInfo,
+  WorkbookTemplateApplyInput,
+  WorkbookTemplateCaptureInfo,
+  WorkbookTemplatePreset,
+} from "./workbookTemplateTypes";
+export {
+  WORKBOOK_TEMPLATE_PRESETS,
+  isWorkbookTemplatePreset,
+} from "./workbookTemplateTypes";
+export type { TemplateHostMethods } from "./templateHostMethods";

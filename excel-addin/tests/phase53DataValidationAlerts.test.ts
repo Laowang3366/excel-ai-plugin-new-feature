@@ -367,8 +367,8 @@ describe("phase53.1 dataValidation alerts ClientObject contract", () => {
     if (read.ok) expect(read.data.rule).toBeNull();
   });
 
-  it("tool count stays 96; schema minProperties on alert objects", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(96);
+  it("tool count stays 98; schema minProperties on alert objects", () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(98);
     const write = TOOL_DEFINITIONS.find((t) => t.name === "dataValidation.write");
     expect(write).toBeTruthy();
     const props = write!.parameters.properties as Record<string, { minProperties?: number }>;

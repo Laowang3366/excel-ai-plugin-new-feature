@@ -104,7 +104,9 @@ export type ToolName =
   | "slicer.delete"
   | "slicer.filter.get"
   | "slicer.filter.apply"
-  | "slicer.filter.clear";
+  | "slicer.filter.clear"
+  | "workbook.template.apply"
+  | "workbook.template.capture";
 
 export type RiskLevel = "safe" | "moderate" | "dangerous";
 

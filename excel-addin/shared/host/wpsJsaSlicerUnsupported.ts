@@ -17,6 +17,7 @@ import type {
   SlicerUpdateInput,
 } from "./slicerTypes";
 import type { SlicerHostMethods } from "./slicerHostMethods";
+import { WpsJsaTemplateSupport } from "./wpsJsaTemplateUnsupported";
 import type { HostResult } from "./types";
 import { unsupported } from "./types";
 
@@ -65,7 +66,7 @@ export async function wpsClearSlicerFilter(
 /**
  * Base class holding slicer method bindings so WpsJsaAdapter stays under the line budget.
  */
-export abstract class WpsJsaSlicerSupport implements SlicerHostMethods {
+export abstract class WpsJsaSlicerSupport extends WpsJsaTemplateSupport implements SlicerHostMethods {
   listSlicers = wpsListSlicers;
   createSlicer = wpsCreateSlicer;
   updateSlicer = wpsUpdateSlicer;

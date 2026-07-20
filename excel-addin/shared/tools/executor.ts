@@ -39,6 +39,7 @@ import { executeFormulaProtectionTool } from "./formulaProtectionExecutor";
 import { executeFormulaGovernanceTool } from "./formulaGovernanceExecutor";
 import { executePivotTool } from "./pivotExecutor";
 import { executeSlicerTool } from "./slicerExecutor";
+import { executeTemplateTool } from "./templateExecutor";
 import { writeFormulaWithVerify, writeRangeWithVerify } from "./writeWithVerify";
 
 function fail(tool: ToolName, error: string, detail?: unknown): ToolFailure {
@@ -341,6 +342,8 @@ export class ToolExecutor {
           if (pivot) return pivot;
           const slicer = await executeSlicerTool(this.host, call);
           if (slicer) return slicer;
+          const template = await executeTemplateTool(this.host, call);
+          if (template) return template;
           return fail(call.name, `Unknown tool: ${String((call as ToolCall).name)}`);
         }
       }

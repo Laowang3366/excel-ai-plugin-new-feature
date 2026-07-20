@@ -2,7 +2,9 @@
 
 独立 `excel-addin/` 包：Office.js + WPS JSA 任务窗格骨架，**不**依赖 Electron / COM / .NET Worker，也不是根 workspace 成员。
 
-> **交付状态**：代码与单测可验证；**尚未**在真实 Windows Microsoft Excel / WPS 完成侧载验收。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
+> **交付状态**：代码与单测可验证；**尚未**在真实 Windows Microsoft Excel / WPS 完成侧载验收。
+>
+> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
 
 ## 命令
 

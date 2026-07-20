@@ -232,7 +232,7 @@ describe("phase45 pivot host paths", () => {
 
 // Keep registry size assertion reachable from host suite as well.
 describe("phase45 registry smoke", () => {
-  it("keeps 96 tools after markers", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(96);
+  it("keeps 98 tools after markers", () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(98);
   });
 });
