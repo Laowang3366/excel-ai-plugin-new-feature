@@ -7,7 +7,9 @@ import {
   classifyFormula,
   createBackupRows,
   decodeBackupSheet,
+  decodeBackupLiteral,
   encodeBackupSheet,
+  encodeBackupLiteral,
   findCycles,
   isDynamicArray,
   isFormula,
@@ -277,5 +279,25 @@ describe("classification", () => {
 
   it("throws on non-formula classify", () => {
     expect(() => classifyFormula("nope")).toThrow(/公式/);
+  });
+});
+
+describe("backup formula text literals", () => {
+  it("encodes leading = so sheet values store text, and decodes round-trip", () => {
+    const formula = "='Other Sheet'!A1&\"x\"";
+    const enc = encodeBackupLiteral(formula);
+    expect(enc.startsWith("'=")).toBe(true);
+    expect(decodeBackupLiteral(enc)).toBe(formula);
+    expect(decodeBackupLiteral(formula)).toBe(formula); // host may strip apostrophe
+    const rows = createBackupRows(
+      [{ sheetName: "S", address: "A1", formula, formulaR1C1: "=R[0]C[1]" }],
+      { backupId: "b1", sourceRange: "A1" },
+    );
+    const grid = encodeBackupSheet(rows);
+    expect(grid[2]![4]).toBe(enc);
+    const decoded = decodeBackupSheet(grid);
+    expect(decoded.ok).toBe(true);
+    expect(decoded.grid?.rows[0]?.formula).toBe(formula);
+    expect(decoded.grid?.rows[0]?.formulaR1C1).toBe("=R[0]C[1]");
   });
 });

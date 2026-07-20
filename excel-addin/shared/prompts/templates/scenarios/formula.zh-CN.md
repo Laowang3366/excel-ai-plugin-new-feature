@@ -45,5 +45,5 @@
 - 依赖检查用 `formula.dependencies.inspect`（scope=workbook|sheet|target）。报告为**文本解析**依赖图，含 `limitations`（如 text-parse-only、no-excel-engine-circularReference）；不得声称 Excel 计算引擎级循环引用分析。
 - 引用修复用 `formula.references.repair`：仅显式 `replacements` mapping，禁止猜测；若修复后仍含 `#REF!` 会 `formula_repair_incomplete` 且**不写入**。修改前写入隐藏备份表 `WENGGE_FORMULA_BACKUP_V1`。
 - 公式转值用 `formula.convertToValues`：必须先持久备份再写值；禁止无备份。
-- 备份查看/恢复用 `formula.backups.inspect` / `formula.backups.restore`（按 backupId；默认不删除备份）。
+- 备份查看/恢复用 `formula.backups.inspect` / `formula.backups.restore`（按 backupId；默认保留备份；`removeAfterRestore=true` 仅删除该 id 数据行，WPS 无安全 Clear 时 unsupported 且不先恢复）。
 - 公式单元格锁定用 `formula.protection.inspect` / `formula.protection.manage`（与治理备份表无关）。

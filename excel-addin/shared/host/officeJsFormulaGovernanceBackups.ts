@@ -1,5 +1,7 @@
 /**
  * Office.js formula backup inspect / restore (WENGGE_FORMULA_BACKUP_V1).
+ * restore is fail-closed on corrupt magic/header.
+ * removeAfterRestore rewrites remaining rows only (desktop parity).
  */
 import { planRestore } from "../formulaGovernance";
 import type {
@@ -7,9 +9,11 @@ import type {
   FormulaBackupsRestoreInfo,
 } from "./formulaGovernanceTypes";
 import {
-  loadBackupRows,
-  rewriteBackupSheet,
   inspectBackupSheet,
+  loadBackupRowsStrict,
+  rewriteBackupSheet,
+  strictDecodeBackup,
+  readBackupMatrix,
 } from "./officeJsFormulaGovernanceBackup";
 import { bareAddress } from "./officeJsFormulaGovernanceCollect";
 import { withExcel } from "./officeJsRuntime";
@@ -32,15 +36,20 @@ export async function officeJsRestoreFormulas(input: {
   }
 
   return withExcel("formula.backups.restore", async (context) => {
-    const loaded = await loadBackupRows(context);
-    if (!loaded.sheet || loaded.error === "formula_backup_not_found") {
-      throw Object.assign(new Error("formula_backup_not_found"), {
-        detail: { code: "formula_backup_not_found" },
+    const loaded = await loadBackupRowsStrict(context);
+    if (loaded.error) {
+      throw Object.assign(new Error(loaded.error), {
+        detail: {
+          code: loaded.error.includes("corrupt")
+            ? "formula_backup_corrupt"
+            : loaded.error,
+          error: loaded.error,
+        },
       });
     }
-    if (loaded.rows.length === 0 && loaded.error) {
-      throw Object.assign(new Error(loaded.error), {
-        detail: { code: loaded.error },
+    if (!loaded.sheet) {
+      throw Object.assign(new Error("formula_backup_not_found"), {
+        detail: { code: "formula_backup_not_found" },
       });
     }
 
@@ -53,7 +62,10 @@ export async function officeJsRestoreFormulas(input: {
 
     const restored: Array<{ cell: string; formula: string }> = [];
     const failed: Array<{ cell: string; error: string }> = [];
-    const limitations = [...loaded.limitations];
+    const limitations = [
+      ...loaded.limitations,
+      "restores formula + numberFormat + locked when available; formulaR1C1/spillAddress are backup metadata only (not re-applied as live spill)",
+    ];
 
     for (const item of plan.items) {
       const cellId = `${item.sheet}!${item.address}`;
@@ -100,6 +112,23 @@ export async function officeJsRestoreFormulas(input: {
     if (input.removeAfterRestore === true) {
       const remaining = loaded.rows.filter((r) => r.backupId !== backupId);
       await rewriteBackupSheet(context, loaded.sheet, remaining);
+      const matrix = await readBackupMatrix(context, loaded.sheet);
+      const check = strictDecodeBackup(matrix);
+      if (!check.ok) {
+        throw new Error(`removeAfterRestore verify failed: ${check.error}`);
+      }
+      if (check.rows.some((r) => r.backupId === backupId)) {
+        throw new Error("removeAfterRestore verify failed: backupId still present");
+      }
+      // other ids retained
+      const beforeOther = new Set(
+        loaded.rows.filter((r) => r.backupId !== backupId).map((r) => r.backupId),
+      );
+      for (const id of beforeOther) {
+        if (!check.rows.some((r) => r.backupId === id)) {
+          throw new Error(`removeAfterRestore verify failed: lost backupId ${id}`);
+        }
+      }
       limitations.push("removed restored backup rows (removeAfterRestore=true)");
     } else {
       limitations.push("backup rows retained (removeAfterRestore default false)");

@@ -52,6 +52,8 @@ export {
   createBackupRows,
   encodeBackupSheet,
   decodeBackupSheet,
+  encodeBackupLiteral,
+  decodeBackupLiteral,
   summarizeBackups,
   planRestore,
   type BackupSheetGrid,

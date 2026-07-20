@@ -1,10 +1,12 @@
 /**
  * WENGGE_FORMULA_BACKUP_V1 workbook sheet materialization (Office.js).
+ * Formula columns are written as text (numberFormat "@" + apostrophe encode).
  */
 import {
   FORMULA_BACKUP_HEADERS,
   FORMULA_BACKUP_MAGIC,
   createBackupRows,
+  decodeBackupLiteral,
   decodeBackupSheet,
   encodeBackupSheet,
   summarizeBackups,
@@ -16,15 +18,48 @@ import {
   type FormulaBackupsInspectInfo,
 } from "./formulaGovernanceTypes";
 import { bareAddress, isBackupSheetName } from "./officeJsFormulaGovernanceCollect";
-import type { ExcelRequestContext, ExcelWorksheet } from "./officeJsRuntime";
+import type { ExcelRange, ExcelRequestContext, ExcelWorksheet } from "./officeJsRuntime";
 
 export function newBackupId(): string {
-  // Prefer crypto.randomUUID when available; fall back to time+random.
   const c = globalThis.crypto as Crypto | undefined;
   if (c && typeof c.randomUUID === "function") {
     return c.randomUUID().replace(/-/g, "");
   }
   return `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+}
+
+/** Write a values matrix only when dimensions match; set text format first. */
+export async function writeTextMatrix(
+  context: ExcelRequestContext,
+  range: ExcelRange,
+  matrix: string[][],
+): Promise<void> {
+  const rows = matrix.length;
+  const cols = rows > 0 ? matrix[0]!.length : 0;
+  for (const row of matrix) {
+    if (row.length !== cols) {
+      throw new Error(`backup matrix jagged: expected ${cols} cols`);
+    }
+  }
+  // numberFormat "@" reduces evaluation of formula-like strings on values write
+  range.numberFormat = Array.from({ length: rows }, () => Array(cols).fill("@"));
+  range.values = matrix;
+  await context.sync();
+}
+
+async function setVeryHidden(
+  context: ExcelRequestContext,
+  sheet: ExcelWorksheet,
+): Promise<void> {
+  sheet.visibility = "VeryHidden";
+  sheet.load("visibility,name");
+  await context.sync();
+  const v = String(sheet.visibility ?? "").toLowerCase();
+  if (!v.includes("veryhidden")) {
+    throw new Error(
+      `backup_sheet_visibility_unavailable: expected VeryHidden, got ${sheet.visibility ?? "(empty)"}`,
+    );
+  }
 }
 
 export async function findBackupSheet(
@@ -42,7 +77,7 @@ export async function findBackupSheet(
     const a1 = ws.getRange("A1");
     a1.load("values");
     await context.sync();
-    const magic = String(a1.values?.[0]?.[0] ?? "").trim();
+    const magic = decodeBackupLiteral(String(a1.values?.[0]?.[0] ?? "")).trim();
     if (magic === FORMULA_BACKUP_MAGIC) {
       return { sheet: ws, created: false, limitations };
     }
@@ -56,12 +91,11 @@ export async function findBackupSheet(
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
   const name = `${FORMULA_BACKUP_SHEET_PREFIX}${stamp}`.slice(0, 31);
   const sheet = context.workbook.worksheets.add(name);
-  sheet.getRange("A1").values = [[FORMULA_BACKUP_MAGIC]];
-  sheet.getRange("A2").values = [[...FORMULA_BACKUP_HEADERS]];
-  // Expand header row across columns
-  const headerRange = sheet.getRange("A2:J2");
-  headerRange.values = [[...FORMULA_BACKUP_HEADERS]];
-  sheet.visibility = "VeryHidden";
+  // Hide before writing any formula-bearing content
+  await setVeryHidden(context, sheet);
+  await writeTextMatrix(context, sheet.getRange("A1"), [[FORMULA_BACKUP_MAGIC]]);
+  // Headers: single write A2:J2 only (never A2 1x10 into a 1x1 range)
+  await writeTextMatrix(context, sheet.getRange("A2:J2"), [[...FORMULA_BACKUP_HEADERS]]);
   sheet.load("name");
   await context.sync();
   limitations.push(`created backup sheet ${sheet.name} (VeryHidden)`);
@@ -86,7 +120,6 @@ export async function lastBackupDataRow(
   context: ExcelRequestContext,
   sheet: ExcelWorksheet,
 ): Promise<number> {
-  // Excel rows are 1-based; data starts at row 3. Return last used row index (1-based).
   const used = sheet.getUsedRangeOrNullObject(false);
   used.load("isNullObject,rowCount,address");
   await context.sync();
@@ -109,24 +142,14 @@ export async function appendBackupRows(
 ): Promise<void> {
   if (rows.length === 0) return;
   const last = await lastBackupDataRow(context, sheet);
-  const startRow = last + 1; // 1-based
-  const grid = rows.map((row) => [
-    row.backupId,
-    row.createdAt,
-    row.sheet,
-    row.address,
-    row.formula,
-    row.formulaR1C1,
-    row.numberFormat,
-    row.locked ? "1" : "0",
-    row.spillAddress,
-    row.sourceRange,
-  ]);
-  const endRow = startRow + grid.length - 1;
+  const startRow = last + 1;
+  // encodeBackupSheet includes magic+headers; data-only grid from rows:
+  const full = encodeBackupSheet(rows);
+  const data = full.slice(2); // data rows only, already literal-encoded
+  const endRow = startRow + data.length - 1;
   const range = sheet.getRange(`A${startRow}:J${endRow}`);
-  range.values = grid;
-  sheet.visibility = "VeryHidden";
-  await context.sync();
+  await writeTextMatrix(context, range, data);
+  await setVeryHidden(context, sheet);
 }
 
 export async function writeFormulaBackup(
@@ -138,13 +161,11 @@ export async function writeFormulaBackup(
   if (!sheet) {
     throw new Error("formula_backup_sheet_unavailable");
   }
+  await setVeryHidden(context, sheet);
   const rows = createBackupRows(cells, {
     backupId: options.backupId,
     sourceRange: options.sourceRange,
   });
-  if (rows.length === 0 && cells.some((c) => c.formula.startsWith("="))) {
-    // createBackupRows skips non-formulas; empty is ok for no-op convert
-  }
   await appendBackupRows(context, sheet, rows);
   sheet.load("name");
   await context.sync();
@@ -154,6 +175,90 @@ export async function writeFormulaBackup(
     rowCount: rows.length,
     limitations,
   };
+}
+
+/**
+ * Strict protocol check for restore (fail closed).
+ * Inspect may still report partial parses via decodeBackupSheet.
+ */
+export function strictDecodeBackup(matrix: unknown[][]): {
+  ok: true;
+  rows: FormulaBackupRow[];
+  skipped: number[];
+} | {
+  ok: false;
+  error: string;
+  skipped: number[];
+} {
+  if (!matrix.length) {
+    return { ok: false, error: "formula_backup_corrupt: empty backup sheet", skipped: [] };
+  }
+  const magic = decodeBackupLiteral(String(matrix[0]?.[0] ?? "")).trim();
+  if (magic !== FORMULA_BACKUP_MAGIC) {
+    return {
+      ok: false,
+      error: `formula_backup_corrupt: invalid magic: ${magic || "(empty)"}`,
+      skipped: [],
+    };
+  }
+  const headerRow = matrix[1] ?? [];
+  const headerOk = FORMULA_BACKUP_HEADERS.every(
+    (h, i) => String(headerRow[i] ?? "").trim() === h,
+  );
+  if (!headerOk) {
+    return {
+      ok: false,
+      error: "formula_backup_corrupt: header mismatch",
+      skipped: [],
+    };
+  }
+  const decoded = decodeBackupSheet(matrix);
+  if (!decoded.ok || !decoded.grid) {
+    return {
+      ok: false,
+      error: decoded.error ?? "formula_backup_corrupt",
+      skipped: decoded.skipped,
+    };
+  }
+  if (decoded.error) {
+    return {
+      ok: false,
+      error: `formula_backup_corrupt: ${decoded.error}`,
+      skipped: decoded.skipped,
+    };
+  }
+  return { ok: true, rows: decoded.grid.rows, skipped: decoded.skipped };
+}
+
+
+/** Clear used area and rewrite magic+headers+remaining rows (removeAfterRestore). */
+export async function rewriteBackupSheet(
+  context: ExcelRequestContext,
+  sheet: ExcelWorksheet,
+  rows: FormulaBackupRow[],
+): Promise<void> {
+  const used = sheet.getUsedRangeOrNullObject(false);
+  used.load("isNullObject");
+  await context.sync();
+  if (!used.isNullObject) {
+    used.clear();
+    await context.sync();
+  }
+  const grid = encodeBackupSheet(rows);
+  // Pad to 10 columns so A1:J{n} is rectangular (magic row is 1-wide in encode).
+  const cols = 10;
+  const padded = grid.map((row) => {
+    const out = row.map((v) => (v == null ? "" : String(v)));
+    while (out.length < cols) out.push("");
+    return out.slice(0, cols);
+  });
+  if (padded.length === 0) {
+    await writeTextMatrix(context, sheet.getRange("A1"), [[FORMULA_BACKUP_MAGIC]]);
+    await writeTextMatrix(context, sheet.getRange("A2:J2"), [[...FORMULA_BACKUP_HEADERS]]);
+  } else {
+    await writeTextMatrix(context, sheet.getRange(`A1:J${padded.length}`), padded);
+  }
+  await setVeryHidden(context, sheet);
 }
 
 export async function inspectBackupSheet(
@@ -201,7 +306,7 @@ export async function inspectBackupSheet(
   };
 }
 
-export async function loadBackupRows(
+export async function loadBackupRowsStrict(
   context: ExcelRequestContext,
 ): Promise<{
   sheet: ExcelWorksheet | null;
@@ -212,57 +317,32 @@ export async function loadBackupRows(
 }> {
   const found = await findBackupSheet(context, false);
   if (!found.sheet) {
+    const corruptHint = found.limitations.some((l) => /invalid magic/i.test(l));
     return {
       sheet: null,
       rows: [],
       skipped: [],
-      error: "formula_backup_not_found",
+      error: corruptHint
+        ? "formula_backup_corrupt: invalid magic on backup-prefixed sheet(s)"
+        : "formula_backup_not_found",
       limitations: found.limitations,
     };
   }
   const matrix = await readBackupMatrix(context, found.sheet);
-  const decoded = decodeBackupSheet(matrix);
-  if (!decoded.ok && !decoded.grid) {
+  const strict = strictDecodeBackup(matrix);
+  if (!strict.ok) {
     return {
       sheet: found.sheet,
       rows: [],
-      skipped: decoded.skipped,
-      error: decoded.error ?? "formula_backup_corrupt",
+      skipped: strict.skipped,
+      error: strict.error,
       limitations: found.limitations,
     };
   }
   return {
     sheet: found.sheet,
-    rows: decoded.grid?.rows ?? [],
-    skipped: decoded.skipped,
-    error: decoded.error,
+    rows: strict.rows,
+    skipped: strict.skipped,
     limitations: found.limitations,
   };
-}
-
-/** Re-encode full grid (for removeAfterRestore). */
-export async function rewriteBackupSheet(
-  context: ExcelRequestContext,
-  sheet: ExcelWorksheet,
-  rows: FormulaBackupRow[],
-): Promise<void> {
-  const grid = encodeBackupSheet(rows);
-  const used = sheet.getUsedRangeOrNullObject(false);
-  used.load("isNullObject");
-  await context.sync();
-  if (!used.isNullObject) {
-    used.clear();
-    await context.sync();
-  }
-  if (grid.length === 0) return;
-  const cols = 10;
-  const padded = grid.map((row) => {
-    const out = row.map((v) => (v == null ? "" : String(v)));
-    while (out.length < cols) out.push("");
-    return out.slice(0, cols);
-  });
-  const range = sheet.getRange(`A1:J${padded.length}`);
-  range.values = padded;
-  sheet.visibility = "VeryHidden";
-  await context.sync();
 }

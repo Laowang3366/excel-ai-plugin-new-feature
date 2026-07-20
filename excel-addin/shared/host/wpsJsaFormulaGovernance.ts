@@ -1,19 +1,15 @@
 /**
  * WPS JSA formula governance operations (member-probed).
+ * removeAfterRestore=true requires UsedRange.Clear precheck; otherwise typed unsupported
+ * before any restore/delete.
  */
 import {
   buildDependencyReport,
-  decodeBackupSheet,
-  encodeBackupSheet,
   planFormulaRepairs,
-  planRestore,
-  summarizeBackups,
   validateRepairedFormulas,
   type FormulaCellRecord,
 } from "../formulaGovernance";
 import type {
-  FormulaBackupsInspectInfo,
-  FormulaBackupsRestoreInfo,
   FormulaConvertToValuesInfo,
   FormulaConvertToValuesInput,
   FormulaDependenciesInspectInfo,
@@ -25,18 +21,12 @@ import {
   appendBackup,
   bare,
   collectAll,
+  ensureVeryHidden,
   findBackupSheet,
   newId,
-  readBackupMatrix,
   requireScope,
 } from "./wpsJsaFormulaGovernanceHelpers";
-import {
-  formulaMatrixFrom,
-  getSheet,
-  matrixFrom,
-  requireWorkbook,
-  type WpsRange,
-} from "./wpsJsaRuntime";
+import { formulaMatrixFrom, getSheet, matrixFrom, requireWorkbook } from "./wpsJsaRuntime";
 import type { HostResult } from "./types";
 import { fail, ok, unsupported } from "./types";
 
@@ -109,7 +99,25 @@ export async function wpsRepairFormulaReferences(
       });
     }
     const backupId = newId();
-    const found = findBackupSheet(wb.data, true);
+    // Backup sheet create+hide BEFORE mutating formulas
+    let found;
+    try {
+      found = findBackupSheet(wb.data, true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/visibility/i.test(message)) {
+        return fail("formula.references.repair", "wps-jsa", message);
+      }
+      if (/Add unavailable/i.test(message)) {
+        return unsupported(
+          "formula.references.repair",
+          "wps-jsa",
+          message,
+          "Assumed Worksheets.Add",
+        );
+      }
+      throw error;
+    }
     limitations.push(...found.limitations);
     if (!found.sheet) {
       return unsupported(
@@ -119,6 +127,7 @@ export async function wpsRepairFormulaReferences(
         "Assumed Worksheets.Add",
       );
     }
+    ensureVeryHidden(found.sheet);
     const backupCells = plan.repairs
       .map((r) =>
         cells.find((c) => `${c.sheetName}!${c.address}`.toLowerCase() === r.cell.toLowerCase()),
@@ -163,6 +172,9 @@ export async function wpsRepairFormulaReferences(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (/visibility/i.test(message)) {
+      return fail("formula.references.repair", "wps-jsa", message);
+    }
     if (/unavailable|not a function|missing/i.test(message)) {
       return unsupported(
         "formula.references.repair",
@@ -202,7 +214,19 @@ export async function wpsConvertFormulasToValues(
         limitations: [...limitations, "no formula cells in scope"],
       });
     }
-    const found = findBackupSheet(wb.data, true);
+    let found;
+    try {
+      found = findBackupSheet(wb.data, true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/visibility/i.test(message)) {
+        return fail("formula.convertToValues", "wps-jsa", message);
+      }
+      if (/Add unavailable/i.test(message)) {
+        return unsupported("formula.convertToValues", "wps-jsa", message, "Assumed Worksheets.Add");
+      }
+      throw error;
+    }
     limitations.push(...found.limitations);
     if (!found.sheet) {
       return unsupported(
@@ -212,6 +236,7 @@ export async function wpsConvertFormulasToValues(
         "Assumed Worksheets.Add",
       );
     }
+    ensureVeryHidden(found.sheet);
     appendBackup(found.sheet, formulaCells, backupId, sourceRange);
 
     let converted = 0;
@@ -247,6 +272,9 @@ export async function wpsConvertFormulasToValues(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (/visibility/i.test(message)) {
+      return fail("formula.convertToValues", "wps-jsa", message);
+    }
     if (/unavailable|not a function|missing/i.test(message)) {
       return unsupported(
         "formula.convertToValues",
@@ -256,131 +284,5 @@ export async function wpsConvertFormulasToValues(
       );
     }
     return fail("formula.convertToValues", "wps-jsa", message);
-  }
-}
-
-export async function wpsInspectFormulaBackups(): Promise<HostResult<FormulaBackupsInspectInfo>> {
-  const wb = requireWorkbook("formula.backups.inspect");
-  if (!wb.ok) return wb;
-  try {
-    const found = findBackupSheet(wb.data, false);
-    if (!found.sheet) {
-      return ok({
-        backups: [],
-        backupCount: 0,
-        backupSheetName: null,
-        skippedRows: [],
-        limitations: found.limitations,
-      });
-    }
-    const decoded = decodeBackupSheet(readBackupMatrix(found.sheet));
-    if (!decoded.ok && !decoded.grid) {
-      return ok({
-        backups: [],
-        backupCount: 0,
-        backupSheetName: found.sheet.Name,
-        skippedRows: decoded.skipped,
-        limitations: [...found.limitations, decoded.error ?? "invalid backup"],
-        headerError: decoded.error,
-      });
-    }
-    const rows = decoded.grid?.rows ?? [];
-    const backups = summarizeBackups(rows);
-    const limitations = [...found.limitations];
-    if (decoded.error) limitations.push(decoded.error);
-    if (decoded.skipped.length) {
-      limitations.push(`skipped ${decoded.skipped.length} corrupt/incomplete backup row(s)`);
-    }
-    return ok({
-      backups,
-      backupCount: backups.length,
-      backupSheetName: found.sheet.Name,
-      skippedRows: decoded.skipped,
-      limitations,
-      headerError: decoded.error,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return fail("formula.backups.inspect", "wps-jsa", message);
-  }
-}
-
-export async function wpsRestoreFormulas(input: {
-  backupId: string;
-  removeAfterRestore?: boolean;
-}): Promise<HostResult<FormulaBackupsRestoreInfo>> {
-  const wb = requireWorkbook("formula.backups.restore");
-  if (!wb.ok) return wb;
-  const backupId = input.backupId?.trim();
-  if (!backupId) return fail("formula.backups.restore", "wps-jsa", "backupId required");
-  try {
-    const found = findBackupSheet(wb.data, false);
-    if (!found.sheet) {
-      return fail("formula.backups.restore", "wps-jsa", "formula_backup_not_found");
-    }
-    const decoded = decodeBackupSheet(readBackupMatrix(found.sheet));
-    const rows = decoded.grid?.rows ?? [];
-    if (!rows.length) return fail("formula.backups.restore", "wps-jsa", "formula_backup_not_found");
-    const plan = planRestore(rows, backupId);
-    if ("error" in plan) return fail("formula.backups.restore", "wps-jsa", plan.error);
-
-    const restored: Array<{ cell: string; formula: string }> = [];
-    const failed: Array<{ cell: string; error: string }> = [];
-    const limitations = [...found.limitations];
-    for (const item of plan.items) {
-      const cellId = `${item.sheet}!${item.address}`;
-      try {
-        const sheet = getSheet(wb.data, item.sheet);
-        if (!sheet?.Range) throw new Error("sheet missing");
-        const range = sheet.Range(bare(item.address));
-        range.Formula = item.formula;
-        if (item.numberFormat) range.NumberFormat = item.numberFormat;
-        const lockedProp = range as WpsRange & { Locked?: boolean };
-        if (typeof lockedProp.Locked === "boolean") lockedProp.Locked = item.locked;
-        const actual = String(formulaMatrixFrom(range.Formula)?.[0]?.[0] ?? "");
-        if (!actual.startsWith("=")) failed.push({ cell: cellId, error: "post-write formula missing" });
-        else restored.push({ cell: cellId, formula: actual });
-      } catch (error) {
-        failed.push({
-          cell: cellId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-    if (failed.length) {
-      return fail(
-        "formula.backups.restore",
-        "wps-jsa",
-        "formula_restore_incomplete",
-        JSON.stringify({ backupId, restored, failed }),
-      );
-    }
-    if (input.removeAfterRestore === true) {
-      const remaining = rows.filter((r) => r.backupId !== backupId);
-      const grid = encodeBackupSheet(remaining);
-      found.sheet.Range(`A1:J${grid.length}`).Value2 = grid;
-      limitations.push("removed restored backup rows (removeAfterRestore=true)");
-    } else {
-      limitations.push("backup rows retained (removeAfterRestore default false)");
-    }
-    return ok({
-      backupId,
-      restored,
-      restoredCount: restored.length,
-      failed: [],
-      verified: true,
-      limitations,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/unavailable|not a function|missing/i.test(message)) {
-      return unsupported(
-        "formula.backups.restore",
-        "wps-jsa",
-        message,
-        "Assumed Range.Formula + backup sheet",
-      );
-    }
-    return fail("formula.backups.restore", "wps-jsa", message);
   }
 }

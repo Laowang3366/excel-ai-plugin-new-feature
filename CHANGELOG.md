@@ -1,15 +1,10 @@
 # 更新日志
 
-## Unreleased
-
-### Excel 加载项
-- 接入公式治理工具：`formula.dependencies.inspect`、`formula.references.repair`、`formula.convertToValues`、`formula.backups.inspect`、`formula.backups.restore`（纯核心 + Office.js/WPS；备份协议 WENGGE_FORMULA_BACKUP_V1；真实侧载未验收）
-
-
 这里只记录用户能够直接感知的功能与体验变化。代码重构、内部实现调整、测试数量和工程优化不进入更新日志。
 
 ## 未发布
 
+- 独立 Excel 加载项接入公式治理工具：依赖检查、引用修复、公式转值、备份检查/恢复（WENGGE_FORMULA_BACKUP_V1 隐藏表；文本方式保存公式原文；真实 Excel/WPS 侧载尚未验收）。
 - 独立 Excel 加载项新增公式保护检查与锁定/解锁（仅公式单元格 + 可选表保护）；密码仅请求内存使用且不进入工具结果；WPS 明确不支持；真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项表格现支持首末列高亮（showFirstColumn/showLastColumn），以及表格 AutoFilter 筛选与多级排序工具；WPS 仍明确返回不支持，真实 Excel 侧载尚未验收。
 - 独立 Excel 加载项可生成正式本地 WPS JSA jsaddons 包（相对路径任务窗格 + publish/ribbon/entry）；真实 WPS 侧载尚未验收。

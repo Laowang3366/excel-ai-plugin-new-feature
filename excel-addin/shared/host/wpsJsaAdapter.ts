@@ -30,11 +30,13 @@ import { wpsReadRange } from "./wpsJsaRangeRead";
 import { wpsStructureSurface } from "./wpsJsaStructure";
 import {
   wpsConvertFormulasToValues,
-  wpsInspectFormulaBackups,
   wpsInspectFormulaDependencies,
   wpsRepairFormulaReferences,
-  wpsRestoreFormulas,
 } from "./wpsJsaFormulaGovernance";
+import {
+  wpsInspectFormulaBackups,
+  wpsRestoreFormulas,
+} from "./wpsJsaFormulaGovernanceBackups";
 import type {
   CellValue,
   FormulaContextData,

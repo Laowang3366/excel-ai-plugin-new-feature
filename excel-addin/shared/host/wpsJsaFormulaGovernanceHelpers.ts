@@ -1,8 +1,12 @@
 /**
  * WPS JSA formula governance helpers (collect + backup sheet).
+ * Formula cells written as text: NumberFormat "@" + apostrophe encode.
+ * Backup sheet must be VeryHidden (Visible=2) or operations fail closed.
  */
 import {
   createBackupRows,
+  encodeBackupLiteral,
+  encodeBackupSheet,
   FORMULA_BACKUP_HEADERS,
   FORMULA_BACKUP_MAGIC,
   type FormulaCellRecord,
@@ -21,6 +25,17 @@ import {
   type WpsSheet,
   type WpsWorkbook,
 } from "./wpsJsaRuntime";
+
+export type WpsSheetExt = WpsSheet & {
+  Visible?: number | string;
+  Name: string;
+};
+
+export type WpsRangeExt = WpsRange & {
+  FormulaR1C1?: unknown;
+  Locked?: boolean;
+  NumberFormat?: string | unknown;
+};
 
 export function bare(address: string): string {
   const a = address.includes("!") ? address.slice(address.lastIndexOf("!") + 1) : address;
@@ -49,13 +64,13 @@ export function newId(): string {
   return `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
 }
 
-export function listSheets(workbook: WpsWorkbook): WpsSheet[] {
+export function listSheets(workbook: WpsWorkbook): WpsSheetExt[] {
   const sheets = workbook.Worksheets;
   if (!sheets || typeof sheets.Count !== "number" || typeof sheets.Item !== "function") {
     throw new Error("Worksheets collection unavailable");
   }
-  const out: WpsSheet[] = [];
-  for (let i = 1; i <= sheets.Count; i += 1) out.push(sheets.Item(i));
+  const out: WpsSheetExt[] = [];
+  for (let i = 1; i <= sheets.Count; i += 1) out.push(sheets.Item(i) as WpsSheetExt);
   return out;
 }
 
@@ -63,11 +78,68 @@ export function isBackupName(name: string): boolean {
   return name.startsWith(FORMULA_BACKUP_SHEET_PREFIX);
 }
 
-export function resolveRange(sheet: WpsSheet, rangeAddress?: string): WpsRange {
+export function resolveRange(sheet: WpsSheet, rangeAddress?: string): WpsRangeExt {
   if (!sheet.Range) throw new Error("Sheet.Range unavailable");
-  if (rangeAddress?.trim()) return sheet.Range(bare(rangeAddress));
-  if (!sheet.UsedRange?.Address) return sheet.Range("A1");
-  return sheet.Range(bare(String(sheet.UsedRange.Address)));
+  if (rangeAddress?.trim()) return sheet.Range(bare(rangeAddress)) as WpsRangeExt;
+  if (!sheet.UsedRange?.Address) return sheet.Range("A1") as WpsRangeExt;
+  return sheet.Range(bare(String(sheet.UsedRange.Address))) as WpsRangeExt;
+}
+
+/** Write Value2 as text so "=..." is not evaluated. */
+export function writeTextValue(range: WpsRangeExt, value: unknown): void {
+  try {
+    range.NumberFormat = "@";
+  } catch {
+    // best-effort; apostrophe still applied for formula-like strings
+  }
+  if (typeof value === "string") {
+    range.Value2 = encodeBackupLiteral(value);
+  } else {
+    range.Value2 = value;
+  }
+}
+
+export function writeTextMatrix(range: WpsRangeExt, matrix: unknown[][]): void {
+  try {
+    range.NumberFormat = "@";
+  } catch {
+    // optional
+  }
+  const encoded = matrix.map((row) =>
+    row.map((cell) => (typeof cell === "string" ? encodeBackupLiteral(cell) : cell)),
+  );
+  // Only encode formula-like on individual cells that need it; for headers/ids don't double-encode
+  // encodeBackupLiteral is no-op for non-formula-like — good for headers.
+  range.Value2 = encoded;
+}
+
+export function ensureVeryHidden(sheet: WpsSheetExt): void {
+  if (!("Visible" in sheet) || sheet.Visible === undefined) {
+    throw new Error("backup_sheet_visibility_unavailable: Visible member missing");
+  }
+  sheet.Visible = 2;
+  const v = sheet.Visible;
+  const asText = String(v ?? "").toLowerCase();
+  const ok =
+    v === 2 ||
+    asText === "2" ||
+    asText === "veryhidden" ||
+    asText === "xlsheetveryhidden";
+  if (!ok) {
+    throw new Error(`backup_sheet_visibility_unavailable: expected VeryHidden, got ${String(v)}`);
+  }
+}
+
+export function canRewriteBackupSheet(sheet: WpsSheetExt): boolean {
+  // Safe residue cleanup requires UsedRange.Clear (or equivalent) before shorter rewrite.
+  const used = sheet.UsedRange as (WpsRange & { Clear?: () => void }) | undefined;
+  return Boolean(used && typeof used.Clear === "function") || typeof sheet.Range === "function";
+  // Note: Range alone is not enough to clear residue — require Clear for removeAfterRestore.
+}
+
+export function canRemoveBackupRows(sheet: WpsSheetExt): boolean {
+  const used = sheet.UsedRange as (WpsRange & { Clear?: () => void }) | undefined;
+  return Boolean(used && typeof used.Clear === "function");
 }
 
 export function collectFromSheet(
@@ -79,6 +151,7 @@ export function collectFromSheet(
   const formulas = formulaMatrixFrom(range.Formula);
   const values = matrixFrom(range.Value2);
   const origin = bare(String(range.Address ?? rangeAddress ?? "A1"));
+  let r1c1Available = false;
   const records: FormulaCellRecord[] = [];
   for (let r = 0; r < formulas.length; r += 1) {
     for (let c = 0; c < (formulas[r]?.length ?? 0); c += 1) {
@@ -86,11 +159,18 @@ export function collectFromSheet(
       if (!formula.startsWith("=")) continue;
       let numberFormat = "";
       let locked: boolean | undefined;
+      let formulaR1C1 = "";
       try {
-        const cell = sheet.Range(absoluteA1FromOrigin(origin, r, c));
+        const cell = sheet.Range(absoluteA1FromOrigin(origin, r, c)) as WpsRangeExt;
         if (cell.NumberFormat != null) numberFormat = String(cell.NumberFormat);
-        const lockedProp = (cell as WpsRange & { Locked?: boolean }).Locked;
-        if (typeof lockedProp === "boolean") locked = lockedProp;
+        if (typeof cell.Locked === "boolean") locked = cell.Locked;
+        if (cell.FormulaR1C1 != null) {
+          const r1 = String(formulaMatrixFrom(cell.FormulaR1C1)?.[0]?.[0] ?? cell.FormulaR1C1);
+          if (r1.startsWith("=")) {
+            formulaR1C1 = r1;
+            r1c1Available = true;
+          }
+        }
       } catch {
         // optional metadata
       }
@@ -99,12 +179,18 @@ export function collectFromSheet(
         address: absoluteA1FromOrigin(origin, r, c),
         formula,
         value: values[r]?.[c],
-        formulaR1C1: "",
+        formulaR1C1,
         numberFormat,
         locked,
         spillAddress: "",
       });
     }
+  }
+  if (!r1c1Available && !limitations.some((l) => l.includes("formulaR1C1"))) {
+    limitations.push("formulaR1C1 unavailable on WPS Range; stored empty when member missing");
+  }
+  if (!limitations.some((l) => l.includes("spillAddress"))) {
+    limitations.push("spillAddress not available on WPS JSA path; stored empty");
   }
   if (records.length > MAX_GOVERNANCE_FORMULA_CELLS) {
     limitations.push(
@@ -141,13 +227,15 @@ export function collectAll(
 export function findBackupSheet(
   workbook: WpsWorkbook,
   create: boolean,
-): { sheet: WpsSheet | null; limitations: string[] } {
+): { sheet: WpsSheetExt | null; limitations: string[] } {
   const limitations: string[] = [];
   for (const sheet of listSheets(workbook)) {
     if (!isBackupName(sheet.Name)) continue;
     try {
-      const a1 = sheet.Range("A1");
-      const magic = String(matrixFrom(a1.Value2)?.[0]?.[0] ?? "").trim();
+      const a1 = sheet.Range("A1") as WpsRangeExt;
+      const raw = String(matrixFrom(a1.Value2)?.[0]?.[0] ?? a1.Value2 ?? "").trim();
+      // magic is not formula-like after decode strip
+      const magic = raw.startsWith("'") ? raw.slice(1) : raw;
       if (magic === FORMULA_BACKUP_MAGIC) return { sheet, limitations };
       limitations.push(`sheet ${sheet.Name} has backup prefix but invalid magic; left untouched`);
     } catch {
@@ -161,12 +249,17 @@ export function findBackupSheet(
   }
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
   const name = `${FORMULA_BACKUP_SHEET_PREFIX}${stamp}`.slice(0, 31);
-  const sheet = sheets.Add();
+  const sheet = sheets.Add() as WpsSheetExt;
+  // Hide BEFORE writing protocol content
+  ensureVeryHidden(sheet);
   sheet.Name = name;
-  sheet.Range("A1").Value2 = [[FORMULA_BACKUP_MAGIC]];
-  sheet.Range("A2:J2").Value2 = [[...FORMULA_BACKUP_HEADERS]];
-  const vis = sheet as WpsSheet & { Visible?: number | string };
-  if ("Visible" in vis) vis.Visible = 2;
+  // Single rectangular write A1:J2 so UsedRange captures magic+headers together.
+  const boot = [
+    [FORMULA_BACKUP_MAGIC, "", "", "", "", "", "", "", "", ""],
+    [...FORMULA_BACKUP_HEADERS],
+  ];
+  writeTextMatrix(sheet.Range("A1:J2") as WpsRangeExt, boot);
+  ensureVeryHidden(sheet);
   limitations.push(`created backup sheet ${name}`);
   return { sheet, limitations };
 }
@@ -179,11 +272,12 @@ export function readBackupMatrix(sheet: WpsSheet): unknown[][] {
 }
 
 export function appendBackup(
-  sheet: WpsSheet,
+  sheet: WpsSheetExt,
   cells: FormulaCellRecord[],
   backupId: string,
   sourceRange: string,
 ): void {
+  ensureVeryHidden(sheet);
   const rows = createBackupRows(cells, { backupId, sourceRange });
   if (rows.length === 0) return;
   let start = 3;
@@ -197,20 +291,26 @@ export function appendBackup(
   } catch {
     start = 3;
   }
-  const grid = rows.map((row) => [
-    row.backupId,
-    row.createdAt,
-    row.sheet,
-    row.address,
-    row.formula,
-    row.formulaR1C1,
-    row.numberFormat,
-    row.locked ? "1" : "0",
-    row.spillAddress,
-    row.sourceRange,
-  ]);
-  const end = start + grid.length - 1;
-  sheet.Range(`A${start}:J${end}`).Value2 = grid;
-  const vis = sheet as WpsSheet & { Visible?: number | string };
-  if ("Visible" in vis) vis.Visible = 2;
+  const full = encodeBackupSheet(rows);
+  const data = full.slice(2);
+  const end = start + data.length - 1;
+  writeTextMatrix(sheet.Range(`A${start}:J${end}`) as WpsRangeExt, data);
+  ensureVeryHidden(sheet);
+}
+
+export function rewriteBackupSheet(sheet: WpsSheetExt, rows: import("../formulaGovernance").FormulaBackupRow[]): void {
+  if (!canRemoveBackupRows(sheet)) {
+    throw new Error("backup_row_delete_unavailable");
+  }
+  const used = sheet.UsedRange as WpsRange & { Clear?: () => void };
+  used.Clear!();
+  const grid = encodeBackupSheet(rows);
+  const cols = 10;
+  const padded = grid.map((row) => {
+    const out = row.map((v) => (v == null ? "" : String(v)));
+    while (out.length < cols) out.push("");
+    return out.slice(0, cols);
+  });
+  writeTextMatrix(sheet.Range(`A1:J${Math.max(padded.length, 2)}`) as WpsRangeExt, padded);
+  ensureVeryHidden(sheet);
 }

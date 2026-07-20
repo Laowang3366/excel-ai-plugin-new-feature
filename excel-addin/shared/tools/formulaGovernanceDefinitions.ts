@@ -54,7 +54,7 @@ export const FORMULA_GOVERNANCE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "formula.convertToValues",
     description:
-      "将目标范围内公式替换为当前计算值。必须先把公式元数据写入隐藏备份表（WENGGE_FORMULA_BACKUP_V1：backupId/createdAt/sheet/address/formula/formulaR1C1/numberFormat/locked/spillAddress/sourceRange），再写值；禁止无持久备份。写后回读验证。dangerous",
+      "将目标范围内公式替换为当前计算值。必须先把公式元数据写入隐藏备份表（WENGGE_FORMULA_BACKUP_V1）。备份含 backupId/createdAt/sheet/address/formula 及可探测的 formulaR1C1/numberFormat/locked/spillAddress/sourceRange；不可探测字段记 limitation 且存空，不宣称已采集。禁止无持久备份。写后回读验证。dangerous",
     riskLevel: "dangerous",
     parameters: {
       type: "object",
@@ -84,7 +84,7 @@ export const FORMULA_GOVERNANCE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "formula.backups.restore",
     description:
-      "按 backupId 从隐藏备份表恢复公式及可恢复元数据（formula/numberFormat/locked 等）；写后回读验证；默认不删除备份。backup 不存在/损坏明确失败。dangerous",
+      "按 backupId 从隐藏备份表恢复公式及可恢复元数据（formula/numberFormat/locked）；formulaR1C1/spill 为备份元数据不重放为实时 spill。magic/header 损坏 fail-closed 零写入。可选 removeAfterRestore：仅删除该 backupId 数据行并保留其它备份（WPS 无 UsedRange.Clear 时对该选项 typed unsupported 且不先恢复）。dangerous",
     riskLevel: "dangerous",
     parameters: {
       type: "object",

@@ -14,6 +14,35 @@ import {
 } from "./types";
 import { normalizeA1Address } from "./address";
 
+
+/**
+ * Persist formula-like text without host evaluation.
+ * Leading apostrophe is the classic Excel "store as text" marker; paired with
+ * host numberFormat "@" when writing values/Value2.
+ */
+export function encodeBackupLiteral(value: string): string {
+  if (!value) return value;
+  const ch = value[0];
+  if (ch === "=" || ch === "+" || ch === "-" || ch === "@") {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/** Inverse of encodeBackupLiteral; host may already strip the apostrophe. */
+export function decodeBackupLiteral(value: string): string {
+  if (!value) return value;
+  if (
+    value.length >= 2 &&
+    value[0] === "'" &&
+    (value[1] === "=" || value[1] === "+" || value[1] === "-" || value[1] === "@")
+  ) {
+    return value.slice(1);
+  }
+  return value;
+}
+
+
 /** Grid representation of a backup sheet (row-major string cells). */
 export interface BackupSheetGrid {
   /** A1 magic */
@@ -67,8 +96,8 @@ export function encodeBackupSheet(rows: FormulaBackupRow[]): string[][] {
       row.createdAt,
       row.sheet,
       row.address,
-      row.formula,
-      row.formulaR1C1,
+      encodeBackupLiteral(row.formula),
+      encodeBackupLiteral(row.formulaR1C1),
       row.numberFormat,
       row.locked ? "1" : "0",
       row.spillAddress,
@@ -130,7 +159,7 @@ export function decodeBackupSheet(matrix: unknown[][]): {
     }
     const sheet = cellAt(matrix, r, 2).trim();
     const address = normalizeA1Address(cellAt(matrix, r, 3));
-    const formula = cellAt(matrix, r, 4);
+    const formula = decodeBackupLiteral(cellAt(matrix, r, 4));
     if (!sheet || !address || !formula.startsWith("=")) {
       skipped.push(r);
       continue;
@@ -141,7 +170,7 @@ export function decodeBackupSheet(matrix: unknown[][]): {
       sheet,
       address,
       formula,
-      formulaR1C1: cellAt(matrix, r, 5),
+      formulaR1C1: decodeBackupLiteral(cellAt(matrix, r, 5)),
       numberFormat: cellAt(matrix, r, 6),
       locked: parseLocked(cellAt(matrix, r, 7)),
       spillAddress: cellAt(matrix, r, 8),

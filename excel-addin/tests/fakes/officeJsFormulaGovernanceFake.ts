@@ -1,5 +1,7 @@
 /**
  * Sync-gated multi-sheet fake for formula governance.
+ * - values assignment must match Range row/col dimensions (throws otherwise)
+ * - formula-like strings without text format / apostrophe are "evaluated" (lose leading =)
  */
 type SheetState = {
   name: string;
@@ -12,8 +14,11 @@ type SheetState = {
 export function installFormulaGovernanceExcel(options?: {
   sheets?: Array<{ name: string; formulas: string[][]; values?: unknown[][] }>;
   excelApi12?: boolean;
+  /** When false, worksheet.visibility assignment is ignored / not VeryHidden. */
+  supportVeryHidden?: boolean;
 }) {
   const excelApi12 = options?.excelApi12 !== false;
+  const supportVeryHidden = options?.supportVeryHidden !== false;
   const sheetList: SheetState[] = (options?.sheets ?? [
     {
       name: "Sheet1",
@@ -82,14 +87,29 @@ export function installFormulaGovernanceExcel(options?: {
 
   const allRanges: Array<{ commit: () => void }> = [];
 
+  function looksFormulaLike(v: unknown): v is string {
+    return typeof v === "string" && (v.startsWith("=") || v.startsWith("+") || v.startsWith("-") || v.startsWith("@"));
+  }
+
   function makeRange(sheet: SheetState, address: string) {
     const box = parseA1(address);
+    const rowCount = box.r1 - box.r0 + 1;
+    const colCount = box.c1 - box.c0 + 1;
     const loaded: Record<string, unknown> = {};
     let pendingFormulas: string[][] | undefined;
     let pendingValues: unknown[][] | undefined;
     let pendingNf: string[][] | undefined;
 
     const commit = () => {
+      if (pendingNf) {
+        for (let r = 0; r < pendingNf.length; r++) {
+          for (let c = 0; c < (pendingNf[r]?.length ?? 0); c++) {
+            ensureSize(sheet, box.r0 + r, box.c0 + c);
+            sheet.numberFormat[box.r0 + r]![box.c0 + c] = pendingNf[r]![c] ?? "General";
+          }
+        }
+        pendingNf = undefined;
+      }
       if (pendingFormulas) {
         for (let r = 0; r < pendingFormulas.length; r++) {
           for (let c = 0; c < (pendingFormulas[r]?.length ?? 0); c++) {
@@ -103,23 +123,42 @@ export function installFormulaGovernanceExcel(options?: {
         for (let r = 0; r < pendingValues.length; r++) {
           for (let c = 0; c < (pendingValues[r]?.length ?? 0); c++) {
             ensureSize(sheet, box.r0 + r, box.c0 + c);
-            sheet.values[box.r0 + r]![box.c0 + c] = pendingValues[r]![c];
-            sheet.formulas[box.r0 + r]![box.c0 + c] = "";
+            let v = pendingValues[r]![c];
+            const nf = sheet.numberFormat[box.r0 + r]![box.c0 + c] ?? "General";
+            const isText = nf === "@" || String(nf).includes("@");
+            if (typeof v === "string" && v.startsWith("'")) {
+              // apostrophe text marker — store without evaluating; strip one apostrophe on read path stored value
+              sheet.values[box.r0 + r]![box.c0 + c] = v; // keep apostrophe in store for decode
+              sheet.formulas[box.r0 + r]![box.c0 + c] = "";
+            } else if (looksFormulaLike(v) && !isText) {
+              // Simulated evaluation: lose formula text (backup corruption risk)
+              sheet.values[box.r0 + r]![box.c0 + c] = "EVALUATED";
+              sheet.formulas[box.r0 + r]![box.c0 + c] = String(v);
+            } else {
+              sheet.values[box.r0 + r]![box.c0 + c] = v;
+              sheet.formulas[box.r0 + r]![box.c0 + c] = "";
+            }
           }
         }
         pendingValues = undefined;
       }
-      if (pendingNf) {
-        for (let r = 0; r < pendingNf.length; r++) {
-          for (let c = 0; c < (pendingNf[r]?.length ?? 0); c++) {
-            ensureSize(sheet, box.r0 + r, box.c0 + c);
-            sheet.numberFormat[box.r0 + r]![box.c0 + c] = pendingNf[r]![c] ?? "General";
-          }
-        }
-        pendingNf = undefined;
-      }
     };
     allRanges.push({ commit });
+
+    function assertMatrixShape(matrix: unknown[][], label: string) {
+      if (!Array.isArray(matrix) || matrix.length !== rowCount) {
+        throw new Error(
+          `Dimension mismatch on ${label}: range ${rowCount}x${colCount}, got rows=${Array.isArray(matrix) ? matrix.length : "?"}`,
+        );
+      }
+      for (let r = 0; r < matrix.length; r++) {
+        if (!Array.isArray(matrix[r]) || matrix[r]!.length !== colCount) {
+          throw new Error(
+            `Dimension mismatch on ${label}: range ${rowCount}x${colCount}, row ${r} cols=${matrix[r]?.length ?? "?"}`,
+          );
+        }
+      }
+    }
 
     return {
       isNullObject: false,
@@ -132,6 +171,7 @@ export function installFormulaGovernanceExcel(options?: {
         return loaded.formulas as string[][];
       },
       set formulas(v: string[][]) {
+        assertMatrixShape(v, "formulas");
         pendingFormulas = v;
       },
       get values() {
@@ -139,6 +179,7 @@ export function installFormulaGovernanceExcel(options?: {
         return loaded.values as unknown[][];
       },
       set values(v: unknown[][]) {
+        assertMatrixShape(v, "values");
         pendingValues = v;
       },
       get numberFormat() {
@@ -146,13 +187,15 @@ export function installFormulaGovernanceExcel(options?: {
         return loaded.numberFormat as string[][];
       },
       set numberFormat(v: string[][] | string) {
-        pendingNf = Array.isArray(v) ? v : [[String(v)]];
+        const matrix = Array.isArray(v) ? v : Array.from({ length: rowCount }, () => Array(colCount).fill(String(v)));
+        assertMatrixShape(matrix as unknown[][], "numberFormat");
+        pendingNf = matrix as string[][];
       },
       get rowCount() {
-        return box.r1 - box.r0 + 1;
+        return rowCount;
       },
       get columnCount() {
-        return box.c1 - box.c0 + 1;
+        return colCount;
       },
       format: {
         protection: {
@@ -166,7 +209,7 @@ export function installFormulaGovernanceExcel(options?: {
           loaded.address = `${sheet.name}!${toA1(box.r0, box.c0)}:${toA1(box.r1, box.c1)}`;
           loaded.isNullObject = false;
         }
-        if (set.has("formulas")) {
+        if (set.has("formulas") || set.has("formulasR1C1")) {
           const m: string[][] = [];
           for (let r = box.r0; r <= box.r1; r++) {
             const row: string[] = [];
@@ -176,7 +219,8 @@ export function installFormulaGovernanceExcel(options?: {
             }
             m.push(row);
           }
-          loaded.formulas = m;
+          if (set.has("formulas")) loaded.formulas = m;
+          if (set.has("formulasR1C1")) loaded.formulasR1C1 = m.map((row) => row.map((f) => f));
         }
         if (set.has("values")) {
           const m: unknown[][] = [];
@@ -202,11 +246,20 @@ export function installFormulaGovernanceExcel(options?: {
           }
           loaded.numberFormat = m;
         }
-        if (set.has("rowCount")) loaded.rowCount = box.r1 - box.r0 + 1;
-        if (set.has("columnCount")) loaded.columnCount = box.c1 - box.c0 + 1;
+        if (set.has("rowCount")) loaded.rowCount = rowCount;
+        if (set.has("columnCount")) loaded.columnCount = colCount;
+      },
+      get formulasR1C1() {
+        return (loaded.formulasR1C1 as string[][]) ?? [];
       },
       getCell(row: number, col: number) {
         return makeRange(sheet, toA1(box.r0 + row, box.c0 + col));
+      },
+      getSpillingToRange() {
+        // no spill in default fake
+        const empty = makeRange(sheet, toA1(box.r0, box.c0));
+        (empty as { isNullObject: boolean }).isNullObject = true;
+        return empty;
       },
       clear() {
         for (let r = box.r0; r <= box.r1; r++) {
@@ -214,6 +267,7 @@ export function installFormulaGovernanceExcel(options?: {
             ensureSize(sheet, r, c);
             sheet.formulas[r]![c] = "";
             sheet.values[r]![c] = null;
+            sheet.numberFormat[r]![c] = "General";
           }
         }
       },
@@ -232,6 +286,10 @@ export function installFormulaGovernanceExcel(options?: {
         return state.visibility;
       },
       set visibility(v: string) {
+        if (!supportVeryHidden && String(v).toLowerCase().includes("veryhidden")) {
+          state.visibility = "Visible";
+          return;
+        }
         state.visibility = v;
       },
       load(_props: string) {},
@@ -242,9 +300,12 @@ export function installFormulaGovernanceExcel(options?: {
         let maxR = 0;
         let maxC = 0;
         let any = false;
-        for (let r = 0; r < state.formulas.length; r++) {
-          for (let c = 0; c < (state.formulas[r]?.length ?? 0); c++) {
-            if (state.formulas[r]![c] || state.values[r]![c] != null) {
+        for (let r = 0; r < Math.max(state.formulas.length, state.values.length); r++) {
+          const frow = state.formulas[r] ?? [];
+          const vrow = state.values[r] ?? [];
+          const len = Math.max(frow.length, vrow.length);
+          for (let c = 0; c < len; c++) {
+            if (frow[c] || vrow[c] != null) {
               maxR = Math.max(maxR, r);
               maxC = Math.max(maxC, c);
               any = true;
