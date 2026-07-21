@@ -78,6 +78,12 @@ export function estimateRequestTokens(input: RequestTokenEstimateInput): number 
     total += 4;
     total += estimateTokens(message.role || "");
     total += estimateMessageContentTokens(message.content);
+    if (message.contentParts?.length) {
+      for (const part of message.contentParts) {
+        if (part.type === "text") total += estimateTokens(part.text);
+        if (part.type === "image") total += 85 + estimateTokens(part.mimeType);
+      }
+    }
     if (message.name) total += estimateTokens(message.name);
     if (message.toolCallId) total += estimateTokens(message.toolCallId);
     if (message.toolCalls?.length) {

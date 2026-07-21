@@ -23,6 +23,7 @@ const SCENARIO_TEMPLATE: Record<string, string> = {
   "office-tools": "scenarios/office-tools.zh-CN.md",
   "general-office": "scenarios/general-office.zh-CN.md",
   macro: "scenarios/macro.zh-CN.md",
+  "ocr-invoice": "scenarios/ocr-invoice.zh-CN.md",
 };
 
 export interface ExcelPromptBuildOptions {

@@ -6,6 +6,7 @@ import {
   type ChatTraceEvent,
   type ChatTurnStatus,
 } from "@shared/agentChat";
+import type { AgentContentPart } from "@shared/agent";
 import type { HostAdapter } from "@shared/host";
 import type { ProviderStore } from "@shared/provider";
 import {
@@ -73,7 +74,10 @@ function appendTrace(
  */
 export function useChatController(options: UseChatControllerOptions): {
   view: ChatViewState;
-  send: (text: string) => Promise<ChatSendOutcome>;
+  send: (
+    text: string,
+    options?: { contentParts?: AgentContentPart[] },
+  ) => Promise<ChatSendOutcome>;
   retry: (turnId: string) => Promise<ChatSendOutcome>;
   stop: () => void;
   clear: () => void;
@@ -226,7 +230,10 @@ export function useChatController(options: UseChatControllerOptions): {
   }, [adapter, store, handleEvent]);
 
   const send = useCallback(
-    async (text: string): Promise<ChatSendOutcome> => {
+    async (
+      text: string,
+      options?: { contentParts?: AgentContentPart[] },
+    ): Promise<ChatSendOutcome> => {
       const c = controllerRef.current;
       if (!c) {
         return { accepted: false, restoreText: text };
@@ -262,7 +269,7 @@ export function useChatController(options: UseChatControllerOptions): {
         setStatus("running");
       }
 
-      const result = await c.send(trimmed);
+      const result = await c.send(trimmed, options);
       if (!isLive(gen)) {
         return { accepted: false, turnStatus: result.turnStatus };
       }

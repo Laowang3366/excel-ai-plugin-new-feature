@@ -17,6 +17,7 @@ export function buildAddInHardBoundary(): string {
     "- UI：任务窗格外控件、UserForm、ActiveX、自定义功能区/菜单 **unsupported**；不得建议 `ui.addControl` / `ui.listControls`。",
     "- Power Query：**unsupported**。Office.js 透视表：`pivot.list`/`pivot.create`（ExcelApi 1.8）/`pivot.refresh`（ExcelApi 1.3；advancedIntent=interactive-pivot）；`refreshConnections=true`→有限 `dataConnections.refreshAll`（verified:false）。Office.js 切片器：**ExcelApi 1.10** `slicer.list/create/update/delete` + `slicer.filter.get/apply/clear`（create 需 advancedIntent=interactive-pivot；稳定 API 无 source 回读；`selectItems([])`=全选）；WPS 透视表/切片器 **typed unsupported**；不得伪造成功。",
     "- 事务备份 / `office.workflow` / `office.transaction` / 跨 Word·PPT·PDF 导出：**unsupported**。",
+    "- OCR：无 `ocr.parseDocument` / 文件路径 IPC；图片走多模态用户消息；PDF 不可靠时 typed unsupported，禁止假成功。",
     "- 仅本轮已注册且可见的工具可执行；与桌面端冲突的叙述以本段与适配模板为准。",
   ].join("\n");
 }

@@ -3,6 +3,7 @@ import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { ChatPanel } from "../src/components/ChatPanel";
+import { ChatSessionProvider } from "../src/chat/ChatSessionContext";
 import {
   ChatController,
   type ChatControllerDeps,
@@ -110,15 +111,11 @@ describe("useChatController lifecycle isolation", () => {
 
     function Panel({ adapter }: { adapter: MockHostAdapter }) {
       return (
-        <ChatPanel
-          store={store}
-          adapter={adapter}
-          createController={(deps) => {
+        <ChatSessionProvider store={store} adapter={adapter} createController={(deps) => {
             const f = new HangFake(deps);
             fakes.push(f);
             return f as unknown as ChatController;
-          }}
-        />
+          }}><ChatPanel /></ChatSessionProvider>
       );
     }
 
@@ -206,14 +203,10 @@ describe("useChatController lifecycle isolation", () => {
     });
     let fake: HangFake | undefined;
     const m = mount(
-      <ChatPanel
-        store={store}
-        adapter={new MockHostAdapter()}
-        createController={(deps) => {
+      <ChatSessionProvider store={store} adapter={new MockHostAdapter()} createController={(deps) => {
           fake = new HangFake(deps);
           return fake as unknown as ChatController;
-        }}
-      />,
+        }}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;
@@ -251,7 +244,7 @@ describe("useChatController lifecycle isolation", () => {
     const store = new ProviderStore();
     // no active provider
     const m = mount(
-      <ChatPanel store={store} adapter={new MockHostAdapter()} />,
+      <ChatSessionProvider store={store} adapter={new MockHostAdapter()}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;

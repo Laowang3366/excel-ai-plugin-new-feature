@@ -32,17 +32,17 @@ describe("promptComposer parity", () => {
 });
 
 describe("excel-only prompt routing", () => {
-  it("routes formula and excel office tools, excludes OCR by design", () => {
+  it("routes formula, office tools, and add-in OCR scenario", () => {
     const formula = resolveExcelPromptScenarios({ content: "请写入动态数组公式" });
     expect(formula.has("formula")).toBe(true);
 
     const tools = resolveExcelPromptScenarios({ content: "清洗 excel 工作表数据" });
     expect(tools.has("office-tools") || tools.has("general-office")).toBe(true);
 
-    const ocr = resolveExcelPromptScenarios({ content: "识别发票图片 OCR" });
+    const ocr = resolveExcelPromptScenarios({ content: "【功能模块：OCR识别】识别发票图片" });
     expect(ocr.has("formula")).toBe(false);
-    expect([...ocr]).not.toContain("ocr-invoice");
-    expect(EXCLUDED_SCENARIOS).toContain("ocr-invoice");
+    expect(ocr.has("ocr-invoice")).toBe(true);
+    expect(EXCLUDED_SCENARIOS).not.toContain("ocr-invoice");
   });
 
   it("builds excel system prompt from adapted + synced templates", () => {
@@ -57,7 +57,7 @@ describe("excel-only prompt routing", () => {
     expect(prompt).toMatch(/2026/);
     expect(prompt).toContain("host.status");
     expect(prompt).toContain("动态数组");
-    expect(prompt.toLowerCase()).not.toMatch(/ocr-invoice/);
+    // formula-only turn should not pull OCR scenario template path marker as capability
     expect(prompt).not.toMatch(/office\.connection\.status|createWorkbook|preferEngine/);
   });
 });

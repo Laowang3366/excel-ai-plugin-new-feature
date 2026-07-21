@@ -18,7 +18,9 @@ describe("prompt sync manifest", () => {
     expect(ids).toContain("system/base.zh-CN.md");
     expect(ids).toContain("scenarios/formula.zh-CN.md");
     expect(ids).toContain("runtime/dynamic-array-enabled.zh-CN.md");
-    expect(ids.some((id) => id.includes("ocr"))).toBe(false);
+    expect(ids).toContain("scenarios/ocr-invoice.zh-CN.md");
+    // Word/PPT-only desktop scenarios remain out of the Excel-only sync set.
+    expect(ids.some((id) => /word|ppt|powerpoint/i.test(id))).toBe(false);
   });
 
   it("desktop-identical generated files match desktop SHA-256", () => {
@@ -46,6 +48,7 @@ describe("prompt sync manifest", () => {
       "scenarios/office-tools.zh-CN.md",
       "scenarios/macro.zh-CN.md",
       "scenarios/general-office.zh-CN.md",
+      "scenarios/ocr-invoice.zh-CN.md",
     ];
     for (const id of adaptedIds) {
       expect(hasAdaptedPrompt(id)).toBe(true);

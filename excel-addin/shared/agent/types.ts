@@ -51,9 +51,15 @@ export interface AgentToolCall {
   argumentsJson: string;
 }
 
+export type AgentContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; mimeType: string; base64: string; fileName?: string };
+
 export interface AgentMessage {
   role: AgentRole;
   content: string;
+  /** Optional multimodal parts (images). Text still mirrored in `content` for history/UI. */
+  contentParts?: AgentContentPart[];
   toolCallId?: string;
   name?: string;
   toolCalls?: AgentToolCall[];
@@ -158,4 +164,6 @@ export interface AgentLoopOptions {
 export interface AgentRunInput {
   userMessage: string;
   history?: AgentMessage[];
+  /** Multimodal parts attached to the current-turn user message only. */
+  userContentParts?: AgentContentPart[];
 }

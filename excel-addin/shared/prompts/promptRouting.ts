@@ -1,9 +1,9 @@
 /**
  * Excel-only prompt routing adapted from desktop promptRouting.
- * OCR / Word / PPT scenarios are intentionally excluded from default load.
+ * Word/PPT-only intents stay excluded; OCR is add-in vision path (no parseDocument).
  */
 
-export type ExcelPromptScenario = "formula" | "office-tools" | "general-office" | "macro";
+export type ExcelPromptScenario = "formula" | "office-tools" | "general-office" | "macro" | "ocr-invoice";
 
 export interface PromptAttachment {
   fileName?: string;
@@ -19,6 +19,8 @@ export interface PromptRoutingContext {
 export type OfficeAdvancedIntent = "refreshable-etl" | "interactive-pivot";
 
 const FEATURE_MODULE_PATTERN = /【功能模块：\s*([^】]+?)\s*】/iu;
+const OCR_INTENT_PATTERN =
+  /(?:发票|票据|图片|字段).{0,6}(?:识别|解析)|(?:识别|解析).{0,6}(?:发票|票据|图片|字段)|\bocr\b|OCR识别|功能模块：\s*OCR/iu;
 const FORMULA_INTENT_PATTERN =
   /(?:动态数组|数组公式|公式(?:写入|生成|函数|场景|助手)|(?:写入|生成|编写|创建).{0,8}(?:excel\s*|wps\s*)?公式|range\.write|expand\s*:\s*["']spill["']|#?spill)/iu;
 const EXCEL_INTENT_PATTERN =
@@ -34,8 +36,8 @@ const REFRESHABLE_ETL_PATTERN =
 const INTERACTIVE_PIVOT_PATTERN =
   /(?:数据透视表|透视表|pivot\s*table|pivottable|切片器|slicer|交互式?透视|透视分析)/iu;
 
-/** Intentionally not resolved in this add-in: ocr-invoice and Word/PPT-only intents. */
-export const EXCLUDED_SCENARIOS = ["ocr-invoice"] as const;
+/** Word/PPT-only intents stay excluded; ocr-invoice is add-in-adapted (no ocr.parseDocument). */
+export const EXCLUDED_SCENARIOS = [] as const;
 
 export function resolveOfficeAdvancedIntents(
   context: PromptRoutingContext = {},
@@ -64,6 +66,21 @@ export function resolveExcelPromptScenarios(
     scenarios.add("formula");
   }
 
+  const moduleIsOcr =
+    moduleName.includes("OCR") ||
+    moduleName.includes("ocr") ||
+    moduleName.includes("发票") ||
+    moduleName.includes("识别");
+  if (
+    moduleIsOcr ||
+    OCR_INTENT_PATTERN.test(content) ||
+    context.attachments?.some((a) =>
+      /\.(?:png|jpe?g|webp|bmp|gif|pdf)$/iu.test(a.fileName || a.filePath || ""),
+    )
+  ) {
+    scenarios.add("ocr-invoice");
+  }
+
   const isMacro = MACRO_INTENT_PATTERN.test(content);
   if (isMacro) {
     scenarios.add("macro");
@@ -74,6 +91,8 @@ export function resolveExcelPromptScenarios(
       !isMacro &&
       (moduleName.includes("代码") ||
         moduleName.includes("报告") ||
+        moduleName.includes("清洗") ||
+        moduleName.includes("图表") ||
         advancedOfficeIntents.size > 0 ||
         EXCEL_INTENT_PATTERN.test(content) ||
         context.attachments?.some(isExcelAttachment))
@@ -81,7 +100,9 @@ export function resolveExcelPromptScenarios(
       scenarios.add("office-tools");
     }
 
-    if (moduleName.includes("报告") || GENERAL_OFFICE_INTENT_PATTERN.test(content)) {
+    if (moduleName.includes("报告") ||
+        moduleName.includes("清洗") ||
+        moduleName.includes("图表") || GENERAL_OFFICE_INTENT_PATTERN.test(content)) {
       scenarios.add("general-office");
     }
   }

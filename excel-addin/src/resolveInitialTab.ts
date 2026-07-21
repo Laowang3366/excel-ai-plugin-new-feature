@@ -1,9 +1,44 @@
-export type AppTab = "chat" | "host" | "tools" | "providers";
+export type AppTab =
+  | "chat"
+  | "host"
+  | "tools"
+  | "providers"
+  | "formula"
+  | "clean"
+  | "chart"
+  | "report"
+  | "ocr";
 
-const TABS: ReadonlySet<AppTab> = new Set(["chat", "host", "tools", "providers"]);
+const TABS: ReadonlySet<AppTab> = new Set([
+  "chat",
+  "host",
+  "tools",
+  "providers",
+  "formula",
+  "clean",
+  "chart",
+  "report",
+  "ocr",
+]);
+
+const PAGE_ALIASES: Record<string, AppTab> = {
+  chat: "chat",
+  host: "host",
+  tools: "tools",
+  providers: "providers",
+  formula: "formula",
+  formulas: "formula",
+  clean: "clean",
+  cleaning: "clean",
+  chart: "chart",
+  charts: "chart",
+  report: "report",
+  reports: "report",
+  ocr: "ocr",
+};
 
 /**
- * Map task-pane URLSearchParams to the existing App tab.
+ * Map task-pane URLSearchParams to the App tab.
  * Unknown / malicious values fall back to chat. Does not write to the DOM.
  */
 export function resolveInitialTabFromSearch(
@@ -22,7 +57,6 @@ export function resolveInitialTabFromSearch(
   const pageRaw = params.get("page");
   if (pageRaw == null || pageRaw === "") return "chat";
 
-  // Reject encoded path tricks / oversized tokens by normalizing once.
   let page = pageRaw;
   try {
     page = decodeURIComponent(pageRaw);
@@ -30,11 +64,6 @@ export function resolveInitialTabFromSearch(
     return "chat";
   }
   page = page.trim().toLowerCase();
-
-  if (page === "providers") return "providers";
-  if (page === "host") return "host";
-  if (page === "tools") return "tools";
-  if (page === "chat") return "chat";
 
   // Legacy deep-link: page=settings&section=model → providers
   if (page === "settings") {
@@ -48,6 +77,8 @@ export function resolveInitialTabFromSearch(
     if (section.trim().toLowerCase() === "model") return "providers";
   }
 
+  const aliased = PAGE_ALIASES[page];
+  if (aliased) return aliased;
   if (TABS.has(page as AppTab)) return page as AppTab;
   return "chat";
 }

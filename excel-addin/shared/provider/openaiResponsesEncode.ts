@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "../tools/types";
 import type { AgentMessage } from "../agent/types";
+import { encodeOpenAiResponsesContent } from "./messageContentEncode";
 import type { ToolNameMaps } from "./openaiToolNameMap";
 
 export type ResponsesEncodeOk = {
@@ -24,7 +25,8 @@ export function encodeResponsesBody(
       input.push({
         type: "message",
         role: msg.role,
-        content: msg.content,
+        content:
+          msg.role === "user" ? encodeOpenAiResponsesContent(msg) : msg.content,
       });
       continue;
     }

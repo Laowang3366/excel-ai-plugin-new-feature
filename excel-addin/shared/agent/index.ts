@@ -1,4 +1,5 @@
 export type {
+  AgentContentPart,
   AgentFinishReason,
   AgentLoopOptions,
   AgentMessage,

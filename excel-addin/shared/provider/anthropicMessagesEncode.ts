@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "../tools/types";
 import type { AgentMessage } from "../agent/types";
+import { encodeAnthropicContent } from "./messageContentEncode";
 import type { ToolNameMaps } from "./openaiToolNameMap";
 
 export type AnthropicEncodeOk = {
@@ -33,7 +34,7 @@ export function encodeAnthropicMessagesBody(
     }
 
     if (msg.role === "user") {
-      out.push({ role: "user", content: msg.content });
+      out.push({ role: "user", content: encodeAnthropicContent(msg) });
       i += 1;
       continue;
     }

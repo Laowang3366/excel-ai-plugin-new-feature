@@ -141,7 +141,12 @@ export class ChatController {
     return gate.reject(id);
   }
 
-  async send(userMessage: string): Promise<ChatSendResult> {
+  async send(
+    userMessage: string,
+    options?: {
+      contentParts?: import("../agent/types").AgentContentPart[];
+    },
+  ): Promise<ChatSendResult> {
     const trimmed = typeof userMessage === "string" ? userMessage.trim() : "";
     if (!trimmed) {
       return this.preflightEnd("empty", { message: "empty message" });
@@ -249,7 +254,11 @@ export class ChatController {
     });
 
     try {
-      const result = await loop.run({ userMessage: trimmed, history });
+      const result = await loop.run({
+        userMessage: trimmed,
+        history,
+        userContentParts: options?.contentParts,
+      });
       this.committed = result.messages.slice();
       this.lastAssistantText = result.assistantText;
       this.lastRunSummary = {

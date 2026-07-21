@@ -3,6 +3,7 @@ import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { ChatPanel } from "../src/components/ChatPanel";
+import { ChatSessionProvider } from "../src/chat/ChatSessionContext";
 import {
   ChatController,
   type ApprovalRequest,
@@ -213,14 +214,10 @@ describe("Chat approval UI", () => {
       apiFormat: "openai",
     });
     const m = mount(
-      <ChatPanel
-        store={store}
-        adapter={new MockHostAdapter()}
-        createController={(deps) => {
+      <ChatSessionProvider store={store} adapter={new MockHostAdapter()} createController={(deps) => {
           fake = new ApprovalFake(deps);
           return fake as unknown as ChatController;
-        }}
-      />,
+        }}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;

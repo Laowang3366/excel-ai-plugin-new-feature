@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "../tools/types";
 import type { AgentMessage } from "../agent/types";
+import { encodeOpenAiChatContent } from "./messageContentEncode";
 import type { ToolNameMaps } from "./openaiToolNameMap";
 
 export type EncodeOk = {
@@ -22,7 +23,11 @@ export function encodeChatCompletionsBody(
   }
   for (const msg of messages) {
     if (msg.role === "system" || msg.role === "user") {
-      out.push({ role: msg.role, content: msg.content });
+      out.push({
+        role: msg.role,
+        content:
+          msg.role === "user" ? encodeOpenAiChatContent(msg) : msg.content,
+      });
       continue;
     }
     if (msg.role === "assistant") {

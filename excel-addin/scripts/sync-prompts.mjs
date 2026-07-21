@@ -26,6 +26,7 @@ const SOURCES = [
   "scenarios/general-office.zh-CN.md",
   "scenarios/office-tools.zh-CN.md",
   "scenarios/macro.zh-CN.md",
+  "scenarios/ocr-invoice.zh-CN.md",
   "runtime/environment.zh-CN.md",
   "runtime/dynamic-array-enabled.zh-CN.md",
   "runtime/dynamic-array-disabled.zh-CN.md",
@@ -74,7 +75,7 @@ function main() {
   const manifest = {
     generatedAt: new Date().toISOString(),
     sourceRoot: "desktop/electron/agent/prompts/templates",
-    note: "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. OCR/Word/PPT scenarios excluded by design.",
+    note: "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. ocr-invoice synced for audit; add-in uses templates/ overlay (no ocr.parseDocument). Word/PPT remain excluded.",
     files: entries,
   };
 

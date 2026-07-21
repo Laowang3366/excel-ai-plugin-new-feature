@@ -7,6 +7,11 @@ describe("resolveInitialTabFromSearch", () => {
     expect(resolveInitialTabFromSearch("?page=providers")).toBe("providers");
     expect(resolveInitialTabFromSearch(new URLSearchParams("page=host"))).toBe("host");
     expect(resolveInitialTabFromSearch("page=tools")).toBe("tools");
+    expect(resolveInitialTabFromSearch("page=formula")).toBe("formula");
+    expect(resolveInitialTabFromSearch("page=clean")).toBe("clean");
+    expect(resolveInitialTabFromSearch("page=chart")).toBe("chart");
+    expect(resolveInitialTabFromSearch("page=report")).toBe("report");
+    expect(resolveInitialTabFromSearch("page=ocr")).toBe("ocr");
   });
 
   it("supports legacy settings/model deep-link", () => {

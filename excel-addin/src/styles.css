@@ -420,3 +420,48 @@ button.danger {
 .app.app--wps-jsa .permission-mode-bar select {
   max-width: 100%;
 }
+
+
+/* Task entry panels (shared chat session) */
+.task-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.task-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.task-field label,
+.task-check {
+  min-width: 0;
+}
+.task-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.task-chip-list,
+.task-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.task-chip {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+}
+.task-status {
+  min-width: 0;
+}
+.task-panel input,
+.task-panel select,
+.task-panel textarea {
+  max-width: 100%;
+  min-width: 0;
+}

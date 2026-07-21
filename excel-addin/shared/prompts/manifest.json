@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-20T12:06:13.577Z",
+  "generatedAt": "2026-07-21T05:53:39.663Z",
   "sourceRoot": "desktop/electron/agent/prompts/templates",
-  "note": "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. OCR/Word/PPT scenarios excluded by design.",
+  "note": "generated/ keeps desktop-synced copies for audit; templates/ overlays adapt Excel-applicable rules for Office.js/WPS JSA add-in. ocr-invoice synced for audit; add-in uses templates/ overlay (no ocr.parseDocument). Word/PPT remain excluded.",
   "files": [
     {
       "id": "system/base.zh-CN.md",
@@ -49,6 +49,14 @@
       "generatedPath": "shared/prompts/generated/scenarios/macro.zh-CN.md",
       "sha256": "d9d633d6a35ef4abb7b04c194f8e8d9d930a1c6077c0130f3b40981276f159cb",
       "bytes": 1273,
+      "mode": "addin-adapted"
+    },
+    {
+      "id": "scenarios/ocr-invoice.zh-CN.md",
+      "sourcePath": "desktop/electron/agent/prompts/templates/scenarios/ocr-invoice.zh-CN.md",
+      "generatedPath": "shared/prompts/generated/scenarios/ocr-invoice.zh-CN.md",
+      "sha256": "aadb00ac706b24d4a1f20b5f8940dc8bc335265fda3a0ba2d3b8f88c050d9a5a",
+      "bytes": 1155,
       "mode": "addin-adapted"
     },
     {

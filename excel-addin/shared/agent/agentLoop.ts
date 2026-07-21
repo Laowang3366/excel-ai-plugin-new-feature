@@ -79,9 +79,16 @@ export class AgentLoop {
     const maxRounds = this.options.maxRounds ?? 8;
     const signal = this.options.signal;
     const historyLen = input.history?.length ?? 0;
+    const userMessage: AgentMessage = {
+      role: "user",
+      content: input.userMessage,
+      ...(input.userContentParts && input.userContentParts.length > 0
+        ? { contentParts: input.userContentParts }
+        : {}),
+    };
     const messages: AgentMessage[] = [
       ...(input.history ? input.history.slice() : []),
-      { role: "user", content: input.userMessage },
+      userMessage,
     ];
     // Current-turn user message index; history + current-turn tool chains after it are protected.
     const protectFromIndex = historyLen;

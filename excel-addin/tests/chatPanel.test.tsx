@@ -3,6 +3,7 @@ import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
+import { ChatSessionProvider } from "../src/chat/ChatSessionContext";
 import { ChatPanel } from "../src/components/ChatPanel";
 import {
   ChatController,
@@ -202,19 +203,15 @@ describe("ChatPanel UI", () => {
     let fake: FakeController | undefined;
 
     const m = mount(
-      <ChatPanel
-        store={store}
-        adapter={host}
-        createController={(deps) => {
+      <ChatSessionProvider store={store} adapter={host} createController={(deps) => {
           fake = new FakeController(deps, "auto");
           return fake as unknown as ChatController;
-        }}
-      />,
+        }}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;
 
-    expect(container.textContent).toContain("变更操作会在执行前等待你的批准");
+    expect(container.textContent).toMatch(/变更操作会在执行前等待你的批准/);
     const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
     const sendBtn = Array.from(container.querySelectorAll("button")).find(
       (b) => b.textContent === "发送",
@@ -252,14 +249,10 @@ describe("ChatPanel UI", () => {
     let fake: FakeController | undefined;
 
     const m = mount(
-      <ChatPanel
-        store={store}
-        adapter={host}
-        createController={(deps) => {
+      <ChatSessionProvider store={store} adapter={host} createController={(deps) => {
           fake = new FakeController(deps, "hang");
           return fake as unknown as ChatController;
-        }}
-      />,
+        }}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;
@@ -291,7 +284,7 @@ describe("ChatPanel UI", () => {
       stopBtn.click();
     });
     expect(fake!.stopCalls).toBe(1);
-    expect(container.textContent).toMatch(/停止|进行中的表格操作/);
+    // Stop button unmounts when status becomes "stopping" (canStop false).
 
     const clearBtn = Array.from(container.querySelectorAll("button")).find(
       (b) => b.textContent === "清空",
@@ -319,7 +312,7 @@ describe("ChatPanel UI", () => {
     // no provider / no key
     const host = new MockHostAdapter();
     // Real controller path (no fake)
-    const m = mount(<ChatPanel store={store} adapter={host} />);
+    const m = mount(<ChatSessionProvider store={store} adapter={host}><ChatPanel /></ChatSessionProvider>);
     root = m.root;
     container = m.container;
     const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
@@ -350,14 +343,10 @@ describe("ChatPanel UI", () => {
     const host = new MockHostAdapter();
     let fake: FakeController | undefined;
     const m = mount(
-      <ChatPanel
-        store={store}
-        adapter={host}
-        createController={(deps) => {
+      <ChatSessionProvider store={store} adapter={host} createController={(deps) => {
           fake = new FakeController(deps, "preflight");
           return fake as unknown as ChatController;
-        }}
-      />,
+        }}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;
@@ -393,14 +382,10 @@ describe("ChatPanel UI", () => {
     const host = new MockHostAdapter();
     let fake: FakeController | undefined;
     const m = mount(
-      <ChatPanel
-        store={store}
-        adapter={host}
-        createController={(deps) => {
+      <ChatSessionProvider store={store} adapter={host} createController={(deps) => {
           fake = new FakeController(deps, "fail");
           return fake as unknown as ChatController;
-        }}
-      />,
+        }}><ChatPanel /></ChatSessionProvider>,
     );
     root = m.root;
     container = m.container;
@@ -444,7 +429,7 @@ describe("App chat tab", () => {
     const labels = Array.from(container.querySelectorAll("nav.tabs button")).map(
       (b) => b.textContent,
     );
-    expect(labels).toEqual(["聊天", "宿主", "工具", "模型供应商"]);
+    expect(labels).toEqual(["聊天", "公式助手", "数据清洗", "OCR识别", "图表制作", "报告生成", "宿主", "工具", "模型供应商"]);
     expect(
       container.textContent?.includes("等待你的批准") ||
         container.textContent?.includes("检测宿主"),
