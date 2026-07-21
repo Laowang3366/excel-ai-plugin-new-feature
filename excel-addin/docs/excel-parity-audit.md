@@ -2,9 +2,9 @@
 
 Phase60 evidence close-out + parity classification.
 
-**Phase:** Phase60  
-**Baseline HEAD:** `c46362f81c2a7c334ab0ded60e854de287fedd12` (`c46362f8`)  
-**Scope:** documentation / evidence only — no runtime, desktop, or installer code changes.  
+**Phase:** Phase60
+**Baseline HEAD:** `c46362f81c2a7c334ab0ded60e854de287fedd12` (`c46362f8`)
+**Scope:** documentation / evidence only — no runtime, desktop, or installer code changes.
 **Evidence order:** running source under `excel-addin/shared/**` and `desktop/electron/agent/tools/**` > phase history text.
 
 ## 1. Real-device WPS evidence (narrow, closed)
@@ -17,7 +17,7 @@ Phase60 evidence close-out + parity classification.
 | Ribbon | Same install state; **cold start** restored 「文格 AI」 tab; click 「打开助手」 → task pane full render; **no** package/code change → prior absence = load/cache **transient**, not code regression |
 | `selection.get` | Blank workbook, Sheet1, selection G17 → `ok:true`, `tool:"selection.get"`, `sheetName:"Sheet1"`, `address:"G17"`, `values:[[null]]` |
 
-**Do not expand:** this is **not** a pass for other WPS tools, Office.js Excel sideload, or full 98-tool device matrix.  
+**Do not expand:** this is **not** a pass for other WPS tools, Office.js Excel sideload, or full 98-tool device matrix.
 `implemented*` elsewhere remains **member-probe + mock/unit only**.
 
 Sources for the closed Address path:
@@ -133,7 +133,7 @@ Disk open/create/saveAs/switch; macros; Power Query; COM/.NET/Electron/child_pro
 
 ### D. Real gaps still inside pure Office.js / WPS JSA (evidence-gated)
 
-There is **no additional WPS feature** with both (1) in-repo bridge/member evidence and (2) missing implementation, after CF/DV/structure/format/governance batches.  
+There is **no additional WPS feature** with both (1) in-repo bridge/member evidence and (2) missing implementation, after CF/DV/structure/format/governance batches.
 See `excel-addin/docs/wps-remaining-capability-audit.md`.
 
 Candidates that would require **new** host evidence before coding:
