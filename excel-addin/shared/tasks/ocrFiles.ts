@@ -37,14 +37,40 @@ export function isLikelyInvoiceFile(file: File): boolean {
 }
 
 export async function readFileAsBase64(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  // Prefer arrayBuffer; fall back to FileReader for jsdom / partial File shims.
+  if (typeof file.arrayBuffer === "function") {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
   }
-  return btoa(binary);
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("FileReader failed"));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        return;
+      }
+      if (result instanceof ArrayBuffer) {
+        const bytes = new Uint8Array(result);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 1) {
+          binary += String.fromCharCode(bytes[i]!);
+        }
+        resolve(btoa(binary));
+        return;
+      }
+      reject(new Error("unsupported FileReader result"));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function mimeTypeForFile(file: File): string {

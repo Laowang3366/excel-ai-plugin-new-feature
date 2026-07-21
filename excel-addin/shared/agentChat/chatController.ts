@@ -141,6 +141,106 @@ export class ChatController {
     return gate.reject(id);
   }
 
+
+  /**
+   * Run a single host tool through ApprovingToolExecutor + current permission mode.
+   * Emits the same approval_needed / approval_resolved events as chat tool turns.
+   * Does not call the model and does not append chat history.
+   */
+  async executeTool(
+    toolName: string,
+    args: Record<string, unknown>,
+    options?: { toolCallId?: string },
+  ): Promise<import("./types").ChatToolExecuteResult> {
+    if (this.status !== "idle") {
+      return {
+        ok: false,
+        tool: toolName,
+        error: "chat is busy",
+      };
+    }
+    if (!toolName || typeof toolName !== "string") {
+      return { ok: false, tool: String(toolName), error: "invalid tool name" };
+    }
+
+    this.status = "running";
+    this.lastError = undefined;
+    this.pendingApproval = null;
+    this.currentToolCallId = options?.toolCallId ?? `ui-${toolName}`;
+    this.currentRound = 0;
+
+    const gate = new ApprovalGate();
+    this.gate = gate;
+    let requiredApproval = false;
+
+    this.unsubGate = gate.subscribe((event) => {
+      if (event.type === "requested") {
+        requiredApproval = true;
+        this.pendingApproval = { ...event.request };
+        if (this.status !== "stopping") {
+          this.status = "awaiting_approval";
+        }
+        this.emit({ type: "approval_needed", request: { ...event.request } });
+        return;
+      }
+      if (this.pendingApproval?.requestId === event.requestId) {
+        this.pendingApproval = null;
+      }
+      if (
+        (event.decision === "approved" || event.decision === "rejected") &&
+        this.status === "awaiting_approval"
+      ) {
+        this.status = "running";
+      }
+      this.emit({
+        type: "approval_resolved",
+        requestId: event.requestId,
+        decision: event.decision,
+        request: { ...event.request },
+      });
+    });
+
+    const executor = new ApprovingToolExecutor(
+      new ToolExecutor(this.host),
+      gate,
+      () => ({
+        toolCallId: this.currentToolCallId,
+        round: this.currentRound,
+      }),
+      () => this.getPermissionMode(),
+    );
+
+    try {
+      const result = await executor.execute({
+        name: toolName as import("../tools/types").ToolName,
+        arguments: args,
+      });
+      if (!result.ok) {
+        this.lastError = { message: result.error, kind: "provider" };
+      }
+      return {
+        ok: result.ok,
+        tool: toolName,
+        result,
+        error: result.ok ? undefined : result.error,
+        requiredApproval,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.lastError = { message, kind: "provider" };
+      return { ok: false, tool: toolName, error: message, requiredApproval };
+    } finally {
+      this.gate?.cancelAll("executeTool end");
+      this.unsubGate?.();
+      this.unsubGate = null;
+      this.gate = null;
+      this.pendingApproval = null;
+      this.currentToolCallId = undefined;
+      this.currentRound = undefined;
+      this.status = "idle";
+    }
+  }
+
   async send(
     userMessage: string,
     options?: {

@@ -6,6 +6,7 @@
 
 ### Excel 加载项
 
+- 独立 Excel 加载项：OCR 识别结果预览与受控写入——严格 `WENGGE_OCR_RESULT_V1` 标记解析（失败则只展示原始文本）、字段勾选、「写入整段文本/写入所选字段」经 `ChatController.executeTool`→`ApprovingToolExecutor`/`range.write` 审批边界；PDF 仍 typed unsupported；UI 不展示 Base64/API Key。
 - 独立 Excel 加载项：新增公式助手/数据清洗/OCR 识别/图表制作/报告生成五个任务入口；复用桌面 payload 语义与共享 ChatController；OCR 浏览器上传+多模态编码（PDF typed unsupported）；WPS 图表边界明示；深链 page=formula|clean|ocr|chart|report。
 - 独立 Excel 加载项 Phase61：WPS 任务窗格布局代码修复——`hostKind==="wps-jsa"` 输出 `data-host`/`.app--wps-jsa`，取消居中并 `max-width:520px`（对应可见逻辑宽 ~517@1.25），tabs wrap 与表单 `min-width:0`；Office.js/浏览器保持 720 居中。**真机裁剪复测待主控安装验证**，不宣称布局已通过。
 - 独立 Excel 加载项 Phase60：WPS 真机证据收口（12.1.0.26885 / 安装包 gitSha `c46362f8`，`wps:status` current + drift=[]）：同一安装状态冷启动后「文格 AI」Ribbon 恢复；任务窗格**成功打开并加载 UI**，但**布局完整性未通过**（右侧已测裁剪，见 Phase60.1）；空白 Sheet1!G17 上 `selection.get` 真机返回 `ok:true` / `address:"G17"` / `values:[[null]]`。此前 Ribbon 缺失判为加载/缓存瞬态而非代码回归。新增 `excel-addin/docs/excel-parity-audit.md` 对照桌面窗口工具、excelCapabilities 与 98 项 TOOL_DEFINITIONS；其它 implemented* 仍仅 member-probe/mock，**不**宣称全部 WPS 能力真机通过，也不宣称任务窗格布局完整通过。

@@ -67,6 +67,7 @@ export type {
   ChatControllerState,
   ChatPublicError,
   ChatSendResult,
+  ChatToolExecuteResult,
   ChatTraceEvent,
   ChatTurnStatus,
   ChatControllerStatus,

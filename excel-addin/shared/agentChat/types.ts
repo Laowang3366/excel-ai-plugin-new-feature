@@ -103,4 +103,15 @@ export interface ChatSendResult {
   run?: AgentRunResult;
 }
 
+/** Result of ChatController.executeTool (approval-gated host tool). */
+export interface ChatToolExecuteResult {
+  ok: boolean;
+  tool: string;
+  /** Host tool result when execution completed (including tool-level ok:false). */
+  result?: import("../tools/types").ToolResult;
+  error?: string;
+  /** True when the call waited on ApprovalGate. */
+  requiredApproval?: boolean;
+}
+
 export type { LoopEvent, ApprovalRequest, ApprovalDecision };

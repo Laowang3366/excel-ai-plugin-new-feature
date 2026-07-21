@@ -1,5 +1,7 @@
 /** Desktop-aligned task payload builders for the Excel add-in (no IPC/paths). */
 
+import { ocrResultProtocolInstruction } from "./ocrResultProtocol";
+
 export type HostEnvironment = "wps" | "microsoft_excel" | "unknown";
 export type ReferenceSampleMode = "partial" | "complete";
 export type ReportOutputFormat = "excel" | "word" | "ppt";
@@ -176,7 +178,8 @@ export function buildOcrTaskPayload(input: {
     lines.push(`写入锚点（可选）：${input.outputRange.trim()}`);
   }
   lines.push(
-    "边界：加载项无 ocr.parseDocument / 文件路径 IPC；请直接阅读本轮多模态图片内容。PDF 若无法可靠解析须返回 unsupported，禁止假成功。写入工作表使用 range.write 并遵守审批。",
+    "边界：加载项无 ocr.parseDocument / 文件路径 IPC；请直接阅读本轮多模态图片内容。PDF 若无法可靠解析须返回 unsupported，禁止假成功。写入工作表由加载项 UI 经审批调用 range.write，本轮请勿自行 range.write。",
   );
+  lines.push(ocrResultProtocolInstruction());
   return lines.join("\n");
 }

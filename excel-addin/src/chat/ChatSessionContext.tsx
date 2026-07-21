@@ -12,6 +12,7 @@ import {
   type ChatViewState,
 } from "./useChatController";
 import type { AgentContentPart } from "@shared/agent";
+import type { ChatToolExecuteResult } from "@shared/agentChat";
 
 export interface ChatSessionValue {
   view: ChatViewState;
@@ -20,6 +21,11 @@ export interface ChatSessionValue {
     options?: { contentParts?: AgentContentPart[] },
   ) => Promise<ChatSendOutcome>;
   retry: (turnId: string) => Promise<ChatSendOutcome>;
+  executeTool: (
+    toolName: string,
+    args: Record<string, unknown>,
+    options?: { toolCallId?: string },
+  ) => Promise<ChatToolExecuteResult>;
   stop: () => void;
   clear: () => void;
   approve: (requestId?: string) => boolean;

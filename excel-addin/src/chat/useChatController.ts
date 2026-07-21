@@ -43,6 +43,8 @@ export interface ChatSendOutcome {
   turnStatus?: ChatTurnStatus;
   /** User text that should stay in the composer when not accepted. */
   restoreText?: string;
+  /** Final assistant text when a turn completed (for task result parsing). */
+  assistantText?: string;
 }
 
 let turnSeq = 0;
@@ -79,6 +81,11 @@ export function useChatController(options: UseChatControllerOptions): {
     options?: { contentParts?: AgentContentPart[] },
   ) => Promise<ChatSendOutcome>;
   retry: (turnId: string) => Promise<ChatSendOutcome>;
+  executeTool: (
+    toolName: string,
+    args: Record<string, unknown>,
+    options?: { toolCallId?: string },
+  ) => Promise<import("@shared/agentChat").ChatToolExecuteResult>;
   stop: () => void;
   clear: () => void;
   approve: (requestId?: string) => boolean;
@@ -307,7 +314,13 @@ export function useChatController(options: UseChatControllerOptions): {
       setLiveAssistant("");
       setStatus("idle");
       if (activeTurnId.current === id) activeTurnId.current = null;
-      return { accepted: true, turnStatus: result.turnStatus };
+      return {
+        accepted: true,
+        turnStatus: result.turnStatus,
+        assistantText:
+          result.run?.assistantText ??
+          controllerRef.current?.getState().lastAssistantText,
+      };
     },
     [isLive],
   );
@@ -359,6 +372,54 @@ export function useChatController(options: UseChatControllerOptions): {
     return c.approve(requestId);
   }, []);
 
+
+  const executeTool = useCallback(
+    async (
+      toolName: string,
+      args: Record<string, unknown>,
+      options?: { toolCallId?: string },
+    ) => {
+      const c = controllerRef.current;
+      if (!c) {
+        return {
+          ok: false,
+          tool: toolName,
+          error: "controller not ready",
+        };
+      }
+      if (c.getState().status !== "idle") {
+        return { ok: false, tool: toolName, error: "chat is busy" };
+      }
+      const gen = generationRef.current;
+      if (!disposedRef.current) {
+        setBannerError(undefined);
+        setPendingApproval(null);
+        setStatus("running");
+      }
+      try {
+        const result = await c.executeTool(toolName, args, options);
+        if (!isLive(gen)) {
+          return result;
+        }
+        setPendingApproval(null);
+        setStatus("idle");
+        if (!result.ok && result.error) {
+          setBannerError(result.error);
+        }
+        return result;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isLive(gen)) {
+          setPendingApproval(null);
+          setStatus("idle");
+          setBannerError(message);
+        }
+        return { ok: false, tool: toolName, error: message };
+      }
+    },
+    [isLive],
+  );
+
   const reject = useCallback((requestId?: string) => {
     const c = controllerRef.current;
     if (!c) return false;
@@ -390,6 +451,7 @@ export function useChatController(options: UseChatControllerOptions): {
     },
     send,
     retry,
+    executeTool,
     stop,
     clear,
     approve,

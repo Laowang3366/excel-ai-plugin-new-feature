@@ -465,3 +465,15 @@ button.danger {
   max-width: 100%;
   min-width: 0;
 }
+
+.ocr-preview { border-top: 1px solid var(--border, #ddd); padding-top: 8px; min-width: 0; }
+.ocr-preview-text {
+  margin: 0; padding: 8px; white-space: pre-wrap; word-break: break-word;
+  max-height: 12rem; overflow: auto; font-size: 0.8rem; min-width: 0; max-width: 100%;
+}
+.ocr-table-wrap { overflow: auto; max-width: 100%; min-width: 0; }
+.ocr-preview-table { border-collapse: collapse; font-size: 0.75rem; max-width: 100%; }
+.ocr-preview-table td {
+  border: 1px solid var(--border, #ddd); padding: 2px 4px; max-width: 8rem;
+  overflow: hidden; text-overflow: ellipsis;
+}

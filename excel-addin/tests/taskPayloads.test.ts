@@ -83,6 +83,7 @@ describe("task payloads (desktop-aligned modules)", () => {
       outputRange: "A1",
     });
     expect(payload).toContain("【功能模块：OCR识别】");
+    expect(payload).toContain("WENGGE_OCR_RESULT_V1");
     const sc = resolveExcelPromptScenarios({ content: payload });
     expect(sc.has("ocr-invoice")).toBe(true);
     const prompt = composeExcelSystemPrompt({
