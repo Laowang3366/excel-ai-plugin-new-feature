@@ -2,9 +2,14 @@
 
 独立 `excel-addin/` 包：Office.js + WPS JSA 任务窗格骨架，**不**依赖 Electron / COM / .NET Worker，也不是根 workspace 成员。
 
-> **交付状态**：代码与单测可验证；**尚未**在真实 Windows Microsoft Excel / WPS 完成侧载验收。
+> **交付状态（分层）**：
+> - **代码/单测/打包**：Linux CI 可验证（test/typecheck/build/manifest/package）。
+> - **Microsoft Excel 真实侧载**：**未验收**。
+> - **WPS 安装与加载**：Windows 真机已见 `package:wps` → `wps:install` → `status current`、authaddin `enable/isload=true`、目录 `WenggeExcelAiAddin_`。
+> - **WPS Ribbon / 任务窗格**：12.1 曾验证「文格 AI」三入口打开 chat/providers/host 与 `host.status` connected；**包更新后需完整冷启动复验**（仅 `isload` 不够；重装后若 Ribbon 暂缺，先结束全部 ET/WPS 进程再开）。
+> - **WPS `selection.get` Address**：真机曾暴露方法被 `String(fn)` 污染；Phase59 已修；**待 Ribbon 可点后复验**。其它 WPS 工具仍 member-probe*，**不得**整表宣称真机通过。
 >
-> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。Phase56：WPS JSA `wps:install`/`status`/`uninstall` 可重复安装 CLI（install-time only）。Phase58–59：Ribbon 任务窗格与 page 深链（WPS 12.1 三入口 + host.status 已真机见）；Phase59 修复 `Address` 方法读址（`selection.get` 需重装后再验）。其它 WPS 能力仍 member-probe*，`isload:true` ≠ 功能全通过。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
+> 工具总数 98。本仓库 Linux 环境 ≠ 宿主验收；`isload:true` / `status current` ≠ 功能全通过。
 
 ## 命令
 
@@ -141,13 +146,13 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 ### WPS JSA 本地 jsaddons 包与可重复安装
 
 **真实 WPS 侧载证据（12.1.0.26885，包目录 `WenggeExcelAiAddin_`）：**
-- Ribbon「文格 AI」三入口（打开助手 / 模型配置 / 宿主状态）已打开对应任务窗格。
-- `host.status` 返回 `kind:"wps-jsa"`, `connected:true`。
-- `selection.get` 曾把 `Address` 方法误读为函数源码字符串；Phase59 起通过 `readWpsAddress` 兼容属性/零参方法。
-- 除上述入口与 host.status / selection Address 修复外，其它 WPS 能力仍为 member-probe*，**不得**整表宣称真机通过。
+- 安装：`wps:install` + `status current` + authaddin `enable/isload=true` 已见。
+- Ribbon「文格 AI」三入口与 `host.status`（`kind:"wps-jsa"`, `connected:true`）曾在真机打开验证。
+- `selection.get` 曾返回可用 values，但 Address 被读成函数源码；Phase59 已用 `readWpsAddress` 修复（**待 Ribbon 可点后复验 G17**）。
+- 包更新后可能弹出「加载项已被修改」；确认后仍建议**完整退出所有 WPS/ET 进程**再开。仅 isload 不能证明 Ribbon 已绘制。
+- 其它 WPS 工具仍 member-probe*；**Microsoft Excel 侧载仍未验收**。
 
-
-可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。**真实 WPS 侧载仍未验收**，不得宣称宿主已通过。安装器**不会**启动/结束/附加任何 WPS 进程。
+可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。安装与 `status current` / isload 已在真机见过；**不等于**全部能力或当前会话 Ribbon 一定可见。安装器**不会**启动/结束/附加任何 WPS 进程。
 
 ```bash
 npm run manifest:wps:check
@@ -162,7 +167,7 @@ npm run wps:install -- --package-dir ./dist --app-data /path/to/AppData/Roaming
 
 安装并**完整退出/重启 WPS** 后，功能区「文格 AI」提供「打开助手 / 模型配置 / 宿主状态」。
 任务窗格 URL 从本地 index 派生（`?page=chat|providers|host`），不会写死外网域名。
-本仓库 CI/服务器**不得**把 authaddin isload=true 或 status current 等同于真实 UI 已通过。
+本仓库 CI/服务器**不得**把 authaddin `isload=true` 或 `status current` 单独等同于 Ribbon/全部工具已通过；包更新后若 Ribbon 缺失，优先完整结束 WPS/ET 进程后冷启动，并确认 `index.html` 中 `wps-entry.js` 先于 module 脚本加载。
 
 # 无 --package-dir 时会先重建项目 dist/ 再安装（dry-run 亦可能写 dist，但不写 AppData）
 npm run wps:install -- --git-sha 0123456789abcdef --app-data /path/to/AppData/Roaming
@@ -190,4 +195,4 @@ npm run wps:uninstall -- --app-data /path/to/AppData/Roaming
 - 不替换 `desktop/` Electron 产品
 - 不引入 COM / .NET / Electron 运行时
 - 不伪造宿主不支持的能力（返回 typed `unsupported`）
-- 不宣称真实 Microsoft Excel / WPS 侧载已通过（Linux CI 与本地打包 ≠ 宿主验收）
+- 不宣称 Microsoft Excel 侧载已通过；WPS 仅记录已见的安装/加载与曾验证入口，不宣称全部能力真机通过（Linux CI ≠ 宿主验收）

@@ -142,9 +142,10 @@ describe("WPS entry task pane lifecycle", () => {
 
   it("onLoad stores ribbonUI", () => {
     const env = loadEntry({});
-    const ui = { id: "ribbon" };
+    const ui = { id: "ribbon", invalidateCalls: 0, Invalidate() { this.invalidateCalls += 1; } };
     env.window.WenggeExcelAiOnLoad(ui);
     expect(env.window.__WenggeExcelAiEntryTest.getRibbonUI()).toBe(ui);
+    expect(ui.invalidateCalls).toBe(1);
   });
 
   it("builds chat/provider/host URLs from current file location only", () => {

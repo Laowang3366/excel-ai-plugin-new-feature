@@ -30,7 +30,7 @@
 
 ## 正式本地 jsaddons 包
 
-仓库可生成**正式本地 file:// 包**（非下一阶段占位）。**真实 WPS 侧载尚未验收**。
+仓库可生成**正式本地 file:// 包**。真机已见安装/`status current`/isload；Ribbon 与工具能力需本机冷启动后按项复验，不得整表宣称通过。
 
 ```bash
 # 在 excel-addin/ 下
@@ -46,7 +46,7 @@ npm run package:wps -- --git-sha <sha>
 | `WenggeExcelAiAddin_/` | 任务窗格静态资源（`--base ./`）、`manifest.xml`、`ribbon.xml`、`wps-entry.js` |
 | `BUILD_INFO.json` / `SHA256SUMS.txt` | 构建元数据与哈希 |
 
-Windows 安装骨架（需完整重启 WPS；本仓库未验收）：
+Windows 安装骨架（需完整退出所有 WPS/ET 进程后重启）：
 
 1. 将 `WenggeExcelAiAddin_/` 复制到 `%AppData%\kingsoft\wps\jsaddons\`。
 2. 将 `publish.xml` 中对应 `jsplugin` 条目合并进同目录下的 `publish.xml`（若已有其它加载项，保留其它节点）。

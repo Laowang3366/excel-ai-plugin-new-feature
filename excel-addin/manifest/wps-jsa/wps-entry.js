@@ -2,7 +2,7 @@
  * WPS JSA ribbon entry (browser + WPS host only).
  * Opens a real task pane via CreateTaskPane; never Node/Electron/COM.
  */
-(function () {
+(function (global) {
   "use strict";
 
   var STORAGE_PANE_ID = "WenggeExcelAi.taskPaneId";
@@ -13,6 +13,34 @@
 
   /** @type {unknown} */
   var ribbonUI = null;
+
+  /** Bind ribbon callbacks on window/globalThis for host name resolution. */
+  function bindGlobal(name, fn) {
+    var targets = [];
+    if (global && typeof global === "object") targets.push(global);
+    try {
+      if (typeof window !== "undefined" && window && typeof window === "object") {
+        targets.push(window);
+      }
+    } catch (_e1) {
+      /* ignore */
+    }
+    try {
+      if (typeof globalThis !== "undefined" && globalThis && typeof globalThis === "object") {
+        targets.push(globalThis);
+      }
+    } catch (_e2) {
+      /* ignore */
+    }
+    for (var i = 0; i < targets.length; i += 1) {
+      try {
+        targets[i][name] = fn;
+      } catch (_e3) {
+        /* ignore */
+      }
+    }
+  }
+
 
   function resolveApi() {
     try {
@@ -380,44 +408,65 @@
    * Ribbon getImage callback (host-proven pattern).
    * Returns only fixed package-relative PNG paths — never user/path/URL input.
    */
-  window.WenggeExcelAiGetImage = function (control) {
+  function getImage(control) {
     var id = controlIdOf(control);
     if (id === "wenggeExcelAiOpenHostButton") return ICON_16;
     if (id === "wenggeExcelAiOpenChatButton") return ICON_32;
     if (id === "wenggeExcelAiOpenProvidersButton") return ICON_32;
     return ICON_32;
-  };
+  }
 
-  window.WenggeExcelAiOnLoad = function (ui) {
+  function onLoad(ui) {
     ribbonUI = ui || null;
-  };
+    // After add-in package replace, force ribbon to re-query getVisible/getImage.
+    try {
+      if (ribbonUI && typeof ribbonUI.Invalidate === "function") {
+        ribbonUI.Invalidate();
+      }
+    } catch (_inv) {
+      /* optional host capability */
+    }
+  }
 
-  window.WenggeExcelAiTabVisible = function () {
+  function tabVisible() {
     return true;
-  };
+  }
 
-  window.WenggeExcelAiOpenChat = function () {
+  function openChat() {
     return openTaskPaneForRoute("chat");
-  };
+  }
 
-  window.WenggeExcelAiOpenProviders = function () {
+  function openProviders() {
     return openTaskPaneForRoute("providers");
-  };
+  }
 
-  window.WenggeExcelAiOpenHost = function () {
+  function openHost() {
     return openTaskPaneForRoute("host");
-  };
+  }
+
+  bindGlobal("WenggeExcelAiGetImage", getImage);
+  bindGlobal("WenggeExcelAiOnLoad", onLoad);
+  bindGlobal("WenggeExcelAiTabVisible", tabVisible);
+  bindGlobal("WenggeExcelAiOpenChat", openChat);
+  bindGlobal("WenggeExcelAiOpenProviders", openProviders);
+  bindGlobal("WenggeExcelAiOpenHost", openHost);
 
   // Expose for tests only (idempotent, no auto-open side effects at load).
-  window.__WenggeExcelAiEntryTest = {
+  bindGlobal("__WenggeExcelAiEntryTest", {
     buildTaskPaneUrl: buildTaskPaneUrl,
     normalizeRoute: normalizeRoute,
     resolveApi: resolveApi,
     openTaskPaneForRoute: openTaskPaneForRoute,
-    getImage: window.WenggeExcelAiGetImage,
+    getImage: getImage,
     controlIdOf: controlIdOf,
     getRibbonUI: function () {
       return ribbonUI;
     },
-  };
-})();
+  });
+})(
+  typeof window !== "undefined"
+    ? window
+    : typeof globalThis !== "undefined"
+      ? globalThis
+      : this,
+);

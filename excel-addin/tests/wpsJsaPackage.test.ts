@@ -259,6 +259,10 @@ describe("createWpsPackage layout, hashes, and path safety", () => {
     expect(index).not.toContain("appsforoffice.microsoft.com");
     expect(index).toContain(`src="./${WPS_ENTRY_SCRIPT}"`);
     expect(index).toContain('src="./assets/app.js"');
+    const entryAt = index.indexOf(`src="./${WPS_ENTRY_SCRIPT}"`);
+    const moduleAt = index.indexOf('type="module"');
+    expect(entryAt).toBeGreaterThanOrEqual(0);
+    expect(moduleAt).toBeGreaterThan(entryAt);
 
     const publish = readFileSync(path.join(dist, "publish.xml"), "utf8");
     expect(publish).toContain(WPS_PUBLISH_URL);

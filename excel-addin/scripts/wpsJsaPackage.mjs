@@ -151,7 +151,10 @@ export function validateWpsEntryScript(source) {
     "WenggeExcelAiOpenProviders",
     "WenggeExcelAiOpenHost",
   ]) {
-    if (!new RegExp(`window\\.${callback}\\s*=\\s*function\\s*\\(`).test(text)) {
+    const bound =
+      new RegExp(`window\\.${callback}\\s*=\\s*function\\s*\\(`).test(text) ||
+      new RegExp(`bindGlobal\\(\\s*["']${callback}["']\\s*,`).test(text);
+    if (!bound) {
       errors.push(`missing global callback ${callback}`);
     }
   }
@@ -217,13 +220,30 @@ export function prepareWpsIndexHtml(html) {
   }
   let out = String(html).replace(officeScript, "");
   if (out.includes(WPS_ENTRY_SCRIPT)) throw new Error("WPS entry script already injected");
-  if (!/<\/head>/i.test(out)) throw new Error("index.html is missing </head>");
-  out = out.replace(
-    /<\/head>/i,
-    `  <script src="./${WPS_ENTRY_SCRIPT}"></script>\n  </head>`,
+
+  const entryTag = `    <script src="./${WPS_ENTRY_SCRIPT}"></script>\n`;
+  // Ribbon callbacks must register before deferred module/app scripts.
+  if (/<head\b[^>]*>/i.test(out)) {
+    out = out.replace(/<head\b[^>]*>/i, (open) => `${open}\n${entryTag}`);
+  } else if (/<\/head>/i.test(out)) {
+    out = out.replace(/<\/head>/i, `${entryTag}  </head>`);
+  } else {
+    throw new Error("index.html is missing <head>");
+  }
+
+  const entrySrcRe = new RegExp(
+    `src=["']\\./${WPS_ENTRY_SCRIPT.replace(".", "\\.")}["']`,
+    "g",
   );
+  const injections = out.match(entrySrcRe) || [];
+  if (injections.length !== 1) {
+    throw new Error(
+      `expected exactly one relative ${WPS_ENTRY_SCRIPT} injection, found ${injections.length}`,
+    );
+  }
   return out;
 }
+
 
 export function validateWpsIndexHtml(html) {
   const errors = [];
