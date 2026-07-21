@@ -114,11 +114,15 @@ describe("readWpsAddress", () => {
 });
 
 describe("normalizeWpsA1Address", () => {
-  it("strips absolute $ markers without changing structure", () => {
+  it("strips absolute $ only from A1 refs; keeps sheet qualifiers quote-aware", () => {
     expect(normalizeWpsA1Address("$G$17")).toBe("G17");
     expect(normalizeWpsA1Address("$A$1:$B$2")).toBe("A1:B2");
     expect(normalizeWpsA1Address("Sheet1!$G$17")).toBe("Sheet1!G17");
+    expect(normalizeWpsA1Address("Sheet$1!$A$1:$B$2")).toBe("Sheet$1!A1:B2");
+    expect(normalizeWpsA1Address("'Budget$2026'!$A$1")).toBe("'Budget$2026'!A1");
     expect(normalizeWpsA1Address("'A!B'!$A$1:$C$2")).toBe("'A!B'!A1:C2");
+    expect(normalizeWpsA1Address("'A,!$''B'!$A$1:$C$2")).toBe("'A,!$''B'!A1:C2");
+    expect(normalizeWpsA1Address("Sheet$1!$A$1,Sheet$1!$C$3")).toBe("Sheet$1!A1,Sheet$1!C3");
     expect(normalizeWpsA1Address("G17")).toBe("G17");
   });
 });

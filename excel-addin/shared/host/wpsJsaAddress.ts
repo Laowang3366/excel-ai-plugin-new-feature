@@ -86,11 +86,66 @@ export function hasWpsAddressSurface(owner: WpsAddressOwner): boolean {
 }
 
 /**
- * Normalize host A1 for selection/range surfaces shared with Office.js-style contracts:
- * strip absolute `$` markers only; keep sheet qualifier, ranges, and multi-area commas.
- * Examples: `$G$17` → `G17`, `Sheet1!$A$1:$B$2` → `Sheet1!A1:B2`.
+ * Normalize host A1 for selection surfaces shared with Office.js-style contracts:
+ * strip absolute `$` only from A1 reference parts; keep sheet qualifiers (incl. `$` /
+ * `!` / `,` inside single quotes and doubled apostrophes). Multi-area commas outside
+ * quotes are preserved as area separators.
+ * Examples: `$G$17` → `G17`, `'Budget$2026'!$A$1` → `'Budget$2026'!A1`.
  */
 export function normalizeWpsA1Address(address: string): string {
   if (typeof address !== "string") return address;
-  return address.replace(/\$/g, "");
+  return splitOutsideSingleQuotes(address, ",")
+    .map(normalizeWpsA1Area)
+    .join(",");
+}
+
+function normalizeWpsA1Area(area: string): string {
+  const bang = lastIndexOutsideSingleQuotes(area, "!");
+  if (bang < 0) {
+    return area.replace(/\$/g, "");
+  }
+  return area.slice(0, bang + 1) + area.slice(bang + 1).replace(/\$/g, "");
+}
+
+/** Last index of `target` not inside a single-quoted sheet name (`''` = escaped). */
+function lastIndexOutsideSingleQuotes(s: string, target: string): number {
+  let inQuotes = false;
+  let last = -1;
+  for (let i = 0; i < s.length; i += 1) {
+    const ch = s[i]!;
+    if (ch === "'") {
+      if (inQuotes && s[i + 1] === "'") {
+        i += 1;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === target && !inQuotes) last = i;
+  }
+  return last;
+}
+
+/** Split on `sep` only outside single-quoted sheet names. */
+function splitOutsideSingleQuotes(s: string, sep: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let inQuotes = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const ch = s[i]!;
+    if (ch === "'") {
+      if (inQuotes && s[i + 1] === "'") {
+        i += 1;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === sep && !inQuotes) {
+      parts.push(s.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(s.slice(start));
+  return parts;
 }
