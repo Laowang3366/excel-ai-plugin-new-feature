@@ -57,8 +57,10 @@ export function App() {
     };
   }, []);
 
+  const appClassName = hostKind === "wps-jsa" ? "app app--wps-jsa" : "app";
+
   return (
-    <div className="app">
+    <div className={appClassName} data-host={hostKind}>
       <header>
         <h1>文格 Excel 加载项验证</h1>
         <p className="muted">

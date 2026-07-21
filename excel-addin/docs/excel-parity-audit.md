@@ -146,18 +146,18 @@ Until then: do **not** invent WPS members.
 
 ## 6. Next batch recommendation (minimal, contract-safe)
 
-### 6.1 Priority: WPS task-pane layout fix (has real-device + Playwright evidence)
+### 6.1 WPS task-pane layout (Phase61 code landed; device retest pending)
 
-Trusted **UI** gap (not a new JSA member, not Electron/COM/.NET/child_process, no UA sniffing, no new deps):
+**Root cause (measured):** CEF layout viewport ~1428px vs visible Win32 child 646px @ device-scale-factor 1.25 → logical ~517px; centered `.app { max-width:720px; margin:0 auto }` produced ~354px lead-in + right clip.
 
-1. When `hostKind === "wps-jsa"` (`detectHost.ts` / `App.tsx`), set a **stable** root class or `data-host="wps-jsa"` (not User-Agent).
-2. WPS-only CSS: left-align `.app` (override `margin: 0 auto`), constrain layout width to the **visible** task-pane range (~646px evidence; avoid relying on CEF’s inflated ~1428 CSS viewport alone).
-3. Tabs: `flex-wrap` + child `min-width: 0` so narrow panes do not force horizontal overflow.
-4. Gates for that follow-up PR (out of Phase60 doc-only scope):
-   - unit/DOM tests asserting WPS host attribute/class and left-aligned rules;
-   - Playwright: viewport **1428** with left **646** clip window — content must stay visible (no 354px empty lead-in);
+**Phase61 code (this package — not device-certified):**
+1. `App.tsx`: `data-host={hostKind}` always; class `app app--wps-jsa` **only** when `hostKind === "wps-jsa"` (from `waitForOfficeReady` / `detectHostKind` — **no UA**, no new deps).
+2. `styles.css`: WPS selectors left-align (`margin-left/right: 0`), `max-width: 520px`, `min-width: 0`; tabs `flex-wrap`; tabs/form children `min-width: 0` + `max-width: 100%`. Default Office.js/browser keeps 720 centered.
+3. Tests: `tests/appHostLayout.test.tsx` (DOM host markers + CSS contract). Line limits: `App.tsx` ≤300, `styles.css` ≤500.
+4. **Still required on master machine (not done in this environment):**
+   - Playwright/browser: layout viewport **1428** with left **646** physical clip (or ~517 CSS px) — h1, four tabs, tool select, run button visible;
    - `package:wps` → install → WPS real-device screenshot re-check.
-5. Source of the bug today: `excel-addin/src/styles.css` (`.app { max-width: 720px; margin: 0 auto; }`).
+5. **Do not claim** layout completeness / 布局完整通过 until device retest closes.
 
 ### 6.2 After layout: device / chat e2e (still no invented JSA members)
 
@@ -169,10 +169,10 @@ Then:
 2. **Provider-chat end-to-end** on WPS task pane (model → tool loop → `selection.get` / `range.write`) with current 98 tools.
 3. Optional: Microsoft Excel HTTPS sideload acceptance (still **unverified**).
 
-Do **not** open table/chart/freeze/pageLayout/PQ/macro workstreams for WPS without new contracts. Do **not** “fix” layout via UA strings or new runtime dependencies.
+Do **not** open table/chart/freeze/pageLayout/PQ/macro workstreams for WPS without new contracts. Do **not** “fix” layout via UA strings or new runtime dependencies (no new deps).
 
 ## 7. Honesty rules (locked by tests)
 
-- May document: install current, Ribbon cold-start restore, task pane **opens and loads UI**, `selection.get` G17 payload @ `c46362f8`, task-pane CEF viewport vs visible-width mismatch (1428 vs 646) and centered-`.app` right-side clip.
-- Must **not** claim: task pane layout-complete / full visual pass / 布局完整通过; all WPS capabilities device-passed; Excel sideload passed; `implemented*` = real sideload; layout issue “fixed” until a follow-up PR + device shot.
+- May document: install current, Ribbon cold-start restore, task pane **opens and loads UI**, `selection.get` G17 payload @ `c46362f8`, measured CEF clip (1428 vs 646), and Phase61 **code** left-align 520px fix.
+- Must **not** claim: task pane layout-complete / full visual pass / 布局完整通过 on device; all WPS capabilities device-passed; Excel sideload passed; `implemented*` = real sideload; layout “device-fixed” until master retest + screenshot.
 - Must **not** reintroduce “Ribbon / selection.get 待复验” for the closed G17 evidence without new regression facts.

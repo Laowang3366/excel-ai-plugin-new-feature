@@ -182,11 +182,12 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | Windows 信任开发 CA | **未在本仓库验收** | 需在开发机执行 `certs:install` |
 | Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
 | WPS 正式本地 jsaddons 包生成 | **可生成；目录合同真机已装** | `npm run package:wps` → `WenggeExcelAiAddin_`；WPS 12.1 status current + authaddin isload 已见；**不等于全部能力真机通过** |
-| WPS 任务窗格布局（CEF viewport） | **真机裁剪已测；未修** | WPS CEF ~1428 CSS viewport vs visible child ~646px；`.app` 居中导致右裁；Playwright 1428 复现 354px 左边距。下一批 WPS 专用左对齐（hostKind，禁 UA）。见 excel-parity-audit |
+| WPS 任务窗格布局（CEF viewport） | **代码已修；真机复测待主控** | WPS CEF ~1428 CSS viewport vs visible child ~646px；`.app` 居中导致右裁；Playwright 1428 复现 354px 左边距。下一批 WPS 专用左对齐（hostKind，禁 UA）。见 excel-parity-audit |
 | WPS Ribbon 任务窗格入口 | **Ribbon/打开通过；布局完整性未过** | WPS 12.1.0.26885 / gitSha `c46362f8`：冷启动后「文格 AI」Ribbon 可见；点击「打开助手」**任务窗格成功打开并加载 UI**，但**右侧已测裁剪**（布局完整性未通过）。此前 Ribbon 缺失属加载/缓存瞬态，非代码回归。其它工具仍 member-probe* |
 | WPS JSA 可重复安装 CLI | **已提供；本机安装 status current 已见** | `wps:install|status|uninstall` + `--dry-run`；真实 WPS 12.1 安装/加载已见，重启侧载流程仍以本机为准 |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase61: WPS-only task-pane layout — `data-host="wps-jsa"` / `.app--wps-jsa` left-align max-width 520 (logical ~517@1.25); tabs wrap + min-width:0; **code fix only, device retest pending** (no full-render claim).
 - Phase60.1: WPS task-pane CEF layout viewport ~1428 vs visible child ~646; centered `.app` clip measured; next batch = WPS-only left-align layout (no UA/deps). See excel-parity-audit §1.1/§6.1.
 - Phase60: WPS real-device evidence close-out — Ribbon cold-start restored (transient load, not code regression); task pane opens/loads UI but layout completeness fails (right-side clip); `selection.get` Sheet1!G17 verified @ c46362f8 (`ok:true`, address G17, values [[null]]); see [`excel-parity-audit.md`](./excel-parity-audit.md). **Not** blanket WPS device pass / full-render claim.
 - Phase59.2: omit ribbon tab getVisible (ExcelAIWps host pattern); keep getImage; avoid always-true visibility callback hiding tab.

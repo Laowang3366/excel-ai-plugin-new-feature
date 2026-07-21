@@ -131,6 +131,8 @@ describe("excel parity audit (Phase60)", () => {
     expect(audit).toMatch(/User-Agent|UA/);
     expect(audit).toMatch(/no new deps|禁.*新依赖|no new runtime dependencies/i);
     // Must not claim layout already fixed in this doc-only phase
-    expect(audit).toMatch(/未修|until a follow-up|out of Phase60 doc-only/i);
+    expect(audit).toMatch(/device retest pending|真机复测|not device-certified|until master retest/i);
+    expect(audit).toMatch(/Phase61|520px|data-host/);
+    expect(audit).not.toMatch(/layout completeness passed on device|真机布局已通过/);
   });
 });

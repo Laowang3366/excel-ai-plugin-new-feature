@@ -6,7 +6,7 @@
 > - **代码/单测/打包**：Linux CI 可验证（test/typecheck/build/manifest/package）。
 > - **Microsoft Excel 真实侧载**：**未验收**。
 > - **WPS 安装与加载**：Windows 真机已见 `package:wps` → `wps:install` → `status current`、authaddin `enable/isload=true`、目录 `WenggeExcelAiAddin_`（安装包 gitSha `c46362f8`，WPS 12.1.0.26885，`wps:status` current=true、drift=[]）。
-> - **WPS Ribbon / 任务窗格**：同一安装状态**冷启动后**「文格 AI」Ribbon 已恢复；真机点击「打开助手」**任务窗格成功打开并加载 UI**（无代码/包变更）。**布局完整性未通过**：可见 child ~646px vs CEF viewport ~1428px，右侧已测裁剪（见布局证据）。此前 Ribbon 短暂缺失属 WPS 加载/缓存**瞬态**，**不能**定为代码回归。
+> - **WPS Ribbon / 任务窗格**：同一安装状态**冷启动后**「文格 AI」Ribbon 已恢复；真机点击「打开助手」**任务窗格成功打开并加载 UI**（无代码/包变更）。**布局完整性（真机）未收口**：可见 child ~646px vs CEF viewport ~1428px 曾测右裁；**Phase61 代码**已对 `wps-jsa` 左对齐 max-width 520（真机复测待主控）。此前 Ribbon 短暂缺失属 WPS 加载/缓存**瞬态**，**不能**定为代码回归。
 > - **WPS `selection.get`（真机单点）**：空白工作簿 Sheet1 选中 G17，工具页执行返回 `ok:true`、`tool:"selection.get"`、`sheetName:"Sheet1"`、`address:"G17"`、`values:[[null]]`（gitSha `c46362f8`）。**仅此证据**；不得扩大为其它 WPS 工具全部真机通过。其它 implemented* 仍为 member-probe/mock。
 >
 > 工具总数 98。本仓库 Linux 环境 ≠ 宿主验收；`isload:true` / `status current` ≠ 功能全通过。**Phase60** 证据收口见 [`docs/excel-parity-audit.md`](./docs/excel-parity-audit.md)。
@@ -153,7 +153,8 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 - 包更新后可能弹出「加载项已被修改」；若 Ribbon 暂缺，优先**完整退出所有 WPS/ET 进程**再冷启动。仅 isload 不能证明 Ribbon 已绘制。
 - Ribbon tab **不使用** `getVisible`（与可加载的 ExcelAIWps 一致）；恒真 getVisible 在回调未就绪时可能导致整 tab 不显示。
 - **Microsoft Excel 侧载仍未验收**。
-- **任务窗格布局（真机测量，未修）**：WPS CEF 布局 viewport ~1428px、可见 child 宽 ~646px；居中 `.app`（`max-width:720;margin:0 auto`）导致内容右裁。Playwright 1428 viewport 可复现 ~354px 左边距。下一批优先 WPS 专用左对齐布局（`hostKind=wps-jsa`，禁 UA/新依赖）。详见 [`docs/excel-parity-audit.md`](./docs/excel-parity-audit.md) §1.1 / §6.1。
+- **任务窗格布局（Phase61 代码已修；真机复测待主控）**：代码侧 `hostKind==="wps-jsa"` → `data-host`/`.app--wps-jsa` 左对齐 max-width 520；**不得**据此宣称真机已通过。
+- **任务窗格布局（真机测量基线）**：WPS CEF 布局 viewport ~1428px、可见 child 宽 ~646px；居中 `.app`（`max-width:720;margin:0 auto`）导致内容右裁。Playwright 1428 viewport 可复现 ~354px 左边距。下一批优先 WPS 专用左对齐布局（`hostKind=wps-jsa`，禁 UA/新依赖）。详见 [`docs/excel-parity-audit.md`](./docs/excel-parity-audit.md) §1.1 / §6.1。
 
 可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。安装与 `status current` / isload 已在真机见过；**不等于**全部能力或当前会话 Ribbon 一定可见。安装器**不会**启动/结束/附加任何 WPS 进程。
 

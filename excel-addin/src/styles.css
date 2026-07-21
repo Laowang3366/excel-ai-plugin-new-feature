@@ -45,6 +45,7 @@ h2 {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -372,4 +373,50 @@ button.danger {
 }
 .chat-retry-btn {
   font-size: 0.85rem;
+}
+
+
+/*
+ * WPS task pane (measured): CEF layout viewport ~1428px CSS, Win32 child 646px
+ * at device-scale-factor 1.25 → logical visible width ~517px.
+ * Centered .app (max-width 720) caused ~354px lead-in + right clip.
+ * Host signal only: data-host / .app--wps-jsa from hostKind === "wps-jsa" (no UA).
+ */
+.app[data-host="wps-jsa"],
+.app.app--wps-jsa {
+  max-width: 520px;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  min-width: 0;
+}
+
+.app[data-host="wps-jsa"] .tabs,
+.app.app--wps-jsa .tabs {
+  flex-wrap: wrap;
+}
+
+.app[data-host="wps-jsa"] .tabs button,
+.app.app--wps-jsa .tabs button,
+.app[data-host="wps-jsa"] .row,
+.app.app--wps-jsa .row,
+.app[data-host="wps-jsa"] .card,
+.app.app--wps-jsa .card,
+.app[data-host="wps-jsa"] label,
+.app.app--wps-jsa label,
+.app[data-host="wps-jsa"] input,
+.app.app--wps-jsa input,
+.app[data-host="wps-jsa"] select,
+.app.app--wps-jsa select,
+.app[data-host="wps-jsa"] textarea,
+.app.app--wps-jsa textarea,
+.app[data-host="wps-jsa"] pre,
+.app.app--wps-jsa pre {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app[data-host="wps-jsa"] .permission-mode-bar select,
+.app.app--wps-jsa .permission-mode-bar select {
+  max-width: 100%;
 }
