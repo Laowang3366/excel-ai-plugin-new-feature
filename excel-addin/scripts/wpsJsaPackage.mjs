@@ -88,8 +88,13 @@ export function validateWpsRibbon(xml) {
     visible: attribute(xml, "tab", "getVisible"),
   };
   if (tab.id !== "wenggeExcelAiTab") errors.push("unexpected ribbon tab id");
-  if (tab.visible !== "WenggeExcelAiTabVisible") {
-    errors.push("ribbon tab getVisible callback mismatch");
+  // Host evidence (ExcelAIWps): tabs without getVisible load reliably. A always-true
+  // getVisible callback can hide the whole tab if entry callbacks are not ready yet.
+  if (tab.visible) {
+    errors.push("ribbon tab must not use getVisible (host-proven: omit for default visible)");
+  }
+  if (/\bgetVisible\s*=/i.test(xml)) {
+    errors.push("ribbon.xml must not declare getVisible callbacks");
   }
   if (attribute(xml, "group", "id") !== "wenggeExcelAiGroup") {
     errors.push("missing WPS ribbon group");
@@ -145,7 +150,6 @@ export function validateWpsEntryScript(source) {
   const text = String(source);
   for (const callback of [
     "WenggeExcelAiOnLoad",
-    "WenggeExcelAiTabVisible",
     "WenggeExcelAiGetImage",
     "WenggeExcelAiOpenChat",
     "WenggeExcelAiOpenProviders",

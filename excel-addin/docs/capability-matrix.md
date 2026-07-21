@@ -184,6 +184,7 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | WPS JSA 可重复安装 CLI | **已提供；本机安装 status current 已见** | `wps:install|status|uninstall` + `--dry-run`；真实 WPS 12.1 安装/加载已见，重启侧载流程仍以本机为准 |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase59.2: omit ribbon tab getVisible (ExcelAIWps host pattern); keep getImage; avoid always-true visibility callback hiding tab.
 - Phase59.1: WPS entry binds ribbon callbacks early (head-first inject + bindGlobal + onLoad Invalidate); README honesty for install vs Ribbon re-verify.
 - Phase59: WPS Address string/method helper; selection.get Address no longer leaks function source.
 - Phase58.2: WPS addon directory `WenggeExcelAiAddin_`; safe migration from legacy kebab-case layout.

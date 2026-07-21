@@ -11,6 +11,7 @@
 - 独立 Excel 加载项 Phase58.3：legacy kebab 目录 post-commit 清理前按 plan 冻结 snapshot 重验整树 hash；漂移则保留并 warning，新安装仍成功。
 - 独立 Excel 加载项 Phase59：WPS `Range`/`Selection.Address` 兼容字符串属性与零参方法（禁止 `String(fn)`）；真实 WPS Ribbon 三入口与 `host.status` 已验收；`selection.get` Address 修复后可再验。
 - 独立 Excel 加载项 Phase59.1：WPS 入口脚本提前注入 + 全局回调双绑定 + onLoad Invalidate；修正 README「WPS 侧载未验收」与真机安装证据的矛盾表述；Ribbon 更新后需冷启动复验。
+- 独立 Excel 加载项 Phase59.2：去掉 ribbon tab 恒真 getVisible（对齐 ExcelAIWps 可加载合同），避免回调时序导致整 tab 不显示；保留 getImage/onAction/onLoad。
 - 独立 Excel 加载项 Phase58.1：Ribbon 图标改 getImage 回调；任务窗格 URL 协议 fail-closed；CreateTaskPane 异常安全 fallback。
 - 独立 Excel 加载项 Phase58：WPS Ribbon 真实任务窗格入口（CreateTaskPane + 深链 page=chat/providers/host）；Phase57 规划 ancestry 只读预检与 foreign 名称安全投影；工具数仍 98；**真实 WPS 点击任务窗格仍待本机重装/重启验收**。
 - 独立 Excel 加载项 Phase56.2：WPS 安装 CLI 真事务卸载（state 失败恢复 addon）、不同包 install 回滚、staged 精确哈希、publish 合同/备份 mtime 轮转、CLI 真进程退出码；工具数仍 98；**尚未真实 WPS 侧载验收**。

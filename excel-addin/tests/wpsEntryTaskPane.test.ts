@@ -113,7 +113,6 @@ function loadEntry(opts: {
   return {
     window: windowObj as typeof windowObj & {
       WenggeExcelAiOnLoad: (ui: unknown) => void;
-      WenggeExcelAiTabVisible: () => boolean;
       WenggeExcelAiOpenChat: () => boolean;
       WenggeExcelAiOpenProviders: () => boolean;
       WenggeExcelAiOpenHost: () => boolean;
@@ -137,7 +136,8 @@ describe("WPS entry task pane lifecycle", () => {
     expect(env.calls.create).toEqual([]);
     expect(env.calls.workbook).toBe(0);
     expect(typeof env.window.WenggeExcelAiOpenChat).toBe("function");
-    expect(env.window.WenggeExcelAiTabVisible()).toBe(true);
+    expect(typeof env.window.WenggeExcelAiGetImage).toBe("function");
+    expect((env.window as { WenggeExcelAiTabVisible?: unknown }).WenggeExcelAiTabVisible).toBeUndefined();
   });
 
   it("onLoad stores ribbonUI", () => {

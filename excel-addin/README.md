@@ -150,6 +150,7 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 - Ribbon「文格 AI」三入口与 `host.status`（`kind:"wps-jsa"`, `connected:true`）曾在真机打开验证。
 - `selection.get` 曾返回可用 values，但 Address 被读成函数源码；Phase59 已用 `readWpsAddress` 修复（**待 Ribbon 可点后复验 G17**）。
 - 包更新后可能弹出「加载项已被修改」；确认后仍建议**完整退出所有 WPS/ET 进程**再开。仅 isload 不能证明 Ribbon 已绘制。
+- Ribbon tab **不使用** `getVisible`（与可加载的 ExcelAIWps 一致）；恒真 getVisible 在回调未就绪时可能导致整 tab 不显示。
 - 其它 WPS 工具仍 member-probe*；**Microsoft Excel 侧载仍未验收**。
 
 可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。安装与 `status current` / isload 已在真机见过；**不等于**全部能力或当前会话 Ribbon 一定可见。安装器**不会**启动/结束/附加任何 WPS 进程。

@@ -418,7 +418,7 @@
 
   function onLoad(ui) {
     ribbonUI = ui || null;
-    // After add-in package replace, force ribbon to re-query getVisible/getImage.
+    // After add-in package replace, force ribbon to re-query getImage/onAction surfaces.
     try {
       if (ribbonUI && typeof ribbonUI.Invalidate === "function") {
         ribbonUI.Invalidate();
@@ -426,10 +426,6 @@
     } catch (_inv) {
       /* optional host capability */
     }
-  }
-
-  function tabVisible() {
-    return true;
   }
 
   function openChat() {
@@ -446,7 +442,6 @@
 
   bindGlobal("WenggeExcelAiGetImage", getImage);
   bindGlobal("WenggeExcelAiOnLoad", onLoad);
-  bindGlobal("WenggeExcelAiTabVisible", tabVisible);
   bindGlobal("WenggeExcelAiOpenChat", openChat);
   bindGlobal("WenggeExcelAiOpenProviders", openProviders);
   bindGlobal("WenggeExcelAiOpenHost", openHost);

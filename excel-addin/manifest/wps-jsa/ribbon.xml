@@ -2,7 +2,7 @@
 <customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="WenggeExcelAiOnLoad">
   <ribbon startFromScratch="false">
     <tabs>
-      <tab id="wenggeExcelAiTab" label="文格 AI" getVisible="WenggeExcelAiTabVisible">
+      <tab id="wenggeExcelAiTab" label="文格 AI">
         <group id="wenggeExcelAiGroup" label="文格 AI">
           <button
             id="wenggeExcelAiOpenChatButton"

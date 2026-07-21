@@ -108,6 +108,18 @@ describe("WPS JSA source validation", () => {
     expect(validateWpsEntryScript(readSource(WPS_ENTRY_SCRIPT)).ok).toBe(true);
   });
 
+  it("rejects tab getVisible (host-proven: omit so tab stays default-visible)", () => {
+    const ribbon = readSource("ribbon.xml").replace(
+      '<tab id="wenggeExcelAiTab" label="文格 AI">',
+      '<tab id="wenggeExcelAiTab" label="文格 AI" getVisible="WenggeExcelAiTabVisible">',
+    );
+    const res = validateWpsRibbon(ribbon);
+    expect(res.ok).toBe(false);
+    expect(res.errors.join(" ")).toMatch(/getVisible/i);
+    // checked-in ribbon must not declare getVisible
+    expect(readSource("ribbon.xml")).not.toMatch(/getVisible/i);
+  });
+
 
   it("matches desktop-style publish contract (jsplugins/et/file jsaddons url)", () => {
     const publish = renderWpsPublishXml();
@@ -130,7 +142,7 @@ describe("WPS JSA source validation", () => {
       ).ok,
     ).toBe(false);
     expect(validateWpsEntryScript("window.other = function () {}").ok).toBe(false);
-    expect(validateWpsEntryScript("window.WenggeExcelAiTabVisible = function () {}; eval('1')").ok).toBe(
+    expect(validateWpsEntryScript("window.WenggeExcelAiOnLoad = function () {}; eval('1')").ok).toBe(
       false,
     );
     expect(
