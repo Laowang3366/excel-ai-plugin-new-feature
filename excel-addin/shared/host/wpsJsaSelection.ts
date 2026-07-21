@@ -1,6 +1,6 @@
 import type { HostResult, SelectionInfo } from "./types";
 import { ok, unsupported } from "./types";
-import { readWpsAddress } from "./wpsJsaAddress";
+import { normalizeWpsA1Address, readWpsAddress } from "./wpsJsaAddress";
 import { formulaMatrixFrom, matrixFrom, requireApp } from "./wpsJsaRuntime";
 
 /** selection.get for WPS JSA — Address may be string property or zero-arg method. */
@@ -28,7 +28,7 @@ export async function wpsGetSelection(): Promise<HostResult<SelectionInfo>> {
   }
   return ok({
     sheetName: sheet.Name,
-    address,
+    address: normalizeWpsA1Address(address),
     values: matrixFrom(selection.Value2),
     formulas: formulaMatrixFrom(selection.Formula),
   });

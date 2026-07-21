@@ -84,3 +84,13 @@ export function hasWpsAddressSurface(owner: WpsAddressOwner): boolean {
     return false;
   }
 }
+
+/**
+ * Normalize host A1 for selection/range surfaces shared with Office.js-style contracts:
+ * strip absolute `$` markers only; keep sheet qualifier, ranges, and multi-area commas.
+ * Examples: `$G$17` → `G17`, `Sheet1!$A$1:$B$2` → `Sheet1!A1:B2`.
+ */
+export function normalizeWpsA1Address(address: string): string {
+  if (typeof address !== "string") return address;
+  return address.replace(/\$/g, "");
+}

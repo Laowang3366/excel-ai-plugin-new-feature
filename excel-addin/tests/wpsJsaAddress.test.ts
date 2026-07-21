@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   hasWpsAddressSurface,
+  normalizeWpsA1Address,
   readWpsAddress,
 } from "../shared/host/wpsJsaAddress";
 import { WpsJsaAdapter } from "../shared/host/wpsJsaAdapter";
@@ -112,6 +113,16 @@ describe("readWpsAddress", () => {
   });
 });
 
+describe("normalizeWpsA1Address", () => {
+  it("strips absolute $ markers without changing structure", () => {
+    expect(normalizeWpsA1Address("$G$17")).toBe("G17");
+    expect(normalizeWpsA1Address("$A$1:$B$2")).toBe("A1:B2");
+    expect(normalizeWpsA1Address("Sheet1!$G$17")).toBe("Sheet1!G17");
+    expect(normalizeWpsA1Address("'A!B'!$A$1:$C$2")).toBe("'A!B'!A1:C2");
+    expect(normalizeWpsA1Address("G17")).toBe("G17");
+  });
+});
+
 describe("selection.get WPS Address method (host evidence shape)", () => {
   it("returns G17 when Address is a method, not function source", async () => {
     const selection = {
@@ -132,6 +143,37 @@ describe("selection.get WPS Address method (host evidence shape)", () => {
     expect(result.data.address).not.toMatch(/function/i);
     expect(result.data.values).toEqual([[null]]);
     expect(result.data.formulas).toEqual([[""]]);
+  });
+
+  it("normalizes real-host absolute Address method $G$17 to G17", async () => {
+    installSelectionApp({
+      Address() {
+        return "$G$17";
+      },
+      Value2: [[null]],
+      Formula: [[""]],
+      Worksheet: { Name: "Sheet1" },
+    });
+    const result = await new WpsJsaAdapter().getSelection();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.address).toBe("G17");
+    expect(result.data.address).not.toContain("$");
+    expect(result.data.sheetName).toBe("Sheet1");
+    expect(result.data.values).toEqual([[null]]);
+  });
+
+  it("normalizes absolute Address string property $G$17 to G17", async () => {
+    installSelectionApp({
+      Address: "$G$17",
+      Value2: [[null]],
+      Formula: [[""]],
+      Worksheet: { Name: "Sheet1" },
+    });
+    const result = await new WpsJsaAdapter().getSelection();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.address).toBe("G17");
   });
 
   it("returns unsupported when Address method yields unusable value and no fallback", async () => {
