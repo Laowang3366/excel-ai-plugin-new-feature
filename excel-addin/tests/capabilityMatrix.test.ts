@@ -151,4 +151,32 @@ describe("capability matrix", () => {
     );
   });
 
+
+  it("Phase60 WPS real-device evidence: Ribbon cold-start + selection.get G17 closed; not blanket pass", () => {
+    const matrix = readFileSync(path.join(root, "docs/capability-matrix.md"), "utf8");
+    const readme = readFileSync(path.join(root, "README.md"), "utf8");
+    for (const doc of [matrix, readme]) {
+      expect(doc).toContain("c46362f8");
+      expect(doc).toContain("12.1.0.26885");
+      expect(doc).toContain("selection.get");
+      expect(doc).toContain("G17");
+      expect(doc).toContain('address:"G17"');
+    }
+    expect(matrix).toContain("device-verified");
+    expect(matrix).toMatch(/冷启动/);
+    expect(matrix).toMatch(/瞬态|transient/i);
+    expect(readme).toMatch(/冷启动后/);
+    expect(readme).toMatch(/瞬态/);
+    expect(readme).toContain("values:[[null]]");
+    // Must not reintroduce pending re-verify for the closed G17 path
+    expect(matrix).not.toContain("host re-verify pending when Ribbon available");
+    expect(readme).not.toContain("待 Ribbon 可点后复验");
+    // Honesty boundaries still required
+    expect(readme).toMatch(/不得扩大为其它 WPS 工具全部真机通过/);
+    expect(readme).toMatch(/member-probe/);
+    expect(matrix).toMatch(/不得扩大为全部 WPS 工具真机通过/);
+    expect(matrix).toContain("其它工具仍 member-probe");
+    expect(matrix).toMatch(/not real sideload/i);
+  });
+
 });

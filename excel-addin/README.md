@@ -5,11 +5,11 @@
 > **交付状态（分层）**：
 > - **代码/单测/打包**：Linux CI 可验证（test/typecheck/build/manifest/package）。
 > - **Microsoft Excel 真实侧载**：**未验收**。
-> - **WPS 安装与加载**：Windows 真机已见 `package:wps` → `wps:install` → `status current`、authaddin `enable/isload=true`、目录 `WenggeExcelAiAddin_`。
-> - **WPS Ribbon / 任务窗格**：12.1 曾验证「文格 AI」三入口打开 chat/providers/host 与 `host.status` connected；**包更新后需完整冷启动复验**（仅 `isload` 不够；重装后若 Ribbon 暂缺，先结束全部 ET/WPS 进程再开）。
-> - **WPS `selection.get` Address**：真机曾暴露方法被 `String(fn)` 污染；Phase59 已修；**待 Ribbon 可点后复验**。其它 WPS 工具仍 member-probe*，**不得**整表宣称真机通过。
+> - **WPS 安装与加载**：Windows 真机已见 `package:wps` → `wps:install` → `status current`、authaddin `enable/isload=true`、目录 `WenggeExcelAiAddin_`（安装包 gitSha `c46362f8`，WPS 12.1.0.26885，`wps:status` current=true、drift=[]）。
+> - **WPS Ribbon / 任务窗格**：同一安装状态**冷启动后**「文格 AI」Ribbon 已恢复；真机点击「打开助手」任务窗格完整渲染（无代码/包变更）。此前短暂缺失属 WPS 加载/缓存**瞬态**，**不能**定为代码回归。
+> - **WPS `selection.get`（真机单点）**：空白工作簿 Sheet1 选中 G17，工具页执行返回 `ok:true`、`tool:"selection.get"`、`sheetName:"Sheet1"`、`address:"G17"`、`values:[[null]]`（gitSha `c46362f8`）。**仅此证据**；不得扩大为其它 WPS 工具全部真机通过。其它 implemented* 仍为 member-probe/mock。
 >
-> 工具总数 98。本仓库 Linux 环境 ≠ 宿主验收；`isload:true` / `status current` ≠ 功能全通过。
+> 工具总数 98。本仓库 Linux 环境 ≠ 宿主验收；`isload:true` / `status current` ≠ 功能全通过。**Phase60** 证据收口见 [`docs/excel-parity-audit.md`](./docs/excel-parity-audit.md)。
 
 ## 命令
 
@@ -145,13 +145,15 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 
 ### WPS JSA 本地 jsaddons 包与可重复安装
 
-**真实 WPS 侧载证据（12.1.0.26885，包目录 `WenggeExcelAiAddin_`）：**
-- 安装：`wps:install` + `status current` + authaddin `enable/isload=true` 已见。
-- Ribbon「文格 AI」三入口与 `host.status`（`kind:"wps-jsa"`, `connected:true`）曾在真机打开验证。
-- `selection.get` 曾返回可用 values，但 Address 被读成函数源码；Phase59 已用 `readWpsAddress` 修复（**待 Ribbon 可点后复验 G17**）。
-- 包更新后可能弹出「加载项已被修改」；确认后仍建议**完整退出所有 WPS/ET 进程**再开。仅 isload 不能证明 Ribbon 已绘制。
+**真实 WPS 侧载证据（12.1.0.26885，包目录 `WenggeExcelAiAddin_`，安装包 gitSha `c46362f8`）：**
+- 安装：`wps:install` + `status current=true` + `drift=[]` + authaddin `enable/isload=true` 已见。
+- Ribbon「文格 AI」：同一安装状态冷启动后已恢复；真机点击「打开助手」任务窗格完整渲染。此前缺失为 WPS 加载/缓存瞬态，**非**代码回归。
+- `selection.get` 真机单点（Sheet1!G17）：`ok:true`、`tool:"selection.get"`、`sheetName:"Sheet1"`、`address:"G17"`、`values:[[null]]`。Phase59/59.3 Address 方法/属性与 `$G$17`→`G17` 规范化已在此证据闭合。
+- **边界**：不得把上述证据扩大为其它 WPS 工具全部真机通过；implemented* 仍 member-probe/mock（见 capability-matrix / excel-parity-audit）。
+- 包更新后可能弹出「加载项已被修改」；若 Ribbon 暂缺，优先**完整退出所有 WPS/ET 进程**再冷启动。仅 isload 不能证明 Ribbon 已绘制。
 - Ribbon tab **不使用** `getVisible`（与可加载的 ExcelAIWps 一致）；恒真 getVisible 在回调未就绪时可能导致整 tab 不显示。
-- 其它 WPS 工具仍 member-probe*；**Microsoft Excel 侧载仍未验收**。
+- **Microsoft Excel 侧载仍未验收**。
+- **任务窗格布局（真机测量，未修）**：WPS CEF 布局 viewport ~1428px、可见 child 宽 ~646px；居中 `.app`（`max-width:720;margin:0 auto`）导致内容右裁。Playwright 1428 viewport 可复现 ~354px 左边距。下一批优先 WPS 专用左对齐布局（`hostKind=wps-jsa`，禁 UA/新依赖）。详见 [`docs/excel-parity-audit.md`](./docs/excel-parity-audit.md) §1.1 / §6.1。
 
 可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。安装与 `status current` / isload 已在真机见过；**不等于**全部能力或当前会话 Ribbon 一定可见。安装器**不会**启动/结束/附加任何 WPS 进程。
 

@@ -11,7 +11,7 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 | Capability family | Capability | office-js | wps-jsa | desktop-source | Evidence / notes |
 |---|---|---|---|---|---|
 | host | connection status | implemented | implemented | `office.connection.status` | `shared/host/*` |
-| selection | selection.get | implemented | implemented* (Address method/property fixed Phase59; host re-verify pending when Ribbon available) | `selection.get` | WPS: `readWpsAddress` 兼容属性/零参方法；真机曾见 Address 污染与 values 可读；Ribbon/点选复验以本机冷启动后为准。其它 WPS 仍 member-probe* |
+| selection | selection.get | implemented | implemented* (**device-verified** Address/values @ c46362f8 / WPS 12.1.0.26885 Sheet1!G17) | `selection.get` | WPS: `readWpsAddress` + quote-aware A1；真机返回 `ok:true`、`address:"G17"`、`values:[[null]]`。**仅 selection.get 此点**；不得扩大为全部 WPS 工具真机通过。其它 WPS 仍 member-probe* |
 | range | range.read/write/clear | implemented | implemented* | `range.*` | *Assumes Value2/Formula/Clear |
 | range | range.read expand currentRegion | implemented | implemented* | expand modes | Office.js `getSurroundingRegion`; WPS `wpsJsaRangeRead` CurrentRegion member-probe + `tests/wpsJsaBasics.test.ts`; *not official JSA / not real sideload |
 | range | range.read expand spill / currentArray | implemented | **unsupported** | expand modes | Office.js spill/currentArray; omit expand on single cell → spill (desktop parity). WPS typed unsupported for spill/currentArray |
@@ -144,7 +144,9 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 In-repo verified JSA surface (desktop bridge history): Application / ActiveWorkbook name / JSIDE CodeModule.
 Range value/formula/sheet ops use common ET assumptions with member checks.
 
-**WPS implemented*** (member-probe + mock/unit tests only; **not** official JSA contract; **not** real device sideload):
+**WPS real-device (narrow):** `selection.get` @ gitSha `c46362f8` / WPS 12.1.0.26885 Sheet1!G17 (`ok:true`, `address:"G17"`, `values:[[null]]`) + Ribbon/task pane cold-start restore. **Do not** expand this to other tools.
+
+**WPS implemented*** (member-probe + mock/unit tests only; **not** official JSA contract; **not** real device sideload except the narrow selection.get evidence above):
 
 - `range.read` expand **currentRegion** (`wpsJsaRangeRead.ts`)
 - `sheet.operation` **copy/move** (`wpsJsaSheetOps.ts`)
@@ -180,10 +182,13 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | Windows 信任开发 CA | **未在本仓库验收** | 需在开发机执行 `certs:install` |
 | Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
 | WPS 正式本地 jsaddons 包生成 | **可生成；目录合同真机已装** | `npm run package:wps` → `WenggeExcelAiAddin_`；WPS 12.1 status current + authaddin isload 已见；**不等于全部能力真机通过** |
-| WPS Ribbon 任务窗格入口 | **曾真机打开；更新后需冷启动复验** | WPS 12.1 曾验证三按钮 + host.status；包更新/「加载项已修改」后可能暂不显示 Ribbon，需完整结束进程后复验。其它工具仍 member-probe* |
+| WPS 任务窗格布局（CEF viewport） | **真机裁剪已测；未修** | WPS CEF ~1428 CSS viewport vs visible child ~646px；`.app` 居中导致右裁；Playwright 1428 复现 354px 左边距。下一批 WPS 专用左对齐（hostKind，禁 UA）。见 excel-parity-audit |
+| WPS Ribbon 任务窗格入口 | **真机已恢复（冷启动）** | WPS 12.1.0.26885 / gitSha `c46362f8`：同一安装状态冷启动后「文格 AI」Ribbon 可见；点击「打开助手」任务窗格完整渲染。此前缺失属加载/缓存瞬态，非代码回归。其它工具仍 member-probe* |
 | WPS JSA 可重复安装 CLI | **已提供；本机安装 status current 已见** | `wps:install|status|uninstall` + `--dry-run`；真实 WPS 12.1 安装/加载已见，重启侧载流程仍以本机为准 |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase60.1: WPS task-pane CEF layout viewport ~1428 vs visible child ~646; centered `.app` clip measured; next batch = WPS-only left-align layout (no UA/deps). See excel-parity-audit §1.1/§6.1.
+- Phase60: WPS real-device evidence close-out — Ribbon cold-start restored (transient load, not code regression); `selection.get` Sheet1!G17 verified @ c46362f8 (`ok:true`, address G17, values [[null]]); see [`excel-parity-audit.md`](./excel-parity-audit.md). **Not** blanket WPS device pass.
 - Phase59.2: omit ribbon tab getVisible (ExcelAIWps host pattern); keep getImage; avoid always-true visibility callback hiding tab.
 - Phase59.1: WPS entry binds ribbon callbacks early (head-first inject + bindGlobal + onLoad Invalidate); README honesty for install vs Ribbon re-verify.
 - Phase59: WPS Address string/method helper; selection.get Address no longer leaks function source.

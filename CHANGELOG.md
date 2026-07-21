@@ -6,6 +6,8 @@
 
 ### Excel 加载项
 
+- 独立 Excel 加载项 Phase60：WPS 真机证据收口（12.1.0.26885 / 安装包 gitSha `c46362f8`，`wps:status` current + drift=[]）：同一安装状态冷启动后「文格 AI」Ribbon 恢复并打开任务窗格；空白 Sheet1!G17 上 `selection.get` 真机返回 `ok:true` / `address:"G17"` / `values:[[null]]`。此前 Ribbon 缺失判为加载/缓存瞬态而非代码回归。新增 `excel-addin/docs/excel-parity-audit.md` 对照桌面窗口工具、excelCapabilities 与 98 项 TOOL_DEFINITIONS；其它 implemented* 仍仅 member-probe/mock，**不**宣称全部 WPS 能力真机通过。
+- 独立 Excel 加载项 Phase60.1：补充 WPS 任务窗格真机布局证据——CEF 布局 viewport ~1428px、可见 Win32 child 宽 ~646px；居中 `.app`（max-width:720）产生约 354px 左边距并右裁；Playwright 1428 viewport 可复现。下一批优先 `hostKind=wps-jsa` 专用左对齐布局 + DOM/Playwright 回归（禁 UA、禁新依赖）；**本批仍只文档收口，未改运行时**。
 - 独立 Excel 加载项 Phase57：`npm run wps:install -- --dry-run` 严格只读预演（与真实安装共用规划/校验，AppData/jsaddons 零写入；推荐 `package:wps` 后 `--package-dir`）；工具数仍 98；**尚未真实 WPS 侧载验收**。
 - 独立 Excel 加载项 Phase58.2：WPS 目录合同改为 `WenggeExcelAiAddin_`（对齐 host Name_）；支持从错误 kebab-case 布局校验迁移；**真实 Ribbon UI 仍待本机重装验收**。
 - 独立 Excel 加载项 Phase58.3：legacy kebab 目录 post-commit 清理前按 plan 冻结 snapshot 重验整树 hash；漂移则保留并 warning，新安装仍成功。
