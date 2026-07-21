@@ -1029,3 +1029,122 @@ describe("Phase58.2 WenggeExcelAiAddin_ directory + legacy migration", () => {
     expect(JSON.stringify(un.warnings)).toMatch(/legacy/i);
   });
 });
+
+
+describe("Phase58.3 legacy cleanup re-verify TOCTOU", () => {
+  it("post-commit content drift keeps legacy; new install stays current", () => {
+    const { packageDir } = buildPackage("toc-drift");
+    const appData = makeTempRoot("toc-drift-");
+    seedLegacyInstall(appData, packageDir);
+    const js = jsaddonsOf(appData);
+    const marker = path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "index.html");
+    const before = readFileSync(marker);
+
+    const result = installWpsJsa({
+      packageDir,
+      appData,
+      platform: "linux",
+      beforeLegacyCleanup: (layout: { legacyAddonDir?: string }) => {
+        writeFileSync(path.join(String(layout.legacyAddonDir), "post-commit-evil.txt"), "drift\n");
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.migratedFromAddonDirectory).toBe(LEGACY_OWN_ADDON_DIRECTORY);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY, "index.html"))).toBe(true);
+    // Drifted legacy must remain intact (including the new evil file).
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "post-commit-evil.txt"))).toBe(true);
+    expect(readFileSync(marker)).toEqual(before);
+    expect(JSON.stringify(result.warnings)).toMatch(/drift|untouched/i);
+    const st = statusWpsJsa({ appData, platform: "linux" }) as {
+      current: boolean;
+      legacyOwnAddonPresent?: boolean;
+      legacyOwnAddonVerified?: boolean;
+    };
+    expect(st.current).toBe(true);
+    expect(st.legacyOwnAddonPresent).toBe(true);
+    expect(st.legacyOwnAddonVerified).toBe(false);
+  });
+
+  it("post-commit hash rewrite keeps legacy and does not use new state as delete proof", () => {
+    const { packageDir } = buildPackage("toc-rewrite");
+    const appData = makeTempRoot("toc-rewrite-");
+    seedLegacyInstall(appData, packageDir);
+    const js = jsaddonsOf(appData);
+
+    const result = installWpsJsa({
+      packageDir,
+      appData,
+      platform: "linux",
+      beforeLegacyCleanup: (layout: { legacyAddonDir?: string }) => {
+        // Modify an existing hashed file so key set same-ish but content changes.
+        const idx = path.join(String(layout.legacyAddonDir), "index.html");
+        writeFileSync(idx, `${readFileSync(idx, "utf8")}\n<!--drift-->\n`);
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY))).toBe(true);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "index.html"))).toBe(true);
+    expect(JSON.stringify(result.warnings)).toMatch(/drift|untouched/i);
+    const state = JSON.parse(
+      readFileSync(path.join(js, "wengge-excel-ai-addin-install-state.json"), "utf8"),
+    );
+    expect(state.addonDirectory).toBe(WPS_ADDON_DIRECTORY);
+    expect(state.migratedFromAddonDirectory).toBe(LEGACY_OWN_ADDON_DIRECTORY);
+    expect(statusWpsJsa({ appData, platform: "linux" }).current).toBe(true);
+  });
+
+  it("uninstall does not delete leftover legacy when live state is new contract", () => {
+    const { packageDir } = buildPackage("un-new-state");
+    const appData = makeTempRoot("un-new-state-");
+    // Install clean first (no legacy).
+    installWpsJsa({ packageDir, appData, platform: "linux" });
+    const js = jsaddonsOf(appData);
+    // Plant a full legacy-looking tree, but state remains new WenggeExcelAiAddin_.
+    mkdirSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY), { recursive: true });
+    writeFileSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "index.html"), "<html>stale</html>\n");
+    const un = uninstallWpsJsa({ appData, platform: "linux" });
+    expect(un.ok).toBe(true);
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY))).toBe(false);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "index.html"))).toBe(true);
+    expect(JSON.stringify(un.warnings)).toMatch(/legacy/i);
+  });
+
+  it("legacy-only uninstall removes verified legacy via frozen snapshot after state move", () => {
+    const { packageDir } = buildPackage("leg-only");
+    const appData = makeTempRoot("leg-only-");
+    seedLegacyInstall(appData, packageDir);
+    const js = jsaddonsOf(appData);
+    // No canonical Name_ dir — only legacy layout.
+    expect(existsSync(path.join(js, WPS_ADDON_DIRECTORY))).toBe(false);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(true);
+    const un = uninstallWpsJsa({ appData, platform: "linux" });
+    expect(un.ok).toBe(true);
+    expect(un.removed).toBe(true);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY))).toBe(false);
+    // Foreign ExcelAIWps entry from seed remains.
+    const pub = readFileSync(path.join(js, "publish.xml"), "utf8");
+    expect(pub).toContain("ExcelAIWps");
+    expect(pub).not.toContain(WPS_ADDON_NAME);
+  });
+
+  it("remove without expectedSnapshot refuses deletion", async () => {
+    const { removeVerifiedLegacyOwnAddon } = await import("../scripts/wpsJsaInstallLegacy.mjs");
+    const appData = makeTempRoot("no-snap-");
+    const js = jsaddonsOf(appData);
+    mkdirSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY), { recursive: true });
+    writeFileSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "x.txt"), "x\n");
+    const warning = removeVerifiedLegacyOwnAddon(
+      { jsaddons: js, legacyAddonDir: path.join(js, LEGACY_OWN_ADDON_DIRECTORY) },
+      {
+        verified: true,
+        present: true,
+        path: path.join(js, LEGACY_OWN_ADDON_DIRECTORY),
+        // missing expectedSnapshot on purpose
+      },
+    );
+    expect(warning).toMatch(/snapshot|untouched/i);
+    expect(existsSync(path.join(js, LEGACY_OWN_ADDON_DIRECTORY, "x.txt"))).toBe(true);
+  });
+});

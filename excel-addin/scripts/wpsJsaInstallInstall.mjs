@@ -128,6 +128,7 @@ function compoundError(primary, rollbackErrors) {
  *   dryRun?: boolean,
  *   failAfter?: string|null,
  *   afterValidate?: (packageDir: string) => void,
+ *   beforeLegacyCleanup?: (layout: any) => void,
  *   createWpsPackage?: Function,
  * }} opts
  */
@@ -292,6 +293,18 @@ export function installWpsJsa(opts = {}) {
     }
 
     // Post-commit only: remove verified Phase56–58 kebab-case directory.
+    // Re-verify against plan-time expectedSnapshot (do not trust live stateFile).
+    if (typeof opts.beforeLegacyCleanup === "function") {
+      try {
+        opts.beforeLegacyCleanup(layout);
+      } catch (error) {
+        warnings.push(
+          `beforeLegacyCleanup hook error (install already committed): ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
     const legacyCleanupWarning = removeVerifiedLegacyOwnAddon(layout, plan.legacyOwn);
     if (legacyCleanupWarning) warnings.push(legacyCleanupWarning);
 
