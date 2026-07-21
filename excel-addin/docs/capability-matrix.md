@@ -144,7 +144,7 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 In-repo verified JSA surface (desktop bridge history): Application / ActiveWorkbook name / JSIDE CodeModule.
 Range value/formula/sheet ops use common ET assumptions with member checks.
 
-**WPS real-device (narrow):** `selection.get` @ gitSha `c46362f8` / WPS 12.1.0.26885 Sheet1!G17 (`ok:true`, `address:"G17"`, `values:[[null]]`) + Ribbon/task pane cold-start restore. **Do not** expand this to other tools.
+**WPS real-device (narrow):** `selection.get` @ gitSha `c46362f8` / WPS 12.1.0.26885 Sheet1!G17 (`ok:true`, `address:"G17"`, `values:[[null]]`) + Ribbon cold-start restore + task pane **opens and loads UI** (layout completeness **fails**: measured right-side clip). **Do not** expand this to other tools or claim full visual pass.
 
 **WPS implemented*** (member-probe + mock/unit tests only; **not** official JSA contract; **not** real device sideload except the narrow selection.get evidence above):
 
@@ -183,12 +183,12 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
 | WPS 正式本地 jsaddons 包生成 | **可生成；目录合同真机已装** | `npm run package:wps` → `WenggeExcelAiAddin_`；WPS 12.1 status current + authaddin isload 已见；**不等于全部能力真机通过** |
 | WPS 任务窗格布局（CEF viewport） | **真机裁剪已测；未修** | WPS CEF ~1428 CSS viewport vs visible child ~646px；`.app` 居中导致右裁；Playwright 1428 复现 354px 左边距。下一批 WPS 专用左对齐（hostKind，禁 UA）。见 excel-parity-audit |
-| WPS Ribbon 任务窗格入口 | **真机已恢复（冷启动）** | WPS 12.1.0.26885 / gitSha `c46362f8`：同一安装状态冷启动后「文格 AI」Ribbon 可见；点击「打开助手」任务窗格完整渲染。此前缺失属加载/缓存瞬态，非代码回归。其它工具仍 member-probe* |
+| WPS Ribbon 任务窗格入口 | **Ribbon/打开通过；布局完整性未过** | WPS 12.1.0.26885 / gitSha `c46362f8`：冷启动后「文格 AI」Ribbon 可见；点击「打开助手」**任务窗格成功打开并加载 UI**，但**右侧已测裁剪**（布局完整性未通过）。此前 Ribbon 缺失属加载/缓存瞬态，非代码回归。其它工具仍 member-probe* |
 | WPS JSA 可重复安装 CLI | **已提供；本机安装 status current 已见** | `wps:install|status|uninstall` + `--dry-run`；真实 WPS 12.1 安装/加载已见，重启侧载流程仍以本机为准 |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
 - Phase60.1: WPS task-pane CEF layout viewport ~1428 vs visible child ~646; centered `.app` clip measured; next batch = WPS-only left-align layout (no UA/deps). See excel-parity-audit §1.1/§6.1.
-- Phase60: WPS real-device evidence close-out — Ribbon cold-start restored (transient load, not code regression); `selection.get` Sheet1!G17 verified @ c46362f8 (`ok:true`, address G17, values [[null]]); see [`excel-parity-audit.md`](./excel-parity-audit.md). **Not** blanket WPS device pass.
+- Phase60: WPS real-device evidence close-out — Ribbon cold-start restored (transient load, not code regression); task pane opens/loads UI but layout completeness fails (right-side clip); `selection.get` Sheet1!G17 verified @ c46362f8 (`ok:true`, address G17, values [[null]]); see [`excel-parity-audit.md`](./excel-parity-audit.md). **Not** blanket WPS device pass / full-render claim.
 - Phase59.2: omit ribbon tab getVisible (ExcelAIWps host pattern); keep getImage; avoid always-true visibility callback hiding tab.
 - Phase59.1: WPS entry binds ribbon callbacks early (head-first inject + bindGlobal + onLoad Invalidate); README honesty for install vs Ribbon re-verify.
 - Phase59: WPS Address string/method helper; selection.get Address no longer leaks function source.

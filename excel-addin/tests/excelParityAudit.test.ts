@@ -37,6 +37,29 @@ describe("excel parity audit (Phase60)", () => {
     expect(matrix).not.toContain("**曾真机打开；更新后需冷启动复验**");
   });
 
+  it("says task pane opens and loads UI but layout completeness fails (no full-render claim)", () => {
+    // Positive claims must not use obsolete full-render wording
+    for (const doc of [audit, matrix, readme, changelog]) {
+      expect(doc).not.toContain("task pane full render");
+      // Strip meta "must not claim / 不宣称" lines before scanning 完整渲染
+      const claimText = doc
+        .split("\n")
+        .filter((line) => !/Must \*\*not\*\* claim|不\*\*宣称|不宣称|full-render claim/i.test(line))
+        .join("\n");
+      expect(claimText).not.toContain("完整渲染");
+    }
+    expect(readme).toMatch(/成功打开并加载 UI/);
+    expect(readme).toMatch(/布局完整性未通过|右侧已测裁剪/);
+    expect(matrix).toMatch(/成功打开并加载 UI|opens and loads UI/);
+    expect(matrix).toMatch(/布局完整性未过|右侧已测裁剪|right-side clip/);
+    expect(audit).toMatch(/opens and loads UI/);
+    expect(audit).toMatch(/Fails \(measured\)|right-side clip/);
+    expect(changelog).toMatch(/成功打开并加载 UI/);
+    expect(changelog).toMatch(/布局完整性未通过|右侧已测裁剪/);
+    expect(audit).toMatch(/Ribbon|cold start/i);
+    expect(audit).toContain("G17");
+  });
+
   it("keeps honesty boundary against full WPS device pass", () => {
     expect(readme).toContain("不得扩大为其它 WPS 工具全部真机通过");
     expect(matrix).toContain("不得扩大为全部 WPS 工具真机通过");

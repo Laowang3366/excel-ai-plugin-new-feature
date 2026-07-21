@@ -6,7 +6,7 @@
 > - **代码/单测/打包**：Linux CI 可验证（test/typecheck/build/manifest/package）。
 > - **Microsoft Excel 真实侧载**：**未验收**。
 > - **WPS 安装与加载**：Windows 真机已见 `package:wps` → `wps:install` → `status current`、authaddin `enable/isload=true`、目录 `WenggeExcelAiAddin_`（安装包 gitSha `c46362f8`，WPS 12.1.0.26885，`wps:status` current=true、drift=[]）。
-> - **WPS Ribbon / 任务窗格**：同一安装状态**冷启动后**「文格 AI」Ribbon 已恢复；真机点击「打开助手」任务窗格完整渲染（无代码/包变更）。此前短暂缺失属 WPS 加载/缓存**瞬态**，**不能**定为代码回归。
+> - **WPS Ribbon / 任务窗格**：同一安装状态**冷启动后**「文格 AI」Ribbon 已恢复；真机点击「打开助手」**任务窗格成功打开并加载 UI**（无代码/包变更）。**布局完整性未通过**：可见 child ~646px vs CEF viewport ~1428px，右侧已测裁剪（见布局证据）。此前 Ribbon 短暂缺失属 WPS 加载/缓存**瞬态**，**不能**定为代码回归。
 > - **WPS `selection.get`（真机单点）**：空白工作簿 Sheet1 选中 G17，工具页执行返回 `ok:true`、`tool:"selection.get"`、`sheetName:"Sheet1"`、`address:"G17"`、`values:[[null]]`（gitSha `c46362f8`）。**仅此证据**；不得扩大为其它 WPS 工具全部真机通过。其它 implemented* 仍为 member-probe/mock。
 >
 > 工具总数 98。本仓库 Linux 环境 ≠ 宿主验收；`isload:true` / `status current` ≠ 功能全通过。**Phase60** 证据收口见 [`docs/excel-parity-audit.md`](./docs/excel-parity-audit.md)。
@@ -147,7 +147,7 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 
 **真实 WPS 侧载证据（12.1.0.26885，包目录 `WenggeExcelAiAddin_`，安装包 gitSha `c46362f8`）：**
 - 安装：`wps:install` + `status current=true` + `drift=[]` + authaddin `enable/isload=true` 已见。
-- Ribbon「文格 AI」：同一安装状态冷启动后已恢复；真机点击「打开助手」任务窗格完整渲染。此前缺失为 WPS 加载/缓存瞬态，**非**代码回归。
+- Ribbon「文格 AI」：同一安装状态冷启动后已恢复；真机点击「打开助手」**任务窗格成功打开并加载 UI**。**布局完整性未通过**（右侧已测裁剪，见下条布局证据）。此前 Ribbon 缺失为 WPS 加载/缓存瞬态，**非**代码回归。
 - `selection.get` 真机单点（Sheet1!G17）：`ok:true`、`tool:"selection.get"`、`sheetName:"Sheet1"`、`address:"G17"`、`values:[[null]]`。Phase59/59.3 Address 方法/属性与 `$G$17`→`G17` 规范化已在此证据闭合。
 - **边界**：不得把上述证据扩大为其它 WPS 工具全部真机通过；implemented* 仍 member-probe/mock（见 capability-matrix / excel-parity-audit）。
 - 包更新后可能弹出「加载项已被修改」；若 Ribbon 暂缺，优先**完整退出所有 WPS/ET 进程**再冷启动。仅 isload 不能证明 Ribbon 已绘制。

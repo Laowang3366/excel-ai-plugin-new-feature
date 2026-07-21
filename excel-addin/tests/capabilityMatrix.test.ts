@@ -177,6 +177,11 @@ describe("capability matrix", () => {
     expect(matrix).toMatch(/不得扩大为全部 WPS 工具真机通过/);
     expect(matrix).toContain("其它工具仍 member-probe");
     expect(matrix).toMatch(/not real sideload/i);
+    // Task pane: open+load OK; layout completeness fails — no 完整渲染 claim
+    expect(matrix).not.toContain("完整渲染");
+    expect(readme).not.toContain("完整渲染");
+    expect(matrix).toMatch(/布局完整性未过|右侧已测裁剪|right-side clip/);
+    expect(readme).toMatch(/成功打开并加载 UI/);
   });
 
 });

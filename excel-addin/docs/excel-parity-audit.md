@@ -14,7 +14,8 @@ Phase60 evidence close-out + parity classification.
 | Host | WPS 12.1.0.26885 |
 | Package gitSha | `c46362f8` |
 | Install | `wps:status` `current=true`, `drift=[]`, addon dir `WenggeExcelAiAddin_` |
-| Ribbon | Same install state; **cold start** restored 「文格 AI」 tab; click 「打开助手」 → task pane full render; **no** package/code change → prior absence = load/cache **transient**, not code regression |
+| Ribbon / task pane open | Same install state; **cold start** restored 「文格 AI」 tab; click 「打开助手」 → task pane **opens and loads UI** (**not** a full-layout pass); **no** package/code change → prior Ribbon absence = load/cache **transient**, not code regression |
+| Task pane layout completeness | **Fails (measured)** — CEF layout viewport ~1428px vs visible child ~646px; centered `.app` causes right-side clip (see §1.1). Ribbon + open + `selection.get` G17 still pass. |
 | `selection.get` | Blank workbook, Sheet1, selection G17 → `ok:true`, `tool:"selection.get"`, `sheetName:"Sheet1"`, `address:"G17"`, `values:[[null]]` |
 
 **Do not expand:** this is **not** a pass for other WPS tools, Office.js Excel sideload, or full 98-tool device matrix.
@@ -172,6 +173,6 @@ Do **not** open table/chart/freeze/pageLayout/PQ/macro workstreams for WPS witho
 
 ## 7. Honesty rules (locked by tests)
 
-- May document: install current, Ribbon cold-start restore, `selection.get` G17 payload @ `c46362f8`, task-pane CEF viewport vs visible-width mismatch (1428 vs 646) and centered-`.app` clip.
-- Must **not** claim: all WPS capabilities device-passed; Excel sideload passed; `implemented*` = real sideload; layout issue “fixed” until a follow-up PR + device shot.
+- May document: install current, Ribbon cold-start restore, task pane **opens and loads UI**, `selection.get` G17 payload @ `c46362f8`, task-pane CEF viewport vs visible-width mismatch (1428 vs 646) and centered-`.app` right-side clip.
+- Must **not** claim: task pane layout-complete / full visual pass / 布局完整通过; all WPS capabilities device-passed; Excel sideload passed; `implemented*` = real sideload; layout issue “fixed” until a follow-up PR + device shot.
 - Must **not** reintroduce “Ribbon / selection.get 待复验” for the closed G17 evidence without new regression facts.
