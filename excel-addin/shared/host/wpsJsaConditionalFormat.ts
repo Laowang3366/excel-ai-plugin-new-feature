@@ -21,6 +21,7 @@ import {
   type WpsFormatConditions,
   type WpsRange,
 } from "./wpsJsaRuntime";
+import { readWpsAddress } from "./wpsJsaAddress";
 import {
   CF_EVIDENCE as EVIDENCE,
   XL_CELL_VALUE,
@@ -56,7 +57,7 @@ function resolveRange(
     return ok({
       range,
       sheetName,
-      address: String(range.Address ?? `${sheetName}!${address}`),
+      address: readWpsAddress(range, `${sheetName}!${address}`) ?? `${sheetName}!${address}`,
     });
   } catch (error) {
     return fail(capability, "wps-jsa", messageOf(error), EVIDENCE);

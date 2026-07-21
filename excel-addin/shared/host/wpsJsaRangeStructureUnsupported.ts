@@ -1,4 +1,5 @@
 import { getSheet, requireWorkbook, type WpsRange } from "./wpsJsaRuntime";
+import { readWpsAddress } from "./wpsJsaAddress";
 import type {
   RangeAutofitInfo,
   RangeAutofitInput,
@@ -109,7 +110,9 @@ export async function wpsInsertRange(
     const inserted = range.Insert(hostShift);
     const resultRange =
       inserted && typeof inserted === "object" ? (inserted as WpsRange) : range;
-    const address = String(resultRange.Address ?? range.Address ?? input.address);
+    const address =
+      readWpsAddress(resultRange, readWpsAddress(range, input.address) ?? input.address) ??
+      input.address;
     if (!address) {
       return fail(
         "range.insert",
@@ -166,7 +169,7 @@ export async function wpsDeleteRange(
     );
   }
   try {
-    const address = String(range.Address ?? input.address);
+    const address = readWpsAddress(range, input.address) ?? input.address;
     if (!address) {
       return fail(
         "range.delete",
@@ -249,7 +252,7 @@ export async function wpsAutofitRange(
   try {
     return ok({
       sheetName: input.sheetName,
-      address: String(range.Address ?? input.address),
+      address: readWpsAddress(range, input.address) ?? input.address,
       direction: input.direction,
       columnWidth: requireNullableDimension(range.ColumnWidth, "Range.ColumnWidth"),
       rowHeight: requireNullableDimension(range.RowHeight, "Range.RowHeight"),

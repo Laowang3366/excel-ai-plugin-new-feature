@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { fail, ok, unsupported } from "./types";
 import { getSheet, requireWorkbook, type WpsRange, type WpsValidation } from "./wpsJsaRuntime";
+import { readWpsAddress } from "./wpsJsaAddress";
 import {
   parseHostValidation,
   restoreSnapshot,
@@ -58,7 +59,7 @@ function resolveRange(
     return ok({
       range,
       sheetName,
-      address: String(range.Address ?? `${sheetName}!${address}`),
+      address: readWpsAddress(range, `${sheetName}!${address}`) ?? `${sheetName}!${address}`,
     });
   } catch (error) {
     return fail(capability, "wps-jsa", messageOf(error), EVIDENCE);

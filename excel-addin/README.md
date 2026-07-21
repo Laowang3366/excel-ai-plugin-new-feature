@@ -4,7 +4,7 @@
 
 > **交付状态**：代码与单测可验证；**尚未**在真实 Windows Microsoft Excel / WPS 完成侧载验收。
 >
-> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。Phase56：WPS JSA `wps:install`/`status`/`uninstall` 可重复安装 CLI（install-time only）。Phase58：Ribbon→CreateTaskPane 任务窗格与 page 深链（**真实点击验收仍待本机重装/重启**；`isload:true` ≠ 功能全通过）。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
+> Phase55：`workbook.template.apply` / `workbook.template.capture`（Office.js；WPS unsupported；工具总数 98）。Phase56：WPS JSA `wps:install`/`status`/`uninstall` 可重复安装 CLI（install-time only）。Phase58–59：Ribbon 任务窗格与 page 深链（WPS 12.1 三入口 + host.status 已真机见）；Phase59 修复 `Address` 方法读址（`selection.get` 需重装后再验）。其它 WPS 能力仍 member-probe*，`isload:true` ≠ 功能全通过。本仓库 Linux 环境不代表本机证书信任或真实宿主已通过。
 
 ## 命令
 
@@ -139,6 +139,13 @@ GitHub Actions artifact 名形如 `excel-addin-<version>-<shortSha>`，内容仅
 
 
 ### WPS JSA 本地 jsaddons 包与可重复安装
+
+**真实 WPS 侧载证据（12.1.0.26885，包目录 `WenggeExcelAiAddin_`）：**
+- Ribbon「文格 AI」三入口（打开助手 / 模型配置 / 宿主状态）已打开对应任务窗格。
+- `host.status` 返回 `kind:"wps-jsa"`, `connected:true`。
+- `selection.get` 曾把 `Address` 方法误读为函数源码字符串；Phase59 起通过 `readWpsAddress` 兼容属性/零参方法。
+- 除上述入口与 host.status / selection Address 修复外，其它 WPS 能力仍为 member-probe*，**不得**整表宣称真机通过。
+
 
 可生成**正式本地 file:// jsaddons 包**，并用 **install-time 纯 Node CLI** 安全合并到用户 `jsaddons`（不覆盖其他插件的 `publish.xml`）。**真实 WPS 侧载仍未验收**，不得宣称宿主已通过。安装器**不会**启动/结束/附加任何 WPS 进程。
 

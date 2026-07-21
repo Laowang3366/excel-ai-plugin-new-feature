@@ -1,11 +1,12 @@
 import { wpsInspectWorkbookObjects } from "./wpsJsaWorkbookObjects";
 import { absoluteA1FromOrigin } from "./a1Address";
+import { readWpsAddress } from "./wpsJsaAddress";
+import { wpsGetSelection } from "./wpsJsaSelection";
 import {
   formulaMatrixFrom,
   getApplication,
   getSheet,
   matrixFrom,
-  requireApp,
   requireWorkbook,
 } from "./wpsJsaRuntime";
 import {
@@ -57,7 +58,6 @@ import type {
   HostResult,
   HostStatus,
   RangeData,
-  SelectionInfo,
   SheetInfo,
 } from "./types";
 import { ok, unsupported } from "./types";
@@ -88,21 +88,7 @@ export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
     });
   }
 
-  async getSelection(): Promise<HostResult<SelectionInfo>> {
-    const appResult = requireApp("selection.get");
-    if (!appResult.ok) return appResult;
-    const selection = appResult.data.Selection;
-    const sheet = selection?.Worksheet ?? appResult.data.ActiveWorkbook?.ActiveSheet;
-    if (!selection || !sheet) {
-      return unsupported("selection.get", "wps-jsa", "Selection or Worksheet unavailable", "Assumed Application.Selection / Worksheet");
-    }
-    return ok({
-      sheetName: sheet.Name,
-      address: String(selection.Address ?? ""),
-      values: matrixFrom(selection.Value2),
-      formulas: formulaMatrixFrom(selection.Formula),
-    });
-  }
+  getSelection = wpsGetSelection;
 
   readRange = wpsReadRange;
 
@@ -123,7 +109,8 @@ export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
     }
     let targetAddress = address?.trim() || "";
     if (!targetAddress) {
-      if (!sheet.UsedRange?.Address) {
+      const usedAddr = readWpsAddress(sheet.UsedRange);
+      if (!usedAddr) {
         return unsupported(
           "formula.context",
           "wps-jsa",
@@ -131,13 +118,13 @@ export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
           "Desktop uses UsedRange when address is empty",
         );
       }
-      targetAddress = String(sheet.UsedRange.Address);
+      targetAddress = usedAddr;
     }
     const range = sheet.Range(targetAddress);
     const formulasMatrix = formulaMatrixFrom(range.Formula);
     const values = matrixFrom(range.Value2);
     const formulas: FormulaContextEntry[] = [];
-    const origin = String(range.Address ?? targetAddress).replace(/^.*!/, "");
+    const origin = (readWpsAddress(range, targetAddress) ?? targetAddress).replace(/^.*!/, "");
     for (let r = 0; r < formulasMatrix.length; r += 1) {
       for (let c = 0; c < (formulasMatrix[r]?.length ?? 0); c += 1) {
         const formula = formulasMatrix[r][c] ?? "";
@@ -178,7 +165,7 @@ export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
     range.Value2 = values;
     return ok({
       sheetName,
-      address: String(range.Address ?? address),
+      address: readWpsAddress(range, address) ?? address,
       values: matrixFrom(range.Value2),
       formulas: formulaMatrixFrom(range.Formula),
     });
@@ -206,7 +193,7 @@ export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
     range.Formula = payload;
     return ok({
       sheetName,
-      address: String(range.Address ?? address),
+      address: readWpsAddress(range, address) ?? address,
       values: matrixFrom(range.Value2),
       formulas: formulaMatrixFrom(range.Formula),
     });
@@ -237,7 +224,7 @@ export class WpsJsaAdapter extends WpsJsaSlicerSupport implements HostAdapter {
       );
     }
     range.Clear();
-    return ok({ cleared: String(range.Address ?? address) });
+    return ok({ cleared: readWpsAddress(range, address) ?? address });
   }
 
   async listSheets(): Promise<HostResult<SheetInfo[]>> {

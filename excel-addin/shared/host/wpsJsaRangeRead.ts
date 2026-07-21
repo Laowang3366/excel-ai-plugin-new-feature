@@ -7,6 +7,7 @@ import {
 } from "./wpsJsaRuntime";
 import type { HostResult, RangeData, RangeExpandMode } from "./types";
 import { ok, unsupported } from "./types";
+import { hasWpsAddressSurface, readWpsAddress } from "./wpsJsaAddress";
 
 const RANGE_EVIDENCE =
   "Assumed Worksheets.Item(name).Range(address).Value2 (not in bridge contract)";
@@ -74,7 +75,7 @@ export async function wpsReadRange(
         CURRENT_REGION_EVIDENCE,
       );
     }
-    if (!region || region.Address == null) {
+    if (!region || !hasWpsAddressSurface(region)) {
       return unsupported(
         "range.read",
         "wps-jsa",
@@ -90,7 +91,7 @@ export async function wpsReadRange(
   try {
     return ok({
       sheetName,
-      address: String(range.Address ?? address),
+      address: readWpsAddress(range, address) ?? address,
       values: matrixFrom(range.Value2),
       formulas: formulaMatrixFrom(range.Formula),
       expanded,

@@ -1,6 +1,7 @@
 import { requireWorkbook } from "./wpsJsaRuntime";
 import type { HostResult, SheetInfo, WorkbookInspectInfo } from "./types";
 import { ok, unsupported } from "./types";
+import { readWpsAddress } from "./wpsJsaAddress";
 
 /** WPS workbook.inspect (active used range only; per-sheet dims not verified). */
 export async function wpsInspectWorkbook(
@@ -20,10 +21,7 @@ export async function wpsInspectWorkbook(
       "Requires ActiveWorkbook.ActiveSheet.Name",
     );
   }
-  const usedAddress =
-    active.UsedRange && active.UsedRange.Address != null
-      ? String(active.UsedRange.Address)
-      : null;
+  const usedAddress = readWpsAddress(active.UsedRange) ?? null;
   return ok({
     workbookName: workbook.Name,
     activeSheetName: active.Name,

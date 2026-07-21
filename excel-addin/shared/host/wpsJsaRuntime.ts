@@ -69,7 +69,8 @@ export interface WpsValidation {
 }
 
 export interface WpsRange {
-  Address?: string;
+  /** String property or zero-arg method on real WPS hosts. */
+  Address?: string | (() => string);
   Value2?: unknown;
   Formula?: unknown;
   Clear?: () => void;

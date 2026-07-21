@@ -17,6 +17,7 @@ import {
   MAX_GOVERNANCE_FORMULA_CELLS,
   type FormulaGovernanceScope,
 } from "./formulaGovernanceTypes";
+import { readWpsAddress } from "./wpsJsaAddress";
 import {
   formulaMatrixFrom,
   getSheet,
@@ -81,8 +82,9 @@ export function isBackupName(name: string): boolean {
 export function resolveRange(sheet: WpsSheet, rangeAddress?: string): WpsRangeExt {
   if (!sheet.Range) throw new Error("Sheet.Range unavailable");
   if (rangeAddress?.trim()) return sheet.Range(bare(rangeAddress)) as WpsRangeExt;
-  if (!sheet.UsedRange?.Address) return sheet.Range("A1") as WpsRangeExt;
-  return sheet.Range(bare(String(sheet.UsedRange.Address))) as WpsRangeExt;
+  const usedAddr = readWpsAddress(sheet.UsedRange);
+  if (!usedAddr) return sheet.Range("A1") as WpsRangeExt;
+  return sheet.Range(bare(usedAddr)) as WpsRangeExt;
 }
 
 
@@ -131,7 +133,7 @@ export function collectFromSheet(
   const range = resolveRange(sheet, rangeAddress);
   const formulas = formulaMatrixFrom(range.Formula);
   const values = matrixFrom(range.Value2);
-  const origin = bare(String(range.Address ?? rangeAddress ?? "A1"));
+  const origin = bare(readWpsAddress(range, rangeAddress ?? "A1") ?? rangeAddress ?? "A1");
   let r1c1Available = false;
   const records: FormulaCellRecord[] = [];
   for (let r = 0; r < formulas.length; r += 1) {
@@ -323,8 +325,9 @@ export function appendBackup(
   let start = 3;
   try {
     const used = sheet.UsedRange;
-    if (used?.Address) {
-      const bareAddr = bare(String(used.Address));
+    const usedAddr = readWpsAddress(used);
+    if (usedAddr) {
+      const bareAddr = bare(usedAddr);
       const m = /:.*?(\d+)$/.exec(bareAddr) || /^[A-Z]+(\d+)$/i.exec(bareAddr);
       if (m) start = Math.max(3, Number(m[1]) + 1);
     }

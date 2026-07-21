@@ -3,6 +3,7 @@ import {
   requireWorkbook,
   type WpsRange,
 } from "./wpsJsaRuntime";
+import { readWpsAddress } from "./wpsJsaAddress";
 import type { HostResult, RangeFormat, RangeFormatData } from "./types";
 import { fail, ok, unsupported } from "./types";
 
@@ -124,7 +125,7 @@ function resolveRange(
     return ok({
       range,
       sheetName,
-      address: String(range.Address ?? address),
+      address: readWpsAddress(range, address) ?? address,
     });
   } catch (error) {
     return fail(capability, "wps-jsa", messageOf(error), EVIDENCE);
@@ -320,7 +321,7 @@ export async function wpsWriteFormat(
 
     return ok({
       sheetName,
-      address: String(range.Address ?? address),
+      address: readWpsAddress(range, address) ?? address,
       format: readFormatSnapshot(range),
     });
   } catch (error) {

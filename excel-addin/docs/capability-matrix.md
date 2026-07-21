@@ -11,7 +11,7 @@ Footnote **`implemented*`** (wps-jsa): COM-parity **member-probe** + in-repo moc
 | Capability family | Capability | office-js | wps-jsa | desktop-source | Evidence / notes |
 |---|---|---|---|---|---|
 | host | connection status | implemented | implemented | `office.connection.status` | `shared/host/*` |
-| selection | selection.get | implemented | implemented* | `selection.get` | *Assumes `Application.Selection` |
+| selection | selection.get | implemented | implemented* (Address method/property; real-host Ribbon/host.status verified; selection.get Address fixed Phase59) | `selection.get` | WPS 12.1: Ribbon 三入口 + `host.status` real-host verified; `Selection.Address` may be zero-arg method — `readWpsAddress` (never `String(fn)`). Other WPS tools remain member-probe* unless noted |
 | range | range.read/write/clear | implemented | implemented* | `range.*` | *Assumes Value2/Formula/Clear |
 | range | range.read expand currentRegion | implemented | implemented* | expand modes | Office.js `getSurroundingRegion`; WPS `wpsJsaRangeRead` CurrentRegion member-probe + `tests/wpsJsaBasics.test.ts`; *not official JSA / not real sideload |
 | range | range.read expand spill / currentArray | implemented | **unsupported** | expand modes | Office.js spill/currentArray; omit expand on single cell → spill (desktop parity). WPS typed unsupported for spill/currentArray |
@@ -179,11 +179,12 @@ See [`wps-remaining-capability-audit.md`](./wps-remaining-capability-audit.md): 
 | 图标真实像素尺寸 | 已提供 | `public/assets/icon-{16,32,64,80}.png` IHDR 与文件名一致 |
 | Windows 信任开发 CA | **未在本仓库验收** | 需在开发机执行 `certs:install` |
 | Microsoft Excel 真实侧载 | **未验收** | 代码解除阻塞，不宣称已在 Excel 通过 |
-| WPS 正式本地 jsaddons 包生成 | **可生成** | `npm run package:wps`；布局对齐桌面 bridge 的 publish/url 合同；**真实 WPS 侧载尚未验收** |
-| WPS Ribbon 任务窗格入口 | **已提供入口代码** | ribbon onLoad + CreateTaskPane/GetTaskPane 复用 + page 深链；真实插件可 isload，**点击打开任务窗格仍待本机重装重启验收** |
-| WPS JSA 可重复安装 CLI | **已提供** | `npm run wps:install|status|uninstall`；`--dry-run` 只读预演（AppData 零写入）；安全合并 `publish.xml`、原子 addon swap、包哈希校验；**真实 WPS 侧载仍未验收** |
+| WPS 正式本地 jsaddons 包生成 | **可生成；目录合同真机已装** | `npm run package:wps` → `WenggeExcelAiAddin_`；WPS 12.1 status current + authaddin isload 已见；**不等于全部能力真机通过** |
+| WPS Ribbon 任务窗格入口 | **真实 WPS 已验收打开** | WPS 12.1 Ribbon「文格 AI」三按钮打开 chat/providers/host；`host.status` connected。其它 member-probe 工具 **未**整表真机通过 |
+| WPS JSA 可重复安装 CLI | **已提供；本机安装 status current 已见** | `wps:install|status|uninstall` + `--dry-run`；真实 WPS 12.1 安装/加载已见，重启侧载流程仍以本机为准 |
 | Office 生产静态包门禁 | **已实现** | `npm run package:prod -- --base-url https://…`；拒绝 localhost/http 残留；**真实 Excel 侧载尚未验收** |
 | WPS 源校验命令 | 已提供 | `npm run manifest:wps:check`（`manifest:check` 一并执行） |
+- Phase59: WPS Address string/method helper; real-host Ribbon three entries + host.status verified; selection.get Address no longer leaks function source.
 - Phase58.2: WPS addon directory `WenggeExcelAiAddin_`; safe migration from legacy kebab-case layout.
 - Phase58: WPS ribbon real task-pane open + deep-link tabs; plan ancestry preflight; public foreign-name projection.
 - Phase57: WPS install `--dry-run` shared plan, AppData zero-write preview.
